@@ -1,26 +1,26 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'orders_viewmodel.dart';
+part of 'sellers_viewmodel.dart';
 
 // **************************************************************************
 // RiverpodGenerator
 // **************************************************************************
 
-String _$ordersViewModelHash() => r'84027d1aa40ac16b67087d03920cdda12041d1d3';
+String _$sellersViewModelHash() => r'19b17d36935fa2fd8b3f64ff976c5ab22fa9233c';
 
-/// See also [OrdersViewModel].
-@ProviderFor(OrdersViewModel)
-final ordersViewModelProvider =
-    AutoDisposeAsyncNotifierProvider<OrdersViewModel, OrdersState>.internal(
-  OrdersViewModel.new,
-  name: r'ordersViewModelProvider',
+/// See also [SellersViewModel].
+@ProviderFor(SellersViewModel)
+final sellersViewModelProvider =
+    AutoDisposeAsyncNotifierProvider<SellersViewModel, List<Seller>>.internal(
+  SellersViewModel.new,
+  name: r'sellersViewModelProvider',
   debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
       ? null
-      : _$ordersViewModelHash,
+      : _$sellersViewModelHash,
   dependencies: null,
   allTransitiveDependencies: null,
 );
 
-typedef _$OrdersViewModel = AutoDisposeAsyncNotifier<OrdersState>;
+typedef _$SellersViewModel = AutoDisposeAsyncNotifier<List<Seller>>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member

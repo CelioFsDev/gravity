@@ -14,6 +14,10 @@ import 'package:gravity/features/admin/orders_screen.dart';
 import 'package:gravity/features/admin/products/products_screen.dart';
 import 'package:gravity/features/admin/categories/categories_screen.dart';
 import 'package:gravity/features/admin/catalogs/catalogs_screen.dart';
+import 'package:gravity/features/admin/sellers/sellers_screen.dart';
+import 'package:gravity/features/admin/settings/settings_screen.dart';
+import 'package:gravity/features/theme/theme_providers.dart';
+import 'package:gravity/models/seller.dart';
 import 'package:gravity/features/public/catalog_home_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -31,12 +35,14 @@ void main() async {
   Hive.registerAdapter(ProductAdapter());
   Hive.registerAdapter(CatalogBannerAdapter());
   Hive.registerAdapter(CatalogAdapter());
+  Hive.registerAdapter(SellerAdapter());
   
   // Open Boxes
   await Hive.openBox<Order>('orders');
   await Hive.openBox<Category>('categories');
   await Hive.openBox<Product>('products');
   await Hive.openBox<Catalog>('catalogs');
+  await Hive.openBox<Seller>('sellers');
   
   runApp(const ProviderScope(child: MyApp()));
 }
@@ -70,18 +76,19 @@ final _router = GoRouter(
          StatefulShellBranch(routes: [GoRoute(path: '/admin/categories', builder: (c, s) => const CategoriesScreen())]),
          StatefulShellBranch(routes: [GoRoute(path: '/admin/catalogs', builder: (c, s) => const CatalogsScreen())]),
          StatefulShellBranch(routes: [GoRoute(path: '/admin/promotions', builder: (c, s) => const Scaffold(body: Center(child: Text('Promotions'))))]),
-         StatefulShellBranch(routes: [GoRoute(path: '/admin/sellers', builder: (c, s) => const Scaffold(body: Center(child: Text('Sellers'))))]),
-         StatefulShellBranch(routes: [GoRoute(path: '/admin/settings', builder: (c, s) => const Scaffold(body: Center(child: Text('Settings'))))]),
+         StatefulShellBranch(routes: [GoRoute(path: '/admin/sellers', builder: (c, s) => const SellersScreen())]),
+        StatefulShellBranch(routes: [GoRoute(path: '/admin/settings', builder: (c, s) => const SettingsScreen())]),
       ],
     ),
   ],
 );
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(themeModeProvider);
     return MaterialApp.router(
       title: 'Admin Dashboard',
       theme: ThemeData(
@@ -89,6 +96,12 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         textTheme: GoogleFonts.interTextTheme(),
       ),
+      darkTheme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue, brightness: Brightness.dark),
+        useMaterial3: true,
+        textTheme: GoogleFonts.interTextTheme(ThemeData(brightness: Brightness.dark).textTheme),
+      ),
+      themeMode: mode,
       routerConfig: _router,
     );
   }
