@@ -6,6 +6,8 @@ import 'package:gravity/models/category.dart';
 import 'package:gravity/viewmodels/products_viewmodel.dart';
 import 'package:uuid/uuid.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 class ProductFormScreen extends ConsumerStatefulWidget {
   final Product? product; // null for Create, non-null for Edit
@@ -112,12 +114,39 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     final result = await FilePicker.platform.pickFiles(
       allowMultiple: true,
       type: FileType.image,
+      withData: true,
     );
     if (result != null) {
-       setState(() {
-         _images.addAll(result.files.map((f) => f.path!).toList());
-       });
+      final newPaths = <String>[];
+      for (final file in result.files) {
+        final resolved = await _resolvePickedFilePath(file);
+        if (resolved != null) {
+          newPaths.add(resolved);
+        }
+      }
+      if (newPaths.isNotEmpty) {
+        setState(() => _images.addAll(newPaths));
+      }
     }
+  }
+
+  Future<String?> _resolvePickedFilePath(PlatformFile file) async {
+    if (file.path != null) {
+      return file.path;
+    }
+
+    final bytes = file.bytes;
+    if (bytes == null || bytes.isEmpty) {
+      return null;
+    }
+
+    final baseDir = await getApplicationDocumentsDirectory();
+    final imagesDir = Directory(p.join(baseDir.path, 'product_images'));
+    await imagesDir.create(recursive: true);
+    final extension = p.extension(file.name);
+    final target = File(p.join(imagesDir.path, '${const Uuid().v4()}$extension'));
+    await target.writeAsBytes(bytes);
+    return target.path;
   }
 
   @override

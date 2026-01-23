@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/models/seller.dart';
 import 'package:gravity/viewmodels/sellers_viewmodel.dart';
-import 'package:intl/intl.dart';
 
 class SellersScreen extends ConsumerWidget {
   const SellersScreen({super.key});

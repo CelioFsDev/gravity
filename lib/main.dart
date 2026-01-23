@@ -18,6 +18,7 @@ import 'package:gravity/features/admin/sellers/sellers_screen.dart';
 import 'package:gravity/features/admin/settings/settings_screen.dart';
 import 'package:gravity/features/theme/theme_providers.dart';
 import 'package:gravity/models/seller.dart';
+import 'package:gravity/models/app_settings.dart';
 import 'package:gravity/features/public/catalog_home_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -36,6 +37,7 @@ void main() async {
   Hive.registerAdapter(CatalogBannerAdapter());
   Hive.registerAdapter(CatalogAdapter());
   Hive.registerAdapter(SellerAdapter());
+  Hive.registerAdapter(AppSettingsAdapter());
   
   // Open Boxes
   await Hive.openBox<Order>('orders');
@@ -43,6 +45,7 @@ void main() async {
   await Hive.openBox<Product>('products');
   await Hive.openBox<Catalog>('catalogs');
   await Hive.openBox<Seller>('sellers');
+  await Hive.openBox<AppSettings>('settings');
   
   runApp(const ProviderScope(child: MyApp()));
 }

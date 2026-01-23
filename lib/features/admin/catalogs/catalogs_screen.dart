@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/viewmodels/catalogs_viewmodel.dart';
+import 'package:flutter/services.dart';
 import 'package:gravity/features/admin/catalogs/catalog_editor_screen.dart';
+import 'package:gravity/data/repositories/settings_repository.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class CatalogsScreen extends ConsumerWidget {
   const CatalogsScreen({super.key});
@@ -61,9 +64,30 @@ class CatalogsScreen extends ConsumerWidget {
                              IconButton(
                                icon: const Icon(Icons.copy),
                                tooltip: 'Copiar Link',
-                               onPressed: () {
-                                  // Mock copy
-                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Link copiado: /c/${catalog.slug}')));
+                               onPressed: () async {
+                                  final settingsRepo = ref.read(settingsRepositoryProvider);
+                                  final settings = await settingsRepo.getSettings();
+                                  final baseUrl = settings.publicBaseUrl?.isNotEmpty == true ? settings.publicBaseUrl! : 'https://gravity.app';
+                                  final url = '$baseUrl/c/${catalog.slug}';
+                                  
+                                  await Clipboard.setData(ClipboardData(text: url));
+                                  if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Link copiado: $url')));
+                                  }
+                               },
+                             ),
+                              IconButton(
+                               icon: const Icon(Icons.share),
+                               tooltip: 'Enviar no WhatsApp',
+                               onPressed: () async {
+                                  final settingsRepo = ref.read(settingsRepositoryProvider);
+                                  final settings = await settingsRepo.getSettings();
+                                  final baseUrl = settings.publicBaseUrl?.isNotEmpty == true ? settings.publicBaseUrl! : 'https://gravity.app';
+                                  final url = '$baseUrl/c/${catalog.slug}';
+                                  
+                                  final text = 'Confira nosso catálogo *${catalog.name}*:\n$url';
+                                  final waUrl = Uri.parse('https://wa.me/?text=${Uri.encodeComponent(text)}');
+                                  await launchUrl(waUrl);
                                },
                              ),
                              IconButton(

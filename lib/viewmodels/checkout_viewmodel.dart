@@ -1,4 +1,5 @@
 import 'package:gravity/data/repositories/orders_repository.dart';
+import 'package:gravity/data/repositories/settings_repository.dart';
 import 'package:gravity/models/catalog.dart';
 import 'package:gravity/models/order.dart';
 import 'package:gravity/models/order_status.dart';
@@ -36,6 +37,11 @@ class CheckoutViewModel extends _$CheckoutViewModel {
 
     await orderRepo.addOrder(order);
 
+    // Get Store Settings
+    final settingsRepo = ref.read(settingsRepositoryProvider);
+    final settings = await settingsRepo.getSettings();
+    final storePhone = settings.defaultWhatsapp;
+
     // Generate WhatsApp Message
     final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
     final sb = StringBuffer();
@@ -52,7 +58,12 @@ class CheckoutViewModel extends _$CheckoutViewModel {
     if (customerName.isNotEmpty) sb.writeln('Nome: $customerName');
     
     // Launch WhatsApp
-    final cleanPhone = customerPhone.replaceAll(RegExp(r'[^0-9]'), '');
+    // If storePhone is configured, send to store. Otherwise, send to self (customer) or error?
+    // Requirement says: "abrir wa.me para o número padrão configurado".
+    // If no store phone, we might fallback to printing or alerting, but for now let's try to use customer's phone as fallback (weird flow) or just don't open specific number if empty (opens chat picker).
+    
+    final targetPhone = storePhone.isNotEmpty ? storePhone : ''; 
+    final cleanPhone = targetPhone.replaceAll(RegExp(r'[^0-9]'), '');
     final url = Uri.parse('https://wa.me/$cleanPhone?text=${Uri.encodeComponent(sb.toString())}');
     
     if (await canLaunchUrl(url)) {
