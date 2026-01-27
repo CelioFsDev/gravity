@@ -60,74 +60,73 @@ class DashboardScreen extends ConsumerWidget {
 
   Widget _buildDashboardContent(BuildContext context, DashboardState data) {
     final currencyFormat = NumberFormat.simpleCurrency(locale: 'pt_BR');
-    
-    return Column(
-      children: [
-        // KPI Cards
-        GridView.count(
-          crossAxisCount: 4,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          shrinkWrap: true,
-          childAspectRatio: 1.5,
-          physics: const NeverScrollableScrollPhysics(),
-          children: [
-            _buildKpiCard(context, 'Faturamento total', currencyFormat.format(data.totalRevenue), Icons.attach_money, Colors.green),
-            _buildKpiCard(context, 'Ticket médio', currencyFormat.format(data.averageTicket), Icons.receipt, Colors.blue),
-            _buildKpiCard(context, 'Pedidos confirmados', data.confirmedOrdersCount.toString(), Icons.check_circle, Colors.orange),
-            _buildKpiCard(context, 'Pedidos pendentes', data.pendingOrdersCount.toString(), Icons.pending, Colors.red),
-          ],
-        ),
-        const SizedBox(height: 24),
-        
-        // Charts
-        Row(
+    final kpiCards = [
+      _buildKpiCard(context, 'Faturamento total', currencyFormat.format(data.totalRevenue), Icons.attach_money, Colors.green),
+      _buildKpiCard(context, 'Ticket médio', currencyFormat.format(data.averageTicket), Icons.receipt, Colors.blue),
+      _buildKpiCard(context, 'Pedidos confirmados', data.confirmedOrdersCount.toString(), Icons.check_circle, Colors.orange),
+      _buildKpiCard(context, 'Pedidos pendentes', data.pendingOrdersCount.toString(), Icons.pending, Colors.red),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 900;
+        final cardWidth = isWide ? (constraints.maxWidth - 48) / 4 : constraints.maxWidth;
+        return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-             Expanded(
-               flex: 3,
-               child: Container(
-                 height: 300,
-                 padding: const EdgeInsets.all(16),
-                 decoration: BoxDecoration(
-                   color: Colors.white,
-                   borderRadius: BorderRadius.circular(12),
-                   border: Border.all(color: Colors.grey.shade200),
-                 ),
-                 child: Column(
-                   crossAxisAlignment: CrossAxisAlignment.start,
-                   children: [
-                     Text('Faturamento por dia', style: Theme.of(context).textTheme.titleMedium),
-                     const SizedBox(height: 16),
-                     Expanded(child: _buildRevenueChart(data.weeklyRevenue)),
-                   ],
-                 ),
-               ),
-             ),
-             const SizedBox(width: 24),
-             Expanded(
-               flex: 2,
-               child: Container(
-                 height: 300,
-                 padding: const EdgeInsets.all(16),
-                 decoration: BoxDecoration(
-                   color: Colors.white,
-                   borderRadius: BorderRadius.circular(12),
-                   border: Border.all(color: Colors.grey.shade200),
-                 ),
-                 child: Column(
-                   crossAxisAlignment: CrossAxisAlignment.start,
-                   children: [
-                     Text('Pedidos por status', style: Theme.of(context).textTheme.titleMedium),
-                     const SizedBox(height: 16),
-                     Expanded(child: _buildStatusChart(data.ordersByStatus)),
-                   ],
-                 ),
-               ),
-             ),
+            Wrap(
+              spacing: 16,
+              runSpacing: 16,
+              children: [
+                for (var card in kpiCards)
+                  SizedBox(
+                    width: isWide ? cardWidth : constraints.maxWidth,
+                    child: card,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            isWide
+                ? Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: _buildChartBox(
+                          context,
+                          title: 'Faturamento por dia',
+                          child: _buildRevenueChart(data.weeklyRevenue),
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        flex: 2,
+                        child: _buildChartBox(
+                          context,
+                          title: 'Pedidos por status',
+                          child: _buildStatusChart(data.ordersByStatus),
+                        ),
+                      ),
+                    ],
+                  )
+                : Column(
+                    children: [
+                      _buildChartBox(
+                        context,
+                        title: 'Faturamento por dia',
+                        child: SizedBox(height: 260, child: _buildRevenueChart(data.weeklyRevenue)),
+                      ),
+                      const SizedBox(height: 24),
+                      _buildChartBox(
+                        context,
+                        title: 'Pedidos por status',
+                        child: SizedBox(height: 260, child: _buildStatusChart(data.ordersByStatus)),
+                      ),
+                    ],
+                  ),
           ],
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -158,6 +157,27 @@ class DashboardScreen extends ConsumerWidget {
             ],
           ),
           Text(value, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildChartBox(BuildContext context, {required String title, required Widget child}) {
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(minHeight: 220),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 16),
+          Expanded(child: child),
         ],
       ),
     );

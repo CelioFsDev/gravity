@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -83,91 +84,100 @@ class ProductsScreen extends ConsumerWidget {
            const SizedBox(height: 24),
            
            // Filters
-           Container(
-             padding: const EdgeInsets.all(16),
-             decoration: BoxDecoration(
-               color: Colors.white,
-               borderRadius: BorderRadius.circular(12),
-               border: Border.all(color: Colors.grey.shade200),
-             ),
-             child: Row(
-               children: [
-                 Expanded(
-                   flex: 2,
-                   child: TextField(
-                     decoration: const InputDecoration(
-                       hintText: 'Buscar por nome, REF, cor...',
-                       prefixIcon: Icon(Icons.search),
-                       border: InputBorder.none,
-                     ),
-                     onChanged: (val) => ref.read(productsViewModelProvider.notifier).setSearchQuery(val),
-                   ),
-                 ),
-                 const SizedBox(width: 16),
-                 // Category Filter
-                 DropdownButton<String>(
-                   hint: const Text('Categoria'),
-                   value: state.categoryFilterId,
-                   underline: const SizedBox(),
-                   items: [
-                     const DropdownMenuItem(value: null, child: Text('Todas Categorias')),
-                     ...state.categories.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))),
-                   ],
-                   onChanged: (val) => ref.read(productsViewModelProvider.notifier).setCategoryFilter(val),
-                 ),
-                 const SizedBox(width: 16),
-                 // Status Filter
-                 DropdownButton<ProductStatusFilter>(
-                   value: state.statusFilter,
-                   underline: const SizedBox(),
-                   items: const [
-                     DropdownMenuItem(value: ProductStatusFilter.all, child: Text('Todos Status')),
-                     DropdownMenuItem(value: ProductStatusFilter.active, child: Text('Ativo')),
-                     DropdownMenuItem(value: ProductStatusFilter.outOfStock, child: Text('Esgotado')),
-                     DropdownMenuItem(value: ProductStatusFilter.inactive, child: Text('Inativo')),
-                   ],
-                   onChanged: (val) {
-                     if (val != null) ref.read(productsViewModelProvider.notifier).setStatusFilter(val);
-                   },
-                 ),
-                 const SizedBox(width: 16),
-                 // Sort
-                  DropdownButton<ProductSort>(
-                   value: state.sortOption,
-                   underline: const SizedBox(),
-                   items: const [
-                     DropdownMenuItem(value: ProductSort.recent, child: Text('Mais recentes')),
-                     DropdownMenuItem(value: ProductSort.priceAsc, child: Text('Menor Preço')),
-                     DropdownMenuItem(value: ProductSort.priceDesc, child: Text('Maior Preço')),
-                     DropdownMenuItem(value: ProductSort.aToZ, child: Text('A-Z')),
-                   ],
-                   onChanged: (val) {
-                     if (val != null) ref.read(productsViewModelProvider.notifier).setSortOption(val);
-                   },
-                 ),
-               ],
-             ),
-           ),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final fieldWidth = constraints.maxWidth >= 600 ? 280.0 : constraints.maxWidth;
+                return Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: fieldWidth,
+                      child: TextField(
+                        decoration: const InputDecoration(
+                          hintText: 'Buscar por nome, REF, cor...',
+                          prefixIcon: Icon(Icons.search),
+                          border: InputBorder.none,
+                        ),
+                        onChanged: (val) => ref.read(productsViewModelProvider.notifier).setSearchQuery(val),
+                      ),
+                    ),
+                    DropdownButton<String>(
+                      hint: const Text('Categoria'),
+                      value: state.categoryFilterId,
+                      underline: const SizedBox(),
+                      items: [
+                        const DropdownMenuItem(value: null, child: Text('Todas Categorias')),
+                        ...state.categories.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))),
+                      ],
+                      onChanged: (val) => ref.read(productsViewModelProvider.notifier).setCategoryFilter(val),
+                    ),
+                    DropdownButton<ProductStatusFilter>(
+                      value: state.statusFilter,
+                      underline: const SizedBox(),
+                      items: const [
+                        DropdownMenuItem(value: ProductStatusFilter.all, child: Text('Todos Status')),
+                        DropdownMenuItem(value: ProductStatusFilter.active, child: Text('Ativo')),
+                        DropdownMenuItem(value: ProductStatusFilter.outOfStock, child: Text('Esgotado')),
+                        DropdownMenuItem(value: ProductStatusFilter.inactive, child: Text('Inativo')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) ref.read(productsViewModelProvider.notifier).setStatusFilter(val);
+                      },
+                    ),
+                    DropdownButton<ProductSort>(
+                      value: state.sortOption,
+                      underline: const SizedBox(),
+                      items: const [
+                        DropdownMenuItem(value: ProductSort.recent, child: Text('Mais recentes')),
+                        DropdownMenuItem(value: ProductSort.priceAsc, child: Text('Menor Preço')),
+                        DropdownMenuItem(value: ProductSort.priceDesc, child: Text('Maior Preço')),
+                        DropdownMenuItem(value: ProductSort.aToZ, child: Text('A-Z')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) ref.read(productsViewModelProvider.notifier).setSortOption(val);
+                      },
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
            const SizedBox(height: 24),
            
            // Grid
            if (state.filteredProducts.isEmpty)
              const Center(child: Padding(padding: EdgeInsets.all(32), child: Text('Nenhum produto encontrado.'))),
              
-           GridView.builder(
-             shrinkWrap: true,
-             physics: const NeverScrollableScrollPhysics(),
-             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-               crossAxisCount: 4,
-               childAspectRatio: 0.75, // Adjust for card height
-               crossAxisSpacing: 16,
-               mainAxisSpacing: 16,
-             ),
-             itemCount: state.filteredProducts.length,
-             itemBuilder: (context, index) {
-               return _buildProductCard(context, ref, state.filteredProducts[index], state.categories.cast<Category>());
-             },
-           ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final minCardWidth = 220;
+                final crossAxisCount = math.max(1, (constraints.maxWidth ~/ minCardWidth));
+                final aspectRatio = crossAxisCount == 1 ? 1.1 : 0.75;
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    childAspectRatio: aspectRatio,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                  ),
+                  itemCount: state.filteredProducts.length,
+                  itemBuilder: (context, index) {
+                    return _buildProductCard(context, ref, state.filteredProducts[index], state.categories.cast<Category>());
+                  },
+                );
+              },
+            ),
          ],
        ),
     );

@@ -34,7 +34,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   }
 
   Widget _buildContent(BuildContext context, CategoriesState state, CategoriesViewModel notifier) {
-    return SingleChildScrollView(
+    return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -97,35 +97,38 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
              ),
           ),
           const SizedBox(height: 24),
-          
-          // List
-          if (state.categories.isEmpty) 
-             const Center(child: Padding(padding: EdgeInsets.all(32), child: Text('Nenhuma categoria encontrada.'))),
-             
-          if (state.sortOption == CategorySortOption.manual && state.searchQuery.isEmpty)
-             ReorderableListView.builder(
-               shrinkWrap: true,
-               physics: const NeverScrollableScrollPhysics(),
-               buildDefaultDragHandles: true,
-               itemCount: state.categories.length,
-               onReorder: (oldIndex, newIndex) {
-                 notifier.reorder(oldIndex, newIndex);
-               },
-               itemBuilder: (context, index) {
-                 return _buildListItem(context, state.categories[index], state.productCounts, notifier, index);
-               },
-             )
-          else
-             ListView.builder(
-               shrinkWrap: true,
-               physics: const NeverScrollableScrollPhysics(),
-               itemCount: state.categories.length,
-               itemBuilder: (context, index) {
-                 return _buildListItem(context, state.categories[index], state.productCounts, notifier, index);
-               },
-             ),
+
+          Expanded(
+            child: state.categories.isEmpty
+                ? const Center(child: Padding(padding: EdgeInsets.all(32), child: Text('Nenhuma categoria encontrada.')))
+                : _buildCategoriesList(state, notifier),
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCategoriesList(CategoriesState state, CategoriesViewModel notifier) {
+    if (state.sortOption == CategorySortOption.manual && state.searchQuery.isEmpty) {
+      return ReorderableListView.builder(
+        buildDefaultDragHandles: true,
+        padding: EdgeInsets.zero,
+        itemCount: state.categories.length,
+        onReorder: (oldIndex, newIndex) {
+          notifier.reorder(oldIndex, newIndex);
+        },
+        itemBuilder: (context, index) {
+          return _buildListItem(context, state.categories[index], state.productCounts, notifier, index);
+        },
+      );
+    }
+
+    return ListView.builder(
+      padding: EdgeInsets.zero,
+      itemCount: state.categories.length,
+      itemBuilder: (context, index) {
+        return _buildListItem(context, state.categories[index], state.productCounts, notifier, index);
+      },
     );
   }
 

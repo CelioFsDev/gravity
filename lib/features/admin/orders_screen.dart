@@ -70,48 +70,53 @@ class OrdersScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(
-                child: _buildKpiCard(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth >= 800;
+              final cardWidth = isWide ? (constraints.maxWidth - 48) / 4 : constraints.maxWidth;
+              final cards = [
+                _buildKpiCard(
                   context,
                   'Pedidos hoje',
                   ordersToday.toString(),
                   Icons.today,
                   Colors.blue,
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildKpiCard(
+                _buildKpiCard(
                   context,
                   'Total pedidos',
                   totalOrders.toString(),
                   Icons.list_alt,
                   Colors.green,
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildKpiCard(
+                _buildKpiCard(
                   context,
                   'Faturamento',
                   currencyFormat.format(revenue),
                   Icons.attach_money,
                   Colors.orange,
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildKpiCard(
+                _buildKpiCard(
                   context,
                   'Ticket medio',
                   currencyFormat.format(avgTicket),
                   Icons.insights,
                   Colors.purple,
                 ),
-              ),
-            ],
+              ];
+              return Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                children: cards
+                    .map(
+                      (card) => SizedBox(
+                        width: cardWidth,
+                        child: card,
+                      ),
+                    )
+                    .toList(),
+              );
+            },
           ),
           const SizedBox(height: 24),
           Container(
@@ -121,10 +126,13 @@ class OrdersScreen extends ConsumerWidget {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.grey.shade200),
             ),
-            child: Row(
+            child: Wrap(
+              spacing: 16,
+              runSpacing: 16,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Expanded(
-                  flex: 2,
+                SizedBox(
+                  width: 260,
                   child: TextField(
                     decoration: const InputDecoration(
                       hintText: 'Buscar por ID, nome, telefone...',
@@ -136,57 +144,65 @@ class OrdersScreen extends ConsumerWidget {
                         .setSearchQuery(val),
                   ),
                 ),
-                const SizedBox(width: 16),
-                DropdownButton<OrderStatus?>(
-                  value: state.filterStatus,
-                  underline: const SizedBox(),
-                  items: [
-                    const DropdownMenuItem<OrderStatus?>(
-                      value: null,
-                      child: Text('Todos status'),
-                    ),
-                    ...OrderStatus.values.map(
-                      (s) => DropdownMenuItem<OrderStatus?>(
-                        value: s,
-                        child: Text(_statusLabel(s)),
+                SizedBox(
+                  width: 150,
+                  child: DropdownButton<OrderStatus?>(
+                    isExpanded: true,
+                    value: state.filterStatus,
+                    underline: const SizedBox(),
+                    items: [
+                      const DropdownMenuItem<OrderStatus?>(
+                        value: null,
+                        child: Text('Todos status'),
                       ),
-                    ),
-                  ],
-                  onChanged: (val) => ref
-                      .read(ordersViewModelProvider.notifier)
-                      .setFilterStatus(val),
+                      ...OrderStatus.values.map(
+                        (s) => DropdownMenuItem<OrderStatus?>(
+                          value: s,
+                          child: Text(_statusLabel(s)),
+                        ),
+                      ),
+                    ],
+                    onChanged: (val) => ref
+                        .read(ordersViewModelProvider.notifier)
+                        .setFilterStatus(val),
+                  ),
                 ),
-                const SizedBox(width: 16),
-                OutlinedButton.icon(
-                  onPressed: () => _pickDateRange(context, ref, state),
-                  icon: const Icon(Icons.date_range),
-                  label: Text(_dateRangeLabel(state.dateRange)),
+                SizedBox(
+                  width: 180,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _pickDateRange(context, ref, state),
+                    icon: const Icon(Icons.date_range),
+                    label: Text(_dateRangeLabel(state.dateRange)),
+                  ),
                 ),
-                const SizedBox(width: 16),
-                DropdownButton<SortOption>(
-                  value: state.sortOption,
-                  underline: const SizedBox(),
-                  items: const [
-                    DropdownMenuItem(
-                      value: SortOption.recent,
-                      child: Text('Mais recentes'),
-                    ),
-                    DropdownMenuItem(
-                      value: SortOption.oldest,
-                      child: Text('Mais antigos'),
-                    ),
-                    DropdownMenuItem(
-                      value: SortOption.highValue,
-                      child: Text('Maior valor'),
-                    ),
-                  ],
-                  onChanged: (val) {
-                    if (val != null) {
-                      ref
-                          .read(ordersViewModelProvider.notifier)
-                          .setSortOption(val);
-                    }
-                  },
+                SizedBox(
+                  width: 160,
+                  child: DropdownButton<SortOption>(
+                    isExpanded: true,
+                    value: state.sortOption,
+                    underline: const SizedBox(),
+                    items: const [
+                      DropdownMenuItem(
+                        value: SortOption.recent,
+                        child: Text('Mais recentes'),
+                      ),
+                      DropdownMenuItem(
+                        value: SortOption.oldest,
+                        child: Text('Mais antigos'),
+                      ),
+                      DropdownMenuItem(
+                        value: SortOption.highValue,
+                        child: Text('Maior valor'),
+                      ),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        ref
+                            .read(ordersViewModelProvider.notifier)
+                            .setSortOption(val);
+                      }
+                    },
+                  ),
                 ),
               ],
             ),
