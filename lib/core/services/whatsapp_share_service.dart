@@ -1,6 +1,9 @@
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 import 'package:gravity/models/order_item.dart';
+import 'package:share_plus/share_plus.dart';
 
 class WhatsAppShareService {
   static Future<void> shareCatalog({
@@ -9,6 +12,23 @@ class WhatsAppShareService {
   }) async {
     final text = 'Confira nosso catálogo *$catalogName*:\n$catalogUrl';
     await _launchWhatsApp(text: text);
+  }
+
+  static Future<void> shareFile({
+    required List<int> bytes,
+    required String fileName,
+    String? text,
+  }) async {
+    await Share.shareXFiles(
+      [
+        XFile.fromData(
+          Uint8List.fromList(bytes),
+          name: fileName,
+          mimeType: 'application/pdf',
+        ),
+      ],
+      text: text,
+    );
   }
 
   static Future<void> shareOrder({

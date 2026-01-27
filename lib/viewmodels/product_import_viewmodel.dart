@@ -1,7 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter/services.dart';
 import 'package:gravity/data/repositories/products_repository.dart';
 import 'package:gravity/models/product.dart';
@@ -84,15 +84,15 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     state = state.copyWith(isLoading: true, errorMessage: null);
     
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
+      FilePickerResult? result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['csv'],
+        withData: kIsWeb,
       );
 
       if (result != null) {
         // Read file
-        final file = File(result.files.single.path!);
-        final input = await file.readAsString();
+        final input = await _readCsvContent(result.files.single);
         final fields = const CsvToListConverter().convert(input);
         
         // Basic validation: Expect Header
@@ -125,10 +125,11 @@ class ProductImportViewModel extends _$ProductImportViewModel {
   Future<void> pickAndMatchImages() async {
      state = state.copyWith(isLoading: true, errorMessage: null);
      try {
-       FilePickerResult? result = await FilePicker.platform.pickFiles(
+       FilePickerResult? result = await FilePicker.pickFiles(
          allowMultiple: true,
          type: FileType.custom,
          allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
+         withData: kIsWeb,
        );
 
        if (result != null) {
@@ -136,12 +137,10 @@ class ProductImportViewModel extends _$ProductImportViewModel {
          int matched = 0;
          
          for (var file in result.files) {
-            if (file.path == null) continue;
+            if (!kIsWeb && file.path == null) continue;
 
-            final filename = p.basenameWithoutExtension(file.path!); 
-            
             for (var product in state.parsedProducts) {
-                  final copiedPath = await _copyImageToPersistentStorage(file.path!);
+                  final copiedPath = await _resolveImageForPlatform(file);
                   if (copiedPath != null) {
                     productImages.putIfAbsent(product.id, () => []).add(copiedPath);
                     matched++;
@@ -217,6 +216,54 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       isOnSale: false,
       createdAt: DateTime.now(),
     );
+  }
+
+  Future<String> _readCsvContent(PlatformFile file) async {
+    if (kIsWeb) {
+      final bytes = file.bytes;
+      if (bytes == null) {
+        throw Exception('Arquivo CSV sem bytes (web)');
+      }
+      return utf8.decode(bytes);
+    }
+
+    if (file.path != null) {
+      final ioFile = File(file.path!);
+      return ioFile.readAsString();
+    }
+
+    final bytes = file.bytes;
+    if (bytes == null) {
+      throw Exception('Arquivo CSV sem path/bytes');
+    }
+    return utf8.decode(bytes);
+  }
+
+  String _inferMimeType(String fileName) {
+    final ext = p.extension(fileName).toLowerCase();
+    switch (ext) {
+      case '.jpg':
+      case '.jpeg':
+        return 'image/jpeg';
+      case '.png':
+        return 'image/png';
+      case '.webp':
+        return 'image/webp';
+      default:
+        return 'application/octet-stream';
+    }
+  }
+
+  Future<String?> _resolveImageForPlatform(PlatformFile file) async {
+    if (kIsWeb) {
+      final bytes = file.bytes;
+      if (bytes == null) return null;
+      final mime = _inferMimeType(file.name);
+      return 'data:$mime;base64,${base64Encode(bytes)}';
+    }
+
+    if (file.path == null) return null;
+    return _copyImageToPersistentStorage(file.path!);
   }
 
   Future<String?> _copyImageToPersistentStorage(String sourcePath) async {
