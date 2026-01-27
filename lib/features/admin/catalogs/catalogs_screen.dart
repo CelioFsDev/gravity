@@ -1,5 +1,4 @@
-import 'package:gravity/core/services/whatsapp_share_service.dart';
-import 'package:gravity/core/services/catalog_pdf_service.dart';
+import 'package:gravity/core/services/catalog_share_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/viewmodels/catalogs_viewmodel.dart';
@@ -11,90 +10,6 @@ import 'package:gravity/models/catalog.dart';
 
 class CatalogsScreen extends ConsumerWidget {
   const CatalogsScreen({super.key});
-
-  void _safePop(BuildContext context) {
-    if (!context.mounted) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!context.mounted) return;
-      final navigator = Navigator.of(context, rootNavigator: true);
-      if (navigator.canPop()) {
-        navigator.pop();
-      }
-    });
-  }
-
-  Future<void> _showShareOptions(BuildContext context, WidgetRef ref, Catalog catalog) async {
-    showModalBottomSheet(
-      context: context,
-      builder: (sheetContext) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: const Icon(Icons.link),
-            title: const Text('Enviar Link'),
-            subtitle: const Text('Compartilha o link do catálogo web'),
-            onTap: () async {
-              Navigator.pop(sheetContext);
-              final settingsRepo = ref.read(settingsRepositoryProvider);
-              final settings = await settingsRepo.getSettings();
-              final baseUrl = settings.publicBaseUrl?.isNotEmpty == true ? settings.publicBaseUrl! : 'https://gravity.app';
-              final url = '$baseUrl/c/${catalog.slug}';
-              
-              await WhatsAppShareService.shareCatalog(
-                catalogName: catalog.name,
-                catalogUrl: url,
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.picture_as_pdf),
-            title: const Text('Gerar PDF e Enviar'),
-            subtitle: const Text('Gera um arquivo PDF com os produtos'),
-            onTap: () async {
-              Navigator.pop(sheetContext);
-              await _generateAndSharePdf(context, ref, catalog);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _generateAndSharePdf(BuildContext context, WidgetRef ref, Catalog catalog) async {
-    // Show loading
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-    // Let the dialog push finish before doing heavy work.
-    await Future<void>.delayed(Duration.zero);
-
-    try {
-      final productsState = ref.read(productsViewModelProvider);
-      final allProducts = productsState.value?.allProducts ?? [];
-      final catalogProducts = allProducts.where((p) => catalog.productIds.contains(p.id)).toList();
-
-      final pdfBytes = await CatalogPdfService.generateCatalogPdf(
-        catalogName: catalog.name,
-        products: catalogProducts,
-      );
-
-      // Close loading
-      _safePop(context);
-
-      await WhatsAppShareService.shareFile(
-        bytes: pdfBytes,
-        fileName: 'catalogo_${catalog.slug}.pdf',
-        text: 'Confira nosso catálogo ${catalog.name}!',
-      );
-    } catch (e) {
-      _safePop(context); // Close loading if still open
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao gerar PDF: $e')));
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -167,7 +82,11 @@ class CatalogsScreen extends ConsumerWidget {
                                icon: const Icon(Icons.share),
                                tooltip: 'Compartilhar',
                                onPressed: () async {
-                                  await _showShareOptions(context, ref, catalog);
+                                  await CatalogShareHelper.showShareOptions(
+                                    context: context, 
+                                    ref: ref, 
+                                    catalog: catalog,
+                                  );
                                },
                              ),
                              IconButton(
