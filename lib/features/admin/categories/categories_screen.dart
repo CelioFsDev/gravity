@@ -13,10 +13,14 @@ class CategoriesScreen extends ConsumerStatefulWidget {
 
 class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   final _searchController = TextEditingController();
+  final _categoryNameController = TextEditingController();
+  final _categoryNameFocus = FocusNode();
 
   @override
   void dispose() {
     _searchController.dispose();
+    _categoryNameFocus.dispose();
+    _categoryNameController.dispose();
     super.dispose();
   }
 
@@ -231,15 +235,20 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     CategoriesViewModel notifier, {
     Category? category,
   }) async {
-    final controller = TextEditingController(text: category?.name ?? '');
     final isEdit = category != null;
+    _categoryNameController.text = category?.name ?? '';
+    _categoryNameController.selection = TextSelection.collapsed(
+      offset: _categoryNameController.text.length,
+    );
 
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(isEdit ? 'Editar Categoria' : 'Nova Categoria'),
         content: TextField(
-          controller: controller,
+          controller: _categoryNameController,
+          focusNode: _categoryNameFocus,
+          textInputAction: TextInputAction.done,
           decoration: const InputDecoration(
             labelText: 'Nome',
             hintText: 'Ex: Camisetas',
@@ -253,7 +262,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              final name = controller.text;
+              final name = _categoryNameController.text;
               if (name.trim().isEmpty) return;
 
               String? error;
@@ -278,7 +287,11 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
         ],
       ),
     );
-    controller.dispose();
+
+    if (mounted) {
+      _categoryNameController.clear();
+      _categoryNameFocus.unfocus();
+    }
   }
 
   Future<void> _handleDelete(

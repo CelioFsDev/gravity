@@ -156,12 +156,17 @@ class ProductsViewModel extends _$ProductsViewModel {
 
 
   Future<void> refresh() async {
+    final previous = state.value ?? ProductsState.initial();
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
-        final repository = ref.read(productsRepositoryProvider);
-        final products = await repository.getProducts();
-        final categories = await repository.getCategories();
-        return _applyFilters(state.value!.copyWith(allProducts: products, categories: categories));
+      final repository = ref.read(productsRepositoryProvider);
+      final products = await repository.getProducts();
+      final categories = await repository.getCategories();
+      final updated = previous.copyWith(
+        allProducts: products,
+        categories: categories,
+      );
+      return _applyFilters(updated);
     });
   }
 

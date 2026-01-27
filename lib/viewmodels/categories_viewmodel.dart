@@ -60,7 +60,10 @@ class CategoriesViewModel extends _$CategoriesViewModel {
   }
 
   Future<void> _refresh() async {
-     state = const AsyncLoading();
+     final hasData = state.value != null;
+     if (!hasData) {
+       state = const AsyncLoading();
+     }
      state = await AsyncValue.guard(_fetchData);
   }
 

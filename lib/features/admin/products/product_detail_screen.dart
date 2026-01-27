@@ -113,14 +113,24 @@ class ProductDetailScreen extends ConsumerWidget {
             // Pricing
             Text('Preços', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                _buildInfoCard(context, 'Varejo', currency.format(updatedProduct.retailPrice), Icons.attach_money),
-                const SizedBox(width: 16),
-                _buildInfoCard(context, 'Atacado', currency.format(updatedProduct.wholesalePrice), Icons.store),
-                const SizedBox(width: 16),
-                _buildInfoCard(context, 'Mín. Atacado', '${updatedProduct.minWholesaleQty} un', Icons.inventory_2),
-              ],
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final cardWidth = constraints.maxWidth >= 720
+                    ? (constraints.maxWidth - 32) / 3
+                    : constraints.maxWidth;
+                final cards = [
+                  _buildInfoCard(context, 'Varejo', currency.format(updatedProduct.retailPrice), Icons.attach_money),
+                  _buildInfoCard(context, 'Atacado', currency.format(updatedProduct.wholesalePrice), Icons.store),
+                  _buildInfoCard(context, 'Mín. Atacado', '${updatedProduct.minWholesaleQty} un', Icons.inventory_2),
+                ];
+                return Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  children: cards
+                      .map((card) => SizedBox(width: cardWidth, child: card))
+                      .toList(),
+                );
+              },
             ),
             
             const Divider(height: 32),
