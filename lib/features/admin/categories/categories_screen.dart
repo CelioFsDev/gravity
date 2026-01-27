@@ -33,7 +33,11 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     );
   }
 
-  Widget _buildContent(BuildContext context, CategoriesState state, CategoriesViewModel notifier) {
+  Widget _buildContent(
+    BuildContext context,
+    CategoriesState state,
+    CategoriesViewModel notifier,
+  ) {
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -43,13 +47,25 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Categorias', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
-                  Text('Organize as categorias do catálogo', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey)),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Categorias',
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      'Organize as categorias do catálogo',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 16),
               ElevatedButton.icon(
                 onPressed: () => _showCategoryDialog(context, notifier),
                 icon: const Icon(Icons.add),
@@ -61,46 +77,60 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
 
           // Bar
           Container(
-             padding: const EdgeInsets.all(16),
-             decoration: BoxDecoration(
-               color: Colors.white,
-               borderRadius: BorderRadius.circular(12),
-               border: Border.all(color: Colors.grey.shade200),
-             ),
-             child: Row(
-               children: [
-                 Expanded(
-                   child: TextField(
-                     controller: _searchController,
-                     decoration: const InputDecoration(
-                       hintText: 'Buscar categorias...',
-                       prefixIcon: Icon(Icons.search),
-                       border: InputBorder.none,
-                     ),
-                     onChanged: notifier.setSearchQuery,
-                   ),
-                 ),
-                 const VerticalDivider(),
-                 DropdownButton<CategorySortOption>(
-                   value: state.sortOption,
-                   underline: const SizedBox(),
-                   items: const [
-                     DropdownMenuItem(value: CategorySortOption.manual, child: Text('Ordem Manual')),
-                     DropdownMenuItem(value: CategorySortOption.aToZ, child: Text('A - Z')),
-                     DropdownMenuItem(value: CategorySortOption.zToA, child: Text('Z - A')),
-                   ],
-                   onChanged: (val) {
-                     if (val != null) notifier.setSortOption(val);
-                   },
-                 ),
-               ],
-             ),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: const InputDecoration(
+                      hintText: 'Buscar categorias...',
+                      prefixIcon: Icon(Icons.search),
+                      border: InputBorder.none,
+                    ),
+                    onChanged: notifier.setSearchQuery,
+                  ),
+                ),
+                const VerticalDivider(),
+                DropdownButton<CategorySortOption>(
+                  value: state.sortOption,
+                  underline: const SizedBox(),
+                  items: const [
+                    DropdownMenuItem(
+                      value: CategorySortOption.manual,
+                      child: Text('Ordem Manual'),
+                    ),
+                    DropdownMenuItem(
+                      value: CategorySortOption.aToZ,
+                      child: Text('A - Z'),
+                    ),
+                    DropdownMenuItem(
+                      value: CategorySortOption.zToA,
+                      child: Text('Z - A'),
+                    ),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) notifier.setSortOption(val);
+                  },
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 24),
 
           Expanded(
             child: state.categories.isEmpty
-                ? const Center(child: Padding(padding: EdgeInsets.all(32), child: Text('Nenhuma categoria encontrada.')))
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Text('Nenhuma categoria encontrada.'),
+                    ),
+                  )
                 : _buildCategoriesList(state, notifier),
           ),
         ],
@@ -108,8 +138,12 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     );
   }
 
-  Widget _buildCategoriesList(CategoriesState state, CategoriesViewModel notifier) {
-    if (state.sortOption == CategorySortOption.manual && state.searchQuery.isEmpty) {
+  Widget _buildCategoriesList(
+    CategoriesState state,
+    CategoriesViewModel notifier,
+  ) {
+    if (state.sortOption == CategorySortOption.manual &&
+        state.searchQuery.isEmpty) {
       return ReorderableListView.builder(
         buildDefaultDragHandles: true,
         padding: EdgeInsets.zero,
@@ -118,7 +152,13 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
           notifier.reorder(oldIndex, newIndex);
         },
         itemBuilder: (context, index) {
-          return _buildListItem(context, state.categories[index], state.productCounts, notifier, index);
+          return _buildListItem(
+            context,
+            state.categories[index],
+            state.productCounts,
+            notifier,
+            index,
+          );
         },
       );
     }
@@ -127,25 +167,41 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
       padding: EdgeInsets.zero,
       itemCount: state.categories.length,
       itemBuilder: (context, index) {
-        return _buildListItem(context, state.categories[index], state.productCounts, notifier, index);
+        return _buildListItem(
+          context,
+          state.categories[index],
+          state.productCounts,
+          notifier,
+          index,
+        );
       },
     );
   }
 
-  Widget _buildListItem(BuildContext context, Category category, Map<String, int> counts, CategoriesViewModel notifier, int index) {
+  Widget _buildListItem(
+    BuildContext context,
+    Category category,
+    Map<String, int> counts,
+    CategoriesViewModel notifier,
+    int index,
+  ) {
     return Card(
       key: ValueKey(category.id),
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: const Icon(Icons.drag_handle, color: Colors.grey),
-        title: Text(category.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          category.name,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         subtitle: Text('${counts[category.id] ?? 0} produtos'),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
               icon: const Icon(Icons.edit, size: 20),
-              onPressed: () => _showCategoryDialog(context, notifier, category: category),
+              onPressed: () =>
+                  _showCategoryDialog(context, notifier, category: category),
             ),
             IconButton(
               icon: const Icon(Icons.delete, size: 20, color: Colors.red),
@@ -157,38 +213,50 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     );
   }
 
-  Future<void> _showCategoryDialog(BuildContext context, CategoriesViewModel notifier, {Category? category}) async {
+  Future<void> _showCategoryDialog(
+    BuildContext context,
+    CategoriesViewModel notifier, {
+    Category? category,
+  }) async {
     final controller = TextEditingController(text: category?.name ?? '');
     final isEdit = category != null;
-    
+
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(isEdit ? 'Editar Categoria' : 'Nova Categoria'),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(labelText: 'Nome', hintText: 'Ex: Camisetas'),
+          decoration: const InputDecoration(
+            labelText: 'Nome',
+            hintText: 'Ex: Camisetas',
+          ),
           autofocus: true,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
           ElevatedButton(
             onPressed: () async {
               final name = controller.text;
               if (name.trim().isEmpty) return;
-              
+
               String? error;
               if (isEdit) {
                 error = await notifier.updateCategory(category.id, name);
               } else {
                 error = await notifier.addCategory(name);
               }
-              
+
               if (context.mounted) {
                 if (error != null) {
-                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(error)));
                 } else {
-                   Navigator.pop(context);
+                  Navigator.pop(context);
                 }
               }
             },
@@ -200,21 +268,29 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     controller.dispose();
   }
 
-  Future<void> _handleDelete(BuildContext context, CategoriesViewModel notifier, Category category) async {
+  Future<void> _handleDelete(
+    BuildContext context,
+    CategoriesViewModel notifier,
+    Category category,
+  ) async {
     final result = await notifier.checkDelete(category.id);
     if (!context.mounted) return;
 
     if (result.success) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Categoria excluída')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Categoria excluída')));
       return;
     }
-    
+
     // Has products dialogue
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Excluir Categoria?'),
-        content: const Text('Esta categoria possui produtos vinculados.\nO que deseja fazer?'),
+        content: const Text(
+          'Esta categoria possui produtos vinculados.\nO que deseja fazer?',
+        ),
         actions: [
           TextButton(
             child: const Text('Cancelar'),
@@ -230,13 +306,16 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
             },
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Excluir Mesmo Assim'),
             onPressed: () async {
-               // Also sets to uncategorized per requirement "definir categoryId = null"
-               // Basically same as above but explicit choice for user feeling.
-               await notifier.deleteAndUncategorize(category.id);
-               if (context.mounted) Navigator.pop(context);
+              // Also sets to uncategorized per requirement "definir categoryId = null"
+              // Basically same as above but explicit choice for user feeling.
+              await notifier.deleteAndUncategorize(category.id);
+              if (context.mounted) Navigator.pop(context);
             },
           ),
         ],

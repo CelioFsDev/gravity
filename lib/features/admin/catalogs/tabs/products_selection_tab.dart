@@ -107,7 +107,7 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
                       ? Image.file(
                           File(product.images[0]),
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
+                          errorBuilder: (_, _, _) =>
                               const Icon(Icons.broken_image),
                         )
                       : const Center(child: Icon(Icons.image_not_supported)),

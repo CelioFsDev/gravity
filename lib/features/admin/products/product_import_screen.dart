@@ -18,14 +18,16 @@ class ProductImportScreen extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-               const Icon(Icons.check_circle, color: Colors.green, size: 64),
-               const SizedBox(height: 16),
-               Text('${state.parsedProducts.length} produtos importados com sucesso!'),
-               const SizedBox(height: 24),
-               ElevatedButton(
-                 onPressed: () => Navigator.of(context).pop(),
-                 child: const Text('Voltar para Produtos'),
-               ),
+              const Icon(Icons.check_circle, color: Colors.green, size: 64),
+              const SizedBox(height: 16),
+              Text(
+                '${state.parsedProducts.length} produtos importados com sucesso!',
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Voltar para Produtos'),
+              ),
             ],
           ),
         ),
@@ -57,15 +59,21 @@ class ProductImportScreen extends ConsumerWidget {
             padding: const EdgeInsets.only(top: 24.0),
             child: Row(
               children: [
-                if (state.isLoading) const CircularProgressIndicator() else FilledButton(
-                  onPressed: details.onStepContinue,
-                  child: Text(isLastStep ? 'Finalizar Importação' : 'Próximo'),
-                ),
+                if (state.isLoading)
+                  const CircularProgressIndicator()
+                else
+                  FilledButton(
+                    onPressed: details.onStepContinue,
+                    child: Text(
+                      isLastStep ? 'Finalizar Importação' : 'Próximo',
+                    ),
+                  ),
                 const SizedBox(width: 16),
-                if (!state.isLoading) TextButton(
-                  onPressed: details.onStepCancel,
-                  child: const Text('Voltar'),
-                ),
+                if (!state.isLoading)
+                  TextButton(
+                    onPressed: details.onStepCancel,
+                    child: const Text('Voltar'),
+                  ),
               ],
             ),
           );
@@ -77,18 +85,26 @@ class ProductImportScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('1. Baixe o modelo de planilha CSV abaixo.'),
-                const Text('2. Preencha com os seus produtos mantendo a estrutura.'),
+                const Text(
+                  '2. Preencha com os seus produtos mantendo a estrutura.',
+                ),
                 const SizedBox(height: 16),
                 OutlinedButton.icon(
                   onPressed: () {
                     // Logic to generate and save CSV template or open URL
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Download iniciado (Simulado)')));
-                  }, 
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Download iniciado (Simulado)'),
+                      ),
+                    );
+                  },
                   icon: const Icon(Icons.download),
                   label: const Text('Baixar Template CSV'),
                 ),
-                 const SizedBox(height: 16),
-                 const Text('Colunas: Name, REF, SKU, CategoryID, RetailPrice, WholesalePrice, MinQty, Sizes, Colors, IsActive'),
+                const SizedBox(height: 16),
+                const Text(
+                  'Colunas: Name, REF, SKU, CategoryID, RetailPrice, WholesalePrice, MinQty, Sizes, Colors, IsActive',
+                ),
               ],
             ),
             isActive: state.currentStep >= 0,
@@ -98,34 +114,45 @@ class ProductImportScreen extends ConsumerWidget {
             content: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                 ElevatedButton.icon(
-                   onPressed: viewModel.pickAndParseCsv,
-                   icon: const Icon(Icons.upload_file),
-                   label: const Text('Carregar Arquivo CSV'),
-                 ),
-                 if (state.errorMessage != null)
-                    Padding(padding: const EdgeInsets.only(top: 8), child: Text(state.errorMessage!, style: const TextStyle(color: Colors.red))),
-                 
-                 const SizedBox(height: 16),
-                 if (state.parsedProducts.isNotEmpty) ...[
-                    Text('Produtos identificados: ${state.parsedProducts.length}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Container(
-                      height: 300,
-                      decoration: BoxDecoration(border: Border.all(color: Colors.grey)),
-                      child: ListView.separated(
-                        itemCount: state.parsedProducts.length,
-                        separatorBuilder: (_, __) => const Divider(),
-                        itemBuilder: (context, index) {
-                           final p = state.parsedProducts[index];
-                           return ListTile(
-                             title: Text(p.name),
-                             subtitle: Text('SKU: ${p.sku} | REF: ${p.reference}'),
-                             trailing: Text('R\$ ${p.retailPrice}'),
-                           );
-                        },
-                      ),
+                ElevatedButton.icon(
+                  onPressed: viewModel.pickAndParseCsv,
+                  icon: const Icon(Icons.upload_file),
+                  label: const Text('Carregar Arquivo CSV'),
+                ),
+                if (state.errorMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      state.errorMessage!,
+                      style: const TextStyle(color: Colors.red),
                     ),
-                 ]
+                  ),
+
+                const SizedBox(height: 16),
+                if (state.parsedProducts.isNotEmpty) ...[
+                  Text(
+                    'Produtos identificados: ${state.parsedProducts.length}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Container(
+                    height: 300,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey),
+                    ),
+                    child: ListView.separated(
+                      itemCount: state.parsedProducts.length,
+                      separatorBuilder: (_, _) => const Divider(),
+                      itemBuilder: (context, index) {
+                        final p = state.parsedProducts[index];
+                        return ListTile(
+                          title: Text(p.name),
+                          subtitle: Text('SKU: ${p.sku} | REF: ${p.reference}'),
+                          trailing: Text('R\$ ${p.retailPrice}'),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ],
             ),
             isActive: state.currentStep >= 1,
@@ -135,8 +162,12 @@ class ProductImportScreen extends ConsumerWidget {
             content: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Selecione todas as imagens dos produtos de uma vez.'),
-                const Text('O sistema vinculará automaticamente se o nome do arquivo começar com o SKU do produto.'),
+                const Text(
+                  'Selecione todas as imagens dos produtos de uma vez.',
+                ),
+                const Text(
+                  'O sistema vinculará automaticamente se o nome do arquivo começar com o SKU do produto.',
+                ),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: viewModel.pickAndMatchImages,
@@ -145,10 +176,16 @@ class ProductImportScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 if (state.imagesTotalCount > 0)
-                   Text('Imagens carregadas: ${state.imagesTotalCount}'),
+                  Text('Imagens carregadas: ${state.imagesTotalCount}'),
                 if (state.imagesMatchedCount > 0)
-                   Text('Imagens vinculadas: ${state.imagesMatchedCount}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-                   
+                  Text(
+                    'Imagens vinculadas: ${state.imagesMatchedCount}',
+                    style: const TextStyle(
+                      color: Colors.green,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+
                 // Maybe show list of products with no image?
               ],
             ),

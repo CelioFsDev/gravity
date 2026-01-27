@@ -48,24 +48,23 @@ class OrdersScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Pedidos',
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineMedium
-                        ?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    'Gestao de pedidos',
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodyMedium
-                        ?.copyWith(color: Colors.grey),
-                  ),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Pedidos',
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      'Gestao de pedidos',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -73,7 +72,9 @@ class OrdersScreen extends ConsumerWidget {
           LayoutBuilder(
             builder: (context, constraints) {
               final isWide = constraints.maxWidth >= 800;
-              final cardWidth = isWide ? (constraints.maxWidth - 48) / 4 : constraints.maxWidth;
+              final cardWidth = isWide
+                  ? (constraints.maxWidth - 48) / 4
+                  : constraints.maxWidth;
               final cards = [
                 _buildKpiCard(
                   context,
@@ -108,12 +109,7 @@ class OrdersScreen extends ConsumerWidget {
                 spacing: 16,
                 runSpacing: 16,
                 children: cards
-                    .map(
-                      (card) => SizedBox(
-                        width: cardWidth,
-                        child: card,
-                      ),
-                    )
+                    .map((card) => SizedBox(width: cardWidth, child: card))
                     .toList(),
               );
             },
@@ -231,45 +227,49 @@ class OrdersScreen extends ConsumerWidget {
     Color color,
   ) {
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border(
-          left: BorderSide(color: color, width: 4),
-          top: BorderSide(color: Colors.grey.shade200),
-          right: BorderSide(color: Colors.grey.shade200),
-          bottom: BorderSide(color: Colors.grey.shade200),
-        ),
+        border: Border.all(color: Colors.grey.shade200),
       ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            backgroundColor: color.withValues(alpha: 0.1),
-            child: Icon(icon, color: color, size: 18),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: Theme.of(context)
-                    .textTheme
-                    .labelLarge
-                    ?.copyWith(color: Colors.grey),
+      clipBehavior: Clip.antiAlias,
+      child: IntrinsicHeight(
+        child: Row(
+          children: [
+            Container(width: 4, color: color),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: color.withValues(alpha: 0.1),
+                      child: Icon(icon, color: color, size: 18),
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: Theme.of(
+                            context,
+                          ).textTheme.labelLarge?.copyWith(color: Colors.grey),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          value,
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 6),
-              Text(
-                value,
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -369,9 +369,7 @@ class OrdersScreen extends ConsumerWidget {
                           ),
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Text(
-                              currencyFormat.format(item.unitPrice),
-                            ),
+                            child: Text(currencyFormat.format(item.unitPrice)),
                           ),
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 4),
@@ -433,7 +431,11 @@ class OrdersScreen extends ConsumerWidget {
       ),
       child: Text(
         _statusLabel(status),
-        style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold),
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }

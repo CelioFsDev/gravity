@@ -145,17 +145,18 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       }
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Erro ao salvar: $e')));
+      }
     }
   }
 
   Future<void> _pickImages() async {
     try {
       debugPrint('Picking images...');
-      final result = await FilePicker.pickFiles(
+      final result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
         type: FileType
             .any, // Back to any to avoid filter issues on some Windows versions
@@ -507,17 +508,20 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                                   clipBehavior: Clip.antiAlias,
                                   child: kIsWeb
                                       ? const Center(
-                                          child: Text('Imagens não renderizadas no navegador'),
+                                          child: Text(
+                                            'Imagens não renderizadas no navegador',
+                                          ),
                                         )
                                       : Image.file(
                                           File(path),
                                           fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) => const Center(
-                                            child: Icon(
-                                              Icons.broken_image,
-                                              color: Colors.red,
-                                            ),
-                                          ),
+                                          errorBuilder: (_, _, _) =>
+                                              const Center(
+                                                child: Icon(
+                                                  Icons.broken_image,
+                                                  color: Colors.red,
+                                                ),
+                                              ),
                                         ),
                                 ),
                                 Positioned(
@@ -536,8 +540,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                                       ),
                                       onPressed: () => setState(() {
                                         _images.removeAt(index);
-                                        if (_mainImageIndex >= _images.length)
+                                        if (_mainImageIndex >= _images.length) {
                                           _mainImageIndex = 0;
+                                        }
                                       }),
                                     ),
                                   ),

@@ -21,7 +21,8 @@ class ProductImportState {
   final List<Product> parsedProducts; // Products converted from CSV
   final List<String> matchedImages; // List of image paths found
   final int imagesMatchedCount;
-  final int imagesTotalCount; // Total expected based on CSV SKU count or file upload count
+  final int
+  imagesTotalCount; // Total expected based on CSV SKU count or file upload count
   final bool isLoading;
   final String? errorMessage;
   final bool isDone;
@@ -82,9 +83,9 @@ class ProductImportViewModel extends _$ProductImportViewModel {
   // Step 2: Upload CSV
   Future<void> pickAndParseCsv() async {
     state = state.copyWith(isLoading: true, errorMessage: null);
-    
+
     try {
-      FilePickerResult? result = await FilePicker.pickFiles(
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['csv'],
         withData: kIsWeb,
@@ -94,18 +95,18 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         // Read file
         final input = await _readCsvContent(result.files.single);
         final fields = const CsvToListConverter().convert(input);
-        
+
         // Basic validation: Expect Header
         if (fields.isEmpty) throw Exception("Arquivo vazio");
-        
+
         // Parse Products
         final products = <Product>[];
         // Skip header
         for (var i = 1; i < fields.length; i++) {
-            final row = fields[i];
-            if (row.length < 3) continue; // Skip bad row
-            
-            products.add(_mapRowToProduct(row));
+          final row = fields[i];
+          if (row.length < 3) continue; // Skip bad row
+
+          products.add(_mapRowToProduct(row));
         }
 
         state = state.copyWith(
@@ -117,57 +118,63 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         state = state.copyWith(isLoading: false);
       }
     } catch (e) {
-      state = state.copyWith(isLoading: false, errorMessage: "Erro ao ler CSV: $e");
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: "Erro ao ler CSV: $e",
+      );
     }
   }
 
   // Step 3: Upload Images
   Future<void> pickAndMatchImages() async {
-     state = state.copyWith(isLoading: true, errorMessage: null);
-     try {
-       FilePickerResult? result = await FilePicker.pickFiles(
-         allowMultiple: true,
-         type: FileType.custom,
-         allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
-         withData: kIsWeb,
-       );
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
+        withData: kIsWeb,
+      );
 
-       if (result != null) {
-         Map<String, List<String>> productImages = {};
-         int matched = 0;
-         
-         for (var file in result.files) {
-            if (!kIsWeb && file.path == null) continue;
+      if (result != null) {
+        Map<String, List<String>> productImages = {};
+        int matched = 0;
 
-            for (var product in state.parsedProducts) {
-                  final copiedPath = await _resolveImageForPlatform(file);
-                  if (copiedPath != null) {
-                    productImages.putIfAbsent(product.id, () => []).add(copiedPath);
-                    matched++;
-                  }
-                  break; // Found owner
+        for (var file in result.files) {
+          if (!kIsWeb && file.path == null) continue;
+
+          for (var product in state.parsedProducts) {
+            final copiedPath = await _resolveImageForPlatform(file);
+            if (copiedPath != null) {
+              productImages.putIfAbsent(product.id, () => []).add(copiedPath);
+              matched++;
             }
-         }
-         
-         final updatedProducts = state.parsedProducts.map((p) {
-             if (productImages.containsKey(p.id)) {
-               return p.copyWith(images: productImages[p.id]!);
-             }
-             return p;
-         }).toList();
+            break; // Found owner
+          }
+        }
 
-         state = state.copyWith(
-           parsedProducts: updatedProducts,
-           imagesMatchedCount: matched,
-           imagesTotalCount: result.files.length, 
-           isLoading: false,
-         );
-       } else {
-         state = state.copyWith(isLoading: false);
-       }
-     } catch (e) {
-       state = state.copyWith(isLoading: false, errorMessage: "Erro ao processar imagens: $e");
-     }
+        final updatedProducts = state.parsedProducts.map((p) {
+          if (productImages.containsKey(p.id)) {
+            return p.copyWith(images: productImages[p.id]!);
+          }
+          return p;
+        }).toList();
+
+        state = state.copyWith(
+          parsedProducts: updatedProducts,
+          imagesMatchedCount: matched,
+          imagesTotalCount: result.files.length,
+          isLoading: false,
+        );
+      } else {
+        state = state.copyWith(isLoading: false);
+      }
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: "Erro ao processar imagens: $e",
+      );
+    }
   }
 
   // Finalize
@@ -175,20 +182,25 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     state = state.copyWith(isLoading: true);
     try {
       final repository = ref.read(productsRepositoryProvider);
-      
+
       for (var p in state.parsedProducts) {
         await repository.addProduct(p);
       }
-      
+
       state = state.copyWith(isLoading: false, isDone: true);
     } catch (e) {
-      state = state.copyWith(isLoading: false, errorMessage: "Erro ao salvar: $e");
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: "Erro ao salvar: $e",
+      );
     }
   }
 
   double _parsePrice(String text) {
     if (text.isEmpty) return 0.0;
-    String cleaned = text.replaceAll(',', '.').replaceAll(RegExp(r'[^0-9.]'), '');
+    String cleaned = text
+        .replaceAll(',', '.')
+        .replaceAll(RegExp(r'[^0-9.]'), '');
     if (cleaned.split('.').length > 2) {
       final parts = cleaned.split('.');
       final decimal = parts.removeLast();
@@ -203,7 +215,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       name: row[0].toString(),
       reference: row[1].toString(),
       sku: row[2].toString(),
-      categoryId: row[3].toString(), 
+      categoryId: row[3].toString(),
       retailPrice: _parsePrice(row[4].toString()),
       wholesalePrice: _parsePrice(row[5].toString()),
       minWholesaleQty: int.tryParse(row[6].toString()) ?? 1,
@@ -276,7 +288,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       final fileName = '${const Uuid().v4()}${p.extension(sourcePath)}';
       final targetPath = p.join(imagesDir.path, fileName);
       final File targetFile = File(targetPath);
-      
+
       final sourceFile = File(sourcePath);
       if (await sourceFile.exists()) {
         final bytes = await sourceFile.readAsBytes();
@@ -285,7 +297,10 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       }
       return null;
     } on MissingPluginException {
-      if (kDebugMode) print('MissingPluginException: path_provider not implemented on this platform or stale build.');
+      if (kDebugMode)
+        print(
+          'MissingPluginException: path_provider not implemented on this platform or stale build.',
+        );
       return null;
     } catch (e) {
       if (kDebugMode) {

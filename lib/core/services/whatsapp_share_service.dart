@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
@@ -19,16 +18,13 @@ class WhatsAppShareService {
     required String fileName,
     String? text,
   }) async {
-    await Share.shareXFiles(
-      [
-        XFile.fromData(
-          Uint8List.fromList(bytes),
-          name: fileName,
-          mimeType: 'application/pdf',
-        ),
-      ],
-      text: text,
-    );
+    await Share.shareXFiles([
+      XFile.fromData(
+        Uint8List.fromList(bytes),
+        name: fileName,
+        mimeType: 'application/pdf',
+      ),
+    ], subject: text);
   }
 
   static Future<void> shareOrder({
@@ -51,14 +47,19 @@ class WhatsAppShareService {
     sb.writeln('*Total: ${currency.format(total)}*');
     sb.writeln('');
     if (customerName.isNotEmpty) sb.writeln('Nome: $customerName');
-    
+
     await _launchWhatsApp(phone: storePhone, text: sb.toString());
   }
 
-  static Future<void> _launchWhatsApp({String? phone, required String text}) async {
+  static Future<void> _launchWhatsApp({
+    String? phone,
+    required String text,
+  }) async {
     final cleanPhone = phone?.replaceAll(RegExp(r'[^0-9]'), '') ?? '';
-    final url = Uri.parse('https://wa.me/$cleanPhone?text=${Uri.encodeComponent(text)}');
-    
+    final url = Uri.parse(
+      'https://wa.me/$cleanPhone?text=${Uri.encodeComponent(text)}',
+    );
+
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     } else {

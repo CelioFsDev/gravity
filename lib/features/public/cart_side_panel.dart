@@ -27,8 +27,14 @@ class CartSidePanel extends ConsumerWidget {
                 children: [
                   const Icon(Icons.shopping_bag_outlined, size: 48),
                   const SizedBox(height: 8),
-                  Text('Seu Pedido', style: Theme.of(context).textTheme.titleLarge),
-                  Text('${cart.items.length} itens', style: Theme.of(context).textTheme.bodySmall),
+                  Text(
+                    'Seu Pedido',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  Text(
+                    '${cart.items.length} itens',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                 ],
               ),
             ),
@@ -39,7 +45,7 @@ class CartSidePanel extends ConsumerWidget {
                 : ListView.separated(
                     padding: const EdgeInsets.all(16),
                     itemCount: cart.items.length,
-                    separatorBuilder: (_, __) => const Divider(),
+                    separatorBuilder: (_, _) => const Divider(),
                     itemBuilder: (context, index) {
                       final item = cart.items[index];
                       return Row(
@@ -49,10 +55,24 @@ class CartSidePanel extends ConsumerWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(item.productName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                if (item.selectedSize != null) 
-                                  Text('Tam: ${item.selectedSize}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                                Text(currency.format(item.unitPrice), style: const TextStyle(fontSize: 12)),
+                                Text(
+                                  item.productName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                if (item.selectedSize != null)
+                                  Text(
+                                    'Tam: ${item.selectedSize}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                Text(
+                                  currency.format(item.unitPrice),
+                                  style: const TextStyle(fontSize: 12),
+                                ),
                               ],
                             ),
                           ),
@@ -61,24 +81,39 @@ class CartSidePanel extends ConsumerWidget {
                               Row(
                                 children: [
                                   IconButton(
-                                    icon: const Icon(Icons.remove_circle_outline, size: 20),
+                                    icon: const Icon(
+                                      Icons.remove_circle_outline,
+                                      size: 20,
+                                    ),
                                     padding: EdgeInsets.zero,
                                     constraints: const BoxConstraints(),
-                                    onPressed: () => notifier.updateQuantity(index, -1),
+                                    onPressed: () =>
+                                        notifier.updateQuantity(index, -1),
                                   ),
                                   Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                    ),
                                     child: Text('${item.quantity}'),
                                   ),
                                   IconButton(
-                                    icon: const Icon(Icons.add_circle_outline, size: 20),
+                                    icon: const Icon(
+                                      Icons.add_circle_outline,
+                                      size: 20,
+                                    ),
                                     padding: EdgeInsets.zero,
                                     constraints: const BoxConstraints(),
-                                    onPressed: () => notifier.updateQuantity(index, 1),
+                                    onPressed: () =>
+                                        notifier.updateQuantity(index, 1),
                                   ),
                                 ],
                               ),
-                              Text(currency.format(item.total), style: const TextStyle(fontWeight: FontWeight.bold)),
+                              Text(
+                                currency.format(item.total),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ],
                           ),
                         ],
@@ -95,8 +130,21 @@ class CartSidePanel extends ConsumerWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Total', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      Text(currency.format(cart.total), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
+                      const Text(
+                        'Total',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        currency.format(cart.total),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -104,7 +152,7 @@ class CartSidePanel extends ConsumerWidget {
                     width: double.infinity,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green, 
+                        backgroundColor: Colors.green,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),

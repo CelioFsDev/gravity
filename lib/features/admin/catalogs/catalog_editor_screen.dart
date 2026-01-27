@@ -1,5 +1,4 @@
 import 'package:gravity/core/services/catalog_share_helper.dart';
-import 'package:gravity/data/repositories/settings_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/models/catalog.dart';

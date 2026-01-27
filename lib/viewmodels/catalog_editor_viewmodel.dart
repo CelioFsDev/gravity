@@ -12,7 +12,11 @@ class CatalogEditorState {
   final bool isSaving;
   final String? slugError;
 
-  CatalogEditorState({required this.catalog, this.isSaving = false, this.slugError});
+  CatalogEditorState({
+    required this.catalog,
+    this.isSaving = false,
+    this.slugError,
+  });
 
   CatalogEditorState copyWith({
     Catalog? catalog,
@@ -33,12 +37,14 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
   @override
   CatalogEditorState build(String? catalogId) {
     if (catalogId != null) {
-      final repository = ref.watch(catalogsRepositoryProvider);
       // Synchronous read if possible or fetch in build
       // To keep it simple, we'll try to find it in the already loaded list
       // Or just read from box. Since Hive is sync, we can use Hive.box.get.
       final catalogs = ref.watch(catalogsViewModelProvider).value ?? [];
-      final existing = catalogs.firstWhere((c) => c.id == catalogId, orElse: () => _emptyCatalog());
+      final existing = catalogs.firstWhere(
+        (c) => c.id == catalogId,
+        orElse: () => _emptyCatalog(),
+      );
       return CatalogEditorState(catalog: existing);
     }
     return CatalogEditorState(catalog: _emptyCatalog());
@@ -59,23 +65,28 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
       updatedAt: DateTime.now(),
     );
   }
-  
+
   void updateName(String name) {
     state = state.copyWith(catalog: state.catalog.copyWith(name: name));
   }
 
   void updateSlug(String slug) {
-    final normalized = slug.trim().toLowerCase()
+    final normalized = slug
+        .trim()
+        .toLowerCase()
         .replaceAll(RegExp(r'[^a-z0-9-]'), '-')
         .replaceAll(RegExp(r'-+'), '-');
-        
-    state = state.copyWith(catalog: state.catalog.copyWith(slug: normalized), clearSlugError: true);
+
+    state = state.copyWith(
+      catalog: state.catalog.copyWith(slug: normalized),
+      clearSlugError: true,
+    );
   }
-  
+
   void toggleActive(bool val) {
     state = state.copyWith(catalog: state.catalog.copyWith(active: val));
   }
-  
+
   void toggleProduct(String productId) {
     final currentIds = List<String>.from(state.catalog.productIds);
     if (currentIds.contains(productId)) {
@@ -83,52 +94,68 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
     } else {
       currentIds.add(productId);
     }
-    state = state.copyWith(catalog: state.catalog.copyWith(productIds: currentIds));
+    state = state.copyWith(
+      catalog: state.catalog.copyWith(productIds: currentIds),
+    );
   }
-  
+
   void setRequireCustomerData(bool val) {
-    state = state.copyWith(catalog: state.catalog.copyWith(requireCustomerData: val));
+    state = state.copyWith(
+      catalog: state.catalog.copyWith(requireCustomerData: val),
+    );
   }
-  
+
   void setPhotoLayout(String val) {
     state = state.copyWith(catalog: state.catalog.copyWith(photoLayout: val));
   }
-  
+
   void setAnnouncementEnabled(bool val) {
-    state = state.copyWith(catalog: state.catalog.copyWith(announcementEnabled: val));
+    state = state.copyWith(
+      catalog: state.catalog.copyWith(announcementEnabled: val),
+    );
   }
 
   void setAnnouncementText(String val) {
-     state = state.copyWith(catalog: state.catalog.copyWith(announcementText: val));
+    state = state.copyWith(
+      catalog: state.catalog.copyWith(announcementText: val),
+    );
   }
 
   Future<bool> save() async {
-     state = state.copyWith(isSaving: true, clearSlugError: true);
-     
-     if (state.catalog.name.isEmpty) {
-        state = state.copyWith(isSaving: false);
-        return false;
-     }
+    state = state.copyWith(isSaving: true, clearSlugError: true);
 
-     if (state.catalog.slug.isEmpty || state.catalog.slug.length < 3) {
-       state = state.copyWith(isSaving: false, slugError: 'Slug muito curto');
-       return false;
-     }
-     
-     final repository = ref.read(catalogsRepositoryProvider);
-     final isTaken = await repository.isSlugTaken(state.catalog.slug, excludeId: state.catalog.id);
-     
-     if (isTaken) {
-       state = state.copyWith(isSaving: false, slugError: 'Esta URL já está em uso.');
-       return false;
-     }
+    if (state.catalog.name.isEmpty) {
+      state = state.copyWith(isSaving: false);
+      return false;
+    }
 
-     await repository.addCatalog(state.catalog.copyWith(updatedAt: DateTime.now()));
-     
-     ref.invalidate(catalogsViewModelProvider);
-     ref.invalidate(catalogPublicProvider);
-     
-     state = state.copyWith(isSaving: false);
-     return true;
+    if (state.catalog.slug.isEmpty || state.catalog.slug.length < 3) {
+      state = state.copyWith(isSaving: false, slugError: 'Slug muito curto');
+      return false;
+    }
+
+    final repository = ref.read(catalogsRepositoryProvider);
+    final isTaken = await repository.isSlugTaken(
+      state.catalog.slug,
+      excludeId: state.catalog.id,
+    );
+
+    if (isTaken) {
+      state = state.copyWith(
+        isSaving: false,
+        slugError: 'Esta URL já está em uso.',
+      );
+      return false;
+    }
+
+    await repository.addCatalog(
+      state.catalog.copyWith(updatedAt: DateTime.now()),
+    );
+
+    ref.invalidate(catalogsViewModelProvider);
+    ref.invalidate(catalogPublicProvider);
+
+    state = state.copyWith(isSaving: false);
+    return true;
   }
 }

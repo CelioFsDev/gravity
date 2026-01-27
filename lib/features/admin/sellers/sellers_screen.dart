@@ -19,7 +19,11 @@ class SellersScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildContent(BuildContext context, WidgetRef ref, List<Seller> sellers) {
+  Widget _buildContent(
+    BuildContext context,
+    WidgetRef ref,
+    List<Seller> sellers,
+  ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -28,23 +32,25 @@ class SellersScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                   Text(
-                    'Vendedoras',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                   Text(
-                    'Gerencie seu time de vendas',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey,
-                        ),
-                  ),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Vendedoras',
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      'Gerencie seu time de vendas',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 16),
               ElevatedButton.icon(
                 onPressed: () => _showSellerDialog(context, ref),
                 icon: const Icon(Icons.add),
@@ -67,26 +73,37 @@ class SellersScreen extends ConsumerWidget {
           else
             Card(
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: ListView.separated(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: sellers.length,
-                separatorBuilder: (c, i) => const Divider(height: 1),
+                separatorBuilder: (_, _) => const Divider(height: 1),
                 itemBuilder: (context, index) {
                   final seller = sellers[index];
                   return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     leading: CircleAvatar(
-                      backgroundColor: seller.isActive ? Colors.green.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+                      backgroundColor: seller.isActive
+                          ? Colors.green.withValues(alpha: 0.1)
+                          : Colors.grey.withValues(alpha: 0.1),
                       child: Text(
                         seller.name.substring(0, 1).toUpperCase(),
-                         style: TextStyle(
-                            color: seller.isActive ? Colors.green : Colors.grey,
-                            fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: seller.isActive ? Colors.green : Colors.grey,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                    title: Text(seller.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    title: Text(
+                      seller.name,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
                     subtitle: Text(seller.whatsapp),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -95,13 +112,16 @@ class SellersScreen extends ConsumerWidget {
                         Switch(
                           value: seller.isActive,
                           onChanged: (val) {
-                             ref.read(sellersViewModelProvider.notifier).toggleActive(seller.id);
+                            ref
+                                .read(sellersViewModelProvider.notifier)
+                                .toggleActive(seller.id);
                           },
                         ),
                         const SizedBox(width: 8),
                         IconButton(
                           icon: const Icon(Icons.edit, color: Colors.blue),
-                          onPressed: () => _showSellerDialog(context, ref, seller: seller),
+                          onPressed: () =>
+                              _showSellerDialog(context, ref, seller: seller),
                           tooltip: 'Editar',
                         ),
                         IconButton(
@@ -120,14 +140,23 @@ class SellersScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _deleteSeller(BuildContext context, WidgetRef ref, Seller seller) async {
+  Future<void> _deleteSeller(
+    BuildContext context,
+    WidgetRef ref,
+    Seller seller,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
         title: const Text('Excluir vendedora'),
-        content: Text('Tem certeza que deseja excluir ${seller.name}? Histórico de vendas será mantido, mas ela não aparecerá mais nesta lista.'),
+        content: Text(
+          'Tem certeza que deseja excluir ${seller.name}? Histórico de vendas será mantido, mas ela não aparecerá mais nesta lista.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Cancelar'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(c, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -142,7 +171,11 @@ class SellersScreen extends ConsumerWidget {
     }
   }
 
-  void _showSellerDialog(BuildContext context, WidgetRef ref, {Seller? seller}) {
+  void _showSellerDialog(
+    BuildContext context,
+    WidgetRef ref, {
+    Seller? seller,
+  }) {
     showDialog(
       context: context,
       builder: (c) => SellerFormDialog(seller: seller),
@@ -198,7 +231,8 @@ class _SellerFormDialogState extends ConsumerState<SellerFormDialog> {
                   labelText: 'Nome *',
                   border: OutlineInputBorder(),
                 ),
-                validator: (v) => v == null || v.isEmpty ? 'Nome obrigatório' : null,
+                validator: (v) =>
+                    v == null || v.isEmpty ? 'Nome obrigatório' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -208,10 +242,11 @@ class _SellerFormDialogState extends ConsumerState<SellerFormDialog> {
                   border: OutlineInputBorder(),
                   helperText: 'Apenas números (ex: 5511999999999)',
                 ),
-                validator: (v) => v == null || v.isEmpty ? 'WhatsApp obrigatório' : null,
+                validator: (v) =>
+                    v == null || v.isEmpty ? 'WhatsApp obrigatório' : null,
               ),
               const SizedBox(height: 16),
-              if (isEditing) 
+              if (isEditing)
                 SwitchListTile(
                   title: const Text('Ativa'),
                   value: _isActive,
@@ -239,14 +274,18 @@ class _SellerFormDialogState extends ConsumerState<SellerFormDialog> {
 
     try {
       if (widget.seller != null) {
-        await ref.read(sellersViewModelProvider.notifier).updateSeller(
+        await ref
+            .read(sellersViewModelProvider.notifier)
+            .updateSeller(
               id: widget.seller!.id,
               name: _nameCtrl.text,
               whatsapp: _whatsappCtrl.text,
               isActive: _isActive,
             );
       } else {
-        await ref.read(sellersViewModelProvider.notifier).createSeller(
+        await ref
+            .read(sellersViewModelProvider.notifier)
+            .createSeller(
               name: _nameCtrl.text,
               whatsapp: _whatsappCtrl.text,
               isActive: _isActive,
@@ -256,7 +295,11 @@ class _SellerFormDialogState extends ConsumerState<SellerFormDialog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro: ${e.toString().replaceAll("Exception: ", "")}')),
+          SnackBar(
+            content: Text(
+              'Erro: ${e.toString().replaceAll("Exception: ", "")}',
+            ),
+          ),
         );
       }
     }
