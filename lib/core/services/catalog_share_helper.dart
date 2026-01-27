@@ -85,9 +85,12 @@ class CatalogShareHelper {
     Catalog catalog,
   ) async {
     try {
+      final width = MediaQuery.of(context).size.width;
+      final columnsCount = width < 600 ? 1 : 2;
+
       final pdfBytes = await _runWithLoadingDialog(
         context,
-        () => _generatePdfBytes(ref, catalog),
+        () => _generatePdfBytes(ref, catalog, columnsCount: columnsCount),
       );
 
       await WhatsAppShareService.shareFile(
@@ -111,9 +114,12 @@ class CatalogShareHelper {
     Catalog catalog,
   ) async {
     try {
+      final width = MediaQuery.of(context).size.width;
+      final columnsCount = width < 600 ? 1 : 2;
+
       final pdfBytes = await _runWithLoadingDialog(
         context,
-        () => _generatePdfBytes(ref, catalog),
+        () => _generatePdfBytes(ref, catalog, columnsCount: columnsCount),
       );
       final documentsDirectory =
           await getDownloadsDirectory() ??
@@ -141,8 +147,9 @@ class CatalogShareHelper {
 
   static Future<Uint8List> _generatePdfBytes(
     WidgetRef ref,
-    Catalog catalog,
-  ) async {
+    Catalog catalog, {
+    int columnsCount = 1,
+  }) async {
     // Wait for products to load if they haven't yet
     final productsState = await ref.read(productsViewModelProvider.future);
     final allProducts = productsState.allProducts;
@@ -173,6 +180,7 @@ class CatalogShareHelper {
       return CatalogPdfService.generateCatalogPdf(
         catalogName: catalogName,
         products: fallbackProducts,
+        columnsCount: columnsCount,
       );
     }
 
@@ -180,6 +188,7 @@ class CatalogShareHelper {
     return CatalogPdfService.generateCatalogPdf(
       catalogName: catalogName,
       products: catalogProducts,
+      columnsCount: columnsCount,
     );
   }
 
@@ -187,18 +196,22 @@ class CatalogShareHelper {
     BuildContext context,
     Future<T> Function() action,
   ) async {
+    BuildContext? dialogContext;
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (dialogContext) =>
-          const Center(child: CircularProgressIndicator()),
+      builder: (ctx) {
+        dialogContext = ctx;
+        return const Center(child: CircularProgressIndicator());
+      },
     );
 
     try {
       return await action();
     } finally {
-      if (context.mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
+      if (dialogContext != null && dialogContext!.mounted) {
+        Navigator.of(dialogContext!, rootNavigator: true).pop();
       }
     }
   }

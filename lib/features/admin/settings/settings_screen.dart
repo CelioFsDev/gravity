@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/features/theme/theme_providers.dart';
 import 'package:gravity/viewmodels/settings_viewmodel.dart';
 import 'package:gravity/models/app_settings.dart';
+import 'package:gravity/core/widgets/responsive_scaffold.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -13,31 +14,32 @@ class SettingsScreen extends ConsumerWidget {
     final isDarkMode = activeMode == ThemeMode.dark;
     final settingsAsync = ref.watch(settingsViewModelProvider);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Configurações')),
+    return ResponsiveScaffold(
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(24),
         children: [
           Text(
-            'Aparência',
-            style: Theme.of(context).textTheme.titleMedium,
+            'Configurações',
+            style: Theme.of(
+              context,
+            ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
+          const SizedBox(height: 24),
+          Text('Aparência', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           SwitchListTile(
             secondary: Icon(isDarkMode ? Icons.dark_mode : Icons.light_mode),
             value: isDarkMode,
             onChanged: (value) {
-              ref.read(themeModeProvider.notifier).state =
-                  value ? ThemeMode.dark : ThemeMode.light;
+              ref.read(themeModeProvider.notifier).state = value
+                  ? ThemeMode.dark
+                  : ThemeMode.light;
             },
             title: const Text('Modo escuro'),
             subtitle: const Text('Ativa o visual escuro em todo o app'),
           ),
           const Divider(height: 32),
-          Text(
-            'Loja',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          Text('Loja', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 16),
           settingsAsync.when(
             data: (settings) => _StoreSettingsForm(settings: settings),
@@ -69,8 +71,12 @@ class _StoreSettingsFormState extends ConsumerState<_StoreSettingsForm> {
   void initState() {
     super.initState();
     _nameCtrl = TextEditingController(text: widget.settings.storeName);
-    _whatsappCtrl = TextEditingController(text: widget.settings.defaultWhatsapp);
-    _baseUrlCtrl = TextEditingController(text: widget.settings.publicBaseUrl ?? '');
+    _whatsappCtrl = TextEditingController(
+      text: widget.settings.defaultWhatsapp,
+    );
+    _baseUrlCtrl = TextEditingController(
+      text: widget.settings.publicBaseUrl ?? '',
+    );
   }
 
   @override
@@ -83,17 +89,19 @@ class _StoreSettingsFormState extends ConsumerState<_StoreSettingsForm> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    
-    await ref.read(settingsViewModelProvider.notifier).updateSettings(
-      storeName: _nameCtrl.text,
-      defaultWhatsapp: _whatsappCtrl.text,
-      publicBaseUrl: _baseUrlCtrl.text.isEmpty ? null : _baseUrlCtrl.text,
-    );
+
+    await ref
+        .read(settingsViewModelProvider.notifier)
+        .updateSettings(
+          storeName: _nameCtrl.text,
+          defaultWhatsapp: _whatsappCtrl.text,
+          publicBaseUrl: _baseUrlCtrl.text.isEmpty ? null : _baseUrlCtrl.text,
+        );
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Configurações salvas!')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Configurações salvas!')));
     }
   }
 
@@ -123,7 +131,7 @@ class _StoreSettingsFormState extends ConsumerState<_StoreSettingsForm> {
             ),
             keyboardType: TextInputType.phone,
           ),
-           const SizedBox(height: 16),
+          const SizedBox(height: 16),
           TextFormField(
             controller: _baseUrlCtrl,
             decoration: const InputDecoration(

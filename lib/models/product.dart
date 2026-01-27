@@ -48,9 +48,12 @@ class Product {
 
   @HiveField(14)
   final bool isOnSale;
-  
+
   @HiveField(15)
   final DateTime createdAt;
+
+  @HiveField(16)
+  final int saleDiscountPercent; // Porcentagem de desconto (ex: 10 para 10%)
 
   Product({
     required this.id,
@@ -69,6 +72,7 @@ class Product {
     required this.isOutOfStock,
     required this.isOnSale,
     required this.createdAt,
+    this.saleDiscountPercent = 0,
   });
 
   Product copyWith({
@@ -88,6 +92,7 @@ class Product {
     bool? isOutOfStock,
     bool? isOnSale,
     DateTime? createdAt,
+    int? saleDiscountPercent,
   }) {
     return Product(
       id: id ?? this.id,
@@ -106,6 +111,7 @@ class Product {
       isOutOfStock: isOutOfStock ?? this.isOutOfStock,
       isOnSale: isOnSale ?? this.isOnSale,
       createdAt: createdAt ?? this.createdAt,
+      saleDiscountPercent: saleDiscountPercent ?? this.saleDiscountPercent,
     );
   }
 }

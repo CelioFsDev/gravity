@@ -60,28 +60,50 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
                 ),
                 onChanged: (val) => setState(() => _search = val),
               ),
-              Row(
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  DropdownButton<String>(
-                    hint: const Text('Categoria'),
-                    value: _categoryFilter,
-                    items: [
-                      const DropdownMenuItem(value: null, child: Text('Todas')),
-                      ...widget.categories.map(
-                        (c) =>
-                            DropdownMenuItem(value: c.id, child: Text(c.name)),
+                  DropdownButtonHideUnderline(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                    ],
-                    onChanged: (val) => setState(() => _categoryFilter = val),
+                      child: DropdownButton<String>(
+                        hint: const Text('Categoria'),
+                        value: _categoryFilter,
+                        items: [
+                          const DropdownMenuItem(
+                            value: null,
+                            child: Text('Todas categorias'),
+                          ),
+                          ...widget.categories.map(
+                            (c) => DropdownMenuItem(
+                              value: c.id,
+                              child: Text(c.name),
+                            ),
+                          ),
+                        ],
+                        onChanged: (val) =>
+                            setState(() => _categoryFilter = val),
+                      ),
+                    ),
                   ),
-                  const SizedBox(width: 16),
                   FilterChip(
                     label: const Text('Apenas Selecionados'),
                     selected: _onlySelected,
                     onSelected: (val) => setState(() => _onlySelected = val),
                   ),
-                  const Spacer(),
-                  Text('${widget.selectedIds.length} selecionados'),
+                  Text(
+                    '${widget.selectedIds.length} selecionados',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue,
+                    ),
+                  ),
                 ],
               ),
             ],

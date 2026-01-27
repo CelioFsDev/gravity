@@ -1,14 +1,16 @@
 import 'dart:io';
 import 'dart:math' as math;
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/models/product.dart';
+import 'package:gravity/models/category.dart';
 import 'package:gravity/viewmodels/products_viewmodel.dart';
 import 'package:gravity/features/admin/products/product_form_screen.dart';
 import 'package:gravity/features/admin/products/product_import_screen.dart';
 import 'package:gravity/features/admin/products/product_detail_screen.dart';
 import 'package:intl/intl.dart';
+import 'package:gravity/core/widgets/responsive_scaffold.dart';
 
 class ProductsScreen extends ConsumerWidget {
   const ProductsScreen({super.key});
@@ -17,7 +19,7 @@ class ProductsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(productsViewModelProvider);
 
-    return Scaffold(
+    return ResponsiveScaffold(
       body: state.when(
         data: (data) => _buildContent(context, ref, data),
         error: (e, s) => Center(child: Text('Error: $e')),
@@ -37,29 +39,32 @@ class ProductsScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Produtos',
-                      style: Theme.of(context).textTheme.headlineMedium
-                          ?.copyWith(fontWeight: FontWeight.bold),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Produtos',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
-                    Text(
-                      'Catálogo de produtos',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
-                    ),
-                  ],
-                ),
+                  ),
+                  Text(
+                    'Catálogo de produtos',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+                  ),
+                ],
               ),
-              const SizedBox(width: 16),
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   ElevatedButton.icon(
                     onPressed: () {
@@ -72,7 +77,6 @@ class ProductsScreen extends ConsumerWidget {
                     icon: const Icon(Icons.add),
                     label: const Text('Novo produto'),
                   ),
-                  const SizedBox(width: 8),
                   OutlinedButton.icon(
                     onPressed: () {
                       Navigator.of(context).push(
@@ -84,7 +88,6 @@ class ProductsScreen extends ConsumerWidget {
                     icon: const Icon(Icons.upload_file),
                     label: const Text('Importar'),
                   ),
-                  const SizedBox(width: 8),
                   OutlinedButton.icon(
                     onPressed: () {},
                     icon: const Icon(Icons.download),
@@ -97,44 +100,55 @@ class ProductsScreen extends ConsumerWidget {
           const SizedBox(height: 24),
 
           // KPI Cards
-          Row(
-            children: [
-              Expanded(
-                child: _buildKpiCard(
-                  context,
-                  'Total Produtos',
-                  state.totalCount.toString(),
-                  Colors.blue,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildKpiCard(
-                  context,
-                  'Ativos',
-                  state.activeCount.toString(),
-                  Colors.green,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildKpiCard(
-                  context,
-                  'Esgotados',
-                  state.outOfStockCount.toString(),
-                  Colors.red,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildKpiCard(
-                  context,
-                  'Em Promoção',
-                  state.onSaleCount.toString(),
-                  Colors.orange,
-                ),
-              ),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth >= 700;
+              final itemWidth = isWide
+                  ? (constraints.maxWidth - 48) / 4
+                  : (constraints.maxWidth - 16) / 2;
+              return Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                children: [
+                  SizedBox(
+                    width: itemWidth,
+                    child: _buildKpiCard(
+                      context,
+                      'Total Produtos',
+                      state.totalCount.toString(),
+                      Colors.blue,
+                    ),
+                  ),
+                  SizedBox(
+                    width: itemWidth,
+                    child: _buildKpiCard(
+                      context,
+                      'Ativos',
+                      state.activeCount.toString(),
+                      Colors.green,
+                    ),
+                  ),
+                  SizedBox(
+                    width: itemWidth,
+                    child: _buildKpiCard(
+                      context,
+                      'Esgotados',
+                      state.outOfStockCount.toString(),
+                      Colors.red,
+                    ),
+                  ),
+                  SizedBox(
+                    width: itemWidth,
+                    child: _buildKpiCard(
+                      context,
+                      'Em Promoção',
+                      state.onSaleCount.toString(),
+                      Colors.orange,
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 24),
 
@@ -284,7 +298,7 @@ class ProductsScreen extends ConsumerWidget {
                     context,
                     ref,
                     state.filteredProducts[index],
-                    state.categories.cast<Category>(),
+                    state.categories,
                   );
                 },
               );

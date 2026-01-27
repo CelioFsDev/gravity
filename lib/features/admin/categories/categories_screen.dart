@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/models/category.dart';
 import 'package:gravity/viewmodels/categories_viewmodel.dart';
+import 'package:gravity/core/widgets/responsive_scaffold.dart';
 
 class CategoriesScreen extends ConsumerStatefulWidget {
   const CategoriesScreen({super.key});
@@ -24,7 +25,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     final state = ref.watch(categoriesViewModelProvider);
     final notifier = ref.read(categoriesViewModelProvider.notifier);
 
-    return Scaffold(
+    return ResponsiveScaffold(
       body: state.when(
         data: (data) => _buildContent(context, data, notifier),
         error: (e, s) => Center(child: Text('Erro: $e')),
@@ -44,28 +45,29 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Categorias',
-                      style: Theme.of(context).textTheme.headlineMedium
-                          ?.copyWith(fontWeight: FontWeight.bold),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Categorias',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
-                    Text(
-                      'Organize as categorias do catálogo',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
-                    ),
-                  ],
-                ),
+                  ),
+                  Text(
+                    'Organize as categorias do catálogo',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+                  ),
+                ],
               ),
-              const SizedBox(width: 16),
               ElevatedButton.icon(
                 onPressed: () => _showCategoryDialog(context, notifier),
                 icon: const Icon(Icons.add),
@@ -83,42 +85,53 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.grey.shade200),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: const InputDecoration(
-                      hintText: 'Buscar categorias...',
-                      prefixIcon: Icon(Icons.search),
-                      border: InputBorder.none,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth >= 500;
+                return Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: isWide
+                          ? constraints.maxWidth - 200
+                          : constraints.maxWidth,
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: const InputDecoration(
+                          hintText: 'Buscar categorias...',
+                          prefixIcon: Icon(Icons.search),
+                          border: InputBorder.none,
+                        ),
+                        onChanged: notifier.setSearchQuery,
+                      ),
                     ),
-                    onChanged: notifier.setSearchQuery,
-                  ),
-                ),
-                const VerticalDivider(),
-                DropdownButton<CategorySortOption>(
-                  value: state.sortOption,
-                  underline: const SizedBox(),
-                  items: const [
-                    DropdownMenuItem(
-                      value: CategorySortOption.manual,
-                      child: Text('Ordem Manual'),
-                    ),
-                    DropdownMenuItem(
-                      value: CategorySortOption.aToZ,
-                      child: Text('A - Z'),
-                    ),
-                    DropdownMenuItem(
-                      value: CategorySortOption.zToA,
-                      child: Text('Z - A'),
+                    if (isWide) const VerticalDivider(),
+                    DropdownButton<CategorySortOption>(
+                      value: state.sortOption,
+                      underline: const SizedBox(),
+                      items: const [
+                        DropdownMenuItem(
+                          value: CategorySortOption.manual,
+                          child: Text('Ordem Manual'),
+                        ),
+                        DropdownMenuItem(
+                          value: CategorySortOption.aToZ,
+                          child: Text('A - Z'),
+                        ),
+                        DropdownMenuItem(
+                          value: CategorySortOption.zToA,
+                          child: Text('Z - A'),
+                        ),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) notifier.setSortOption(val);
+                      },
                     ),
                   ],
-                  onChanged: (val) {
-                    if (val != null) notifier.setSortOption(val);
-                  },
-                ),
-              ],
+                );
+              },
             ),
           ),
           const SizedBox(height: 24),

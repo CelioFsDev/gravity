@@ -26,7 +26,9 @@ class AdminShellScreen extends StatelessWidget {
           appBar: isWide
               ? null
               : AppBar(
-                  title: Text(_destinations[navigationShell.currentIndex].label),
+                  title: Text(
+                    _destinations[navigationShell.currentIndex].label,
+                  ),
                   leading: Builder(
                     builder: (context) => IconButton(
                       icon: const Icon(Icons.menu),
@@ -64,16 +66,29 @@ class AdminShellScreen extends StatelessWidget {
                       minExtendedWidth: 220,
                       extended: true,
                       destinations: _destinations
-                          .map((item) => NavigationRailDestination(
-                                icon: Icon(item.icon),
-                                label: Text(item.label),
-                              ))
+                          .map(
+                            (item) => NavigationRailDestination(
+                              icon: Icon(item.icon),
+                              label: Text(item.label),
+                            ),
+                          )
                           .toList(),
                       selectedIndex: navigationShell.currentIndex,
-                      onDestinationSelected: (index) => navigationShell.goBranch(index),
+                      onDestinationSelected: (index) =>
+                          navigationShell.goBranch(index),
                     ),
                     const VerticalDivider(thickness: 1, width: 1),
-                    Expanded(child: navigationShell),
+                    Expanded(
+                      child: Container(
+                        color: Theme.of(context).scaffoldBackgroundColor,
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 1200),
+                            child: navigationShell,
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 )
               : SafeArea(child: navigationShell),

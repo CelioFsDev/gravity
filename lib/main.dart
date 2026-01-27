@@ -24,10 +24,10 @@ import 'package:google_fonts/google_fonts.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize Hive
   await Hive.initFlutter();
-  
+
   // Register Adapters
   Hive.registerAdapter(OrderAdapter());
   Hive.registerAdapter(OrderStatusAdapter());
@@ -38,7 +38,7 @@ void main() async {
   Hive.registerAdapter(CatalogAdapter());
   Hive.registerAdapter(SellerAdapter());
   Hive.registerAdapter(AppSettingsAdapter());
-  
+
   // Open Boxes
   await Hive.openBox<Order>('orders');
   await Hive.openBox<Category>('categories');
@@ -46,14 +46,18 @@ void main() async {
   await Hive.openBox<Catalog>('catalogs');
   await Hive.openBox<Seller>('sellers');
   await Hive.openBox<AppSettings>('settings');
-  
+
   runApp(const ProviderScope(child: MyApp()));
 }
 
 final _router = GoRouter(
   initialLocation: '/admin/orders', // Changed for dev convenience
   routes: [
-    GoRoute(path: '/c/:slug', builder: (context, state) => CatalogHomePage(slug: state.pathParameters['slug']!)),
+    GoRoute(
+      path: '/c/:slug',
+      builder: (context, state) =>
+          CatalogHomePage(slug: state.pathParameters['slug']!),
+    ),
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) {
         return AdminShellScreen(navigationShell: navigationShell);
@@ -75,12 +79,55 @@ final _router = GoRouter(
             ),
           ],
         ),
-         StatefulShellBranch(routes: [GoRoute(path: '/admin/products', builder: (c, s) => const ProductsScreen())]),
-         StatefulShellBranch(routes: [GoRoute(path: '/admin/categories', builder: (c, s) => const CategoriesScreen())]),
-         StatefulShellBranch(routes: [GoRoute(path: '/admin/catalogs', builder: (c, s) => const CatalogsScreen())]),
-         StatefulShellBranch(routes: [GoRoute(path: '/admin/promotions', builder: (c, s) => const Scaffold(body: Center(child: Text('Promotions'))))]),
-         StatefulShellBranch(routes: [GoRoute(path: '/admin/sellers', builder: (c, s) => const SellersScreen())]),
-        StatefulShellBranch(routes: [GoRoute(path: '/admin/settings', builder: (c, s) => const SettingsScreen())]),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/admin/products',
+              builder: (c, s) => const ProductsScreen(),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/admin/categories',
+              builder: (c, s) => const CategoriesScreen(),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/admin/catalogs',
+              builder: (c, s) => const CatalogsScreen(),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/admin/promotions',
+              builder: (c, s) =>
+                  const Scaffold(body: Center(child: Text('Promotions'))),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/admin/sellers',
+              builder: (c, s) => const SellersScreen(),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/admin/settings',
+              builder: (c, s) => const SettingsScreen(),
+            ),
+          ],
+        ),
       ],
     ),
   ],
@@ -98,11 +145,32 @@ class MyApp extends ConsumerWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
         textTheme: GoogleFonts.interTextTheme(),
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+        inputDecorationTheme: InputDecorationTheme(
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
+          ),
+        ),
       ),
       darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue, brightness: Brightness.dark),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blue,
+          brightness: Brightness.dark,
+        ),
         useMaterial3: true,
-        textTheme: GoogleFonts.interTextTheme(ThemeData(brightness: Brightness.dark).textTheme),
+        textTheme: GoogleFonts.interTextTheme(
+          ThemeData(brightness: Brightness.dark).textTheme,
+        ),
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+        inputDecorationTheme: InputDecorationTheme(
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
+          ),
+        ),
       ),
       themeMode: mode,
       routerConfig: _router,

@@ -322,93 +322,185 @@ class OrdersScreen extends ConsumerWidget {
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
-                Table(
-                  columnWidths: const {
-                    0: FlexColumnWidth(3),
-                    1: FlexColumnWidth(1),
-                    2: FlexColumnWidth(1),
-                    3: FlexColumnWidth(1),
-                    4: FlexColumnWidth(1),
-                  },
-                  children: [
-                    const TableRow(
-                      children: [
-                        Text('Produto', style: TextStyle(color: Colors.grey)),
-                        Text('Tamanho', style: TextStyle(color: Colors.grey)),
-                        Text('Qtd', style: TextStyle(color: Colors.grey)),
-                        Text('Preco', style: TextStyle(color: Colors.grey)),
-                        Text('Total', style: TextStyle(color: Colors.grey)),
-                      ],
-                    ),
-                    ...order.items.map(
-                      (item) => TableRow(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(item.productName),
-                                Text(
-                                  item.productReference,
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.grey,
-                                  ),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    if (constraints.maxWidth < 500) {
+                      return Column(
+                        children: order.items
+                            .map(
+                              (item) => Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8.0,
                                 ),
-                              ],
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            item.productName,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          Text(
+                                            'REF: ${item.productReference} | Tam: ${item.selectedSize ?? "-"}',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          '${item.quantity}x ${currencyFormat.format(item.unitPrice)}',
+                                        ),
+                                        Text(
+                                          currencyFormat.format(item.total),
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.blue,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                            .toList(),
+                      );
+                    }
+                    return Table(
+                      columnWidths: const {
+                        0: FlexColumnWidth(3),
+                        1: FlexColumnWidth(1),
+                        2: FlexColumnWidth(1),
+                        3: FlexColumnWidth(1),
+                        4: FlexColumnWidth(1),
+                      },
+                      children: [
+                        const TableRow(
+                          children: [
+                            Text(
+                              'Produto',
+                              style: TextStyle(color: Colors.grey),
                             ),
+                            Text(
+                              'Tamanho',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                            Text('Qtd', style: TextStyle(color: Colors.grey)),
+                            Text('Preço', style: TextStyle(color: Colors.grey)),
+                            Text('Total', style: TextStyle(color: Colors.grey)),
+                          ],
+                        ),
+                        ...order.items.map(
+                          (item) => TableRow(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 4,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(item.productName),
+                                    Text(
+                                      item.productReference,
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 4,
+                                ),
+                                child: Text(item.selectedSize ?? '-'),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 4,
+                                ),
+                                child: Text(item.quantity.toString()),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 4,
+                                ),
+                                child: Text(
+                                  currencyFormat.format(item.unitPrice),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 4,
+                                ),
+                                child: Text(currencyFormat.format(item.total)),
+                              ),
+                            ],
                           ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Text(item.selectedSize ?? '-'),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Text(item.quantity.toString()),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Text(currencyFormat.format(item.unitPrice)),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Text(currencyFormat.format(item.total)),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                        ),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    DropdownButton<OrderStatus>(
-                      value: order.status,
-                      items: OrderStatus.values
-                          .map(
-                            (s) => DropdownMenuItem(
-                              value: s,
-                              child: Text(_statusLabel(s)),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (newStatus) {
-                        if (newStatus != null) {
-                          ref
-                              .read(ordersViewModelProvider.notifier)
-                              .updateStatus(order.id, newStatus);
-                        }
-                      },
+                    DropdownButtonHideUnderline(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: DropdownButton<OrderStatus>(
+                          value: order.status,
+                          items: OrderStatus.values
+                              .map(
+                                (s) => DropdownMenuItem(
+                                  value: s,
+                                  child: Text(_statusLabel(s)),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (newStatus) {
+                            if (newStatus != null) {
+                              ref
+                                  .read(ordersViewModelProvider.notifier)
+                                  .updateStatus(order.id, newStatus);
+                            }
+                          },
+                        ),
+                      ),
                     ),
                     ElevatedButton.icon(
                       onPressed: () => _launchWhatsApp(order),
                       icon: const Icon(Icons.chat),
-                      label: const Text('Conversar no WhatsApp'),
+                      label: const Text('WhatsApp'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
                         foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
                       ),
                     ),
                   ],

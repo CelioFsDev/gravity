@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:gravity/core/widgets/responsive_scaffold.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/models/product.dart';
@@ -33,6 +34,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   late TextEditingController _minQtyController;
   late TextEditingController _sizesController;
   late TextEditingController _colorsController;
+  late TextEditingController _discountController;
 
   String? _selectedCategoryId;
   bool _isActive = true;
@@ -62,6 +64,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     _colorsController = TextEditingController(
       text: pr?.colors.join(', ') ?? '',
     );
+    _discountController = TextEditingController(
+      text: pr?.saleDiscountPercent.toString() ?? '0',
+    );
 
     _selectedCategoryId = pr?.categoryId;
     _isActive = pr?.isActive ?? true;
@@ -81,6 +86,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     _minQtyController.dispose();
     _sizesController.dispose();
     _colorsController.dispose();
+    _discountController.dispose();
     super.dispose();
   }
 
@@ -305,7 +311,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         ? productsState.value!.categories
         : <Category>[];
 
-    return Scaffold(
+    return ResponsiveScaffold(
+      maxWidth: 900,
       appBar: AppBar(
         title: Text(widget.product == null ? 'Novo Produto' : 'Editar Produto'),
         actions: [IconButton(icon: const Icon(Icons.check), onPressed: _save)],
@@ -469,6 +476,34 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                       value: _isOnSale,
                       onChanged: (v) => setState(() => _isOnSale = v),
                     ),
+                    if (_isOnSale) ...[
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: TextFormField(
+                          controller: _discountController,
+                          decoration: const InputDecoration(
+                            labelText: 'Desconto (%)',
+                            hintText: 'Ex: 10 para 10% OFF',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          validator: (v) {
+                            if (_isOnSale && (v == null || v.isEmpty)) {
+                              return 'Informe o desconto';
+                            }
+                            final val = int.tryParse(v ?? '0') ?? 0;
+                            if (val < 0 || val > 100) {
+                              return 'Desconto deve estar entre 0 e 100';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                    ],
 
                     const SizedBox(height: 24),
 

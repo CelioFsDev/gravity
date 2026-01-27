@@ -7,7 +7,7 @@ part of 'catalog_editor_viewmodel.dart';
 // **************************************************************************
 
 String _$catalogEditorViewModelHash() =>
-    r'c9315e78649ebe28ca2263a19df726d1eee79f58';
+    r'567032e562e55d7f00126d0b805eaf8b139902c5';
 
 /// Copied from Dart SDK
 class _SystemHash {

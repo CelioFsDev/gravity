@@ -50,111 +50,126 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
                   .where((p) => p.categoryId == _selectedCategoryId)
                   .toList();
 
-        return Scaffold(
-          key: _scaffoldKey,
-          endDrawer: CartSidePanel(catalog: data.catalog),
-          appBar: AppBar(
-            title: Text(data.catalog.name),
-            centerTitle: true,
-            actions: [
-              Stack(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.shopping_bag_outlined),
-                    onPressed: () {
-                      _scaffoldKey.currentState?.openEndDrawer();
-                    },
+        return Material(
+          child: Container(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: Scaffold(
+                  key: _scaffoldKey,
+                  endDrawer: CartSidePanel(catalog: data.catalog),
+                  appBar: AppBar(
+                    title: Text(data.catalog.name),
+                    centerTitle: true,
+                    actions: [
+                      Stack(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.shopping_bag_outlined),
+                            onPressed: () {
+                              _scaffoldKey.currentState?.openEndDrawer();
+                            },
+                          ),
+                          if (cart.items.isNotEmpty)
+                            Positioned(
+                              right: 8,
+                              top: 8,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Text(
+                                  '${cart.items.length}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
                   ),
-                  if (cart.items.isNotEmpty)
-                    Positioned(
-                      right: 8,
-                      top: 8,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: Colors.red,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Text(
-                          '${cart.items.length}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
+                  body: Column(
+                    children: [
+                      // Announcement
+                      if (data.catalog.announcementEnabled &&
+                          data.catalog.announcementText != null)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(8),
+                          color: Colors.amber.shade100,
+                          child: Text(
+                            data.catalog.announcementText!,
+                            textAlign: TextAlign.center,
                           ),
                         ),
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          ),
-          body: Column(
-            children: [
-              // Announcement
-              if (data.catalog.announcementEnabled &&
-                  data.catalog.announcementText != null)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(8),
-                  color: Colors.amber.shade100,
-                  child: Text(
-                    data.catalog.announcementText!,
-                    textAlign: TextAlign.center,
-                  ),
-                ),
 
-              // Categories Chips
-              if (data.categories.isNotEmpty)
-                SizedBox(
-                  height: 60,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    scrollDirection: Axis.horizontal,
-                    itemCount: data.categories.length + 1,
-                    separatorBuilder: (_, _) => const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      if (index == 0) {
-                        return ChoiceChip(
-                          label: const Text('Todos'),
-                          selected: _selectedCategoryId == null,
-                          onSelected: (v) =>
-                              setState(() => _selectedCategoryId = null),
-                        );
-                      }
-                      final cat = data.categories[index - 1];
-                      return ChoiceChip(
-                        label: Text(cat.name),
-                        selected: _selectedCategoryId == cat.id,
-                        onSelected: (v) => setState(
-                          () => _selectedCategoryId = v ? cat.id : null,
+                      // Categories Chips
+                      if (data.categories.isNotEmpty)
+                        SizedBox(
+                          height: 60,
+                          child: ListView.separated(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            scrollDirection: Axis.horizontal,
+                            itemCount: data.categories.length + 1,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(width: 8),
+                            itemBuilder: (context, index) {
+                              if (index == 0) {
+                                return ChoiceChip(
+                                  label: const Text('Todos'),
+                                  selected: _selectedCategoryId == null,
+                                  onSelected: (v) => setState(
+                                    () => _selectedCategoryId = null,
+                                  ),
+                                );
+                              }
+                              final cat = data.categories[index - 1];
+                              return ChoiceChip(
+                                label: Text(cat.name),
+                                selected: _selectedCategoryId == cat.id,
+                                onSelected: (v) => setState(
+                                  () => _selectedCategoryId = v ? cat.id : null,
+                                ),
+                              );
+                            },
+                          ),
                         ),
-                      );
-                    },
-                  ),
-                ),
 
-              // Products Grid/List
-              Expanded(
-                child: filteredProducts.isEmpty
-                    ? const Center(child: Text('Nenhum produto encontrado'))
-                    : _buildProductLayout(
-                        filteredProducts,
-                        data.catalog.photoLayout,
+                      // Products Grid/List
+                      Expanded(
+                        child: filteredProducts.isEmpty
+                            ? const Center(
+                                child: Text('Nenhum produto encontrado'),
+                              )
+                            : _buildProductLayout(
+                                filteredProducts,
+                                data.catalog.photoLayout,
+                              ),
                       ),
+                    ],
+                  ),
+                  // Floating Cart Button (optional, but requested)
+                  floatingActionButton: cart.items.isNotEmpty
+                      ? FloatingActionButton.extended(
+                          onPressed: () =>
+                              _scaffoldKey.currentState?.openEndDrawer(),
+                          icon: const Icon(Icons.shopping_bag),
+                          label: Text('${cart.items.length} itens'),
+                        )
+                      : null,
+                ),
               ),
-            ],
+            ),
           ),
-          // Floating Cart Button (optional, but requested)
-          floatingActionButton: cart.items.isNotEmpty
-              ? FloatingActionButton.extended(
-                  onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
-                  icon: const Icon(Icons.shopping_bag),
-                  label: Text('${cart.items.length} itens'),
-                )
-              : null,
         );
       },
     );

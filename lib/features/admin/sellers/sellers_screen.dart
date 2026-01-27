@@ -105,8 +105,9 @@ class SellersScreen extends ConsumerWidget {
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                     subtitle: Text(seller.whatsapp),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
+                    trailing: Wrap(
+                      spacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         // Status Toggle
                         Switch(
@@ -117,17 +118,20 @@ class SellersScreen extends ConsumerWidget {
                                 .toggleActive(seller.id);
                           },
                         ),
-                        const SizedBox(width: 8),
                         IconButton(
                           icon: const Icon(Icons.edit, color: Colors.blue),
                           onPressed: () =>
                               _showSellerDialog(context, ref, seller: seller),
                           tooltip: 'Editar',
+                          constraints: const BoxConstraints(),
+                          padding: const EdgeInsets.all(8),
                         ),
                         IconButton(
                           icon: const Icon(Icons.delete, color: Colors.red),
                           onPressed: () => _deleteSeller(context, ref, seller),
                           tooltip: 'Excluir',
+                          constraints: const BoxConstraints(),
+                          padding: const EdgeInsets.all(8),
                         ),
                       ],
                     ),

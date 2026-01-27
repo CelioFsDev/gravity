@@ -33,13 +33,14 @@ class ProductAdapter extends TypeAdapter<Product> {
       isOutOfStock: fields[13] as bool,
       isOnSale: fields[14] as bool,
       createdAt: fields[15] as DateTime,
+      saleDiscountPercent: fields[16] as int,
     );
   }
 
   @override
   void write(BinaryWriter writer, Product obj) {
     writer
-      ..writeByte(16)
+      ..writeByte(17)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -71,7 +72,9 @@ class ProductAdapter extends TypeAdapter<Product> {
       ..writeByte(14)
       ..write(obj.isOnSale)
       ..writeByte(15)
-      ..write(obj.createdAt);
+      ..write(obj.createdAt)
+      ..writeByte(16)
+      ..write(obj.saleDiscountPercent);
   }
 
   @override
