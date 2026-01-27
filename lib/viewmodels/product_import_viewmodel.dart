@@ -1,12 +1,16 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/services.dart';
 import 'package:gravity/data/repositories/products_repository.dart';
 import 'package:gravity/models/product.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:csv/csv.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:uuid/uuid.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
 
 part 'product_import_viewmodel.g.dart';
 
@@ -95,15 +99,12 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         if (fields.isEmpty) throw Exception("Arquivo vazio");
         
         // Parse Products
-        // Assuming Header: Name, REF, SKU, Category, Retail, Wholesale, MinQty, Sizes, Colors, Status
         final products = <Product>[];
         // Skip header
         for (var i = 1; i < fields.length; i++) {
             final row = fields[i];
             if (row.length < 3) continue; // Skip bad row
             
-            // Map row to Product
-            // This assumes a strict structure. In real world, we'd map columns.
             products.add(_mapRowToProduct(row));
         }
 
@@ -112,7 +113,6 @@ class ProductImportViewModel extends _$ProductImportViewModel {
           parsedProducts: products,
           isLoading: false,
         );
-        // Auto advance?
       } else {
         state = state.copyWith(isLoading: false);
       }
@@ -127,35 +127,29 @@ class ProductImportViewModel extends _$ProductImportViewModel {
      try {
        FilePickerResult? result = await FilePicker.platform.pickFiles(
          allowMultiple: true,
-         type: FileType.image,
+         type: FileType.custom,
+         allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
        );
 
        if (result != null) {
          Map<String, List<String>> productImages = {};
          int matched = 0;
          
-         // Logic: Filename "SKU.jpg" or "SKU_1.jpg"
          for (var file in result.files) {
             if (file.path == null) continue;
+
+            final filename = p.basenameWithoutExtension(file.path!); 
             
-            final filename = p.basenameWithoutExtension(file.path!); // e.g. "SKU123_1"
-            
-            // Look for matching SKU in parsedProducts
             for (var product in state.parsedProducts) {
-               // Checking if filename starts with SKU
-               // e.g. SKU="ABC", filename="ABC.jpg" or "ABC_1.jpg"
-               if (filename == product.sku || filename.startsWith('${product.sku}_')) {
-                  if (!productImages.containsKey(product.id)) {
-                    productImages[product.id] = [];
+                  final copiedPath = await _copyImageToPersistentStorage(file.path!);
+                  if (copiedPath != null) {
+                    productImages.putIfAbsent(product.id, () => []).add(copiedPath);
+                    matched++;
                   }
-                  productImages[product.id]!.add(file.path!);
-                  matched++;
                   break; // Found owner
-               }
             }
          }
          
-         // Update products with matched images
          final updatedProducts = state.parsedProducts.map((p) {
              if (productImages.containsKey(p.id)) {
                return p.copyWith(images: productImages[p.id]!);
@@ -183,7 +177,6 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     try {
       final repository = ref.read(productsRepositoryProvider);
       
-      // Save all products
       for (var p in state.parsedProducts) {
         await repository.addProduct(p);
       }
@@ -194,17 +187,26 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     }
   }
 
+  double _parsePrice(String text) {
+    if (text.isEmpty) return 0.0;
+    String cleaned = text.replaceAll(',', '.').replaceAll(RegExp(r'[^0-9.]'), '');
+    if (cleaned.split('.').length > 2) {
+      final parts = cleaned.split('.');
+      final decimal = parts.removeLast();
+      cleaned = '${parts.join('')}.$decimal';
+    }
+    return double.tryParse(cleaned) ?? 0.0;
+  }
+
   Product _mapRowToProduct(List<dynamic> row) {
-    // Schema: Name(0), REF(1), SKU(2), CategoryID(3), Retail(4), Wholesale(5), MinQty(6), Sizes(7), Colors(8), Active(9)
-    // CSV numbers usually integers or doubles.
     return Product(
       id: const Uuid().v4(),
       name: row[0].toString(),
       reference: row[1].toString(),
       sku: row[2].toString(),
-      categoryId: row[3].toString(), // Assuming ID. In advanced version, map Name -> ID.
-      retailPrice: double.tryParse(row[4].toString()) ?? 0.0,
-      wholesalePrice: double.tryParse(row[5].toString()) ?? 0.0,
+      categoryId: row[3].toString(), 
+      retailPrice: _parsePrice(row[4].toString()),
+      wholesalePrice: _parsePrice(row[5].toString()),
       minWholesaleQty: int.tryParse(row[6].toString()) ?? 1,
       sizes: row[7].toString().split(',').map((e) => e.trim()).toList(),
       colors: row[8].toString().split(',').map((e) => e.trim()).toList(),
@@ -215,5 +217,34 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       isOnSale: false,
       createdAt: DateTime.now(),
     );
+  }
+
+  Future<String?> _copyImageToPersistentStorage(String sourcePath) async {
+    try {
+      final baseDir = await getApplicationDocumentsDirectory();
+      final imagesDir = Directory(p.join(baseDir.path, 'product_images'));
+      if (!await imagesDir.exists()) {
+        await imagesDir.create(recursive: true);
+      }
+      final fileName = '${const Uuid().v4()}${p.extension(sourcePath)}';
+      final targetPath = p.join(imagesDir.path, fileName);
+      final File targetFile = File(targetPath);
+      
+      final sourceFile = File(sourcePath);
+      if (await sourceFile.exists()) {
+        final bytes = await sourceFile.readAsBytes();
+        await targetFile.writeAsBytes(bytes);
+        return targetPath;
+      }
+      return null;
+    } on MissingPluginException {
+      if (kDebugMode) print('MissingPluginException: path_provider not implemented on this platform or stale build.');
+      return null;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Failed to copy import image: $e');
+      }
+      return null;
+    }
   }
 }

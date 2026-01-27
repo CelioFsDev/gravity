@@ -1,8 +1,9 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/models/product.dart';
-import 'package:gravity/models/category.dart';
+import 'package:gravity/models/category.dart' hide Category;
 import 'package:gravity/viewmodels/products_viewmodel.dart';
 import 'package:gravity/features/admin/products/product_form_screen.dart';
 import 'package:gravity/features/admin/products/product_import_screen.dart';
@@ -164,7 +165,7 @@ class ProductsScreen extends ConsumerWidget {
              ),
              itemCount: state.filteredProducts.length,
              itemBuilder: (context, index) {
-               return _buildProductCard(context, ref, state.filteredProducts[index], state.categories);
+               return _buildProductCard(context, ref, state.filteredProducts[index], state.categories.cast<Category>());
              },
            ),
          ],
@@ -174,19 +175,32 @@ class ProductsScreen extends ConsumerWidget {
 
   Widget _buildKpiCard(BuildContext context, String title, String value, Color color) {
      return Container(
-       padding: const EdgeInsets.all(16),
        decoration: BoxDecoration(
          color: Colors.white,
          borderRadius: BorderRadius.circular(12),
-         border: Border(left: BorderSide(color: color, width: 4), top: BorderSide(color: Colors.grey.shade200), right: BorderSide(color: Colors.grey.shade200), bottom: BorderSide(color: Colors.grey.shade200)),
+         border: Border.all(color: Colors.grey.shade200),
        ),
-       child: Column(
-         crossAxisAlignment: CrossAxisAlignment.start,
-         children: [
-            Text(title, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: Colors.grey)),
-            const SizedBox(height: 8),
-            Text(value, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
-         ],
+       clipBehavior: Clip.antiAlias,
+       child: IntrinsicHeight(
+         child: Row(
+           crossAxisAlignment: CrossAxisAlignment.stretch,
+           children: [
+             Container(width: 4, color: color),
+             Expanded(
+               child: Padding(
+                 padding: const EdgeInsets.all(16),
+                 child: Column(
+                   crossAxisAlignment: CrossAxisAlignment.start,
+                   children: [
+                      Text(title, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: Colors.grey)),
+                      const SizedBox(height: 8),
+                      Text(value, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
+                   ],
+                 ),
+               ),
+             ),
+           ],
+         ),
        ),
      );
   }
@@ -210,8 +224,12 @@ class ProductsScreen extends ConsumerWidget {
             child: Container(
               width: double.infinity,
               color: Colors.grey.shade100,
-              child: imagePath != null 
-                  ? Image.file(File(imagePath), fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.image_not_supported)) 
+              child: (imagePath != null && !kIsWeb)
+                  ? Image.file(
+                      File(imagePath),
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported),
+                    )
                   : const Icon(Icons.image, size: 48, color: Colors.grey),
             ),
           ),

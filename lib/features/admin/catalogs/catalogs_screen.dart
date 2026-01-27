@@ -1,10 +1,10 @@
+import 'package:gravity/core/services/whatsapp_share_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/viewmodels/catalogs_viewmodel.dart';
 import 'package:flutter/services.dart';
 import 'package:gravity/features/admin/catalogs/catalog_editor_screen.dart';
 import 'package:gravity/data/repositories/settings_repository.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class CatalogsScreen extends ConsumerWidget {
   const CatalogsScreen({super.key});
@@ -85,9 +85,11 @@ class CatalogsScreen extends ConsumerWidget {
                                   final baseUrl = settings.publicBaseUrl?.isNotEmpty == true ? settings.publicBaseUrl! : 'https://gravity.app';
                                   final url = '$baseUrl/c/${catalog.slug}';
                                   
-                                  final text = 'Confira nosso catálogo *${catalog.name}*:\n$url';
-                                  final waUrl = Uri.parse('https://wa.me/?text=${Uri.encodeComponent(text)}');
-                                  await launchUrl(waUrl);
+                                  // Updated to use WhatsAppShareService
+                                  await WhatsAppShareService.shareCatalog(
+                                    catalogName: catalog.name,
+                                    catalogUrl: url,
+                                  );
                                },
                              ),
                              IconButton(

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
 import 'package:gravity/models/product.dart';
 import 'package:gravity/models/category.dart';
@@ -52,35 +53,41 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-               TextField(
-                 decoration: const InputDecoration(labelText: 'Buscar produtos', prefixIcon: Icon(Icons.search)),
-                 onChanged: (val) => setState(() => _search = val),
-               ),
-               Row(
-                 children: [
-                   DropdownButton<String>(
-                      hint: const Text('Categoria'),
-                      value: _categoryFilter,
-                      items: [
-                        const DropdownMenuItem(value: null, child: Text('Todas')),
-                        ...widget.categories.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))),
-                      ], 
-                      onChanged: (val) => setState(() => _categoryFilter = val),
-                   ),
-                   const SizedBox(width: 16),
-                   FilterChip(
-                     label: const Text('Apenas Selecionados'),
-                     selected: _onlySelected,
-                     onSelected: (val) => setState(() => _onlySelected = val),
-                   ),
-                   const Spacer(),
-                   Text('${widget.selectedIds.length} selecionados'),
-                 ],
-               ),
+              TextField(
+                decoration: const InputDecoration(
+                  labelText: 'Buscar produtos',
+                  prefixIcon: Icon(Icons.search),
+                ),
+                onChanged: (val) => setState(() => _search = val),
+              ),
+              Row(
+                children: [
+                  DropdownButton<String>(
+                    hint: const Text('Categoria'),
+                    value: _categoryFilter,
+                    items: [
+                      const DropdownMenuItem(value: null, child: Text('Todas')),
+                      ...widget.categories.map(
+                        (c) =>
+                            DropdownMenuItem(value: c.id, child: Text(c.name)),
+                      ),
+                    ],
+                    onChanged: (val) => setState(() => _categoryFilter = val),
+                  ),
+                  const SizedBox(width: 16),
+                  FilterChip(
+                    label: const Text('Apenas Selecionados'),
+                    selected: _onlySelected,
+                    onSelected: (val) => setState(() => _onlySelected = val),
+                  ),
+                  const Spacer(),
+                  Text('${widget.selectedIds.length} selecionados'),
+                ],
+              ),
             ],
           ),
         ),
-        
+
         Expanded(
           child: ListView.builder(
             itemCount: filtered.length,
@@ -89,17 +96,29 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
               final isSelected = widget.selectedIds.contains(product.id);
               return ListTile(
                 leading: Container(
-                  width: 40, height: 40, 
-                  color: Colors.grey.shade200,
-                  child: product.images.isNotEmpty 
-                      ? Image.file(File(product.images[0]), fit: BoxFit.cover, errorBuilder: (_,__,___)=>const Icon(Icons.error)) 
-                      : null,
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: (product.images.isNotEmpty && !kIsWeb)
+                      ? Image.file(
+                          File(product.images[0]),
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              const Icon(Icons.broken_image),
+                        )
+                      : const Center(child: Icon(Icons.image_not_supported)),
                 ),
                 title: Text(product.name),
-                subtitle: Text('REF: ${product.reference} | R\$ ${product.retailPrice}'),
+                subtitle: Text(
+                  'REF: ${product.reference} | R\$ ${product.retailPrice}',
+                ),
                 trailing: Checkbox(
-                   value: isSelected,
-                   onChanged: (_) => widget.onToggle(product.id),
+                  value: isSelected,
+                  onChanged: (_) => widget.onToggle(product.id),
                 ),
                 onTap: () => widget.onToggle(product.id),
               );

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/models/product.dart';
@@ -137,14 +138,7 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
             return Card(
                margin: const EdgeInsets.only(bottom: 16),
                child: ListTile(
-                   leading: Container(
-                     width: 60, height: 60,
-                     decoration: BoxDecoration(
-                       borderRadius: BorderRadius.circular(8),
-                       image: product.images.isNotEmpty ? DecorationImage(image: FileImage(File(product.images.first)), fit: BoxFit.cover) : null,
-                       color: Colors.grey.shade200,
-                     ),
-                   ),
+                   leading: _buildProductThumbnail(product.images.isNotEmpty ? product.images.first : null),
                    title: Text(product.name),
                    subtitle: Text('REF: ${product.reference}'),
                    trailing: Column(
@@ -189,13 +183,10 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Expanded(
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          if (product.images.isNotEmpty)
-                             Image.file(File(product.images.first), fit: BoxFit.cover)
-                          else
-                             Container(color: Colors.grey.shade200, child: const Icon(Icons.image_not_supported)),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              _buildProductImageWidget(product.images.isNotEmpty ? product.images.first : null),
                           if (product.isOutOfStock)
                              Container(
                                color: Colors.black54,
@@ -229,6 +220,39 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
       context: context, 
       isScrollControlled: true,
       builder: (context) => ProductQuickAddSheet(product: product),
+    );
+  }
+
+  Widget _buildProductThumbnail(String? imagePath) {
+    return Container(
+      width: 60,
+      height: 60,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        color: Colors.grey.shade200,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: _buildProductImageWidget(imagePath),
+    );
+  }
+
+  Widget _buildProductImageWidget(String? imagePath, {BoxFit fit = BoxFit.cover}) {
+    if (imagePath == null || kIsWeb) {
+      return Container(
+        color: Colors.grey.shade200,
+        alignment: Alignment.center,
+        child: const Icon(Icons.image_not_supported),
+      );
+    }
+
+    return Image.file(
+      File(imagePath),
+      fit: fit,
+      errorBuilder: (context, error, stackTrace) => Container(
+        color: Colors.grey.shade200,
+        alignment: Alignment.center,
+        child: const Icon(Icons.broken_image),
+      ),
     );
   }
 }

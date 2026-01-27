@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/models/product.dart';
@@ -68,13 +69,9 @@ class ProductDetailScreen extends ConsumerWidget {
                     return Container(
                       margin: const EdgeInsets.only(right: 16),
                       width: 300,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
+                      child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        image: DecorationImage(
-                          image: FileImage(File(updatedProduct.images[index])),
-                          fit: BoxFit.cover,
-                        ),
+                        child: _buildDetailImage(updatedProduct.images[index]),
                       ),
                     );
                   },
@@ -179,6 +176,26 @@ class ProductDetailScreen extends ConsumerWidget {
     );
   }
   
+  Widget _buildDetailImage(String? imagePath) {
+    if (imagePath == null || kIsWeb) {
+      return Container(
+        color: Colors.grey.shade200,
+        alignment: Alignment.center,
+        child: const Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
+      );
+    }
+
+    return Image.file(
+      File(imagePath),
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => Container(
+        color: Colors.grey.shade200,
+        alignment: Alignment.center,
+        child: const Icon(Icons.broken_image, size: 48, color: Colors.red),
+      ),
+    );
+  }
+
   Widget _statusBadge(String text, Color color) {
     return Container(
       margin: const EdgeInsets.only(right: 8),

@@ -6,12 +6,12 @@ part of 'checkout_viewmodel.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$checkoutViewModelHash() => r'033858aa82a21fa5d3fd8626b9e7b7fbe2defc0a';
+String _$checkoutViewModelHash() => r'c785623d49e6caa55ba8d2025c15fd5f9e1d4510';
 
 /// See also [CheckoutViewModel].
 @ProviderFor(CheckoutViewModel)
 final checkoutViewModelProvider =
-    AutoDisposeNotifierProvider<CheckoutViewModel, void>.internal(
+    AutoDisposeAsyncNotifierProvider<CheckoutViewModel, void>.internal(
   CheckoutViewModel.new,
   name: r'checkoutViewModelProvider',
   debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
@@ -21,6 +21,6 @@ final checkoutViewModelProvider =
   allTransitiveDependencies: null,
 );
 
-typedef _$CheckoutViewModel = AutoDisposeNotifier<void>;
+typedef _$CheckoutViewModel = AutoDisposeAsyncNotifier<void>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member

@@ -1,5 +1,7 @@
 import 'package:gravity/data/repositories/products_repository.dart';
 import 'package:gravity/models/category.dart';
+import 'package:gravity/viewmodels/dashboard_viewmodel.dart';
+import 'package:gravity/viewmodels/products_viewmodel.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
 
@@ -136,6 +138,11 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     
     await repository.addCategory(newCat);
     await _refresh();
+    
+    // Notify other viewmodels that categories changed
+    ref.invalidate(productsViewModelProvider);
+    ref.invalidate(dashboardViewModelProvider);
+    
     return null; // Success
   }
 
@@ -152,6 +159,11 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     final updated = cat.copyWith(name: newName.trim(), updatedAt: DateTime.now());
     await repository.updateCategory(updated);
     await _refresh();
+    
+    // Notify other viewmodels
+    ref.invalidate(productsViewModelProvider);
+    ref.invalidate(dashboardViewModelProvider);
+    
     return null;
   }
   
@@ -201,6 +213,8 @@ class CategoriesViewModel extends _$CategoriesViewModel {
      if (products.isEmpty) {
        await repository.deleteCategory(id);
        await _refresh();
+       ref.invalidate(productsViewModelProvider);
+       ref.invalidate(dashboardViewModelProvider);
        return CategoryDeleteResult(success: true, hasProducts: false);
      } else {
        return CategoryDeleteResult(success: false, hasProducts: true, message: 'Existem ${products.length} produtos nesta categoria.');

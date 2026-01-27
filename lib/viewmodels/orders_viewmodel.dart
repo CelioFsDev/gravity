@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:gravity/data/repositories/orders_repository.dart';
 import 'package:gravity/models/order.dart';
 import 'package:gravity/models/order_status.dart';
+import 'package:gravity/viewmodels/dashboard_viewmodel.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'orders_viewmodel.g.dart';
@@ -103,6 +104,9 @@ class OrdersViewModel extends _$OrdersViewModel {
     // Let's reload to be safe and consistent.
     final newOrders = await repository.getOrders();
     state = AsyncData(_applyFilters(state.value!.copyWith(allOrders: newOrders)));
+    
+    // Notify dashboard that order status changed
+    ref.invalidate(dashboardViewModelProvider);
   }
 
   OrdersState _applyFilters(OrdersState currentState) {

@@ -2,6 +2,10 @@
 import 'package:gravity/data/repositories/products_repository.dart';
 import 'package:gravity/models/product.dart';
 import 'package:gravity/models/category.dart';
+import 'package:gravity/viewmodels/catalog_public_viewmodel.dart';
+import 'package:gravity/viewmodels/catalogs_viewmodel.dart';
+import 'package:gravity/viewmodels/categories_viewmodel.dart';
+import 'package:gravity/viewmodels/dashboard_viewmodel.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'products_viewmodel.g.dart';
@@ -124,18 +128,29 @@ class ProductsViewModel extends _$ProductsViewModel {
     final repository = ref.read(productsRepositoryProvider);
     await repository.deleteProduct(id);
     await refresh();
+    _notifyChanges();
   }
   
   Future<void> addProduct(Product product) async {
     final repository = ref.read(productsRepositoryProvider);
     await repository.addProduct(product);
     await refresh();
+    _notifyChanges();
   }
   
   Future<void> updateProduct(Product product) async {
     final repository = ref.read(productsRepositoryProvider);
     await repository.updateProduct(product);
     await refresh();
+    _notifyChanges();
+  }
+  
+  void _notifyChanges() {
+    // Notify other viewmodels that products changed
+    ref.invalidate(categoriesViewModelProvider);
+    ref.invalidate(catalogsViewModelProvider);
+    ref.invalidate(catalogPublicProvider);
+    ref.invalidate(dashboardViewModelProvider);
   }
   
 

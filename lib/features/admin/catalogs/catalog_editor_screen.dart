@@ -1,3 +1,5 @@
+import 'package:gravity/core/services/whatsapp_share_service.dart';
+import 'package:gravity/data/repositories/settings_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/models/catalog.dart';
@@ -44,8 +46,8 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen> with 
     // We need to initialize the ViewModel with the catalog.
     // This is tricky with plain riverpod generator unless family.
     // Let's rely on the fact that build(Catalog?) is defined.
-    final state = ref.watch(catalogEditorViewModelProvider(widget.catalog));
-    final notifier = ref.read(catalogEditorViewModelProvider(widget.catalog).notifier);
+    final state = ref.watch(catalogEditorViewModelProvider(widget.catalog?.id));
+    final notifier = ref.read(catalogEditorViewModelProvider(widget.catalog?.id).notifier);
 
     return Scaffold(
       appBar: AppBar(
@@ -58,6 +60,20 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen> with 
           ],
         ),
         actions: [
+          if (widget.catalog != null)
+             IconButton(
+               icon: const Icon(Icons.share),
+               onPressed: () async {
+                  final settingsRepo = ref.read(settingsRepositoryProvider);
+                  final settings = await settingsRepo.getSettings();
+                  final baseUrl = settings.publicBaseUrl?.isNotEmpty == true ? settings.publicBaseUrl! : 'https://gravity.app';
+                  final url = '$baseUrl/c/${widget.catalog!.slug}';
+                  await WhatsAppShareService.shareCatalog(
+                    catalogName: widget.catalog!.name,
+                    catalogUrl: url,
+                  );
+               },
+             ),
           IconButton(
             icon: const Icon(Icons.check),
             onPressed: state.isSaving

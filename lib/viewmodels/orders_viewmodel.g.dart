@@ -6,7 +6,7 @@ part of 'orders_viewmodel.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$ordersViewModelHash() => r'84027d1aa40ac16b67087d03920cdda12041d1d3';
+String _$ordersViewModelHash() => r'b744b4e67df0c3ab2a2161f366ecd9f50e46d116';
 
 /// See also [OrdersViewModel].
 @ProviderFor(OrdersViewModel)

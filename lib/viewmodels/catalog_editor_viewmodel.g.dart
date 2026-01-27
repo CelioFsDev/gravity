@@ -7,7 +7,7 @@ part of 'catalog_editor_viewmodel.dart';
 // **************************************************************************
 
 String _$catalogEditorViewModelHash() =>
-    r'84420fcd8b46eba41aed33853410635958b229ad';
+    r'c9315e78649ebe28ca2263a19df726d1eee79f58';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -32,10 +32,10 @@ class _SystemHash {
 
 abstract class _$CatalogEditorViewModel
     extends BuildlessAutoDisposeNotifier<CatalogEditorState> {
-  late final Catalog? initialCatalog;
+  late final String? catalogId;
 
   CatalogEditorState build(
-    Catalog? initialCatalog,
+    String? catalogId,
   );
 }
 
@@ -50,10 +50,10 @@ class CatalogEditorViewModelFamily extends Family<CatalogEditorState> {
 
   /// See also [CatalogEditorViewModel].
   CatalogEditorViewModelProvider call(
-    Catalog? initialCatalog,
+    String? catalogId,
   ) {
     return CatalogEditorViewModelProvider(
-      initialCatalog,
+      catalogId,
     );
   }
 
@@ -62,7 +62,7 @@ class CatalogEditorViewModelFamily extends Family<CatalogEditorState> {
     covariant CatalogEditorViewModelProvider provider,
   ) {
     return call(
-      provider.initialCatalog,
+      provider.catalogId,
     );
   }
 
@@ -86,9 +86,9 @@ class CatalogEditorViewModelProvider extends AutoDisposeNotifierProviderImpl<
     CatalogEditorViewModel, CatalogEditorState> {
   /// See also [CatalogEditorViewModel].
   CatalogEditorViewModelProvider(
-    Catalog? initialCatalog,
+    String? catalogId,
   ) : this._internal(
-          () => CatalogEditorViewModel()..initialCatalog = initialCatalog,
+          () => CatalogEditorViewModel()..catalogId = catalogId,
           from: catalogEditorViewModelProvider,
           name: r'catalogEditorViewModelProvider',
           debugGetCreateSourceHash:
@@ -98,7 +98,7 @@ class CatalogEditorViewModelProvider extends AutoDisposeNotifierProviderImpl<
           dependencies: CatalogEditorViewModelFamily._dependencies,
           allTransitiveDependencies:
               CatalogEditorViewModelFamily._allTransitiveDependencies,
-          initialCatalog: initialCatalog,
+          catalogId: catalogId,
         );
 
   CatalogEditorViewModelProvider._internal(
@@ -108,17 +108,17 @@ class CatalogEditorViewModelProvider extends AutoDisposeNotifierProviderImpl<
     required super.allTransitiveDependencies,
     required super.debugGetCreateSourceHash,
     required super.from,
-    required this.initialCatalog,
+    required this.catalogId,
   }) : super.internal();
 
-  final Catalog? initialCatalog;
+  final String? catalogId;
 
   @override
   CatalogEditorState runNotifierBuild(
     covariant CatalogEditorViewModel notifier,
   ) {
     return notifier.build(
-      initialCatalog,
+      catalogId,
     );
   }
 
@@ -127,13 +127,13 @@ class CatalogEditorViewModelProvider extends AutoDisposeNotifierProviderImpl<
     return ProviderOverride(
       origin: this,
       override: CatalogEditorViewModelProvider._internal(
-        () => create()..initialCatalog = initialCatalog,
+        () => create()..catalogId = catalogId,
         from: from,
         name: null,
         dependencies: null,
         allTransitiveDependencies: null,
         debugGetCreateSourceHash: null,
-        initialCatalog: initialCatalog,
+        catalogId: catalogId,
       ),
     );
   }
@@ -147,13 +147,13 @@ class CatalogEditorViewModelProvider extends AutoDisposeNotifierProviderImpl<
   @override
   bool operator ==(Object other) {
     return other is CatalogEditorViewModelProvider &&
-        other.initialCatalog == initialCatalog;
+        other.catalogId == catalogId;
   }
 
   @override
   int get hashCode {
     var hash = _SystemHash.combine(0, runtimeType.hashCode);
-    hash = _SystemHash.combine(hash, initialCatalog.hashCode);
+    hash = _SystemHash.combine(hash, catalogId.hashCode);
 
     return _SystemHash.finish(hash);
   }
@@ -161,8 +161,8 @@ class CatalogEditorViewModelProvider extends AutoDisposeNotifierProviderImpl<
 
 mixin CatalogEditorViewModelRef
     on AutoDisposeNotifierProviderRef<CatalogEditorState> {
-  /// The parameter `initialCatalog` of this provider.
-  Catalog? get initialCatalog;
+  /// The parameter `catalogId` of this provider.
+  String? get catalogId;
 }
 
 class _CatalogEditorViewModelProviderElement
@@ -171,8 +171,7 @@ class _CatalogEditorViewModelProviderElement
   _CatalogEditorViewModelProviderElement(super.provider);
 
   @override
-  Catalog? get initialCatalog =>
-      (origin as CatalogEditorViewModelProvider).initialCatalog;
+  String? get catalogId => (origin as CatalogEditorViewModelProvider).catalogId;
 }
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member

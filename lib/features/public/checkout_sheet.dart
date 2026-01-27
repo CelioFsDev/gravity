@@ -17,13 +17,32 @@ class CheckoutSheet extends ConsumerStatefulWidget {
 class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _phoneController = TextEditingController(); // Masking handled simply for now
+  final _phoneController = TextEditingController();
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final cart = ref.watch(cartViewModelProvider);
+    final checkoutState = ref.watch(checkoutViewModelProvider);
     final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
     
+    // Listen for error
+    ref.listen(checkoutViewModelProvider, (prev, next) {
+      if (next is AsyncError) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao enviar pedido: ${next.error}')),
+        );
+      }
+    });
+
+    final isLoading = checkoutState is AsyncLoading;
+
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -40,6 +59,7 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
             if (widget.catalog.requireCustomerData) ...[
                 TextFormField(
                   controller: _nameController,
+                  enabled: !isLoading,
                   decoration: const InputDecoration(labelText: 'Seu Nome (Obrigatório)', border: OutlineInputBorder()),
                   validator: (v) => v == null || v.trim().isEmpty ? 'Nome é obrigatório' : null,
                 ),
@@ -47,15 +67,17 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
             ],
             TextFormField(
               controller: _phoneController,
+              enabled: !isLoading,
               keyboardType: TextInputType.phone,
               decoration: const InputDecoration(
                 labelText: 'WhatsApp (com DDD)', 
                 border: OutlineInputBorder(),
                 prefixText: '+55 ',
+                helperText: 'Apenas números (ex: 11999999999)',
               ),
               validator: (v) {
-                if (widget.catalog.requireCustomerData && (v == null || v.trim().isEmpty)) {
-                  return 'WhatsApp é obrigatório';
+                if (v == null || v.trim().isEmpty) {
+                  return 'WhatsApp é obrigatório para o envio';
                 }
                 return null;
               }, 
@@ -77,13 +99,15 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
               width: double.infinity,
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF25D366), // WhatsApp Green
+                  backgroundColor: const Color(0xFF25D366), 
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                icon: const Icon(Icons.send),
-                label: const Text('Enviar Pedido no WhatsApp'),
-                onPressed: () async {
+                icon: isLoading 
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Icon(Icons.send),
+                label: Text(isLoading ? 'Enviando...' : 'Enviar Pedido no WhatsApp'),
+                onPressed: isLoading ? null : () async {
                   if (_formKey.currentState!.validate()) {
                     await ref.read(checkoutViewModelProvider.notifier).submitOrder(
                       catalog: widget.catalog,
@@ -91,7 +115,9 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
                       customerName: _nameController.text,
                       customerPhone: '55${_phoneController.text}',
                     );
-                    if (context.mounted) Navigator.pop(context); // Close sheet
+                    if (context.mounted && !checkoutState.hasError) {
+                      Navigator.pop(context);
+                    }
                   }
                 },
               ),
