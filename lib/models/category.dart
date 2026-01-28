@@ -57,14 +57,14 @@ class Category {
     final createdAtValue = data['createdAt'];
     final updatedAtValue = data['updatedAt'];
 
-    DateTime _extractDate(dynamic value) {
+    DateTime extractDate(dynamic value) {
       if (value is Timestamp) return value.toDate();
       if (value is DateTime) return value;
       return DateTime.now();
     }
 
-    final created = _extractDate(createdAtValue);
-    final updated = _extractDate(updatedAtValue);
+    final created = extractDate(createdAtValue);
+    final updated = extractDate(updatedAtValue);
 
     return Category(
       id: id,

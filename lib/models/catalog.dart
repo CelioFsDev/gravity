@@ -169,7 +169,7 @@ class Catalog {
   }
 
   factory Catalog.fromFirestore(String id, Map<String, dynamic> data) {
-    List<CatalogBanner> _mapBanners(dynamic raw) {
+    List<CatalogBanner> mapBanners(dynamic raw) {
       if (raw is Iterable) {
         return raw.map((entry) {
           return CatalogBanner(
@@ -182,7 +182,7 @@ class Catalog {
       return [];
     }
 
-    DateTime _extractDate(dynamic value) {
+    DateTime extractDate(dynamic value) {
       if (value is Timestamp) return value.toDate();
       if (value is DateTime) return value;
       return DateTime.now();
@@ -202,9 +202,9 @@ class Catalog {
       photoLayout: data['photoLayout'] as String? ?? 'grid',
       announcementEnabled: data['announcementEnabled'] as bool? ?? false,
       announcementText: data['announcementText'] as String?,
-      banners: _mapBanners(data['banners']),
-      createdAt: _extractDate(data['createdAt']),
-      updatedAt: _extractDate(data['updatedAt']),
+      banners: mapBanners(data['banners']),
+      createdAt: extractDate(data['createdAt']),
+      updatedAt: extractDate(data['updatedAt']),
       mode: _catalogModeFromString(data['mode'] as String?),
       isPublic: data['isPublic'] as bool? ?? false,
       shareCode: data['shareCode']?.toString() ?? '',

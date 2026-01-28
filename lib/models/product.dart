@@ -148,7 +148,7 @@ class Product {
   }
 
   factory Product.fromFirestore(String id, Map<String, dynamic> data) {
-    List<String> _castStringList(dynamic value) {
+    List<String> castStringList(dynamic value) {
       if (value is Iterable) {
         return value.map((e) => e.toString()).toList();
       }
@@ -177,9 +177,9 @@ class Product {
       priceVarejo: varejo,
       priceAtacado: atacado,
       minWholesaleQty: (data['minWholesaleQty'] as num?)?.toInt() ?? 1,
-      sizes: _castStringList(data['sizes']),
-      colors: _castStringList(data['colors']),
-      images: _castStringList(data['images']),
+      sizes: castStringList(data['sizes']),
+      colors: castStringList(data['colors']),
+      images: castStringList(data['images']),
       mainImageIndex: (data['mainImageIndex'] as int?) ?? 0,
       isActive: data['isActive'] as bool? ?? true,
       isOutOfStock: data['isOutOfStock'] as bool? ?? false,

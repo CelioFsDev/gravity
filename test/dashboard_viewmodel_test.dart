@@ -21,6 +21,12 @@ class MockOrdersRepository implements OrdersRepositoryContract {
 
   @override
   Future<void> deleteOrder(String id) async {}
+  
+  @override
+  Stream<List<Order>> watchOrders() {
+    // TODO: implement watchOrders
+    throw UnimplementedError();
+  }
 }
 
 void main() {

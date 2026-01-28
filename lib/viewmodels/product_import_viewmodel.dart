@@ -85,7 +85,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
-      FilePickerResult? result = await FilePicker.pickFiles(
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['csv'],
         withData: kIsWeb,
@@ -129,7 +129,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
   Future<void> pickAndMatchImages() async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
-      FilePickerResult? result = await FilePicker.pickFiles(
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
         type: FileType.custom,
         allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],

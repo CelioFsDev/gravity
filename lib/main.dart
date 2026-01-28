@@ -230,7 +230,7 @@ class MyApp extends ConsumerWidget {
 /// a new event is emitted.
 class GoRouterRefreshStream extends ChangeNotifier {
   GoRouterRefreshStream(Stream<dynamic> stream) {
-    _subscription = stream.listen((_event) {
+    _subscription = stream.listen((event) {
       notifyListeners();
     });
   }
