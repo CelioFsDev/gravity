@@ -14,7 +14,7 @@ class CartState {
 class CartViewModel extends StateNotifier<CartState> {
   CartViewModel() : super(CartState());
 
-  void addToCart(Product product, int quantity, String? selectedSize) {
+  void addToCart(Product product, int quantity, String? selectedSize, double unitPrice) {
     // Check if item exists (same product AND same size)
     final existingIndex = state.items.indexWhere((i) => i.productId == product.id && i.selectedSize == selectedSize);
 
@@ -38,8 +38,8 @@ class CartViewModel extends StateNotifier<CartState> {
         productName: product.name,
         productReference: product.reference,
         quantity: quantity,
-        unitPrice: product.retailPrice, // Assuming retail price for public
-        total: product.retailPrice * quantity,
+        unitPrice: unitPrice,
+        total: unitPrice * quantity,
         selectedSize: selectedSize,
         // Color not selected for now as per prompt "seleção de tamanho (se houver)"
       );

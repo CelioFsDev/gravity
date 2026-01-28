@@ -1,4 +1,6 @@
 
+import 'package:gravity/core/auth/auth_controller.dart';
+import 'package:gravity/data/repositories/categories_repository.dart';
 import 'package:gravity/data/repositories/products_repository.dart';
 import 'package:gravity/models/product.dart';
 import 'package:gravity/models/category.dart';
@@ -89,9 +91,10 @@ class ProductsState {
 class ProductsViewModel extends _$ProductsViewModel {
   @override
   FutureOr<ProductsState> build() async {
-    final repository = ref.watch(productsRepositoryProvider);
-    final products = await repository.getProducts();
-    final categories = await repository.getCategories();
+    final productRepository = ref.watch(productsRepositoryProvider);
+    final categoryRepository = ref.watch(categoriesRepositoryProvider);
+    final products = await productRepository.getProducts();
+    final categories = await categoryRepository.getCategories();
     
     // Create initial state
     return _applyFilters(ProductsState.initial().copyWith(
@@ -125,6 +128,7 @@ class ProductsViewModel extends _$ProductsViewModel {
   }
 
   Future<void> deleteProduct(String id) async {
+    _requireAdmin();
     final repository = ref.read(productsRepositoryProvider);
     await repository.deleteProduct(id);
     await refresh();
@@ -132,6 +136,7 @@ class ProductsViewModel extends _$ProductsViewModel {
   }
   
   Future<void> addProduct(Product product) async {
+    _requireAdmin();
     final repository = ref.read(productsRepositoryProvider);
     await repository.addProduct(product);
     await refresh();
@@ -139,6 +144,7 @@ class ProductsViewModel extends _$ProductsViewModel {
   }
   
   Future<void> updateProduct(Product product) async {
+    _requireAdmin();
     final repository = ref.read(productsRepositoryProvider);
     await repository.updateProduct(product);
     await refresh();
@@ -160,8 +166,9 @@ class ProductsViewModel extends _$ProductsViewModel {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       final repository = ref.read(productsRepositoryProvider);
+      final categoriesRepository = ref.read(categoriesRepositoryProvider);
       final products = await repository.getProducts();
-      final categories = await repository.getCategories();
+      final categories = await categoriesRepository.getCategories();
       final updated = previous.copyWith(
         allProducts: products,
         categories: categories,
@@ -228,5 +235,12 @@ class ProductsViewModel extends _$ProductsViewModel {
       outOfStockCount: outOfStock,
       onSaleCount: onSale,
     );
+  }
+
+  void _requireAdmin() {
+    final user = ref.read(currentUserProvider);
+    if (user == null || !user.isAdmin) {
+      throw Exception('Sem permissão para modificar produtos.');
+    }
   }
 }

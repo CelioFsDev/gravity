@@ -1,3 +1,4 @@
+import 'package:gravity/core/auth/auth_controller.dart';
 import 'package:gravity/data/repositories/catalogs_repository.dart';
 import 'package:gravity/models/catalog.dart';
 import 'package:gravity/viewmodels/catalog_public_viewmodel.dart';
@@ -63,6 +64,10 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
       banners: [],
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
+      mode: CatalogMode.varejo,
+      isPublic: false,
+      shareCode: '',
+      ownerUid: '',
     );
   }
 
@@ -121,6 +126,28 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
     );
   }
 
+  void setMode(CatalogMode mode) {
+    state = state.copyWith(
+      catalog: state.catalog.copyWith(mode: mode),
+    );
+  }
+
+  void setIsPublic(bool value) {
+    var catalog = state.catalog;
+    if (value && catalog.shareCode.isEmpty) {
+      catalog = catalog.copyWith(shareCode: _generateShareCode());
+    }
+    state = state.copyWith(
+      catalog: catalog.copyWith(isPublic: value),
+    );
+  }
+
+  void regenerateShareCode() {
+    state = state.copyWith(
+      catalog: state.catalog.copyWith(shareCode: _generateShareCode()),
+    );
+  }
+
   Future<bool> save() async {
     state = state.copyWith(isSaving: true, clearSlugError: true);
 
@@ -148,14 +175,35 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
       return false;
     }
 
-    await repository.addCatalog(
-      state.catalog.copyWith(updatedAt: DateTime.now()),
+    final user = ref.read(currentUserProvider);
+    var toSave = state.catalog;
+    if (user == null) {
+      state = state.copyWith(isSaving: false, slugError: 'UsuÃ¡rio nÃ£o autenticado.');
+      return false;
+    }
+    if (toSave.ownerUid.isNotEmpty && toSave.ownerUid != user.uid) {
+      state = state.copyWith(isSaving: false, slugError: 'Sem permissÃ£o para editar este catÃ¡logo.');
+      return false;
+    }
+    if (toSave.shareCode.isEmpty) {
+      toSave = toSave.copyWith(shareCode: _generateShareCode());
+    }
+    toSave = toSave.copyWith(
+      updatedAt: DateTime.now(),
+      ownerUid: toSave.ownerUid.isEmpty ? user.uid : toSave.ownerUid,
     );
 
-    ref.invalidate(catalogsViewModelProvider);
-    ref.invalidate(catalogPublicProvider);
+    await repository.addCatalog(toSave);
 
-    state = state.copyWith(isSaving: false);
+    ref.invalidate(catalogsViewModelProvider);
+    if (toSave.shareCode.isNotEmpty) {
+      ref.invalidate(catalogPublicProvider(toSave.shareCode));
+    }
+
+    state = state.copyWith(catalog: toSave, isSaving: false);
     return true;
   }
+
+  String _generateShareCode() =>
+      const Uuid().v4().split('-').first.toLowerCase();
 }

@@ -6,7 +6,7 @@ part of 'products_viewmodel.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$productsViewModelHash() => r'137d57899de56809953dd533655ee85ddd91f167';
+String _$productsViewModelHash() => r'1a10e7ac6a95a5e79af7719e8ea5adc76edaec8a';
 
 /// See also [ProductsViewModel].
 @ProviderFor(ProductsViewModel)

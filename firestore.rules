@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return isSignedIn() && userDoc().data.role == 'admin';
+    }
+
+    function isSelf(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isOwner(resourceData) {
+      return isSignedIn() && resourceData.ownerUid == request.auth.uid;
+    }
+
+    match /users/{userId} {
+      allow read: if isSelf(userId);
+      allow create: if isSelf(userId) && request.resource.data.role == 'user';
+      allow update: if isSelf(userId) && request.resource.data.role == resource.data.role;
+      allow delete: if false;
+    }
+
+    match /products/{productId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /categories/{categoryId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /catalogs/{catalogId} {
+      allow read: if resource.data.isPublic == true || isOwner(resource.data);
+      allow create: if isSignedIn() && request.resource.data.ownerUid == request.auth.uid;
+      allow update, delete: if isOwner(resource.data);
+
+      match /items/{itemId} {
+        allow read: if get(/databases/$(database)/documents/catalogs/$(catalogId)).data.isPublic == true
+          || isOwner(get(/databases/$(database)/documents/catalogs/$(catalogId)).data);
+        allow write: if isOwner(get(/databases/$(database)/documents/catalogs/$(catalogId)).data);
+      }
+    }
+  }
+}

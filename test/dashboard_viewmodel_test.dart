@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/models/order.dart';
 import 'package:gravity/models/order_status.dart';
 import 'package:gravity/viewmodels/dashboard_viewmodel.dart';
+import 'package:gravity/data/repositories/contracts/orders_repository_contract.dart';
 import 'package:gravity/data/repositories/orders_repository.dart';
 
-class MockOrdersRepository implements OrdersRepository {
+class MockOrdersRepository implements OrdersRepositoryContract {
   final List<Order> _orders;
   MockOrdersRepository(this._orders);
 

@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:hive/hive.dart';
 
 part 'product.g.dart';
@@ -20,10 +21,10 @@ class Product {
   final String categoryId;
 
   @HiveField(5)
-  final double retailPrice;
+  final double priceVarejo;
 
   @HiveField(6)
-  final double wholesalePrice;
+  final double priceAtacado;
 
   @HiveField(7)
   final int minWholesaleQty;
@@ -61,8 +62,8 @@ class Product {
     required this.reference,
     required this.sku,
     required this.categoryId,
-    required this.retailPrice,
-    required this.wholesalePrice,
+    required this.priceVarejo,
+    required this.priceAtacado,
     required this.minWholesaleQty,
     required this.sizes,
     required this.colors,
@@ -81,8 +82,8 @@ class Product {
     String? reference,
     String? sku,
     String? categoryId,
-    double? retailPrice,
-    double? wholesalePrice,
+    double? priceVarejo,
+    double? priceAtacado,
     int? minWholesaleQty,
     List<String>? sizes,
     List<String>? colors,
@@ -100,8 +101,8 @@ class Product {
       reference: reference ?? this.reference,
       sku: sku ?? this.sku,
       categoryId: categoryId ?? this.categoryId,
-      retailPrice: retailPrice ?? this.retailPrice,
-      wholesalePrice: wholesalePrice ?? this.wholesalePrice,
+      priceVarejo: priceVarejo ?? this.priceVarejo,
+      priceAtacado: priceAtacado ?? this.priceAtacado,
       minWholesaleQty: minWholesaleQty ?? this.minWholesaleQty,
       sizes: sizes ?? this.sizes,
       colors: colors ?? this.colors,
@@ -112,6 +113,79 @@ class Product {
       isOnSale: isOnSale ?? this.isOnSale,
       createdAt: createdAt ?? this.createdAt,
       saleDiscountPercent: saleDiscountPercent ?? this.saleDiscountPercent,
+    );
+  }
+
+  double get retailPrice => priceVarejo;
+
+  double get wholesalePrice => priceAtacado;
+
+  double priceForMode(String mode) {
+    return mode.toLowerCase() == 'atacado' ? priceAtacado : priceVarejo;
+  }
+
+  Map<String, dynamic> toFirestoreMap() {
+    return {
+      'name': name,
+      'reference': reference,
+      'sku': sku,
+      'categoryId': categoryId,
+      'priceVarejo': priceVarejo,
+      'priceAtacado': priceAtacado,
+      'retailPrice': priceVarejo,
+      'wholesalePrice': priceAtacado,
+      'minWholesaleQty': minWholesaleQty,
+      'sizes': sizes,
+      'colors': colors,
+      'images': images,
+      'mainImageIndex': mainImageIndex,
+      'isActive': isActive,
+      'isOutOfStock': isOutOfStock,
+      'isOnSale': isOnSale,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'saleDiscountPercent': saleDiscountPercent,
+    };
+  }
+
+  factory Product.fromFirestore(String id, Map<String, dynamic> data) {
+    List<String> _castStringList(dynamic value) {
+      if (value is Iterable) {
+        return value.map((e) => e.toString()).toList();
+      }
+      return [];
+    }
+
+    final varejo = (data['priceVarejo'] as num?)?.toDouble() ??
+        (data['retailPrice'] as num?)?.toDouble() ??
+        0.0;
+    final atacado = (data['priceAtacado'] as num?)?.toDouble() ??
+        (data['wholesalePrice'] as num?)?.toDouble() ??
+        varejo;
+    final createdAtValue = data['createdAt'];
+    final createdAt = createdAtValue is Timestamp
+        ? createdAtValue.toDate()
+        : (createdAtValue is DateTime
+            ? createdAtValue
+            : DateTime.now());
+
+    return Product(
+      id: id,
+      name: data['name'] as String? ?? '',
+      reference: data['reference'] as String? ?? '',
+      sku: data['sku'] as String? ?? '',
+      categoryId: data['categoryId'] as String? ?? '',
+      priceVarejo: varejo,
+      priceAtacado: atacado,
+      minWholesaleQty: (data['minWholesaleQty'] as num?)?.toInt() ?? 1,
+      sizes: _castStringList(data['sizes']),
+      colors: _castStringList(data['colors']),
+      images: _castStringList(data['images']),
+      mainImageIndex: (data['mainImageIndex'] as int?) ?? 0,
+      isActive: data['isActive'] as bool? ?? true,
+      isOutOfStock: data['isOutOfStock'] as bool? ?? false,
+      isOnSale: data['isOnSale'] as bool? ?? false,
+      createdAt: createdAt,
+      saleDiscountPercent: (data['saleDiscountPercent'] as int?) ?? 0,
     );
   }
 }

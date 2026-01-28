@@ -15,7 +15,9 @@ part 'checkout_viewmodel.g.dart';
 @riverpod
 class CheckoutViewModel extends _$CheckoutViewModel {
   @override
-  FutureOr<void> build() async {}
+  FutureOr<void> build() async {
+    return null;
+  }
 
   Future<void> submitOrder({
     required Catalog catalog,

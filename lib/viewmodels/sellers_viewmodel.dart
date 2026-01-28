@@ -21,7 +21,7 @@ class SellersViewModel extends _$SellersViewModel {
     final repository = ref.read(sellersRepositoryProvider);
     
     // Validate unique whatsapp
-    final existing = repository.getSellerByWhatsapp(whatsapp);
+    final existing = await repository.getSellerByWhatsapp(whatsapp);
     if (existing != null) {
       throw Exception('Já existe uma vendedora com este WhatsApp.');
     }
@@ -56,7 +56,7 @@ class SellersViewModel extends _$SellersViewModel {
 
     // Validate unique whatsapp if changing
     if (whatsapp != null && whatsapp != currentSeller.whatsapp) {
-       final existing = repository.getSellerByWhatsapp(whatsapp);
+       final existing = await repository.getSellerByWhatsapp(whatsapp);
        if (existing != null && existing.id != id) {
          throw Exception('Já existe uma vendedora com este WhatsApp.');
        }

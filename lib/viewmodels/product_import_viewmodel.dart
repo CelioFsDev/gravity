@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:gravity/core/auth/auth_controller.dart';
 import 'package:gravity/data/repositories/products_repository.dart';
 import 'package:gravity/models/product.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -21,8 +22,7 @@ class ProductImportState {
   final List<Product> parsedProducts; // Products converted from CSV
   final List<String> matchedImages; // List of image paths found
   final int imagesMatchedCount;
-  final int
-  imagesTotalCount; // Total expected based on CSV SKU count or file upload count
+  final int imagesTotalCount; // Total expected based on CSV SKU count or file upload count
   final bool isLoading;
   final String? errorMessage;
   final bool isDone;
@@ -85,7 +85,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
+      FilePickerResult? result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['csv'],
         withData: kIsWeb,
@@ -129,7 +129,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
   Future<void> pickAndMatchImages() async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
+      FilePickerResult? result = await FilePicker.pickFiles(
         allowMultiple: true,
         type: FileType.custom,
         allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
@@ -179,6 +179,10 @@ class ProductImportViewModel extends _$ProductImportViewModel {
 
   // Finalize
   Future<void> finalizeImport() async {
+    final user = ref.read(currentUserProvider);
+    if (user == null || !user.isAdmin) {
+      throw Exception('Sem permissão para importar produtos.');
+    }
     state = state.copyWith(isLoading: true);
     try {
       final repository = ref.read(productsRepositoryProvider);
@@ -216,8 +220,8 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       reference: row[1].toString(),
       sku: row[2].toString(),
       categoryId: row[3].toString(),
-      retailPrice: _parsePrice(row[4].toString()),
-      wholesalePrice: _parsePrice(row[5].toString()),
+      priceVarejo: _parsePrice(row[4].toString()),
+      priceAtacado: _parsePrice(row[5].toString()),
       minWholesaleQty: int.tryParse(row[6].toString()) ?? 1,
       sizes: row[7].toString().split(',').map((e) => e.trim()).toList(),
       colors: row[8].toString().split(',').map((e) => e.trim()).toList(),
@@ -297,10 +301,11 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       }
       return null;
     } on MissingPluginException {
-      if (kDebugMode)
+      if (kDebugMode) {
         print(
           'MissingPluginException: path_provider not implemented on this platform or stale build.',
         );
+      }
       return null;
     } catch (e) {
       if (kDebugMode) {

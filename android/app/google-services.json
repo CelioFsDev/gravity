@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "666583578619",
+    "project_id": "catalogo-fc9b5",
+    "storage_bucket": "catalogo-fc9b5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:666583578619:android:e2afaa7179b51c063ffd5e",
+        "android_client_info": {
+          "package_name": "com.example.gravity"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "666583578619-5josmli0bbde05q53459fmmp5g8jila7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCGikkVu4t2PC_ifaDyKWv1e9yd1rqlPfg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "666583578619-5josmli0bbde05q53459fmmp5g8jila7.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "666583578619-u9osto95a6qi7pu4iddeh456rorcpum1.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.gravity"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gravity/models/catalog.dart';
 import 'package:gravity/models/product.dart';
 import 'package:gravity/viewmodels/cart_viewmodel.dart';
 import 'package:gravity/viewmodels/catalog_public_viewmodel.dart';
@@ -10,9 +11,9 @@ import 'package:gravity/features/public/product_quick_add_sheet.dart';
 import 'package:intl/intl.dart';
 
 class CatalogHomePage extends ConsumerStatefulWidget {
-  final String slug;
+  final String shareCode;
 
-  const CatalogHomePage({super.key, required this.slug});
+  const CatalogHomePage({super.key, required this.shareCode});
 
   @override
   ConsumerState<CatalogHomePage> createState() => _CatalogHomePageState();
@@ -24,7 +25,7 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final catalogAsync = ref.watch(catalogPublicProvider(widget.slug));
+    final catalogAsync = ref.watch(catalogPublicProvider(widget.shareCode));
     final cart = ref.watch(cartViewModelProvider);
 
     return catalogAsync.when(
@@ -96,6 +97,20 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
                   ),
                   body: Column(
                     children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Chip(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          backgroundColor: Colors.blue.shade50,
+                          label: Text(
+                            data.catalog.mode.label,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                      ),
                       // Announcement
                       if (data.catalog.announcementEnabled &&
                           data.catalog.announcementText != null)
@@ -153,6 +168,7 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
                             : _buildProductLayout(
                                 filteredProducts,
                                 data.catalog.photoLayout,
+                                data.catalog.mode,
                               ),
                       ),
                     ],
@@ -175,7 +191,11 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
     );
   }
 
-  Widget _buildProductLayout(List<Product> products, String layout) {
+  Widget _buildProductLayout(
+    List<Product> products,
+    String layout,
+    CatalogMode mode,
+  ) {
     final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
 
     if (layout == 'list') {
@@ -196,16 +216,17 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(
-                    currency.format(product.retailPrice),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                    Text(
+                      currency.format(product.priceForMode(mode.name)),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
                     ),
-                  ),
                 ],
               ),
-              onTap: product.isOutOfStock ? null : () => _showQuickAdd(product),
+              onTap:
+                  product.isOutOfStock ? null : () => _showQuickAdd(product, mode),
             ),
           );
         },
@@ -235,7 +256,7 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
       itemBuilder: (context, index) {
         final product = products[index];
         return GestureDetector(
-          onTap: product.isOutOfStock ? null : () => _showQuickAdd(product),
+                  onTap: product.isOutOfStock ? null : () => _showQuickAdd(product, mode),
           child: Card(
             clipBehavior: Clip.antiAlias,
             child: Column(
@@ -276,7 +297,7 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        currency.format(product.retailPrice),
+                        currency.format(product.priceForMode(mode.name)),
                         style: const TextStyle(
                           color: Colors.green,
                           fontWeight: FontWeight.bold,
@@ -293,11 +314,12 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
     );
   }
 
-  void _showQuickAdd(Product product) {
+  void _showQuickAdd(Product product, CatalogMode mode) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (context) => ProductQuickAddSheet(product: product),
+      builder: (context) =>
+          ProductQuickAddSheet(product: product, mode: mode),
     );
   }
 

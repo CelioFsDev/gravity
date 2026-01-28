@@ -1,14 +1,20 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gravity/models/catalog.dart';
 import 'package:gravity/models/product.dart';
 import 'package:gravity/viewmodels/cart_viewmodel.dart';
 import 'package:intl/intl.dart';
 
 class ProductQuickAddSheet extends ConsumerStatefulWidget {
   final Product product;
+  final CatalogMode mode;
 
-  const ProductQuickAddSheet({super.key, required this.product});
+  const ProductQuickAddSheet({
+    super.key,
+    required this.product,
+    required this.mode,
+  });
 
   @override
   ConsumerState<ProductQuickAddSheet> createState() => _ProductQuickAddSheetState();
@@ -29,6 +35,7 @@ class _ProductQuickAddSheetState extends ConsumerState<ProductQuickAddSheet> {
   @override
   Widget build(BuildContext context) {
     final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
+    final displayPrice = widget.product.priceForMode(widget.mode.name);
 
     return Padding(
       padding: const EdgeInsets.all(24.0),
@@ -51,15 +58,25 @@ class _ProductQuickAddSheetState extends ConsumerState<ProductQuickAddSheet> {
                     ),
                   ),
                 ),
-               Expanded(
-                 child: Column(
-                   crossAxisAlignment: CrossAxisAlignment.start,
-                   children: [
-                     Text(widget.product.name, style: Theme.of(context).textTheme.titleLarge),
-                     Text(currency.format(widget.product.retailPrice), style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.green)),
-                   ],
-                 ),
-               ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.product.name,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    Text(
+                      currency.format(
+                        widget.product.priceForMode(widget.mode.name),
+                      ),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: Colors.green,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 24),
@@ -115,14 +132,19 @@ class _ProductQuickAddSheetState extends ConsumerState<ProductQuickAddSheet> {
                   return;
                 }
                 
-                ref.read(cartViewModelProvider.notifier).addToCart(widget.product, _quantity, _selectedSize);
+                ref.read(cartViewModelProvider.notifier).addToCart(
+                      widget.product,
+                      _quantity,
+                      _selectedSize,
+                      displayPrice,
+                    );
                 Navigator.pop(context);
                 
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                     content: Text('Adicionado ao carrinho!'), duration: Duration(seconds: 1)
                 ));
               },
-              child: Text('Adicionar - ${currency.format(widget.product.retailPrice * _quantity)}'),
+              child: Text('Adicionar - ${currency.format(displayPrice * _quantity)}'),
             ),
           ),
         ],

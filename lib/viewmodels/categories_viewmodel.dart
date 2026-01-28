@@ -1,3 +1,5 @@
+import 'package:gravity/core/auth/auth_controller.dart';
+import 'package:gravity/data/repositories/categories_repository.dart';
 import 'package:gravity/data/repositories/products_repository.dart';
 import 'package:gravity/models/category.dart';
 import 'package:gravity/viewmodels/dashboard_viewmodel.dart';
@@ -39,9 +41,10 @@ class CategoriesViewModel extends _$CategoriesViewModel {
   }
 
   Future<CategoriesState> _fetchData() async {
-    final repository = ref.watch(productsRepositoryProvider);
-    final allCategories = await repository.getCategories();
-    final allProducts = await repository.getProducts(); // optimization: get counts only if possible, but currently we fetch all
+    final categoriesRepository = ref.watch(categoriesRepositoryProvider);
+    final productRepository = ref.watch(productsRepositoryProvider);
+    final allCategories = await categoriesRepository.getCategories();
+    final allProducts = await productRepository.getProducts(); // optimization: get counts only if possible, but currently we fetch all
     
     // Count products
     final counts = <String, int>{};
@@ -119,8 +122,9 @@ class CategoriesViewModel extends _$CategoriesViewModel {
   }
 
   Future<String?> addCategory(String name) async {
-    final repository = ref.read(productsRepositoryProvider);
-    final currentCategories = await repository.getCategories();
+    _requireAdmin();
+    final categoriesRepo = ref.read(categoriesRepositoryProvider);
+    final currentCategories = await categoriesRepo.getCategories();
     
     // Check duplicate
     if (currentCategories.any((c) => c.name.trim().toLowerCase() == name.trim().toLowerCase())) {
@@ -139,7 +143,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       updatedAt: DateTime.now(),
     );
     
-    await repository.addCategory(newCat);
+    await categoriesRepo.addCategory(newCat);
     await _refresh();
     
     // Notify other viewmodels that categories changed
@@ -150,8 +154,9 @@ class CategoriesViewModel extends _$CategoriesViewModel {
   }
 
   Future<String?> updateCategory(String id, String newName) async {
-    final repository = ref.read(productsRepositoryProvider);
-    final currentCategories = await repository.getCategories();
+    _requireAdmin();
+    final categoriesRepo = ref.read(categoriesRepositoryProvider);
+    final currentCategories = await categoriesRepo.getCategories();
     
     // Check duplicate (exclude self)
     if (currentCategories.any((c) => c.id != id && c.name.trim().toLowerCase() == newName.trim().toLowerCase())) {
@@ -160,7 +165,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     
     final cat = currentCategories.firstWhere((c) => c.id == id);
     final updated = cat.copyWith(name: newName.trim(), updatedAt: DateTime.now());
-    await repository.updateCategory(updated);
+    await categoriesRepo.updateCategory(updated);
     await _refresh();
     
     // Notify other viewmodels
@@ -172,6 +177,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
   
   // Reorder
   Future<void> reorder(int oldIndex, int newIndex) async {
+     _requireAdmin();
      if (state.value == null) return;
      // Only allow in manual mode
      if (state.value!.sortOption != CategorySortOption.manual) return;
@@ -189,14 +195,14 @@ class CategoriesViewModel extends _$CategoriesViewModel {
      
      // Update orders in DB
      // Optimization: only update affected range? For now update all indexes for safety.
-     final repository = ref.read(productsRepositoryProvider);
+     final categoriesRepo = ref.read(categoriesRepositoryProvider);
      for (var i = 0; i < list.length; i++) {
         final cat = list[i].copyWith(order: i);
         if (cat.order != list[i].order) { // This check is dummy since we just updated logic
             // But we check DB diff? 
             // Just update all to be safe and simple.
         }
-        await repository.updateCategory(cat);
+       await categoriesRepo.updateCategory(cat);
      }
      
      // Optimistic update
@@ -210,11 +216,13 @@ class CategoriesViewModel extends _$CategoriesViewModel {
 
   // Delete Check
   Future<CategoryDeleteResult> checkDelete(String id) async {
-     final repository = ref.read(productsRepositoryProvider);
-     final products = await repository.getProductsByCategory(id);
+     _requireAdmin();
+     final productRepository = ref.read(productsRepositoryProvider);
+     final categoriesRepo = ref.read(categoriesRepositoryProvider);
+     final products = await productRepository.getProductsByCategory(id);
      
      if (products.isEmpty) {
-       await repository.deleteCategory(id);
+       await categoriesRepo.deleteCategory(id);
        await _refresh();
        ref.invalidate(productsViewModelProvider);
        ref.invalidate(dashboardViewModelProvider);
@@ -232,17 +240,26 @@ class CategoriesViewModel extends _$CategoriesViewModel {
   // Let's implement options directly.
   
   Future<void> deleteWithMove(String id, String targetCategoryId) async {
-     final repository = ref.read(productsRepositoryProvider);
-     await repository.reassignCategory(id, targetCategoryId);
-     await repository.deleteCategory(id);
+    _requireAdmin();
+    final categoriesRepo = ref.read(categoriesRepositoryProvider);
+     await categoriesRepo.reassignCategory(id, targetCategoryId);
+     await categoriesRepo.deleteCategory(id);
      await _refresh();
   }
   
   Future<void> deleteAndUncategorize(String id) async {
+     _requireAdmin();
      // Reassign to empty string or specialized 'uncategorized'
-     final repository = ref.read(productsRepositoryProvider);
-     await repository.reassignCategory(id, ''); // '' = Uncategorized
-     await repository.deleteCategory(id);
+     final categoriesRepo = ref.read(categoriesRepositoryProvider);
+     await categoriesRepo.reassignCategory(id, ''); // '' = Uncategorized
+     await categoriesRepo.deleteCategory(id);
      await _refresh();
+  }
+
+  void _requireAdmin() {
+    final user = ref.read(currentUserProvider);
+    if (user == null || !user.isAdmin) {
+      throw Exception('Sem permissão para modificar categorias.');
+    }
   }
 }

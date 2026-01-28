@@ -120,8 +120,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       reference: _refController.text,
       sku: _skuController.text,
       categoryId: _selectedCategoryId!,
-      retailPrice: _parsePrice(_retailController.text),
-      wholesalePrice: _parsePrice(_wholesaleController.text),
+      priceVarejo: _parsePrice(_retailController.text),
+      priceAtacado: _parsePrice(_wholesaleController.text),
       minWholesaleQty: int.tryParse(_minQtyController.text) ?? 1,
       sizes: _sizesController.text
           .split(',')
@@ -162,7 +162,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   Future<void> _pickImages() async {
     try {
       debugPrint('Picking images...');
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         allowMultiple: true,
         type: FileType
             .any, // Back to any to avoid filter issues on some Windows versions

@@ -82,7 +82,7 @@ class CatalogsScreen extends ConsumerWidget {
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         subtitle: Text(
-                          '/c/${catalog.slug} • ${catalog.productIds.length} produtos • ${catalog.active ? 'Ativo' : 'Inativo'}',
+                          '/c/${catalog.shareCode.isNotEmpty ? catalog.shareCode : catalog.slug} • ${catalog.productIds.length} produtos • ${catalog.active ? 'Ativo' : 'Inativo'}',
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -94,13 +94,16 @@ class CatalogsScreen extends ConsumerWidget {
                                 final settingsRepo = ref.read(
                                   settingsRepositoryProvider,
                                 );
-                                final settings = await settingsRepo
-                                    .getSettings();
-                                final baseUrl =
-                                    settings.publicBaseUrl?.isNotEmpty == true
-                                    ? settings.publicBaseUrl!
-                                    : 'https://gravity.app';
-                                final url = '$baseUrl/c/${catalog.slug}';
+                              final settings = await settingsRepo
+                                  .getSettings();
+                              final baseUrl =
+                                  settings.publicBaseUrl?.isNotEmpty == true
+                                  ? settings.publicBaseUrl!
+                                  : 'https://gravity.app';
+                              final linkId = catalog.shareCode.isNotEmpty
+                                  ? catalog.shareCode
+                                  : catalog.slug;
+                              final url = '$baseUrl/c/$linkId';
 
                                 await Clipboard.setData(
                                   ClipboardData(text: url),

@@ -30,11 +30,11 @@ class CatalogShareHelper {
             subtitle: const Text('Compartilha o link do catálogo web'),
             onTap: () async {
               Navigator.pop(sheetContext);
-              if (catalog.slug.isEmpty) {
+              if (!catalog.isPublic || catalog.shareCode.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text(
-                      'Salve o catálogo primeiro para gerar um link.',
+                      'Marque o catálogo como público e salve para gerar um link.',
                     ),
                   ),
                 );
@@ -46,11 +46,12 @@ class CatalogShareHelper {
               final baseUrl = settings.publicBaseUrl?.isNotEmpty == true
                   ? settings.publicBaseUrl!
                   : 'https://gravity.app';
-              final url = '$baseUrl/c/${catalog.slug}';
+              final url = '$baseUrl/c/${catalog.shareCode}';
 
               await WhatsAppShareService.shareCatalog(
                 catalogName: catalog.name,
                 catalogUrl: url,
+                mode: catalog.mode,
               );
             },
           ),
@@ -90,7 +91,12 @@ class CatalogShareHelper {
 
       final pdfBytes = await _runWithLoadingDialog(
         context,
-        () => _generatePdfBytes(ref, catalog, columnsCount: columnsCount),
+        () => _generatePdfBytes(
+          ref,
+          catalog,
+          columnsCount: columnsCount,
+          mode: catalog.mode,
+        ),
       );
 
       await WhatsAppShareService.shareFile(
@@ -119,7 +125,12 @@ class CatalogShareHelper {
 
       final pdfBytes = await _runWithLoadingDialog(
         context,
-        () => _generatePdfBytes(ref, catalog, columnsCount: columnsCount),
+        () => _generatePdfBytes(
+          ref,
+          catalog,
+          columnsCount: columnsCount,
+          mode: catalog.mode,
+        ),
       );
       final documentsDirectory =
           await getDownloadsDirectory() ??
@@ -149,6 +160,7 @@ class CatalogShareHelper {
     WidgetRef ref,
     Catalog catalog, {
     int columnsCount = 1,
+    required CatalogMode mode,
   }) async {
     // Wait for products to load if they haven't yet
     final productsState = await ref.read(productsViewModelProvider.future);
@@ -181,6 +193,7 @@ class CatalogShareHelper {
         catalogName: catalogName,
         products: fallbackProducts,
         columnsCount: columnsCount,
+        mode: mode,
       );
     }
 
@@ -189,6 +202,7 @@ class CatalogShareHelper {
       catalogName: catalogName,
       products: catalogProducts,
       columnsCount: columnsCount,
+      mode: mode,
     );
   }
 

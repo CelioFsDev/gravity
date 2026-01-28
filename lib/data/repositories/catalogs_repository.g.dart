@@ -7,11 +7,12 @@ part of 'catalogs_repository.dart';
 // **************************************************************************
 
 String _$catalogsRepositoryHash() =>
-    r'242163001c6b7039634aff79c8b23f93124747f1';
+    r'e85e7358f473221aff8904c08009908a9532f32c';
 
 /// See also [catalogsRepository].
 @ProviderFor(catalogsRepository)
-final catalogsRepositoryProvider = Provider<CatalogsRepository>.internal(
+final catalogsRepositoryProvider =
+    Provider<CatalogsRepositoryContract>.internal(
   catalogsRepository,
   name: r'catalogsRepositoryProvider',
   debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
@@ -21,6 +22,6 @@ final catalogsRepositoryProvider = Provider<CatalogsRepository>.internal(
   allTransitiveDependencies: null,
 );
 
-typedef CatalogsRepositoryRef = ProviderRef<CatalogsRepository>;
+typedef CatalogsRepositoryRef = ProviderRef<CatalogsRepositoryContract>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member

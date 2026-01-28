@@ -7,11 +7,12 @@ part of 'settings_repository.dart';
 // **************************************************************************
 
 String _$settingsRepositoryHash() =>
-    r'c6a4c002bc8445ff21f0d662659b0054a914d0b4';
+    r'15b9d470820e904e6d5c6d114339aa6eff77c93b';
 
 /// See also [settingsRepository].
 @ProviderFor(settingsRepository)
-final settingsRepositoryProvider = Provider<SettingsRepository>.internal(
+final settingsRepositoryProvider =
+    Provider<SettingsRepositoryContract>.internal(
   settingsRepository,
   name: r'settingsRepositoryProvider',
   debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
@@ -21,6 +22,6 @@ final settingsRepositoryProvider = Provider<SettingsRepository>.internal(
   allTransitiveDependencies: null,
 );
 
-typedef SettingsRepositoryRef = ProviderRef<SettingsRepository>;
+typedef SettingsRepositoryRef = ProviderRef<SettingsRepositoryContract>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member

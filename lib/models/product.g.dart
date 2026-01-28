@@ -22,8 +22,8 @@ class ProductAdapter extends TypeAdapter<Product> {
       reference: fields[2] as String,
       sku: fields[3] as String,
       categoryId: fields[4] as String,
-      retailPrice: fields[5] as double,
-      wholesalePrice: fields[6] as double,
+      priceVarejo: fields[5] as double,
+      priceAtacado: fields[6] as double,
       minWholesaleQty: fields[7] as int,
       sizes: (fields[8] as List).cast<String>(),
       colors: (fields[9] as List).cast<String>(),
@@ -52,9 +52,9 @@ class ProductAdapter extends TypeAdapter<Product> {
       ..writeByte(4)
       ..write(obj.categoryId)
       ..writeByte(5)
-      ..write(obj.retailPrice)
+      ..write(obj.priceVarejo)
       ..writeByte(6)
-      ..write(obj.wholesalePrice)
+      ..write(obj.priceAtacado)
       ..writeByte(7)
       ..write(obj.minWholesaleQty)
       ..writeByte(8)

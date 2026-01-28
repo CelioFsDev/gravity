@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
+import 'package:gravity/models/catalog.dart';
 import 'package:gravity/models/order_item.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -8,8 +9,10 @@ class WhatsAppShareService {
   static Future<void> shareCatalog({
     required String catalogName,
     required String catalogUrl,
+    required CatalogMode mode,
   }) async {
-    final text = 'Confira nosso catálogo *$catalogName*:\n$catalogUrl';
+    final label = mode.label;
+    final text = '$label\nConfira nosso catálogo *$catalogName*:\n$catalogUrl';
     await _launchWhatsApp(text: text);
   }
 

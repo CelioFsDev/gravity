@@ -1,4 +1,5 @@
 import 'package:gravity/data/repositories/catalogs_repository.dart';
+import 'package:gravity/data/repositories/categories_repository.dart';
 import 'package:gravity/data/repositories/products_repository.dart';
 import 'package:gravity/models/catalog.dart';
 import 'package:gravity/models/category.dart';
@@ -16,15 +17,16 @@ class PublicCatalogData {
 }
 
 @riverpod
-Future<PublicCatalogData?> catalogPublic(CatalogPublicRef ref, String slug) async {
+Future<PublicCatalogData?> catalogPublic(CatalogPublicRef ref, String shareCode) async {
   final catalogRepo = ref.watch(catalogsRepositoryProvider);
   final productRepo = ref.watch(productsRepositoryProvider);
 
-  final catalog = await catalogRepo.getBySlug(slug);
+  final categoriesRepo = ref.watch(categoriesRepositoryProvider);
+  final catalog = await catalogRepo.getByShareCode(shareCode.toLowerCase());
   if (catalog == null) return null;
 
   final allProducts = await productRepo.getProducts();
-  final allCategories = await productRepo.getCategories();
+  final allCategories = await categoriesRepo.getCategories();
 
   // Filter products: must be in catalog.productIds AND active
   final catalogProducts = allProducts.where((p) {

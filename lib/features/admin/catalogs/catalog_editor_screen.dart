@@ -6,6 +6,8 @@ import 'package:gravity/models/catalog.dart';
 import 'package:gravity/viewmodels/catalog_editor_viewmodel.dart';
 import 'package:gravity/viewmodels/products_viewmodel.dart';
 import 'package:gravity/features/admin/catalogs/tabs/products_selection_tab.dart';
+import 'package:flutter/services.dart';
+import 'package:gravity/data/repositories/settings_repository.dart';
 
 class CatalogEditorScreen extends ConsumerStatefulWidget {
   final Catalog? catalog;
@@ -146,6 +148,86 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                     errorText: state.slugError,
                   ),
                   onChanged: notifier.updateSlug,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Modo do catálago',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                ToggleButtons(
+                  isSelected: [
+                    state.catalog.mode == CatalogMode.varejo,
+                    state.catalog.mode == CatalogMode.atacado,
+                  ],
+                  onPressed: (index) {
+                    final selected =
+                        index == 0 ? CatalogMode.varejo : CatalogMode.atacado;
+                    notifier.setMode(selected);
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  selectedColor: Colors.white,
+                  color: Theme.of(context).colorScheme.primary,
+                  fillColor: Theme.of(context).colorScheme.primary,
+                  constraints: const BoxConstraints(minHeight: 40),
+                  children: const [
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Text('Varejo'),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Text('Atacado'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  title: const Text('Catálogo público'),
+                  subtitle: const Text('Disponibiliza o link /c/...'),
+                  value: state.catalog.isPublic,
+                  onChanged: notifier.setIsPublic,
+                ),
+                if (state.catalog.isPublic)
+                  state.catalog.shareCode.isNotEmpty
+                      ? ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.link),
+                          title: Text(
+                            '/c/${state.catalog.shareCode}',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.copy),
+                            onPressed: () async {
+                              final settingsRepo = ref.read(
+                                settingsRepositoryProvider,
+                              );
+                              final settings = await settingsRepo.getSettings();
+                              final baseUrl =
+                                  settings.publicBaseUrl?.isNotEmpty == true
+                                      ? settings.publicBaseUrl!
+                                      : 'https://gravity.app';
+                              final url = '$baseUrl/c/${state.catalog.shareCode}';
+                              await Clipboard.setData(ClipboardData(text: url));
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Link copiado: $url')),
+                                );
+                              }
+                            },
+                          ),
+                        )
+                      : const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 4),
+                          child: Text('Salve o catálago para gerar um link.'),
+                        ),
+                TextButton(
+                  onPressed: () => notifier.regenerateShareCode(),
+                  child: const Text('Gerar novo código'),
                 ),
                 const SizedBox(height: 16),
                 SwitchListTile(

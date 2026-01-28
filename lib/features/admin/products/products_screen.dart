@@ -225,10 +225,11 @@ class ProductsScreen extends ConsumerWidget {
                         ),
                       ],
                       onChanged: (val) {
-                        if (val != null)
+                        if (val != null) {
                           ref
                               .read(productsViewModelProvider.notifier)
                               .setStatusFilter(val);
+                        }
                       },
                     ),
                     DropdownButton<ProductSort>(
@@ -253,10 +254,11 @@ class ProductsScreen extends ConsumerWidget {
                         ),
                       ],
                       onChanged: (val) {
-                        if (val != null)
+                        if (val != null) {
                           ref
                               .read(productsViewModelProvider.notifier)
                               .setSortOption(val);
+                        }
                       },
                     ),
                   ],

@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:hive/hive.dart';
 
 part 'app_settings.g.dart';
@@ -34,6 +35,25 @@ class AppSettings {
       defaultWhatsapp: defaultWhatsapp ?? this.defaultWhatsapp,
       defaultMessageTemplate: defaultMessageTemplate ?? this.defaultMessageTemplate,
       publicBaseUrl: publicBaseUrl ?? this.publicBaseUrl,
+    );
+  }
+
+  Map<String, dynamic> toFirestoreMap() {
+    return {
+      'storeName': storeName,
+      'defaultWhatsapp': defaultWhatsapp,
+      'defaultMessageTemplate': defaultMessageTemplate,
+      'publicBaseUrl': publicBaseUrl,
+    };
+  }
+
+  factory AppSettings.fromFirestore(Map<String, dynamic> data) {
+    return AppSettings(
+      storeName: data['storeName']?.toString() ?? 'Minha Loja',
+      defaultWhatsapp: data['defaultWhatsapp']?.toString() ?? '',
+      defaultMessageTemplate:
+          data['defaultMessageTemplate']?.toString() ?? 'Olá! Gostaria de fazer o pedido #{orderId} do catálogo {catalogName}',
+      publicBaseUrl: data['publicBaseUrl']?.toString(),
     );
   }
 }

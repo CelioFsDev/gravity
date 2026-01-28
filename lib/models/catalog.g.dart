@@ -69,13 +69,17 @@ class CatalogAdapter extends TypeAdapter<Catalog> {
       banners: (fields[9] as List).cast<CatalogBanner>(),
       createdAt: fields[10] as DateTime,
       updatedAt: fields[11] as DateTime,
+      mode: fields[12] as CatalogMode,
+      isPublic: fields[13] as bool,
+      shareCode: fields[14] as String,
+      ownerUid: fields[15] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, Catalog obj) {
     writer
-      ..writeByte(12)
+      ..writeByte(16)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -99,7 +103,15 @@ class CatalogAdapter extends TypeAdapter<Catalog> {
       ..writeByte(10)
       ..write(obj.createdAt)
       ..writeByte(11)
-      ..write(obj.updatedAt);
+      ..write(obj.updatedAt)
+      ..writeByte(12)
+      ..write(obj.mode)
+      ..writeByte(13)
+      ..write(obj.isPublic)
+      ..writeByte(14)
+      ..write(obj.shareCode)
+      ..writeByte(15)
+      ..write(obj.ownerUid);
   }
 
   @override

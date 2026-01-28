@@ -6,7 +6,7 @@ part of 'catalog_public_viewmodel.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$catalogPublicHash() => r'36710d655133e93661b4e046a044e26d8a7be864';
+String _$catalogPublicHash() => r'd3cd4724d3aad63ed5df98b894624100aee2f596';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -40,10 +40,10 @@ class CatalogPublicFamily extends Family<AsyncValue<PublicCatalogData?>> {
 
   /// See also [catalogPublic].
   CatalogPublicProvider call(
-    String slug,
+    String shareCode,
   ) {
     return CatalogPublicProvider(
-      slug,
+      shareCode,
     );
   }
 
@@ -52,7 +52,7 @@ class CatalogPublicFamily extends Family<AsyncValue<PublicCatalogData?>> {
     covariant CatalogPublicProvider provider,
   ) {
     return call(
-      provider.slug,
+      provider.shareCode,
     );
   }
 
@@ -76,11 +76,11 @@ class CatalogPublicProvider
     extends AutoDisposeFutureProvider<PublicCatalogData?> {
   /// See also [catalogPublic].
   CatalogPublicProvider(
-    String slug,
+    String shareCode,
   ) : this._internal(
           (ref) => catalogPublic(
             ref as CatalogPublicRef,
-            slug,
+            shareCode,
           ),
           from: catalogPublicProvider,
           name: r'catalogPublicProvider',
@@ -91,7 +91,7 @@ class CatalogPublicProvider
           dependencies: CatalogPublicFamily._dependencies,
           allTransitiveDependencies:
               CatalogPublicFamily._allTransitiveDependencies,
-          slug: slug,
+          shareCode: shareCode,
         );
 
   CatalogPublicProvider._internal(
@@ -101,10 +101,10 @@ class CatalogPublicProvider
     required super.allTransitiveDependencies,
     required super.debugGetCreateSourceHash,
     required super.from,
-    required this.slug,
+    required this.shareCode,
   }) : super.internal();
 
-  final String slug;
+  final String shareCode;
 
   @override
   Override overrideWith(
@@ -119,7 +119,7 @@ class CatalogPublicProvider
         dependencies: null,
         allTransitiveDependencies: null,
         debugGetCreateSourceHash: null,
-        slug: slug,
+        shareCode: shareCode,
       ),
     );
   }
@@ -131,21 +131,21 @@ class CatalogPublicProvider
 
   @override
   bool operator ==(Object other) {
-    return other is CatalogPublicProvider && other.slug == slug;
+    return other is CatalogPublicProvider && other.shareCode == shareCode;
   }
 
   @override
   int get hashCode {
     var hash = _SystemHash.combine(0, runtimeType.hashCode);
-    hash = _SystemHash.combine(hash, slug.hashCode);
+    hash = _SystemHash.combine(hash, shareCode.hashCode);
 
     return _SystemHash.finish(hash);
   }
 }
 
 mixin CatalogPublicRef on AutoDisposeFutureProviderRef<PublicCatalogData?> {
-  /// The parameter `slug` of this provider.
-  String get slug;
+  /// The parameter `shareCode` of this provider.
+  String get shareCode;
 }
 
 class _CatalogPublicProviderElement
@@ -154,7 +154,7 @@ class _CatalogPublicProviderElement
   _CatalogPublicProviderElement(super.provider);
 
   @override
-  String get slug => (origin as CatalogPublicProvider).slug;
+  String get shareCode => (origin as CatalogPublicProvider).shareCode;
 }
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member

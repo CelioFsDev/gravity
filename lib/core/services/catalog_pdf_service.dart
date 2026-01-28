@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:gravity/models/catalog.dart';
 import 'package:gravity/models/product.dart';
 import 'package:intl/intl.dart';
 
@@ -10,14 +11,16 @@ class CatalogPdfService {
     required String catalogName,
     required List<Product> products,
     int columnsCount = 1,
+    required CatalogMode mode,
   }) async {
     final pdf = pw.Document();
     final currencyFormat = NumberFormat.simpleCurrency(locale: 'pt_BR');
 
     // CADA PRODUTO = 1 PÁGINA COMPLETA
     for (final product in products) {
-      final pixPrice = product.retailPrice * 0.95; // 5% desconto
-      final installment = product.retailPrice / 2;
+      final displayPrice = product.priceForMode(mode.name);
+      final pixPrice = displayPrice * 0.95; // 5% desconto
+      final installment = displayPrice / 2;
 
       pdf.addPage(
         pw.Page(
@@ -25,6 +28,18 @@ class CatalogPdfService {
           margin: const pw.EdgeInsets.all(0),
           build: (context) => pw.Column(
             children: [
+              pw.Align(
+                alignment: pw.Alignment.center,
+                child: pw.Text(
+                  mode.label,
+                  style: const pw.TextStyle(
+                    fontSize: 12,
+                    letterSpacing: 1.5,
+                    color: PdfColors.grey600,
+                  ),
+                ),
+              ),
+              pw.SizedBox(height: 4),
               // IMAGEM DO PRODUTO (60% da página)
               pw.Container(
                 height: PdfPageFormat.a4.height * 0.6,
@@ -107,7 +122,7 @@ class CatalogPdfService {
 
                       // PREÇO PRINCIPAL
                       pw.Text(
-                        currencyFormat.format(product.retailPrice),
+                      currencyFormat.format(displayPrice),
                         style: pw.TextStyle(
                           fontWeight: pw.FontWeight.bold,
                           fontSize: 48,

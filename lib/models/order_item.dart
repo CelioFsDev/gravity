@@ -54,4 +54,28 @@ class OrderItem {
       total: total ?? this.total,
     );
   }
+
+  Map<String, dynamic> toFirestoreMap() {
+    return {
+      'productId': productId,
+      'productName': productName,
+      'productReference': productReference,
+      'selectedSize': selectedSize,
+      'quantity': quantity,
+      'unitPrice': unitPrice,
+      'total': total,
+    };
+  }
+
+  factory OrderItem.fromFirestore(Map<String, dynamic> data) {
+    return OrderItem(
+      productId: data['productId']?.toString() ?? '',
+      productName: data['productName']?.toString() ?? '',
+      productReference: data['productReference']?.toString() ?? '',
+      selectedSize: data['selectedSize']?.toString(),
+      quantity: (data['quantity'] as num?)?.toInt() ?? 0,
+      unitPrice: (data['unitPrice'] as num?)?.toDouble() ?? 0.0,
+      total: (data['total'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
 }
