@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 class AuthUser {
   final String uid;
   final String email;
@@ -31,17 +29,32 @@ class AuthUser {
   }
 
   factory AuthUser.fromMap(String uid, Map<String, dynamic>? data) {
+    if (data == null) {
+      return AuthUser(uid: uid, email: '', createdAt: DateTime.now());
+    }
+
+    DateTime? createdAtDate;
+    if (data['createdAt'] is int) {
+      createdAtDate = DateTime.fromMillisecondsSinceEpoch(
+        data['createdAt'] as int,
+      );
+    } else if (data['createdAt'] is String) {
+      createdAtDate = DateTime.tryParse(data['createdAt'] as String);
+    }
+
     return AuthUser(
       uid: uid,
-      email: data?['email'] as String? ?? '',
-      role: data?['role'] as String? ?? 'user',
-      createdAt: data?['createdAt'] is Timestamp
-          ? (data?['createdAt'] as Timestamp).toDate()
-          : null,
+      email: data['email'] as String? ?? '',
+      role: data['role'] as String? ?? 'user',
+      createdAt: createdAtDate,
     );
   }
 
   Map<String, dynamic> toMap() {
-    return {'email': email, 'role': role};
+    return {
+      'email': email,
+      'role': role,
+      if (createdAt != null) 'createdAt': createdAt!.toIso8601String(),
+    };
   }
 }

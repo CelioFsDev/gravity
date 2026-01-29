@@ -1,7 +1,5 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gravity/core/auth/auth_controller.dart';
-import 'package:gravity/core/services/migration_service.dart';
 import 'package:gravity/core/widgets/responsive_scaffold.dart';
 import 'package:gravity/features/theme/theme_providers.dart';
 import 'package:gravity/models/app_settings.dart';
@@ -15,8 +13,6 @@ class SettingsScreen extends ConsumerWidget {
     final activeMode = ref.watch(themeModeProvider);
     final isDarkMode = activeMode == ThemeMode.dark;
     final settingsAsync = ref.watch(settingsViewModelProvider);
-    final user = ref.watch(currentUserProvider);
-    final isAdmin = user?.isAdmin ?? false;
 
     return ResponsiveScaffold(
       body: ListView(
@@ -50,83 +46,12 @@ class SettingsScreen extends ConsumerWidget {
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, s) => Text('Erro ao carregar configurações: $e'),
           ),
-          if (isAdmin) ...[
-            const Divider(height: 32),
-            Text('Admin', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () => _runMigration(context, ref),
-                icon: const Icon(Icons.cloud_upload),
-                label: const Text('Enviar dados locais para nuvem'),
-              ),
-            ),
-          ],
         ],
       ),
     );
   }
-
-  Future<void> _runMigration(BuildContext context, WidgetRef ref) async {
-    final progress = ValueNotifier<MigrationProgress>(
-      const MigrationProgress(
-        stage: 'init',
-        completed: 0,
-        total: 0,
-        message: 'Iniciando migração...',
-      ),
-    );
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Migração'),
-          content: ValueListenableBuilder<MigrationProgress>(
-            valueListenable: progress,
-            builder: (context, value, _) {
-              final total = value.total == 0 ? 1 : value.total;
-              final fraction = value.completed / total;
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(value.message),
-                  const SizedBox(height: 16),
-                  LinearProgressIndicator(
-                    value: fraction.isNaN ? null : fraction,
-                  ),
-                  const SizedBox(height: 8),
-                  Text('${value.completed} / ${value.total}'),
-                ],
-              );
-            },
-          ),
-        );
-      },
-    );
-
-    try {
-      await MigrationService.migrateAll(
-        onProgress: (value) => progress.value = value,
-      );
-      if (!context.mounted) return;
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Migração concluída.')),
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro na migração: $e')),
-      );
-    } finally {
-      progress.dispose();
-    }
-  }
 }
+
 class _StoreSettingsForm extends ConsumerStatefulWidget {
   final AppSettings settings;
 
@@ -136,65 +61,7 @@ class _StoreSettingsForm extends ConsumerStatefulWidget {
   ConsumerState<_StoreSettingsForm> createState() => _StoreSettingsFormState();
 }
 
-
-  Future<void> _runMigration(BuildContext context, WidgetRef ref) async {
-    final progress = ValueNotifier<MigrationProgress>(
-      const MigrationProgress(
-        stage: 'init',
-        completed: 0,
-        total: 0,
-        message: 'Iniciando migração...',
-      ),
-    );
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Migração'),
-          content: ValueListenableBuilder<MigrationProgress>(
-            valueListenable: progress,
-            builder: (context, value, _) {
-              final total = value.total == 0 ? 1 : value.total;
-              final fraction = value.completed / total;
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(value.message),
-                  const SizedBox(height: 16),
-                  LinearProgressIndicator(
-                    value: fraction.isNaN ? null : fraction,
-                  ),
-                  const SizedBox(height: 8),
-                  Text('${value.completed} / ${value.total}'),
-                ],
-              );
-            },
-          ),
-        );
-      },
-    );
-
-    try {
-      await MigrationService.migrateAll(
-        onProgress: (value) => progress.value = value,
-      );
-      if (!context.mounted) return;
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Migração concluída.')),
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro na migração: $e')),
-      );
-    } finally {
-      progress.dispose();
-    }
-  }class _StoreSettingsFormState extends ConsumerState<_StoreSettingsForm> {
+class _StoreSettingsFormState extends ConsumerState<_StoreSettingsForm> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameCtrl;
   late TextEditingController _whatsappCtrl;
@@ -289,6 +156,3 @@ class _StoreSettingsForm extends ConsumerStatefulWidget {
     );
   }
 }
-
-
-

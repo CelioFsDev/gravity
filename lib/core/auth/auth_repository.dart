@@ -1,7 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gravity/core/config/data_backend.dart';
 
 import 'auth_user.dart';
 
@@ -14,21 +13,18 @@ abstract class AuthRepositoryContract {
 }
 
 class FirebaseAuthRepository implements AuthRepositoryContract {
-  FirebaseAuthRepository({FirebaseAuth? auth, FirebaseFirestore? firestore})
+  FirebaseAuthRepository({FirebaseAuth? auth, GoogleSignIn? googleSignIn})
     : _auth = auth ?? FirebaseAuth.instance,
-      _firestore = firestore ?? FirebaseFirestore.instance;
+      _googleSignIn = googleSignIn ?? GoogleSignIn();
 
   final FirebaseAuth _auth;
-  final FirebaseFirestore _firestore;
-
-  CollectionReference<Map<String, dynamic>> get _users =>
-      _firestore.collection('users');
+  final GoogleSignIn _googleSignIn;
 
   @override
   Stream<AuthUser?> authStateChanges() {
-    return _auth.authStateChanges().asyncMap((firebaseUser) async {
+    return _auth.authStateChanges().map((firebaseUser) {
       if (firebaseUser == null) return null;
-      return _ensureAndFetch(firebaseUser);
+      return _userFromFirebase(firebaseUser);
     });
   }
 
@@ -48,8 +44,7 @@ class FirebaseAuthRepository implements AuthRepositoryContract {
         message: 'Registro concluído sem usuário.',
       );
     }
-    await _ensureUserDoc(user, role: 'user', overwriteRole: true);
-    return _ensureAndFetch(user);
+    return _userFromFirebase(user);
   }
 
   @override
@@ -68,45 +63,62 @@ class FirebaseAuthRepository implements AuthRepositoryContract {
         message: 'Usuário não encontrado após login.',
       );
     }
-    return _ensureAndFetch(user);
+    return _userFromFirebase(user);
+  }
+
+  Future<AuthUser> signInWithGoogle() async {
+    final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+    if (googleUser == null) {
+      // User canceled the sign-in flow
+      throw FirebaseAuthException(
+        code: 'ABORTED',
+        message: 'Login cancelado pelo usuário.',
+      );
+    }
+
+    final GoogleSignInAuthentication googleAuth =
+        await googleUser.authentication;
+
+    final AuthCredential credential = GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
+
+    final UserCredential userCredential = await _auth.signInWithCredential(
+      credential,
+    );
+    final user = userCredential.user;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'NO_USER',
+        message: 'Falha ao obter usuário Google.',
+      );
+    }
+    return _userFromFirebase(user);
   }
 
   @override
-  Future<void> signOut() => _auth.signOut();
+  Future<void> signOut() async {
+    await _googleSignIn.signOut();
+    await _auth.signOut();
+  }
 
   @override
   Future<AuthUser?> getCurrentUser() async {
     final user = _auth.currentUser;
     if (user == null) return null;
-    return _ensureAndFetch(user);
+    return _userFromFirebase(user);
   }
 
-  Future<AuthUser> _ensureAndFetch(User user) async {
-    await _ensureUserDoc(user);
-    final doc = await _users.doc(user.uid).get();
-    return AuthUser.fromMap(user.uid, doc.data());
-  }
-
-  Future<void> _ensureUserDoc(
-    User user, {
-    String role = 'user',
-    bool overwriteRole = false,
-  }) async {
-    final docRef = _users.doc(user.uid);
-    final snapshot = await docRef.get();
-    final existingRole = snapshot.data()?['role'] as String?;
-    final targetRole = overwriteRole ? role : (existingRole ?? role);
-    final payload = <String, dynamic>{
-      'email': user.email ?? '',
-      'role': targetRole,
-      'updatedAt': FieldValue.serverTimestamp(),
-    };
-
-    if (!snapshot.exists) {
-      payload['createdAt'] = FieldValue.serverTimestamp();
-    }
-
-    await docRef.set(payload, SetOptions(merge: true));
+  AuthUser _userFromFirebase(User user) {
+    // Without Firestore, we default to 'admin' or 'user' based on local rules.
+    // For now, allow everyone as admin to avoid lockout in this standalone app.
+    return AuthUser(
+      uid: user.uid,
+      email: user.email ?? '',
+      role: 'admin', // Defaulting to admin for offline/standalone usage
+      createdAt: user.metadata.creationTime,
+    );
   }
 }
 
@@ -159,15 +171,5 @@ class LocalAuthRepository implements AuthRepositoryContract {
 
 // Provider Factory
 final authRepositoryProvider = Provider<AuthRepositoryContract>((ref) {
-  final backend = ref.watch(dataBackendProvider);
-
-  if (backend == DataBackend.firestore || backend == DataBackend.hybrid) {
-    // Check if Firebase is actually initialized to avoid crash
-    if (FirebaseAuth.instance.app.options.apiKey == 'REPLACE') {
-      return LocalAuthRepository();
-    }
-    return FirebaseAuthRepository();
-  }
-
-  return LocalAuthRepository();
+  return FirebaseAuthRepository();
 });

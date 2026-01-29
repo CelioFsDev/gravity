@@ -31,7 +31,6 @@ import 'package:gravity/models/app_settings.dart';
 import 'package:gravity/features/public/catalog_home_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:gravity/core/auth/auth_repository.dart';
-import 'package:gravity/core/config/data_backend.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -58,27 +57,16 @@ void main() async {
   await Hive.openBox<Seller>('sellers');
   await Hive.openBox<AppSettings>('settings');
 
-  bool firebaseInitialized = false;
   try {
     // Initialize Firebase (after Hive to reuse local cache first)
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    firebaseInitialized = true;
   } catch (e) {
     debugPrint('Firebase init failed (Offline Mode Active): $e');
   }
 
-  runApp(
-    ProviderScope(
-      overrides: [
-        // Force Hive backend if Firebase failed
-        if (!firebaseInitialized)
-          dataBackendProvider.overrideWith((ref) => DataBackend.hive),
-      ],
-      child: const MyApp(),
-    ),
-  );
+  runApp(ProviderScope(child: const MyApp()));
 }
 
 class MyApp extends ConsumerWidget {
