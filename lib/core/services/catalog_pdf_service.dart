@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
+
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:gravity/models/catalog.dart';
@@ -12,21 +13,19 @@ class CatalogPdfService {
     required List<Product> products,
     int columnsCount = 1,
     required CatalogMode mode,
+    String? bannerImagePath,
   }) async {
     final pdf = pw.Document();
     final currencyFormat = NumberFormat.simpleCurrency(locale: 'pt_BR');
 
-    // CADA PRODUTO = 1 PÁGINA COMPLETA
     for (final product in products) {
       final displayPrice = product.priceForMode(mode.name);
-      final pixPrice = displayPrice * 0.95; // 5% desconto
-      final installment = displayPrice / 2;
-
       pdf.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.a4,
-          margin: const pw.EdgeInsets.all(0),
+          margin: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 24),
           build: (context) => pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
               pw.Align(
                 alignment: pw.Alignment.center,
@@ -39,235 +38,37 @@ class CatalogPdfService {
                   ),
                 ),
               ),
-              pw.SizedBox(height: 4),
-              // IMAGEM DO PRODUTO (60% da página)
-              pw.Container(
-                height: PdfPageFormat.a4.height * 0.6,
-                width: double.infinity,
-                child: product.images.isNotEmpty
-                    ? pw.ClipRRect(
-                        horizontalRadius: 12,
-                        verticalRadius: 12,
-                        child: _buildProductImage(
-                          product.images[product.mainImageIndex],
-                          width: double.infinity,
-                          height: double.infinity,
-                          fit: pw.BoxFit.cover,
-                        ),
-                      )
-                    : pw.Container(
-                        color: PdfColors.grey100,
-                        child: pw.Center(
-                          child: pw.Text(
-                            'Sem Foto',
-                            style: pw.TextStyle(
-                              color: PdfColors.grey400,
-                              fontSize: 24,
-                            ),
-                          ),
-                        ),
-                      ),
-              ),
-
-              // CONTEÚDO (40% da página)
-              pw.Expanded(
-                child: pw.Container(
-                  width: double.infinity,
-                  padding: const pw.EdgeInsets.symmetric(
-                    horizontal: 40,
-                    vertical: 32,
-                  ),
-                  color: PdfColors.white,
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.center,
-                    children: [
-                      // Selo promocional
-                      if (product.isOnSale)
-                        pw.Container(
-                          padding: const pw.EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 6,
-                          ),
-                          decoration: pw.BoxDecoration(
-                            color: PdfColors.green600,
-                            borderRadius: pw.BorderRadius.circular(20),
-                          ),
-                          child: pw.Text(
-                            '${product.saleDiscountPercent}% OFF NO CARRINHO',
-                            style: pw.TextStyle(
-                              color: PdfColors.white,
-                              fontSize: 11,
-                              fontWeight: pw.FontWeight.bold,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-
-                      if (product.isOnSale && product.saleDiscountPercent > 0)
-                        pw.SizedBox(height: 12),
-
-                      // NOME DO PRODUTO
-                      pw.Text(
-                        product.name.toUpperCase(),
-                        style: pw.TextStyle(
-                          fontWeight: pw.FontWeight.bold,
-                          fontSize: 28,
-                          letterSpacing: 1.5,
-                          color: PdfColors.grey900,
-                        ),
-                        textAlign: pw.TextAlign.center,
-                      ),
-
-                      pw.SizedBox(height: 20),
-
-                      // PREÇO PRINCIPAL
-                      pw.Text(
-                      currencyFormat.format(displayPrice),
-                        style: pw.TextStyle(
-                          fontWeight: pw.FontWeight.bold,
-                          fontSize: 48,
-                          color: PdfColors.grey900,
-                        ),
-                        textAlign: pw.TextAlign.center,
-                      ),
-
-                      pw.SizedBox(height: 8),
-
-                      // Parcelamento
-                      pw.Text(
-                        '2x de ${currencyFormat.format(installment)} sem juros',
-                        style: pw.TextStyle(
-                          fontSize: 14,
-                          color: PdfColors.grey600,
-                        ),
-                        textAlign: pw.TextAlign.center,
-                      ),
-
-                      pw.SizedBox(height: 12),
-
-                      // Preço Pix
-                      pw.Container(
-                        padding: const pw.EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 10,
-                        ),
-                        decoration: pw.BoxDecoration(
-                          color: PdfColors.blue50,
-                          borderRadius: pw.BorderRadius.circular(8),
-                        ),
-                        child: pw.Text(
-                          '${currencyFormat.format(pixPrice)} com Pix (5% OFF)',
-                          style: pw.TextStyle(
-                            fontSize: 16,
-                            fontWeight: pw.FontWeight.bold,
-                            color: PdfColors.blue800,
-                          ),
-                        ),
-                      ),
-
-                      pw.Spacer(),
-
-                      // INFORMAÇÕES TÉCNICAS
-                      pw.Container(
-                        padding: const pw.EdgeInsets.all(16),
-                        decoration: pw.BoxDecoration(
-                          color: PdfColors.grey50,
-                          borderRadius: pw.BorderRadius.circular(8),
-                        ),
-                        child: pw.Column(
-                          children: [
-                            // REF
-                            pw.Row(
-                              mainAxisAlignment: pw.MainAxisAlignment.center,
-                              children: [
-                                pw.Text(
-                                  'REF: ',
-                                  style: pw.TextStyle(
-                                    fontSize: 14,
-                                    color: PdfColors.grey600,
-                                    fontWeight: pw.FontWeight.bold,
-                                  ),
-                                ),
-                                pw.Text(
-                                  product.reference,
-                                  style: pw.TextStyle(
-                                    fontSize: 14,
-                                    color: PdfColors.grey900,
-                                    fontWeight: pw.FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            // TAMANHOS
-                            if (product.sizes.isNotEmpty) ...[
-                              pw.SizedBox(height: 8),
-                              pw.Row(
-                                mainAxisAlignment: pw.MainAxisAlignment.center,
-                                children: [
-                                  pw.Text(
-                                    'TAMANHOS: ',
-                                    style: pw.TextStyle(
-                                      fontSize: 14,
-                                      color: PdfColors.grey600,
-                                      fontWeight: pw.FontWeight.bold,
-                                    ),
-                                  ),
-                                  pw.Text(
-                                    product.sizes.join(' | '),
-                                    style: pw.TextStyle(
-                                      fontSize: 14,
-                                      color: PdfColors.grey900,
-                                      fontWeight: pw.FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-
-                            // CORES
-                            if (product.colors.isNotEmpty) ...[
-                              pw.SizedBox(height: 8),
-                              pw.Row(
-                                mainAxisAlignment: pw.MainAxisAlignment.center,
-                                children: [
-                                  pw.Text(
-                                    'CORES: ',
-                                    style: pw.TextStyle(
-                                      fontSize: 14,
-                                      color: PdfColors.grey600,
-                                      fontWeight: pw.FontWeight.bold,
-                                    ),
-                                  ),
-                                  pw.Text(
-                                    product.colors.join(' | '),
-                                    style: pw.TextStyle(
-                                      fontSize: 14,
-                                      color: PdfColors.grey900,
-                                      fontWeight: pw.FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-
-                      pw.SizedBox(height: 16),
-
-                      // FOOTER - Nome do catálogo
-                      pw.Text(
-                        'Pedidos via WhatsApp | $catalogName',
-                        style: const pw.TextStyle(
-                          fontSize: 10,
-                          color: PdfColors.grey500,
-                        ),
-                        textAlign: pw.TextAlign.center,
-                      ),
-                    ],
-                  ),
+              pw.SizedBox(height: 12),
+              if (bannerImagePath != null) ...[
+                _buildBannerImage(bannerImagePath),
+                pw.SizedBox(height: 18),
+              ],
+              _buildProductHero(product),
+              pw.SizedBox(height: 18),
+              _buildProductDetails(product, currencyFormat, displayPrice),
+              if (product.images.length > 1) ...[
+                pw.SizedBox(height: 12),
+                _buildAdditionalImages(product),
+              ],
+              pw.Spacer(),
+              pw.Divider(color: PdfColors.grey300),
+              pw.SizedBox(height: 8),
+              pw.Text(
+                'Pedidos via WhatsApp | $catalogName',
+                style: const pw.TextStyle(
+                  fontSize: 10,
+                  color: PdfColors.grey600,
                 ),
+                textAlign: pw.TextAlign.center,
+              ),
+              pw.Text(
+                'Nova coleção cápsula ${DateTime.now().year}',
+                style: pw.TextStyle(
+                  fontSize: 11,
+                  fontStyle: pw.FontStyle.italic,
+                  color: PdfColors.grey500,
+                ),
+                textAlign: pw.TextAlign.center,
               ),
             ],
           ),
@@ -276,6 +77,207 @@ class CatalogPdfService {
     }
 
     return pdf.save();
+  }
+
+  static pw.Widget _buildBannerImage(String path) {
+    return pw.ClipRRect(
+      horizontalRadius: 16,
+      verticalRadius: 16,
+      child: pw.Container(
+        height: 120,
+        color: PdfColors.grey100,
+        child: _buildProductImage(
+          path,
+          fit: pw.BoxFit.cover,
+          height: 120,
+          width: double.infinity,
+        ),
+      ),
+    );
+  }
+
+  static pw.Widget _buildProductHero(Product product) {
+    final imagePath = product.images.isNotEmpty
+        ? product.images[product.mainImageIndex.clamp(
+            0,
+            product.images.length - 1,
+          )]
+        : null;
+    return pw.ClipRRect(
+      horizontalRadius: 20,
+      verticalRadius: 20,
+      child: pw.Container(
+        height: PdfPageFormat.a4.height * 0.40,
+        color: PdfColors.grey100,
+        child: imagePath != null
+            ? _buildProductImage(
+                imagePath,
+                fit: pw.BoxFit.cover,
+                height: PdfPageFormat.a4.height * 0.40,
+                width: double.infinity,
+              )
+            : pw.Center(
+                child: pw.Text(
+                  'Sem Foto',
+                  style: pw.TextStyle(fontSize: 24, color: PdfColors.grey400),
+                ),
+              ),
+      ),
+    );
+  }
+
+  static pw.Widget _buildProductDetails(
+    Product product,
+    NumberFormat currencyFormat,
+    double displayPrice,
+  ) {
+    final sizes = product.sizes.isNotEmpty
+        ? product.sizes.map((s) => s.toUpperCase()).join(' / ')
+        : 'Único';
+    final colorDots = product.colors.isNotEmpty
+        ? _buildColorDots(product.colors)
+        : <pw.Widget>[];
+
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Expanded(
+              child: pw.Text(
+                product.name.toUpperCase(),
+                style: pw.TextStyle(
+                  fontSize: 24,
+                  fontWeight: pw.FontWeight.bold,
+                  letterSpacing: 1.2,
+                  color: PdfColors.grey900,
+                ),
+              ),
+            ),
+            pw.SizedBox(width: 8),
+            pw.Text(
+              'REF: ${product.reference}',
+              style: pw.TextStyle(
+                fontSize: 12,
+                fontWeight: pw.FontWeight.bold,
+                color: PdfColors.grey600,
+              ),
+            ),
+          ],
+        ),
+        pw.SizedBox(height: 8),
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            pw.Text(
+              currencyFormat.format(displayPrice),
+              style: pw.TextStyle(
+                fontSize: 40,
+                fontWeight: pw.FontWeight.bold,
+                color: PdfColors.grey900,
+              ),
+            ),
+            pw.Spacer(),
+            if (colorDots.isNotEmpty)
+              pw.Row(children: colorDots)
+            else
+              pw.Text(
+                'sem cores',
+                style: const pw.TextStyle(
+                  fontSize: 12,
+                  color: PdfColors.grey600,
+                ),
+              ),
+          ],
+        ),
+        pw.SizedBox(height: 8),
+        pw.Row(
+          children: [
+            pw.Text(
+              'Tamanhos:',
+              style: pw.TextStyle(
+                fontSize: 12,
+                fontWeight: pw.FontWeight.bold,
+                color: PdfColors.grey600,
+              ),
+            ),
+            pw.SizedBox(width: 6),
+            pw.Text(
+              sizes,
+              style: const pw.TextStyle(fontSize: 12, color: PdfColors.grey900),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  static List<pw.Widget> _buildColorDots(List<String> colors) {
+    return colors.take(4).map((color) {
+      final normalized = color.trim().toLowerCase();
+      return pw.Container(
+        width: 14,
+        height: 14,
+        margin: const pw.EdgeInsets.only(left: 6),
+        decoration: pw.BoxDecoration(
+          color: _colorFromName(normalized),
+          borderRadius: pw.BorderRadius.circular(7),
+          border: pw.Border.all(color: PdfColors.grey400),
+        ),
+      );
+    }).toList();
+  }
+
+  static PdfColor _colorFromName(String name) {
+    if (name.contains('azul')) return PdfColors.blue700;
+    if (name.contains('rosa')) return PdfColors.pink400;
+    if (name.contains('vermelho')) return PdfColors.red400;
+    if (name.contains('marrom')) return PdfColors.brown500;
+    if (name.contains('preto')) return PdfColors.black;
+    if (name.contains('branco')) return PdfColors.grey200;
+    if (name.contains('verde')) return PdfColors.green600;
+    if (name.contains('amarelo')) return PdfColors.yellow600;
+    if (name.contains('cinza')) return PdfColors.grey500;
+    if (name.contains('bege')) return PdfColors.brown200;
+    if (name.contains('lilas') || name.contains('lilá')) {
+      return PdfColors.purple300;
+    }
+    return PdfColors.grey400;
+  }
+
+  static pw.Widget _buildAdditionalImages(Product product) {
+    final thumbnails = product.images
+        .asMap()
+        .entries
+        .where((entry) => entry.key != product.mainImageIndex)
+        .take(2)
+        .toList();
+
+    if (thumbnails.isEmpty) return pw.SizedBox();
+
+    return pw.Row(
+      children: List.generate(thumbnails.length, (index) {
+        final entry = thumbnails[index];
+        final isLast = index == thumbnails.length - 1;
+        return pw.Expanded(
+          child: pw.ClipRRect(
+            horizontalRadius: 12,
+            verticalRadius: 12,
+            child: pw.Container(
+              margin: pw.EdgeInsets.only(right: isLast ? 0 : 8),
+              height: 80,
+              color: PdfColors.grey100,
+              child: _buildProductImage(
+                entry.value,
+                fit: pw.BoxFit.cover,
+                height: 80,
+              ),
+            ),
+          ),
+        );
+      }),
+    );
   }
 
   static pw.Widget _buildProductImage(
@@ -294,7 +296,7 @@ class CatalogPdfService {
           child: pw.Image(image, fit: fit),
         );
       }
-    } catch (e) {
+    } catch (_) {
       // Ignora erro de imagem
     }
     return pw.SizedBox(height: height ?? 140, width: width ?? 140);

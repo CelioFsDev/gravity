@@ -169,6 +169,9 @@ class CatalogShareHelper {
     final catalogProducts = allProducts
         .where((p) => catalog.productIds.contains(p.id))
         .toList();
+    final bannerImagePath = catalog.banners.isNotEmpty
+        ? catalog.banners.first.imagePath
+        : null;
 
     if (catalogProducts.isEmpty) {
       if (catalog.productIds.isEmpty) {
@@ -194,6 +197,7 @@ class CatalogShareHelper {
         products: fallbackProducts,
         columnsCount: columnsCount,
         mode: mode,
+        bannerImagePath: bannerImagePath,
       );
     }
 
@@ -203,6 +207,7 @@ class CatalogShareHelper {
       products: catalogProducts,
       columnsCount: columnsCount,
       mode: mode,
+      bannerImagePath: bannerImagePath,
     );
   }
 

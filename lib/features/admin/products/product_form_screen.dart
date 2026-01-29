@@ -40,8 +40,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   bool _isActive = true;
   bool _isOutOfStock = false;
   bool _isOnSale = false;
-  List<String> _images = [];
-  int _mainImageIndex = 0;
+  String? _mainImagePath;
+  List<String> _variationImages = [];
 
   @override
   void initState() {
@@ -72,8 +72,17 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     _isActive = pr?.isActive ?? true;
     _isOutOfStock = pr?.isOutOfStock ?? false;
     _isOnSale = pr?.isOnSale ?? false;
-    _images = List.from(pr?.images ?? []);
-    _mainImageIndex = pr?.mainImageIndex ?? 0;
+    if (pr != null && pr.images.isNotEmpty) {
+      final safeIndex = pr.mainImageIndex.clamp(0, pr.images.length - 1);
+      _mainImagePath = pr.images[safeIndex];
+      _variationImages = pr.images
+          .asMap()
+          .entries
+          .where((entry) => entry.key != safeIndex)
+          .map((entry) => entry.value)
+          .take(3)
+          .toList();
+    }
   }
 
   @override
@@ -114,6 +123,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       return;
     }
 
+    final imagesForSave = _buildImagesForSave();
     final product = Product(
       id: widget.product?.id ?? const Uuid().v4(),
       name: _nameController.text,
@@ -133,8 +143,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           .map((e) => e.trim())
           .where((e) => e.isNotEmpty)
           .toList(),
-      images: _images,
-      mainImageIndex: _mainImageIndex,
+      images: imagesForSave,
+      mainImageIndex: imagesForSave.isEmpty ? 0 : 0,
       isActive: _isActive,
       isOutOfStock: _isOutOfStock,
       isOnSale: _isOnSale,
@@ -159,68 +169,97 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     }
   }
 
-  Future<void> _pickImages() async {
+  Future<void> _pickMainImage() async {
     try {
-      debugPrint('Picking images...');
+      debugPrint('Picking main image...');
       final result = await FilePicker.platform.pickFiles(
-        allowMultiple: true,
+        allowMultiple: false,
         type: FileType
             .any, // Back to any to avoid filter issues on some Windows versions
         // allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'], // Filtered manually below
       );
 
-      if (result != null && result.files.isNotEmpty) {
-        debugPrint('Picked ${result.files.length} files');
-
-        for (final file in result.files) {
-          // Manual filtering for images
-          final ext = p.extension(file.name).toLowerCase();
-          if (!['.jpg', '.jpeg', '.png', '.webp'].contains(ext)) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Arquivo "${file.name}" ignorado (não é imagem).',
-                  ),
-                ),
-              );
-            }
-            continue;
-          }
-
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Copiando ${file.name}...'),
-                duration: const Duration(milliseconds: 500),
-              ),
-            );
-          }
-
-          final resolved = await _copyFileToPersistentStorage(file);
-          if (resolved != null) {
-            if (mounted) {
-              setState(() {
-                _images.add(resolved);
-              });
-            }
-          } else {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Falha ao processar "${file.name}".')),
-              );
-            }
-          }
-        }
+      if (result == null || result.files.isEmpty) return;
+      final file = result.files.first;
+      final resolved = await _processPickedImage(file);
+      if (resolved != null && mounted) {
+        setState(() => _mainImagePath = resolved);
       }
     } catch (e, stack) {
-      debugPrint('Error in _pickImages: $e\n$stack');
+      debugPrint('Error in _pickMainImage: $e\n$stack');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erro crítico ao selecionar foto: $e')),
         );
       }
     }
+  }
+
+  Future<void> _pickVariationImages() async {
+    if (_variationImages.length >= 3) return;
+    try {
+      debugPrint('Picking variation images...');
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.any,
+      );
+
+      if (result == null || result.files.isEmpty) return;
+      for (final file in result.files) {
+        if (_variationImages.length >= 3) break;
+        final resolved = await _processPickedImage(file);
+        if (resolved != null && mounted) {
+          setState(() => _variationImages.add(resolved));
+        }
+      }
+    } catch (e, stack) {
+      debugPrint('Error in _pickVariationImages: $e\n$stack');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao selecionar variações: $e')),
+        );
+      }
+    }
+  }
+
+  Future<String?> _processPickedImage(PlatformFile file) async {
+    final ext = p.extension(file.name).toLowerCase();
+    if (!['.jpg', '.jpeg', '.png', '.webp'].contains(ext)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Arquivo "${file.name}" ignorado (não é imagem).',
+            ),
+          ),
+        );
+      }
+      return null;
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Copiando ${file.name}...'),
+          duration: const Duration(milliseconds: 500),
+        ),
+      );
+    }
+
+    final resolved = await _copyFileToPersistentStorage(file);
+    if (resolved == null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Falha ao processar "${file.name}".')),
+      );
+    }
+    return resolved;
+  }
+
+  List<String> _buildImagesForSave() {
+    final images = <String>[];
+    if (_mainImagePath != null) images.add(_mainImagePath!);
+    images.addAll(_variationImages);
+    return images;
   }
 
   Future<String?> _copyFileToPersistentStorage(PlatformFile file) async {
@@ -509,59 +548,108 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
                     // Images
                     _buildSectionTitle('Imagens'),
-                    ElevatedButton.icon(
-                      onPressed: _pickImages,
-                      icon: const Icon(Icons.upload),
-                      label: const Text('Adicionar Imagens'),
+                    Text(
+                      'Imagem principal',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Container(
+                          width: 120,
+                          height: 120,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.blue, width: 2),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: _mainImagePath == null
+                              ? const Center(child: Icon(Icons.image))
+                              : kIsWeb
+                                  ? const Center(
+                                      child: Text(
+                                        'Imagem não renderizada no navegador',
+                                      ),
+                                    )
+                                  : Image.file(
+                                      File(_mainImagePath!),
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, _, _) => const Center(
+                                        child: Icon(
+                                          Icons.broken_image,
+                                          color: Colors.red,
+                                        ),
+                                      ),
+                                    ),
+                        ),
+                        const SizedBox(width: 16),
+                        ElevatedButton.icon(
+                          onPressed: _pickMainImage,
+                          icon: const Icon(Icons.upload),
+                          label: const Text('Adicionar principal'),
+                        ),
+                        if (_mainImagePath != null) ...[
+                          const SizedBox(width: 8),
+                          IconButton(
+                            onPressed: () =>
+                                setState(() => _mainImagePath = null),
+                            icon: const Icon(Icons.delete_outline),
+                          ),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 16),
-                    if (_images.isNotEmpty)
-                      SizedBox(
-                        height: 120,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: _images.length,
-                          itemBuilder: (context, index) {
-                            final path = _images[index];
-                            final isMain = index == _mainImageIndex;
-                            return Stack(
-                              children: [
-                                Container(
-                                  margin: const EdgeInsets.only(right: 8),
-                                  width: 100,
-                                  height: 100,
-                                  decoration: BoxDecoration(
-                                    border: isMain
-                                        ? Border.all(
-                                            color: Colors.blue,
-                                            width: 3,
-                                          )
-                                        : null,
-                                    color: Colors.grey.shade200,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  clipBehavior: Clip.antiAlias,
-                                  child: kIsWeb
-                                      ? const Center(
-                                          child: Text(
-                                            'Imagens não renderizadas no navegador',
-                                          ),
-                                        )
-                                      : Image.file(
-                                          File(path),
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (_, _, _) =>
-                                              const Center(
-                                                child: Icon(
-                                                  Icons.broken_image,
-                                                  color: Colors.red,
-                                                ),
-                                              ),
-                                        ),
+                    Text(
+                      'Variações (até 3 fotos)',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: List.generate(3, (index) {
+                        final hasImage = index < _variationImages.length;
+                        final path = hasImage ? _variationImages[index] : null;
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            right: index == 2 ? 0 : 8,
+                          ),
+                          child: Stack(
+                            children: [
+                              Container(
+                                width: 80,
+                                height: 80,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade200,
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
+                                clipBehavior: Clip.antiAlias,
+                                child: path == null
+                                    ? const Center(
+                                        child: Icon(Icons.add_photo_alternate),
+                                      )
+                                    : kIsWeb
+                                        ? const Center(
+                                            child: Text(
+                                              'Sem preview',
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          )
+                                        : Image.file(
+                                            File(path),
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (_, _, _) =>
+                                                const Center(
+                                                  child: Icon(
+                                                    Icons.broken_image,
+                                                    color: Colors.red,
+                                                  ),
+                                                ),
+                                          ),
+                              ),
+                              if (path != null)
                                 Positioned(
                                   top: 0,
-                                  right: 8,
+                                  right: 0,
                                   child: Container(
                                     decoration: const BoxDecoration(
                                       color: Colors.black54,
@@ -571,40 +659,31 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                                       icon: const Icon(
                                         Icons.close,
                                         color: Colors.white,
-                                        size: 18,
+                                        size: 16,
                                       ),
                                       onPressed: () => setState(() {
-                                        _images.removeAt(index);
-                                        if (_mainImageIndex >= _images.length) {
-                                          _mainImageIndex = 0;
-                                        }
+                                        _variationImages.removeAt(index);
                                       }),
                                     ),
                                   ),
                                 ),
-                                Positioned(
-                                  left: 0,
-                                  bottom: 0,
-                                  child: IconButton(
-                                    icon: Icon(
-                                      isMain ? Icons.star : Icons.star_border,
-                                      color: Colors.yellow,
-                                      shadows: const [
-                                        Shadow(
-                                          blurRadius: 2,
-                                          color: Colors.black,
-                                        ),
-                                      ],
-                                    ),
-                                    onPressed: () =>
-                                        setState(() => _mainImageIndex = index),
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      onPressed: _variationImages.length >= 3
+                          ? null
+                          : _pickVariationImages,
+                      icon: const Icon(Icons.upload),
+                      label: Text(
+                        _variationImages.length >= 3
+                            ? 'Limite atingido'
+                            : 'Adicionar variações',
                       ),
+                    ),
                   ],
                 ),
               ),
