@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gravity/core/services/product_transfer_service.dart';
 import 'package:gravity/viewmodels/product_import_viewmodel.dart';
 
 class ProductImportScreen extends ConsumerWidget {
@@ -91,19 +92,14 @@ class ProductImportScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 OutlinedButton.icon(
                   onPressed: () {
-                    // Logic to generate and save CSV template or open URL
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Download iniciado (Simulado)'),
-                      ),
-                    );
+                    ProductTransferService.saveTemplateCsv(context);
                   },
                   icon: const Icon(Icons.download),
                   label: const Text('Baixar Template CSV'),
                 ),
                 const SizedBox(height: 16),
                 const Text(
-                  'Colunas: Name, REF, SKU, CategoryID, RetailPrice, WholesalePrice, MinQty, Sizes, Colors, IsActive',
+                  'Colunas: SKU, Name, REF, Category, RetailPrice, WholesalePrice, MinQty, Sizes, Colors, IsActive, IsOutOfStock, IsOnSale, SaleDiscountPercent, MainImageIndex, CreatedAt, ImageFiles',
                 ),
               ],
             ),
@@ -117,7 +113,7 @@ class ProductImportScreen extends ConsumerWidget {
                 ElevatedButton.icon(
                   onPressed: viewModel.pickAndParseCsv,
                   icon: const Icon(Icons.upload_file),
-                  label: const Text('Carregar Arquivo CSV'),
+                  label: const Text('Carregar CSV ou ZIP'),
                 ),
                 if (state.errorMessage != null)
                   Padding(

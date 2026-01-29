@@ -1,4 +1,5 @@
 import 'package:gravity/core/auth/auth_controller.dart';
+import 'package:gravity/core/auth/auth_guards.dart';
 import 'package:gravity/data/repositories/catalogs_repository.dart';
 import 'package:gravity/models/catalog.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -16,7 +17,7 @@ class CatalogsViewModel extends _$CatalogsViewModel {
   Future<void> deleteCatalog(String id) async {
     final repository = ref.read(catalogsRepositoryProvider);
     final user = ref.read(currentUserProvider);
-    if (user == null) {
+    if (!isLoggedIn(user)) {
       throw Exception('Sem permissÃ£o para excluir catÃ¡logos.');
     }
     final catalogs = state.value ?? await repository.getCatalogs();
@@ -24,7 +25,9 @@ class CatalogsViewModel extends _$CatalogsViewModel {
       (c) => c.id == id,
       orElse: () => throw Exception('CatÃ¡logo nÃ£o encontrado.'),
     );
-    if (target.ownerUid.isNotEmpty && target.ownerUid != user.uid) {
+    if (user != null &&
+        target.ownerUid.isNotEmpty &&
+        target.ownerUid != user.uid) {
       throw Exception('Sem permissÃ£o para excluir este catÃ¡logo.');
     }
     await repository.deleteCatalog(id);

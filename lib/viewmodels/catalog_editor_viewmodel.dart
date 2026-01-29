@@ -1,4 +1,5 @@
 import 'package:gravity/core/auth/auth_controller.dart';
+import 'package:gravity/core/auth/auth_guards.dart';
 import 'package:gravity/data/repositories/catalogs_repository.dart';
 import 'package:gravity/models/catalog.dart';
 import 'package:gravity/viewmodels/catalog_public_viewmodel.dart';
@@ -177,11 +178,13 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
 
     final user = ref.read(currentUserProvider);
     var toSave = state.catalog;
-    if (user == null) {
+    if (!isLoggedIn(user)) {
       state = state.copyWith(isSaving: false, slugError: 'UsuÃ¡rio nÃ£o autenticado.');
       return false;
     }
-    if (toSave.ownerUid.isNotEmpty && toSave.ownerUid != user.uid) {
+    if (user != null &&
+        toSave.ownerUid.isNotEmpty &&
+        toSave.ownerUid != user.uid) {
       state = state.copyWith(isSaving: false, slugError: 'Sem permissÃ£o para editar este catÃ¡logo.');
       return false;
     }
@@ -190,7 +193,8 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
     }
     toSave = toSave.copyWith(
       updatedAt: DateTime.now(),
-      ownerUid: toSave.ownerUid.isEmpty ? user.uid : toSave.ownerUid,
+      ownerUid:
+          toSave.ownerUid.isEmpty && user != null ? user.uid : toSave.ownerUid,
     );
 
     await repository.addCatalog(toSave);

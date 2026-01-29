@@ -20,14 +20,15 @@ class WhatsAppShareService {
     required List<int> bytes,
     required String fileName,
     String? text,
+    String? mimeType,
   }) async {
     await Share.shareXFiles([
       XFile.fromData(
         Uint8List.fromList(bytes),
         name: fileName,
-        mimeType: 'application/pdf',
+        mimeType: mimeType ?? 'application/pdf',
       ),
-    ], subject: text);
+    ], text: text, subject: text);
   }
 
   static Future<void> shareOrder({

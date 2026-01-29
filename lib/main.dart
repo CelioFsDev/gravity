@@ -233,6 +233,9 @@ class GoRouterRefreshStream extends ChangeNotifier {
 }
 
 String? _authRedirect(AuthUser? user, GoRouterState state) {
+  if (kBypassAuth) {
+    return null;
+  }
   final path = state.uri.path;
   final isLogin = path == '/login';
   final isRegister = path == '/register';
@@ -240,7 +243,7 @@ String? _authRedirect(AuthUser? user, GoRouterState state) {
   final isShareRoute = path.startsWith('/c/');
   final isPublicHome = path == '/';
 
-  if (user == null) {
+  if (!isLoggedIn(user)) {
     if (isLogin || isRegister || isShareRoute || isPublicHome) return null;
     return '/login';
   }

@@ -1,14 +1,19 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/services.dart';
 import 'package:gravity/core/auth/auth_controller.dart';
+import 'package:gravity/core/auth/auth_guards.dart';
+import 'package:gravity/data/repositories/contracts/categories_repository_contract.dart';
+import 'package:gravity/data/repositories/categories_repository.dart';
 import 'package:gravity/data/repositories/products_repository.dart';
+import 'package:gravity/models/category.dart';
 import 'package:gravity/models/product.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:csv/csv.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
@@ -22,7 +27,8 @@ class ProductImportState {
   final List<Product> parsedProducts; // Products converted from CSV
   final List<String> matchedImages; // List of image paths found
   final int imagesMatchedCount;
-  final int imagesTotalCount; // Total expected based on CSV SKU count or file upload count
+  final int
+  imagesTotalCount; // Total expected based on CSV SKU count or file upload count
   final bool isLoading;
   final String? errorMessage;
   final bool isDone;
@@ -87,31 +93,26 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     try {
       FilePickerResult? result = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['csv'],
+        allowedExtensions: ['csv', 'zip'],
         withData: kIsWeb,
       );
 
       if (result != null) {
-        // Read file
-        final input = await _readCsvContent(result.files.single);
-        final fields = const CsvToListConverter().convert(input);
+        final file = result.files.single;
+        final ext = p.extension(file.name).toLowerCase();
+        final ParsedImport parsed;
 
-        // Basic validation: Expect Header
-        if (fields.isEmpty) throw Exception("Arquivo vazio");
-
-        // Parse Products
-        final products = <Product>[];
-        // Skip header
-        for (var i = 1; i < fields.length; i++) {
-          final row = fields[i];
-          if (row.length < 3) continue; // Skip bad row
-
-          products.add(_mapRowToProduct(row));
+        if (ext == '.zip') {
+          parsed = await _parseZipPackage(file);
+        } else {
+          parsed = await _parseCsvFile(file);
         }
 
         state = state.copyWith(
-          csvData: fields,
-          parsedProducts: products,
+          csvData: parsed.csvData,
+          parsedProducts: parsed.products,
+          imagesMatchedCount: parsed.imagesMatchedCount,
+          imagesTotalCount: parsed.imagesTotalCount,
           isLoading: false,
         );
       } else {
@@ -142,14 +143,17 @@ class ProductImportViewModel extends _$ProductImportViewModel {
 
         for (var file in result.files) {
           if (!kIsWeb && file.path == null) continue;
-
-          for (var product in state.parsedProducts) {
-            final copiedPath = await _resolveImageForPlatform(file);
-            if (copiedPath != null) {
-              productImages.putIfAbsent(product.id, () => []).add(copiedPath);
-              matched++;
-            }
-            break; // Found owner
+          final matchedProduct = _findProductBySkuPrefix(
+            file.name,
+            state.parsedProducts,
+          );
+          if (matchedProduct == null) continue;
+          final copiedPath = await _resolveImageForPlatform(file);
+          if (copiedPath != null) {
+            productImages
+                .putIfAbsent(matchedProduct.id, () => [])
+                .add(copiedPath);
+            matched++;
           }
         }
 
@@ -177,10 +181,385 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     }
   }
 
+  Future<ParsedImport> _parseCsvFile(PlatformFile file) async {
+    final input = await _readCsvContent(file);
+    return _parseCsvContent(input);
+  }
+
+  Future<ParsedImport> _parseZipPackage(PlatformFile file) async {
+    final bytes = await _readFileBytes(file);
+    final archive = ZipDecoder().decodeBytes(bytes);
+
+    ArchiveFile? csvEntry;
+    for (final entry in archive.files) {
+      if (!entry.isFile) continue;
+      if (p.extension(entry.name).toLowerCase() == '.csv') {
+        csvEntry = entry;
+        if (p.basename(entry.name).toLowerCase() == 'products.csv') {
+          break;
+        }
+      }
+    }
+
+    if (csvEntry == null) {
+      throw Exception('Pacote ZIP sem arquivo CSV.');
+    }
+
+    final csvBytes = _archiveFileBytes(csvEntry);
+    final input = utf8.decode(csvBytes);
+    final rows = const CsvToListConverter().convert(input);
+    if (rows.isEmpty) {
+      throw Exception('Arquivo CSV vazio no pacote.');
+    }
+
+    final headerMap = _buildHeaderMap(rows.first);
+    final skuIndex = _indexFor(headerMap, ['sku'], 0);
+    final skus = rows
+        .skip(1)
+        .map((row) => _cellValue(row, skuIndex).trim())
+        .where((sku) => sku.isNotEmpty)
+        .toList();
+
+    final imagesBySku = await _extractImagesFromArchive(archive, skus);
+    final parsed = await _parseRowsToProducts(rows, imagesBySku: imagesBySku);
+    return ParsedImport(
+      csvData: rows,
+      products: parsed.products,
+      imagesMatchedCount: parsed.imagesMatchedCount,
+      imagesTotalCount: parsed.imagesTotalCount,
+    );
+  }
+
+  Future<ParsedImport> _parseCsvContent(String input) async {
+    final rows = const CsvToListConverter().convert(input);
+    if (rows.isEmpty) throw Exception("Arquivo vazio");
+    return _parseRowsToProducts(rows);
+  }
+
+  Future<ParsedImport> _parseRowsToProducts(
+    List<List<dynamic>> rows, {
+    Map<String, List<String>>? imagesBySku,
+  }) async {
+    final headerMap = _buildHeaderMap(rows.first);
+    final productsRepo = ref.read(productsRepositoryProvider);
+    final categoriesRepo = ref.read(categoriesRepositoryProvider);
+    final existingProducts = await productsRepo.getProducts();
+    final existingBySku = {
+      for (final p in existingProducts) _normalizeSku(p.sku): p,
+    };
+
+    final categories = await categoriesRepo.getCategories();
+    final categoryById = {for (final c in categories) c.id: c.name};
+    final categoryByName = {
+      for (final c in categories) c.name.toLowerCase(): c.id,
+    };
+
+    final products = <Product>[];
+    var imagesMatched = 0;
+
+    for (var i = 1; i < rows.length; i++) {
+      final row = rows[i];
+      if (row.isEmpty) continue;
+
+      final sku = _cellByKeys(row, headerMap, ['sku'], 2).trim();
+      if (sku.isEmpty) continue;
+      final skuKey = _normalizeSku(sku);
+      final existing = existingBySku[skuKey];
+
+      final categoryValue = _cellByKeys(row, headerMap, [
+        'category',
+        'categoryid',
+      ], 3).trim();
+      final categoryId = await _resolveCategoryId(
+        categoryValue,
+        categoryById,
+        categoryByName,
+        categoriesRepo,
+      );
+
+      final sizes = _splitList(_cellByKeys(row, headerMap, ['sizes'], 7));
+      final colors = _splitList(_cellByKeys(row, headerMap, ['colors'], 8));
+
+      final isActive = _parseBool(_cellByKeys(row, headerMap, ['isactive'], 9));
+      final isOutOfStock = _parseBool(
+        _cellByKeys(row, headerMap, ['isoutofstock'], 10),
+      );
+      final isOnSale = _parseBool(
+        _cellByKeys(row, headerMap, ['isonsale'], 11),
+      );
+
+      final saleDiscountPercent =
+          int.tryParse(
+            _cellByKeys(row, headerMap, ['salediscountpercent'], 12),
+          ) ??
+          existing?.saleDiscountPercent ??
+          0;
+
+      final createdAt =
+          _parseDateTime(_cellByKeys(row, headerMap, ['createdat'], 14)) ??
+          existing?.createdAt ??
+          DateTime.now();
+
+      final images = imagesBySku?[skuKey] ?? existing?.images ?? <String>[];
+      final mainImageIndexRaw =
+          int.tryParse(_cellByKeys(row, headerMap, ['mainimageindex'], 13)) ??
+          existing?.mainImageIndex ??
+          0;
+      final mainImageIndex = images.isEmpty
+          ? 0
+          : mainImageIndexRaw.clamp(0, images.length - 1);
+
+      if (imagesBySku != null) {
+        imagesMatched += images.length;
+      }
+
+      products.add(
+        Product(
+          id: existing?.id ?? const Uuid().v4(),
+          name: _cellByKeys(row, headerMap, ['name'], 0),
+          reference: _cellByKeys(row, headerMap, ['ref'], 1),
+          sku: sku,
+          categoryId: categoryId,
+          priceVarejo: _parsePrice(
+            _cellByKeys(row, headerMap, ['retailprice'], 4),
+          ),
+          priceAtacado: _parsePrice(
+            _cellByKeys(row, headerMap, ['wholesaleprice'], 5),
+          ),
+          minWholesaleQty:
+              int.tryParse(_cellByKeys(row, headerMap, ['minqty'], 6)) ?? 1,
+          sizes: sizes,
+          colors: colors,
+          images: images,
+          mainImageIndex: mainImageIndex,
+          isActive: isActive,
+          isOutOfStock: isOutOfStock,
+          isOnSale: isOnSale,
+          createdAt: createdAt,
+          saleDiscountPercent: saleDiscountPercent,
+        ),
+      );
+    }
+
+    return ParsedImport(
+      csvData: rows,
+      products: products,
+      imagesMatchedCount: imagesMatched,
+      imagesTotalCount: imagesBySku == null
+          ? 0
+          : imagesBySku.values.fold(0, (a, b) => a + b.length),
+    );
+  }
+
+  Future<Map<String, List<String>>> _extractImagesFromArchive(
+    Archive archive,
+    List<String> skus,
+  ) async {
+    final result = <String, List<String>>{};
+    final normalizedSkus = skus
+        .map(_normalizeSku)
+        .where((sku) => sku.isNotEmpty)
+        .toList();
+
+    for (final entry in archive.files) {
+      if (!entry.isFile) continue;
+      final ext = p.extension(entry.name).toLowerCase();
+      if (!['.jpg', '.jpeg', '.png', '.webp'].contains(ext)) continue;
+      final baseName = p.basename(entry.name).toLowerCase();
+
+      for (final sku in normalizedSkus) {
+        if (sku.isEmpty) continue;
+        if (!baseName.startsWith(sku.toLowerCase())) continue;
+        final bytes = _archiveFileBytes(entry);
+        final savedPath = await _writeImageBytesToPersistentStorage(
+          bytes,
+          baseName,
+        );
+        if (savedPath != null) {
+          result.putIfAbsent(sku, () => []).add(savedPath);
+        }
+        break;
+      }
+    }
+
+    for (final sku in result.keys) {
+      result[sku]!.sort();
+    }
+    return result;
+  }
+
+  Future<String?> _writeImageBytesToPersistentStorage(
+    Uint8List bytes,
+    String originalName,
+  ) async {
+    try {
+      final baseDir = await getApplicationDocumentsDirectory();
+      final imagesDir = Directory(p.join(baseDir.path, 'product_images'));
+      if (!await imagesDir.exists()) {
+        await imagesDir.create(recursive: true);
+      }
+      final ext = p.extension(originalName).isNotEmpty
+          ? p.extension(originalName).toLowerCase()
+          : '.jpg';
+      final fileName = '${const Uuid().v4()}$ext';
+      final targetPath = p.join(imagesDir.path, fileName);
+      await File(targetPath).writeAsBytes(bytes);
+      return targetPath;
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
+  Uint8List _archiveFileBytes(ArchiveFile entry) {
+    final content = entry.content;
+    if (content is Uint8List) return content;
+    if (content is List<int>) return Uint8List.fromList(content);
+    return Uint8List.fromList(const []);
+  }
+
+  Future<Uint8List> _readFileBytes(PlatformFile file) async {
+    if (kIsWeb) {
+      final bytes = file.bytes;
+      if (bytes == null) {
+        throw Exception('Arquivo sem bytes (web)');
+      }
+      return bytes;
+    }
+    if (file.path != null) {
+      return File(file.path!).readAsBytes();
+    }
+    final bytes = file.bytes;
+    if (bytes == null) {
+      throw Exception('Arquivo sem path/bytes');
+    }
+    return bytes;
+  }
+
+  Map<String, int> _buildHeaderMap(List<dynamic> headerRow) {
+    final map = <String, int>{};
+    for (var i = 0; i < headerRow.length; i++) {
+      final key = headerRow[i].toString().trim().toLowerCase();
+      if (key.isNotEmpty) {
+        map[key] = i;
+      }
+    }
+    return map;
+  }
+
+  int _indexFor(Map<String, int> headerMap, List<String> keys, int fallback) {
+    for (final key in keys) {
+      final idx = headerMap[key.toLowerCase()];
+      if (idx != null) return idx;
+    }
+    return fallback;
+  }
+
+  String _cellValue(List<dynamic> row, int index) {
+    if (index < 0 || index >= row.length) return '';
+    return row[index].toString();
+  }
+
+  String _cellByKeys(
+    List<dynamic> row,
+    Map<String, int> headerMap,
+    List<String> keys,
+    int fallbackIndex,
+  ) {
+    final index = _indexFor(headerMap, keys, fallbackIndex);
+    return _cellValue(row, index);
+  }
+
+  bool _parseBool(String value) {
+    final v = value.trim().toLowerCase();
+    return v == 'true' || v == '1' || v == 'sim' || v == 'yes' || v == 'y';
+  }
+
+  List<String> _splitList(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return [];
+    final separator = trimmed.contains('|') ? '|' : ',';
+    return trimmed
+        .split(separator)
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+  }
+
+  String _normalizeSku(String sku) {
+    return sku.trim().toLowerCase();
+  }
+
+  Product? _findProductBySkuPrefix(String fileName, List<Product> products) {
+    final lower = fileName.toLowerCase();
+    for (final product in products) {
+      final sku = product.sku.trim();
+      if (sku.isEmpty) continue;
+      if (lower.startsWith(sku.toLowerCase())) {
+        return product;
+      }
+    }
+    return null;
+  }
+
+  DateTime? _parseDateTime(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return null;
+    return DateTime.tryParse(trimmed);
+  }
+
+  Future<String> _resolveCategoryId(
+    String categoryValue,
+    Map<String, String> categoryById,
+    Map<String, String> categoryByName,
+    CategoriesRepositoryContract categoriesRepo,
+  ) async {
+    if (categoryValue.isEmpty) {
+      if (categoryById.keys.isNotEmpty) return categoryById.keys.first;
+      return _createCategory(
+        'Sem categoria',
+        categoryById,
+        categoryByName,
+        categoriesRepo,
+      );
+    }
+    if (categoryById.containsKey(categoryValue)) {
+      return categoryValue;
+    }
+    final key = categoryValue.toLowerCase();
+    final existingId = categoryByName[key];
+    if (existingId != null) return existingId;
+    return _createCategory(
+      categoryValue,
+      categoryById,
+      categoryByName,
+      categoriesRepo,
+    );
+  }
+
+  Future<String> _createCategory(
+    String name,
+    Map<String, String> categoryById,
+    Map<String, String> categoryByName,
+    CategoriesRepositoryContract categoriesRepo,
+  ) async {
+    final now = DateTime.now();
+    final category = Category(
+      id: const Uuid().v4(),
+      name: name,
+      order: categoryByName.length + 1,
+      createdAt: now,
+      updatedAt: now,
+    );
+    await categoriesRepo.addCategory(category);
+    categoryById[category.id] = category.name;
+    categoryByName[category.name.toLowerCase()] = category.id;
+    return category.id;
+  }
+
   // Finalize
   Future<void> finalizeImport() async {
     final user = ref.read(currentUserProvider);
-    if (user == null || !user.isAdmin) {
+    if (!isAdmin(user)) {
       throw Exception('Sem permissão para importar produtos.');
     }
     state = state.copyWith(isLoading: true);
@@ -211,27 +590,6 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       cleaned = '${parts.join('')}.$decimal';
     }
     return double.tryParse(cleaned) ?? 0.0;
-  }
-
-  Product _mapRowToProduct(List<dynamic> row) {
-    return Product(
-      id: const Uuid().v4(),
-      name: row[0].toString(),
-      reference: row[1].toString(),
-      sku: row[2].toString(),
-      categoryId: row[3].toString(),
-      priceVarejo: _parsePrice(row[4].toString()),
-      priceAtacado: _parsePrice(row[5].toString()),
-      minWholesaleQty: int.tryParse(row[6].toString()) ?? 1,
-      sizes: row[7].toString().split(',').map((e) => e.trim()).toList(),
-      colors: row[8].toString().split(',').map((e) => e.trim()).toList(),
-      images: [],
-      mainImageIndex: 0,
-      isActive: row[9].toString().toLowerCase() == 'true' || row[9] == 1,
-      isOutOfStock: false,
-      isOnSale: false,
-      createdAt: DateTime.now(),
-    );
   }
 
   Future<String> _readCsvContent(PlatformFile file) async {
@@ -314,4 +672,18 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       return null;
     }
   }
+}
+
+class ParsedImport {
+  final List<List<dynamic>> csvData;
+  final List<Product> products;
+  final int imagesMatchedCount;
+  final int imagesTotalCount;
+
+  ParsedImport({
+    required this.csvData,
+    required this.products,
+    required this.imagesMatchedCount,
+    required this.imagesTotalCount,
+  });
 }

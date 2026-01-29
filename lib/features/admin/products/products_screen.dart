@@ -9,6 +9,7 @@ import 'package:gravity/viewmodels/products_viewmodel.dart';
 import 'package:gravity/features/admin/products/product_form_screen.dart';
 import 'package:gravity/features/admin/products/product_import_screen.dart';
 import 'package:gravity/features/admin/products/product_detail_screen.dart';
+import 'package:gravity/core/services/product_transfer_service.dart';
 import 'package:intl/intl.dart';
 import 'package:gravity/core/widgets/responsive_scaffold.dart';
 
@@ -89,7 +90,11 @@ class ProductsScreen extends ConsumerWidget {
                     label: const Text('Importar'),
                   ),
                   OutlinedButton.icon(
-                    onPressed: () {},
+                    onPressed: () =>
+                        ProductTransferService.shareProductsPackage(
+                          context,
+                          ref,
+                        ),
                     icon: const Icon(Icons.download),
                     label: const Text('Exportar'),
                   ),

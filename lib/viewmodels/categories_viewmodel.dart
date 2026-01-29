@@ -1,4 +1,5 @@
 import 'package:gravity/core/auth/auth_controller.dart';
+import 'package:gravity/core/auth/auth_guards.dart';
 import 'package:gravity/data/repositories/categories_repository.dart';
 import 'package:gravity/data/repositories/products_repository.dart';
 import 'package:gravity/models/category.dart';
@@ -258,7 +259,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
 
   void _requireAdmin() {
     final user = ref.read(currentUserProvider);
-    if (user == null || !user.isAdmin) {
+    if (!isAdmin(user)) {
       throw Exception('Sem permissão para modificar categorias.');
     }
   }
