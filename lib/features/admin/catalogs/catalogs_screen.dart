@@ -4,10 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/viewmodels/catalogs_viewmodel.dart';
 import 'package:flutter/services.dart';
 import 'package:gravity/features/admin/catalogs/catalog_editor_screen.dart';
-import 'package:gravity/data/repositories/settings_repository.dart';
 
 class CatalogsScreen extends ConsumerWidget {
   const CatalogsScreen({super.key});
+  static const _defaultBaseUrl = 'https://gravity.app';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -91,19 +91,10 @@ class CatalogsScreen extends ConsumerWidget {
                               icon: const Icon(Icons.copy),
                               tooltip: 'Copiar Link',
                               onPressed: () async {
-                                final settingsRepo = ref.read(
-                                  settingsRepositoryProvider,
-                                );
-                              final settings = await settingsRepo
-                                  .getSettings();
-                              final baseUrl =
-                                  settings.publicBaseUrl?.isNotEmpty == true
-                                  ? settings.publicBaseUrl!
-                                  : 'https://gravity.app';
-                              final linkId = catalog.shareCode.isNotEmpty
-                                  ? catalog.shareCode
-                                  : catalog.slug;
-                              final url = '$baseUrl/c/$linkId';
+                                final linkId = catalog.shareCode.isNotEmpty
+                                    ? catalog.shareCode
+                                    : catalog.slug;
+                                final url = '$_defaultBaseUrl/c/$linkId';
 
                                 await Clipboard.setData(
                                   ClipboardData(text: url),

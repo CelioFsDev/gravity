@@ -36,7 +36,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             password: _passwordController.text,
           );
       if (!mounted) return;
-      GoRouter.of(context).go('/admin/dashboard');
+      GoRouter.of(context).go('/admin/products');
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

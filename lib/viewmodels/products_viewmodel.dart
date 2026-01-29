@@ -8,7 +8,6 @@ import 'package:gravity/models/category.dart';
 import 'package:gravity/viewmodels/catalog_public_viewmodel.dart';
 import 'package:gravity/viewmodels/catalogs_viewmodel.dart';
 import 'package:gravity/viewmodels/categories_viewmodel.dart';
-import 'package:gravity/viewmodels/dashboard_viewmodel.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'products_viewmodel.g.dart';
@@ -157,7 +156,6 @@ class ProductsViewModel extends _$ProductsViewModel {
     ref.invalidate(categoriesViewModelProvider);
     ref.invalidate(catalogsViewModelProvider);
     ref.invalidate(catalogPublicProvider);
-    ref.invalidate(dashboardViewModelProvider);
   }
   
 

@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/core/services/catalog_pdf_service.dart';
 import 'package:gravity/core/services/whatsapp_share_service.dart';
 import 'package:gravity/data/repositories/products_repository.dart';
-import 'package:gravity/data/repositories/settings_repository.dart';
 import 'package:gravity/models/catalog.dart';
 import 'package:gravity/viewmodels/products_viewmodel.dart';
 import 'package:intl/intl.dart';
@@ -14,6 +13,8 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 class CatalogShareHelper {
+  static const _defaultBaseUrl = 'https://gravity.app';
+
   static Future<void> showShareOptions({
     required BuildContext context,
     required WidgetRef ref,
@@ -41,12 +42,7 @@ class CatalogShareHelper {
                 return;
               }
 
-              final settingsRepo = ref.read(settingsRepositoryProvider);
-              final settings = await settingsRepo.getSettings();
-              final baseUrl = settings.publicBaseUrl?.isNotEmpty == true
-                  ? settings.publicBaseUrl!
-                  : 'https://gravity.app';
-              final url = '$baseUrl/c/${catalog.shareCode}';
+              final url = '$_defaultBaseUrl/c/${catalog.shareCode}';
 
               await WhatsAppShareService.shareCatalog(
                 catalogName: catalog.name,
@@ -86,6 +82,9 @@ class CatalogShareHelper {
     Catalog catalog,
   ) async {
     try {
+      final selectedMode = await _selectPriceMode(context);
+      if (selectedMode == null) return;
+
       final width = MediaQuery.of(context).size.width;
       final columnsCount = width < 600 ? 1 : 2;
 
@@ -95,7 +94,7 @@ class CatalogShareHelper {
           ref,
           catalog,
           columnsCount: columnsCount,
-          mode: catalog.mode,
+          mode: selectedMode,
         ),
       );
 
@@ -120,6 +119,9 @@ class CatalogShareHelper {
     Catalog catalog,
   ) async {
     try {
+      final selectedMode = await _selectPriceMode(context);
+      if (selectedMode == null) return;
+
       final width = MediaQuery.of(context).size.width;
       final columnsCount = width < 600 ? 1 : 2;
 
@@ -129,7 +131,7 @@ class CatalogShareHelper {
           ref,
           catalog,
           columnsCount: columnsCount,
-          mode: catalog.mode,
+          mode: selectedMode,
         ),
       );
       final documentsDirectory =
@@ -233,5 +235,33 @@ class CatalogShareHelper {
         Navigator.of(dialogContext!, rootNavigator: true).pop();
       }
     }
+  }
+
+  static Future<CatalogMode?> _selectPriceMode(BuildContext context) async {
+    return showDialog<CatalogMode>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Escolha o preÃ§o do catÃ¡logo'),
+          content: const Text('Deseja exportar com preÃ§o de varejo ou atacado?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () =>
+                  Navigator.pop(dialogContext, CatalogMode.varejo),
+              child: const Text('Varejo'),
+            ),
+            ElevatedButton(
+              onPressed: () =>
+                  Navigator.pop(dialogContext, CatalogMode.atacado),
+              child: const Text('Atacado'),
+            ),
+          ],
+        );
+      },
+    );
   }
 }

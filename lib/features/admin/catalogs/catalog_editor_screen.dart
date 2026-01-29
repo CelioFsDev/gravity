@@ -7,12 +7,12 @@ import 'package:gravity/viewmodels/catalog_editor_viewmodel.dart';
 import 'package:gravity/viewmodels/products_viewmodel.dart';
 import 'package:gravity/features/admin/catalogs/tabs/products_selection_tab.dart';
 import 'package:flutter/services.dart';
-import 'package:gravity/data/repositories/settings_repository.dart';
 
 class CatalogEditorScreen extends ConsumerStatefulWidget {
   final Catalog? catalog;
 
   const CatalogEditorScreen({super.key, this.catalog});
+  static const defaultBaseUrl = 'https://gravity.app';
 
   @override
   ConsumerState<CatalogEditorScreen> createState() =>
@@ -143,7 +143,7 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                   initialValue: state.catalog.slug,
                   decoration: InputDecoration(
                     labelText: 'URL (Slug)',
-                    prefixText: 'app.com/c/',
+                    prefixText: '${CatalogEditorScreen.defaultBaseUrl}/c/',
                     border: const OutlineInputBorder(),
                     errorText: state.slugError,
                   ),
@@ -203,15 +203,8 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                           trailing: IconButton(
                             icon: const Icon(Icons.copy),
                             onPressed: () async {
-                              final settingsRepo = ref.read(
-                                settingsRepositoryProvider,
-                              );
-                              final settings = await settingsRepo.getSettings();
-                              final baseUrl =
-                                  settings.publicBaseUrl?.isNotEmpty == true
-                                      ? settings.publicBaseUrl!
-                                      : 'https://gravity.app';
-                              final url = '$baseUrl/c/${state.catalog.shareCode}';
+                              final url =
+                                  '${CatalogEditorScreen.defaultBaseUrl}/c/${state.catalog.shareCode}';
                               await Clipboard.setData(ClipboardData(text: url));
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(

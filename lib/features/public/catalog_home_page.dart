@@ -4,10 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/models/catalog.dart';
 import 'package:gravity/models/product.dart';
-import 'package:gravity/viewmodels/cart_viewmodel.dart';
 import 'package:gravity/viewmodels/catalog_public_viewmodel.dart';
-import 'package:gravity/features/public/cart_side_panel.dart';
-import 'package:gravity/features/public/product_quick_add_sheet.dart';
 import 'package:intl/intl.dart';
 
 class CatalogHomePage extends ConsumerStatefulWidget {
@@ -20,13 +17,11 @@ class CatalogHomePage extends ConsumerStatefulWidget {
 }
 
 class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   String? _selectedCategoryId;
 
   @override
   Widget build(BuildContext context) {
     final catalogAsync = ref.watch(catalogPublicProvider(widget.shareCode));
-    final cart = ref.watch(cartViewModelProvider);
 
     return catalogAsync.when(
       loading: () =>
@@ -58,42 +53,9 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 600),
                 child: Scaffold(
-                  key: _scaffoldKey,
-                  endDrawer: CartSidePanel(catalog: data.catalog),
                   appBar: AppBar(
                     title: Text(data.catalog.name),
                     centerTitle: true,
-                    actions: [
-                      Stack(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.shopping_bag_outlined),
-                            onPressed: () {
-                              _scaffoldKey.currentState?.openEndDrawer();
-                            },
-                          ),
-                          if (cart.items.isNotEmpty)
-                            Positioned(
-                              right: 8,
-                              top: 8,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Text(
-                                  '${cart.items.length}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
                   ),
                   body: Column(
                     children: [
@@ -174,14 +136,6 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
                     ],
                   ),
                   // Floating Cart Button (optional, but requested)
-                  floatingActionButton: cart.items.isNotEmpty
-                      ? FloatingActionButton.extended(
-                          onPressed: () =>
-                              _scaffoldKey.currentState?.openEndDrawer(),
-                          icon: const Icon(Icons.shopping_bag),
-                          label: Text('${cart.items.length} itens'),
-                        )
-                      : null,
                 ),
               ),
             ),
@@ -225,8 +179,7 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
                     ),
                 ],
               ),
-              onTap:
-                  product.isOutOfStock ? null : () => _showQuickAdd(product, mode),
+              onTap: null,
             ),
           );
         },
@@ -256,7 +209,7 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
       itemBuilder: (context, index) {
         final product = products[index];
         return GestureDetector(
-                  onTap: product.isOutOfStock ? null : () => _showQuickAdd(product, mode),
+          onTap: null,
           child: Card(
             clipBehavior: Clip.antiAlias,
             child: Column(
@@ -311,15 +264,6 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
           ),
         );
       },
-    );
-  }
-
-  void _showQuickAdd(Product product, CatalogMode mode) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) =>
-          ProductQuickAddSheet(product: product, mode: mode),
     );
   }
 

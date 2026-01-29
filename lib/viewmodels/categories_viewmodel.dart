@@ -3,7 +3,6 @@ import 'package:gravity/core/auth/auth_guards.dart';
 import 'package:gravity/data/repositories/categories_repository.dart';
 import 'package:gravity/data/repositories/products_repository.dart';
 import 'package:gravity/models/category.dart';
-import 'package:gravity/viewmodels/dashboard_viewmodel.dart';
 import 'package:gravity/viewmodels/products_viewmodel.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
@@ -149,7 +148,6 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     
     // Notify other viewmodels that categories changed
     ref.invalidate(productsViewModelProvider);
-    ref.invalidate(dashboardViewModelProvider);
     
     return null; // Success
   }
@@ -171,7 +169,6 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     
     // Notify other viewmodels
     ref.invalidate(productsViewModelProvider);
-    ref.invalidate(dashboardViewModelProvider);
     
     return null;
   }
@@ -226,7 +223,6 @@ class CategoriesViewModel extends _$CategoriesViewModel {
        await categoriesRepo.deleteCategory(id);
        await _refresh();
        ref.invalidate(productsViewModelProvider);
-       ref.invalidate(dashboardViewModelProvider);
        return CategoryDeleteResult(success: true, hasProducts: false);
      } else {
        return CategoryDeleteResult(success: false, hasProducts: true, message: 'Existem ${products.length} produtos nesta categoria.');

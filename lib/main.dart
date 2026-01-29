@@ -11,23 +11,14 @@ import 'package:gravity/features/auth/register_screen.dart';
 import 'package:gravity/firebase_options.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:go_router/go_router.dart';
-import 'package:gravity/models/order.dart';
-import 'package:gravity/models/order_status.dart';
-import 'package:gravity/models/order_item.dart';
 import 'package:gravity/models/product.dart';
 import 'package:gravity/models/category.dart';
 import 'package:gravity/models/catalog.dart';
 import 'package:gravity/features/admin/admin_shell_screen.dart';
-import 'package:gravity/features/admin/dashboard_screen.dart';
-import 'package:gravity/features/admin/orders_screen.dart';
 import 'package:gravity/features/admin/products/products_screen.dart';
 import 'package:gravity/features/admin/categories/categories_screen.dart';
 import 'package:gravity/features/admin/catalogs/catalogs_screen.dart';
-import 'package:gravity/features/admin/sellers/sellers_screen.dart';
-import 'package:gravity/features/admin/settings/settings_screen.dart';
 import 'package:gravity/features/theme/theme_providers.dart';
-import 'package:gravity/models/seller.dart';
-import 'package:gravity/models/app_settings.dart';
 import 'package:gravity/features/public/catalog_home_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:gravity/core/auth/auth_repository.dart';
@@ -39,23 +30,15 @@ void main() async {
   await Hive.initFlutter();
 
   // Register Adapters
-  Hive.registerAdapter(OrderAdapter());
-  Hive.registerAdapter(OrderStatusAdapter());
-  Hive.registerAdapter(OrderItemAdapter());
   Hive.registerAdapter(CategoryAdapter());
   Hive.registerAdapter(ProductAdapter());
   Hive.registerAdapter(CatalogBannerAdapter());
   Hive.registerAdapter(CatalogAdapter());
-  Hive.registerAdapter(SellerAdapter());
-  Hive.registerAdapter(AppSettingsAdapter());
 
   // Open Boxes
-  await Hive.openBox<Order>('orders');
   await Hive.openBox<Category>('categories');
   await Hive.openBox<Product>('products');
   await Hive.openBox<Catalog>('catalogs');
-  await Hive.openBox<Seller>('sellers');
-  await Hive.openBox<AppSettings>('settings');
 
   try {
     // Initialize Firebase (after Hive to reuse local cache first)
@@ -79,7 +62,7 @@ class MyApp extends ConsumerWidget {
     final user = authState.value;
     final streamSource = ref.watch(authRepositoryProvider).authStateChanges();
     final router = GoRouter(
-      initialLocation: '/admin/orders',
+      initialLocation: '/admin/products',
       refreshListenable: GoRouterRefreshStream(streamSource),
       redirect: (context, state) => _authRedirect(user, state),
       routes: [
@@ -108,22 +91,6 @@ class MyApp extends ConsumerWidget {
             StatefulShellBranch(
               routes: [
                 GoRoute(
-                  path: '/admin/dashboard',
-                  builder: (context, state) => const DashboardScreen(),
-                ),
-              ],
-            ),
-            StatefulShellBranch(
-              routes: [
-                GoRoute(
-                  path: '/admin/orders',
-                  builder: (context, state) => const OrdersScreen(),
-                ),
-              ],
-            ),
-            StatefulShellBranch(
-              routes: [
-                GoRoute(
                   path: '/admin/products',
                   builder: (c, s) => const ProductsScreen(),
                 ),
@@ -142,31 +109,6 @@ class MyApp extends ConsumerWidget {
                 GoRoute(
                   path: '/admin/catalogs',
                   builder: (c, s) => const CatalogsScreen(),
-                ),
-              ],
-            ),
-            StatefulShellBranch(
-              routes: [
-                GoRoute(
-                  path: '/admin/promotions',
-                  builder: (c, s) =>
-                      const Scaffold(body: Center(child: Text('Promotions'))),
-                ),
-              ],
-            ),
-            StatefulShellBranch(
-              routes: [
-                GoRoute(
-                  path: '/admin/sellers',
-                  builder: (c, s) => const SellersScreen(),
-                ),
-              ],
-            ),
-            StatefulShellBranch(
-              routes: [
-                GoRoute(
-                  path: '/admin/settings',
-                  builder: (c, s) => const SettingsScreen(),
                 ),
               ],
             ),
@@ -249,7 +191,7 @@ String? _authRedirect(AuthUser? user, GoRouterState state) {
   }
 
   if (isLogin || isRegister) {
-    return isAdmin(user) ? '/admin/dashboard' : '/';
+    return isAdmin(user) ? '/admin/products' : '/';
   }
 
   if (isAdminPath && !isAdmin(user)) {

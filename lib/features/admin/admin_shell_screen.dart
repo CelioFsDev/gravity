@@ -7,14 +7,9 @@ class AdminShellScreen extends StatelessWidget {
   const AdminShellScreen({super.key, required this.navigationShell});
 
   static const _destinations = [
-    _NavItem(icon: Icons.dashboard, label: 'Dashboard'),
-    _NavItem(icon: Icons.shopping_cart, label: 'Orders'),
     _NavItem(icon: Icons.inventory, label: 'Products'),
     _NavItem(icon: Icons.category, label: 'Categories'),
     _NavItem(icon: Icons.menu_book, label: 'Catalogs'),
-    _NavItem(icon: Icons.percent, label: 'Promotions'),
-    _NavItem(icon: Icons.store, label: 'Sellers'),
-    _NavItem(icon: Icons.settings, label: 'Settings'),
   ];
 
   @override
