@@ -162,7 +162,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   Future<void> _pickImages() async {
     try {
       debugPrint('Picking images...');
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         allowMultiple: true,
         type: FileType
             .any, // Back to any to avoid filter issues on some Windows versions
