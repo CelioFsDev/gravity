@@ -1,8 +1,11 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/models/category.dart';
 import 'package:gravity/viewmodels/categories_viewmodel.dart';
 import 'package:gravity/core/widgets/responsive_scaffold.dart';
+import 'package:gravity/core/widgets/section_header.dart';
+import 'package:gravity/core/widgets/filter_chips_row.dart';
+import 'package:gravity/core/widgets/filter_chip_button.dart';
 
 class CategoriesScreen extends ConsumerStatefulWidget {
   const CategoriesScreen({super.key});
@@ -32,8 +35,11 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     return ResponsiveScaffold(
       body: state.when(
         data: (data) => _buildContent(context, data, notifier),
-        error: (e, s) => Center(child: Text('Erro: $e')),
-        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, s) => _CategoriesErrorState(
+          message: 'Erro ao carregar categorias: $e',
+          onRetry: () => ref.invalidate(categoriesViewModelProvider),
+        ),
+        loading: () => const _CategoriesLoadingState(),
       ),
     );
   }
@@ -43,115 +49,73 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     CategoriesState state,
     CategoriesViewModel notifier,
   ) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Wrap(
-            spacing: 16,
-            runSpacing: 16,
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
+    final hasFilters =
+        state.searchQuery.isNotEmpty || state.sortOption != CategorySortOption.manual;
+
+    if (_searchController.text != state.searchQuery) {
+      _searchController.value = TextEditingValue(
+        text: state.searchQuery,
+        selection: TextSelection.collapsed(offset: state.searchQuery.length),
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 900;
+        final padding = EdgeInsets.all(isWide ? 24 : 16);
+        return Padding(
+          padding: padding,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Categorias',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+              SectionHeader(
+                title: 'Categorias',
+                subtitle: 'Organize as categorias do catalogo',
+                primaryAction: SectionHeaderAction(
+                  label: 'Nova categoria',
+                  icon: Icons.add,
+                  onPressed: () => _showCategoryDialog(context, notifier),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                height: 48,
+                child: TextField(
+                  controller: _searchController,
+                  decoration: const InputDecoration(
+                    hintText: 'Buscar categorias...',
+                    prefixIcon: Icon(Icons.search),
                   ),
-                  Text(
-                    'Organize as categorias do catálogo',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+                  onChanged: notifier.setSearchQuery,
+                ),
+              ),
+              const SizedBox(height: 12),
+              FilterChipsRow(
+                chips: [
+                  FilterChipButton(
+                    label: _sortLabel(state.sortOption),
+                    isActive: state.sortOption != CategorySortOption.manual,
+                    onPressed: () => _selectSort(context, state, notifier),
                   ),
                 ],
+                onClear: hasFilters
+                    ? () {
+                        notifier.setSearchQuery('');
+                        notifier.setSortOption(CategorySortOption.manual);
+                        _searchController.clear();
+                      }
+                    : null,
               ),
-              ElevatedButton.icon(
-                onPressed: () => _showCategoryDialog(context, notifier),
-                icon: const Icon(Icons.add),
-                label: const Text('Nova categoria'),
+              const SizedBox(height: 16),
+              Expanded(
+                child: state.categories.isEmpty
+                    ? const _CategoriesEmptyState()
+                    : _buildCategoriesList(state, notifier),
               ),
             ],
           ),
-          const SizedBox(height: 24),
-
-          // Bar
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade200),
-            ),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final isWide = constraints.maxWidth >= 500;
-                return Wrap(
-                  spacing: 16,
-                  runSpacing: 16,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: isWide
-                          ? constraints.maxWidth - 200
-                          : constraints.maxWidth,
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: const InputDecoration(
-                          hintText: 'Buscar categorias...',
-                          prefixIcon: Icon(Icons.search),
-                          border: InputBorder.none,
-                        ),
-                        onChanged: notifier.setSearchQuery,
-                      ),
-                    ),
-                    if (isWide) const VerticalDivider(),
-                    DropdownButton<CategorySortOption>(
-                      value: state.sortOption,
-                      underline: const SizedBox(),
-                      items: const [
-                        DropdownMenuItem(
-                          value: CategorySortOption.manual,
-                          child: Text('Ordem Manual'),
-                        ),
-                        DropdownMenuItem(
-                          value: CategorySortOption.aToZ,
-                          child: Text('A - Z'),
-                        ),
-                        DropdownMenuItem(
-                          value: CategorySortOption.zToA,
-                          child: Text('Z - A'),
-                        ),
-                      ],
-                      onChanged: (val) {
-                        if (val != null) notifier.setSortOption(val);
-                      },
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          Expanded(
-            child: state.categories.isEmpty
-                ? const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Text('Nenhuma categoria encontrada.'),
-                    ),
-                  )
-                : _buildCategoriesList(state, notifier),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -159,22 +123,23 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     CategoriesState state,
     CategoriesViewModel notifier,
   ) {
-    if (state.sortOption == CategorySortOption.manual &&
-        state.searchQuery.isEmpty) {
+    final isManual =
+        state.sortOption == CategorySortOption.manual && state.searchQuery.isEmpty;
+
+    if (isManual) {
       return ReorderableListView.builder(
-        buildDefaultDragHandles: true,
+        buildDefaultDragHandles: false,
         padding: EdgeInsets.zero,
         itemCount: state.categories.length,
-        onReorder: (oldIndex, newIndex) {
-          notifier.reorder(oldIndex, newIndex);
-        },
+        onReorder: notifier.reorder,
         itemBuilder: (context, index) {
           return _buildListItem(
             context,
-            state.categories[index],
-            state.productCounts,
+            state,
             notifier,
+            state.categories[index],
             index,
+            isManual: true,
           );
         },
       );
@@ -186,10 +151,11 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
       itemBuilder: (context, index) {
         return _buildListItem(
           context,
-          state.categories[index],
-          state.productCounts,
+          state,
           notifier,
+          state.categories[index],
           index,
+          isManual: false,
         );
       },
     );
@@ -197,37 +163,95 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
 
   Widget _buildListItem(
     BuildContext context,
-    Category category,
-    Map<String, int> counts,
+    CategoriesState state,
     CategoriesViewModel notifier,
-    int index,
-  ) {
+    Category category,
+    int index, {
+    required bool isManual,
+  }) {
     return Card(
       key: ValueKey(category.id),
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
-        leading: const Icon(Icons.drag_handle, color: Colors.grey),
+        leading: isManual
+            ? ReorderableDragStartListener(
+                index: index,
+                child: const Icon(Icons.drag_handle, color: Colors.grey),
+              )
+            : const Icon(Icons.folder_outlined, color: Colors.grey),
         title: Text(
           category.name,
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        subtitle: Text('${counts[category.id] ?? 0} produtos'),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.edit, size: 20),
-              onPressed: () =>
-                  _showCategoryDialog(context, notifier, category: category),
+        subtitle: Text('${state.productCounts[category.id] ?? 0} produtos'),
+        trailing: PopupMenuButton<_CategoryAction>(
+          tooltip: 'Acoes',
+          onSelected: (value) {
+            if (value == _CategoryAction.edit) {
+              _showCategoryDialog(context, notifier, category: category);
+            } else if (value == _CategoryAction.delete) {
+              _handleDelete(context, notifier, category);
+            }
+          },
+          itemBuilder: (context) => const [
+            PopupMenuItem(
+              value: _CategoryAction.edit,
+              child: Text('Editar'),
             ),
-            IconButton(
-              icon: const Icon(Icons.delete, size: 20, color: Colors.red),
-              onPressed: () => _handleDelete(context, notifier, category),
+            PopupMenuItem(
+              value: _CategoryAction.delete,
+              child: Text('Excluir'),
             ),
           ],
         ),
       ),
     );
+  }
+
+  String _sortLabel(CategorySortOption option) {
+    switch (option) {
+      case CategorySortOption.manual:
+        return 'Ordem: Manual';
+      case CategorySortOption.aToZ:
+        return 'Ordem: A-Z';
+      case CategorySortOption.zToA:
+        return 'Ordem: Z-A';
+    }
+  }
+
+  Future<void> _selectSort(
+    BuildContext context,
+    CategoriesState state,
+    CategoriesViewModel notifier,
+  ) async {
+    final result = await showModalBottomSheet<CategorySortOption>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ListTile(
+              title: Text(
+                'Ordenar categorias',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            ...CategorySortOption.values.map(
+              (option) => RadioListTile<CategorySortOption>(
+                title: Text(_sortLabel(option)),
+                value: option,
+                groupValue: state.sortOption,
+                onChanged: (value) => Navigator.pop(sheetContext, value),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result != null) {
+      notifier.setSortOption(result);
+    }
   }
 
   Future<void> _showCategoryDialog(
@@ -274,9 +298,8 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
 
               if (context.mounted) {
                 if (error != null) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text(error)));
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(SnackBar(content: Text(error)));
                 } else {
                   Navigator.pop(context);
                 }
@@ -303,13 +326,11 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     if (!context.mounted) return;
 
     if (result.success) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Categoria excluída')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Categoria excluida')));
       return;
     }
 
-    // Has products dialogue
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -325,8 +346,6 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
           OutlinedButton(
             child: const Text('Mover para "Sem Categoria"'),
             onPressed: () async {
-              // Creating or Checking for "Uncategorized" logic needs to happen in VM or here.
-              // VM `deleteAndUncategorize` handles setting empty string.
               await notifier.deleteAndUncategorize(category.id);
               if (context.mounted) Navigator.pop(context);
             },
@@ -338,8 +357,6 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
             ),
             child: const Text('Excluir Mesmo Assim'),
             onPressed: () async {
-              // Also sets to uncategorized per requirement "definir categoryId = null"
-              // Basically same as above but explicit choice for user feeling.
               await notifier.deleteAndUncategorize(category.id);
               if (context.mounted) Navigator.pop(context);
             },
@@ -349,3 +366,102 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     );
   }
 }
+
+enum _CategoryAction { edit, delete }
+
+class _CategoriesLoadingState extends StatelessWidget {
+  const _CategoriesLoadingState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 900),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: List.generate(
+              6,
+              (index) => Container(
+                height: 72,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoriesEmptyState extends StatelessWidget {
+  const _CategoriesEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 32),
+        child: Column(
+          children: [
+            const Icon(Icons.folder_open, size: 48, color: Colors.grey),
+            const SizedBox(height: 12),
+            const Text(
+              'Nenhuma categoria encontrada',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Crie categorias para organizar o catalogo.',
+              style: TextStyle(color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoriesErrorState extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const _CategoriesErrorState({
+    required this.message,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Card(
+        margin: const EdgeInsets.all(24),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, color: Colors.red, size: 40),
+              const SizedBox(height: 12),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Tentar novamente'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+

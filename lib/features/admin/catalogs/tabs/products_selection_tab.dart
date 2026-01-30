@@ -1,8 +1,11 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
 import 'package:gravity/models/product.dart';
 import 'package:gravity/models/category.dart';
+import 'package:intl/intl.dart';
+import 'package:gravity/core/widgets/filter_chips_row.dart';
+import 'package:gravity/core/widgets/filter_chip_button.dart';
 
 class ProductsSelectionTab extends StatefulWidget {
   final List<String> selectedIds;
@@ -23,17 +26,21 @@ class ProductsSelectionTab extends StatefulWidget {
 }
 
 class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
+  final _searchController = TextEditingController();
   String _search = '';
   String? _categoryFilter;
   bool _onlySelected = false;
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Filter
     final filtered = widget.allProducts.where((p) {
-      if (_onlySelected && !widget.selectedIds.contains(p.id)) {
-        return false;
-      }
+      if (_onlySelected && !widget.selectedIds.contains(p.id)) return false;
       if (_categoryFilter != null && p.categoryId != _categoryFilter) {
         return false;
       }
@@ -48,101 +55,65 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
 
     return Column(
       children: [
-        // Filters
         Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TextField(
-                decoration: const InputDecoration(
-                  labelText: 'Buscar produtos',
-                  prefixIcon: Icon(Icons.search),
+              SizedBox(
+                height: 48,
+                child: TextField(
+                  controller: _searchController,
+                  decoration: const InputDecoration(
+                    hintText: 'Buscar produtos',
+                    prefixIcon: Icon(Icons.search),
+                  ),
+                  onChanged: (val) => setState(() => _search = val),
                 ),
-                onChanged: (val) => setState(() => _search = val),
               ),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  DropdownButtonHideUnderline(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: DropdownButton<String>(
-                        hint: const Text('Categoria'),
-                        value: _categoryFilter,
-                        items: [
-                          const DropdownMenuItem(
-                            value: null,
-                            child: Text('Todas categorias'),
-                          ),
-                          ...widget.categories.map(
-                            (c) => DropdownMenuItem(
-                              value: c.id,
-                              child: Text(c.name),
-                            ),
-                          ),
-                        ],
-                        onChanged: (val) =>
-                            setState(() => _categoryFilter = val),
-                      ),
-                    ),
+              const SizedBox(height: 12),
+              FilterChipsRow(
+                chips: [
+                  FilterChipButton(
+                    label: _categoryLabel(),
+                    isActive: _categoryFilter != null,
+                    onPressed: () => _selectCategory(context),
                   ),
-                  FilterChip(
-                    label: const Text('Apenas Selecionados'),
-                    selected: _onlySelected,
-                    onSelected: (val) => setState(() => _onlySelected = val),
+                  FilterChipButton(
+                    label: 'Apenas selecionados',
+                    isActive: _onlySelected,
+                    onPressed: () => setState(() => _onlySelected = !_onlySelected),
                   ),
-                  Text(
-                    '${widget.selectedIds.length} selecionados',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue,
-                    ),
+                  Chip(
+                    label: Text('Selecionados: ${widget.selectedIds.length}'),
                   ),
                 ],
+                onClear: _hasFilters()
+                    ? () {
+                        setState(() {
+                          _search = '';
+                          _categoryFilter = null;
+                          _onlySelected = false;
+                        });
+                        _searchController.clear();
+                      }
+                    : null,
               ),
             ],
           ),
         ),
-
         Expanded(
-          child: ListView.builder(
+          child: ListView.separated(
+            padding: const EdgeInsets.only(bottom: 16),
             itemCount: filtered.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
               final product = filtered[index];
               final isSelected = widget.selectedIds.contains(product.id);
-              return ListTile(
-                leading: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: (product.images.isNotEmpty && !kIsWeb)
-                      ? Image.file(
-                          File(product.images[0]),
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) =>
-                              const Icon(Icons.broken_image),
-                        )
-                      : const Center(child: Icon(Icons.image_not_supported)),
-                ),
-                title: Text(product.name),
-                subtitle: Text(
-                  'REF: ${product.reference} | R\$ ${product.retailPrice}',
-                ),
-                trailing: Checkbox(
-                  value: isSelected,
-                  onChanged: (_) => widget.onToggle(product.id),
-                ),
-                onTap: () => widget.onToggle(product.id),
+              return _ProductSelectTile(
+                product: product,
+                isSelected: isSelected,
+                onToggle: () => widget.onToggle(product.id),
               );
             },
           ),
@@ -150,4 +121,121 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
       ],
     );
   }
+
+  bool _hasFilters() {
+    return _search.isNotEmpty || _categoryFilter != null || _onlySelected;
+  }
+
+  String _categoryLabel() {
+    if (_categoryFilter == null) return 'Categoria: Todas';
+    final name = widget.categories
+        .where((c) => c.id == _categoryFilter)
+        .map((c) => c.name)
+        .toList();
+    if (name.isEmpty) return 'Categoria: Todas';
+    return 'Categoria: ${name.first}';
+  }
+
+  Future<void> _selectCategory(BuildContext context) async {
+    final result = await showModalBottomSheet<String?>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ListTile(
+              title: Text(
+                'Categoria',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            ListTile(
+              title: const Text('Todas categorias'),
+              trailing: _categoryFilter == null
+                  ? const Icon(Icons.check)
+                  : const SizedBox(),
+              onTap: () => Navigator.pop(sheetContext, null),
+            ),
+            ...widget.categories.map(
+              (category) => ListTile(
+                title: Text(category.name),
+                trailing: _categoryFilter == category.id
+                    ? const Icon(Icons.check)
+                    : const SizedBox(),
+                onTap: () => Navigator.pop(sheetContext, category.id),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+    setState(() => _categoryFilter = result);
+  }
 }
+
+class _ProductSelectTile extends StatelessWidget {
+  final Product product;
+  final bool isSelected;
+  final VoidCallback onToggle;
+
+  const _ProductSelectTile({
+    required this.product,
+    required this.isSelected,
+    required this.onToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: ListTile(
+        leading: _ProductThumb(imagePath: product.images.isNotEmpty ? product.images.first : null),
+        title: Text(product.name),
+        subtitle: Text(
+          'REF ${product.reference} • ${currency.format(product.retailPrice)}',
+        ),
+        trailing: Checkbox.adaptive(
+          value: isSelected,
+          onChanged: (_) => onToggle(),
+        ),
+        onTap: onToggle,
+      ),
+    );
+  }
+}
+
+class _ProductThumb extends StatelessWidget {
+  final String? imagePath;
+
+  const _ProductThumb({required this.imagePath});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 56,
+        height: 56,
+        color: Colors.grey.shade200,
+        child: (imagePath != null && !kIsWeb)
+            ? Image.file(
+                File(imagePath!),
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _placeholder(),
+              )
+            : _placeholder(),
+      ),
+    );
+  }
+
+  Widget _placeholder() {
+    return const Center(
+      child: Icon(Icons.image_outlined, color: Colors.grey),
+    );
+  }
+}
+

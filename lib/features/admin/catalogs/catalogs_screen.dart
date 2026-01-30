@@ -1,9 +1,13 @@
-import 'package:gravity/core/services/catalog_share_helper.dart';
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gravity/viewmodels/catalogs_viewmodel.dart';
 import 'package:flutter/services.dart';
+import 'package:gravity/core/services/catalog_share_helper.dart';
+import 'package:gravity/core/widgets/responsive_scaffold.dart';
+import 'package:gravity/core/widgets/section_header.dart';
 import 'package:gravity/features/admin/catalogs/catalog_editor_screen.dart';
+import 'package:gravity/models/catalog.dart';
+import 'package:gravity/viewmodels/catalogs_viewmodel.dart';
+import 'package:intl/intl.dart';
 
 class CatalogsScreen extends ConsumerWidget {
   const CatalogsScreen({super.key});
@@ -14,138 +18,186 @@ class CatalogsScreen extends ConsumerWidget {
     final state = ref.watch(catalogsViewModelProvider);
     final notifier = ref.read(catalogsViewModelProvider.notifier);
 
-    return Scaffold(
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Catálogos',
-                        style: Theme.of(context).textTheme.headlineMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        'Gerencie seus catálogos digitais',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const CatalogEditorScreen(),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('Novo Catálogo'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
+    return ResponsiveScaffold(
+      body: state.when(
+        data: (catalogs) => _CatalogsContent(
+          catalogs: catalogs,
+          onCreate: () => _openNew(context),
+          onShare: (catalog) => CatalogShareHelper.showShareOptions(
+            context: context,
+            ref: ref,
+            catalog: catalog,
+          ),
+          onCopy: (catalog) => _copyLink(context, catalog),
+          onEdit: (catalog) => _openEdit(context, catalog),
+          onDelete: (catalog) => notifier.deleteCatalog(catalog.id),
+        ),
+        error: (e, __) => _CatalogsErrorState(
+          message: 'Erro ao carregar catalogos: $e',
+          onRetry: () => ref.invalidate(catalogsViewModelProvider),
+        ),
+        loading: () => const _CatalogsLoadingState(),
+      ),
+    );
+  }
 
-            state.when(
-              data: (catalogs) {
-                if (catalogs.isEmpty) {
-                  return const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Text('Nenhum catálogo encontrado.'),
+  void _openNew(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const CatalogEditorScreen()),
+    );
+  }
+
+  void _openEdit(BuildContext context, Catalog catalog) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => CatalogEditorScreen(catalog: catalog)),
+    );
+  }
+
+  Future<void> _copyLink(BuildContext context, Catalog catalog) async {
+    final linkId = catalog.shareCode.isNotEmpty ? catalog.shareCode : catalog.slug;
+    final url = '$_defaultBaseUrl/c/$linkId';
+    await Clipboard.setData(ClipboardData(text: url));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Link copiado: $url')),
+      );
+    }
+  }
+}
+
+class _CatalogsContent extends StatelessWidget {
+  final List<Catalog> catalogs;
+  final VoidCallback onCreate;
+  final ValueChanged<Catalog> onShare;
+  final ValueChanged<Catalog> onCopy;
+  final ValueChanged<Catalog> onEdit;
+  final ValueChanged<Catalog> onDelete;
+
+  const _CatalogsContent({
+    required this.catalogs,
+    required this.onCreate,
+    required this.onShare,
+    required this.onCopy,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 900;
+        final padding = EdgeInsets.all(isWide ? 24 : 16);
+        return SingleChildScrollView(
+          padding: padding,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1100),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SectionHeader(
+                    title: 'Catalogos',
+                    subtitle: 'Gerencie seus catalogos digitais',
+                    primaryAction: SectionHeaderAction(
+                      label: 'Novo catalogo',
+                      icon: Icons.add,
+                      onPressed: onCreate,
                     ),
-                  );
-                }
-                return ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: catalogs.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final catalog = catalogs[index];
-                    return Card(
-                      child: ListTile(
-                        title: Text(
-                          catalog.name,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Text(
-                          '/c/${catalog.shareCode.isNotEmpty ? catalog.shareCode : catalog.slug} • ${catalog.productIds.length} produtos • ${catalog.active ? 'Ativo' : 'Inativo'}',
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.copy),
-                              tooltip: 'Copiar Link',
-                              onPressed: () async {
-                                final linkId = catalog.shareCode.isNotEmpty
-                                    ? catalog.shareCode
-                                    : catalog.slug;
-                                final url = '$_defaultBaseUrl/c/$linkId';
+                  ),
+                  const SizedBox(height: 20),
+                  if (catalogs.isEmpty)
+                    _CatalogsEmptyState(onCreate: onCreate)
+                  else
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: catalogs.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final catalog = catalogs[index];
+                        return CatalogCard(
+                          catalog: catalog,
+                          onShare: () => onShare(catalog),
+                          onCopy: () => onCopy(catalog),
+                          onEdit: () => onEdit(catalog),
+                          onDelete: () => onDelete(catalog),
+                        );
+                      },
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
 
-                                await Clipboard.setData(
-                                  ClipboardData(text: url),
-                                );
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Link copiado: $url'),
-                                    ),
-                                  );
-                                }
-                              },
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.share),
-                              tooltip: 'Compartilhar',
-                              onPressed: () async {
-                                await CatalogShareHelper.showShareOptions(
-                                  context: context,
-                                  ref: ref,
-                                  catalog: catalog,
-                                );
-                              },
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.edit),
-                              onPressed: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        CatalogEditorScreen(catalog: catalog),
-                                  ),
-                                );
-                              },
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () {
-                                // Confirm?
-                                notifier.deleteCatalog(catalog.id);
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
-              error: (e, __) => Center(child: Text('Erro: $e')),
-              loading: () => const Center(child: CircularProgressIndicator()),
+class CatalogCard extends StatelessWidget {
+  final Catalog catalog;
+  final VoidCallback onShare;
+  final VoidCallback onCopy;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const CatalogCard({
+    super.key,
+    required this.catalog,
+    required this.onShare,
+    required this.onCopy,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final date = DateFormat('dd/MM/yyyy').format(catalog.updatedAt);
+
+    return Card(
+      child: ListTile(
+        title: Text(
+          catalog.name,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          '${catalog.productIds.length} produtos • Atualizado em $date',
+        ),
+        trailing: PopupMenuButton<_CatalogAction>(
+          tooltip: 'Acoes',
+          onSelected: (value) {
+            switch (value) {
+              case _CatalogAction.copy:
+                onCopy();
+                break;
+              case _CatalogAction.share:
+                onShare();
+                break;
+              case _CatalogAction.edit:
+                onEdit();
+                break;
+              case _CatalogAction.delete:
+                onDelete();
+                break;
+            }
+          },
+          itemBuilder: (context) => const [
+            PopupMenuItem(
+              value: _CatalogAction.copy,
+              child: Text('Copiar link'),
+            ),
+            PopupMenuItem(
+              value: _CatalogAction.share,
+              child: Text('Compartilhar'),
+            ),
+            PopupMenuItem(
+              value: _CatalogAction.edit,
+              child: Text('Editar'),
+            ),
+            PopupMenuItem(
+              value: _CatalogAction.delete,
+              child: Text('Excluir'),
             ),
           ],
         ),
@@ -153,3 +205,116 @@ class CatalogsScreen extends ConsumerWidget {
     );
   }
 }
+
+enum _CatalogAction { copy, share, edit, delete }
+
+class _CatalogsEmptyState extends StatelessWidget {
+  final VoidCallback onCreate;
+
+  const _CatalogsEmptyState({required this.onCreate});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 32),
+        child: Column(
+          children: [
+            const Icon(
+              Icons.collections_bookmark_outlined,
+              size: 56,
+              color: Colors.grey,
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Nenhum catalogo ainda',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Crie um catalogo para compartilhar no WhatsApp.',
+              style: TextStyle(color: Colors.grey.shade600),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: onCreate,
+              icon: const Icon(Icons.add),
+              label: const Text('Criar primeiro catalogo'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CatalogsLoadingState extends StatelessWidget {
+  const _CatalogsLoadingState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1100),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: List.generate(
+              6,
+              (index) => Container(
+                height: 80,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CatalogsErrorState extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const _CatalogsErrorState({
+    required this.message,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Card(
+        margin: const EdgeInsets.all(24),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, color: Colors.red, size: 40),
+              const SizedBox(height: 12),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Tentar novamente'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+

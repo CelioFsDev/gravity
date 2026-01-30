@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:gravity/core/widgets/admin_drawer_header.dart';
 
 class AdminShellScreen extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
@@ -35,21 +36,31 @@ class AdminShellScreen extends StatelessWidget {
               ? null
               : Drawer(
                   child: SafeArea(
-                    child: Column(
+                    child: NavigationDrawer(
+                      selectedIndex: navigationShell.currentIndex,
+                      onDestinationSelected: (index) {
+                        navigationShell.goBranch(index);
+                        Navigator.of(context).pop();
+                      },
                       children: [
-                        const SizedBox(height: 8),
-                        ...List.generate(
-                          _destinations.length,
-                          (index) => ListTile(
-                            leading: Icon(_destinations[index].icon),
-                            title: Text(_destinations[index].label),
-                            selected: navigationShell.currentIndex == index,
-                            onTap: () {
-                              navigationShell.goBranch(index);
-                              Navigator.of(context).pop();
-                            },
+                        const SizedBox(height: 12),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 12),
+                          child: AdminDrawerHeader(
+                            title: 'Gravity Admin',
+                            subtitle: 'Catálogos automatizados',
+                            icon: Icons.auto_awesome,
                           ),
                         ),
+                        const SizedBox(height: 12),
+                        ..._destinations
+                            .map(
+                              (item) => NavigationDrawerDestination(
+                                icon: Icon(item.icon),
+                                label: Text(item.label),
+                              ),
+                            )
+                            .toList(),
                       ],
                     ),
                   ),
@@ -60,6 +71,18 @@ class AdminShellScreen extends StatelessWidget {
                     NavigationRail(
                       minExtendedWidth: 220,
                       extended: true,
+                      leading: Padding(
+                        padding: const EdgeInsets.only(top: 12, bottom: 12),
+                        child: Column(
+                          children: const [
+                            AdminDrawerHeader(
+                              title: 'Gravity Admin',
+                              subtitle: 'Catálogos automatizados',
+                              icon: Icons.auto_awesome,
+                            ),
+                          ],
+                        ),
+                      ),
                       destinations: _destinations
                           .map(
                             (item) => NavigationRailDestination(
