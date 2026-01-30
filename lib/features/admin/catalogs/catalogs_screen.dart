@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:gravity/core/services/catalog_share_helper.dart';
@@ -42,9 +42,9 @@ class CatalogsScreen extends ConsumerWidget {
   }
 
   void _openNew(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const CatalogEditorScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const CatalogEditorScreen()));
   }
 
   void _openEdit(BuildContext context, Catalog catalog) {
@@ -54,13 +54,15 @@ class CatalogsScreen extends ConsumerWidget {
   }
 
   Future<void> _copyLink(BuildContext context, Catalog catalog) async {
-    final linkId = catalog.shareCode.isNotEmpty ? catalog.shareCode : catalog.slug;
+    final linkId = catalog.shareCode.isNotEmpty
+        ? catalog.shareCode
+        : catalog.slug;
     final url = '$_defaultBaseUrl/c/$linkId';
     await Clipboard.setData(ClipboardData(text: url));
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Link copiado: $url')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Link copiado: $url')));
     }
   }
 }
@@ -191,14 +193,8 @@ class CatalogCard extends StatelessWidget {
               value: _CatalogAction.share,
               child: Text('Compartilhar'),
             ),
-            PopupMenuItem(
-              value: _CatalogAction.edit,
-              child: Text('Editar'),
-            ),
-            PopupMenuItem(
-              value: _CatalogAction.delete,
-              child: Text('Excluir'),
-            ),
+            PopupMenuItem(value: _CatalogAction.edit, child: Text('Editar')),
+            PopupMenuItem(value: _CatalogAction.delete, child: Text('Excluir')),
           ],
         ),
       ),
@@ -282,10 +278,7 @@ class _CatalogsErrorState extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
 
-  const _CatalogsErrorState({
-    required this.message,
-    required this.onRetry,
-  });
+  const _CatalogsErrorState({required this.message, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -299,10 +292,7 @@ class _CatalogsErrorState extends StatelessWidget {
             children: [
               const Icon(Icons.error_outline, color: Colors.red, size: 40),
               const SizedBox(height: 12),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-              ),
+              Text(message, textAlign: TextAlign.center),
               const SizedBox(height: 16),
               OutlinedButton.icon(
                 onPressed: onRetry,
@@ -316,5 +306,3 @@ class _CatalogsErrorState extends StatelessWidget {
     );
   }
 }
-
-

@@ -3,6 +3,7 @@ import 'package:gravity/core/services/catalog_share_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/models/catalog.dart';
+import 'package:gravity/models/category.dart';
 import 'package:gravity/models/category.dart' show CategoryType;
 import 'package:gravity/viewmodels/catalog_editor_viewmodel.dart';
 import 'package:gravity/viewmodels/products_viewmodel.dart';
@@ -49,7 +50,7 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
       maxWidth: 800,
       appBar: AppBar(
         title: Text(
-          widget.catalog == null ? 'Novo CatÃ¡logo' : 'Editar CatÃ¡logo',
+          widget.catalog == null ? 'Novo Catálogo' : 'Editar Catálogo',
         ),
         bottom: TabBar(
           controller: _tabController,
@@ -89,8 +90,9 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                     } else if (!success &&
                         state.slugError != null &&
                         context.mounted) {
-                      ScaffoldMessenger.of(context)
-                          .showSnackBar(SnackBar(content: Text(state.slugError!)));
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text(state.slugError!)));
                     }
                   },
           ),
@@ -101,8 +103,10 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
             child: SectionHeader(
-              title: widget.catalog == null ? 'Novo CatÃ¡logo' : 'Editar CatÃ¡logo',
-              subtitle: 'Selecione produtos e personalize o catÃ¡logo',
+              title: widget.catalog == null
+                  ? 'Novo Catálogo'
+                  : 'Editar Catálogo',
+              subtitle: 'Selecione produtos e personalize o catálogo',
             ),
           ),
           Expanded(
@@ -122,9 +126,8 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                             .toList(),
                       ),
                       error: (e, s) => Text('$e'),
-                      loading: () => const Center(
-                        child: CircularProgressIndicator(),
-                      ),
+                      loading: () =>
+                          const Center(child: CircularProgressIndicator()),
                     );
                   },
                 ),
@@ -136,7 +139,7 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                       TextFormField(
                         initialValue: state.catalog.name,
                         decoration: const InputDecoration(
-                          labelText: 'Nome do CatÃ¡logo',
+                          labelText: 'Nome do Catálogo',
                         ),
                         onChanged: notifier.updateName,
                       ),
@@ -146,17 +149,16 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                         initialValue: state.catalog.slug,
                         decoration: InputDecoration(
                           labelText: 'URL (Slug)',
-                          prefixText: '${CatalogEditorScreen.defaultBaseUrl}/c/',
+                          prefixText:
+                              '${CatalogEditorScreen.defaultBaseUrl}/c/',
                           errorText: state.slugError,
                         ),
                         onChanged: notifier.updateSlug,
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'Modo do catÃ¡logo',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
+                        'Modo do catálogo',
+                        style: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 8),
@@ -189,7 +191,7 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                       ),
                       const SizedBox(height: 16),
                       SwitchListTile(
-                        title: const Text('CatÃ¡logo pÃºblico'),
+                        title: const Text('Catálogo público'),
                         subtitle: const Text('Disponibiliza o link /c/...'),
                         value: state.catalog.isPublic,
                         onChanged: notifier.setIsPublic,
@@ -214,8 +216,12 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                                       ClipboardData(text: url),
                                     );
                                     if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('Link copiado: $url')),
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Link copiado: $url'),
+                                        ),
                                       );
                                     }
                                   },
@@ -224,16 +230,16 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                             : const Padding(
                                 padding: EdgeInsets.symmetric(vertical: 4),
                                 child: Text(
-                                  'Salve o catÃ¡lago para gerar um link.',
+                                  'Salve o catálago para gerar um link.',
                                 ),
                               ),
                       TextButton(
                         onPressed: () => notifier.regenerateShareCode(),
-                        child: const Text('Gerar novo cÃ³digo'),
+                        child: const Text('Gerar novo código'),
                       ),
                       const SizedBox(height: 16),
                       SwitchListTile(
-                        title: const Text('CatÃ¡logo Ativo'),
+                        title: const Text('Catálogo Ativo'),
                         value: state.catalog.active,
                         onChanged: notifier.toggleActive,
                       ),
@@ -253,7 +259,7 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                         items: const [
                           DropdownMenuItem(
                             value: 'grid',
-                            child: Text('Grade (PadrÃ£o)'),
+                            child: Text('Grade (Padrão)'),
                           ),
                           DropdownMenuItem(value: 'list', child: Text('Lista')),
                           DropdownMenuItem(
@@ -265,7 +271,7 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                       ),
                       const Divider(height: 32),
                       SwitchListTile(
-                        title: const Text('Barra de AnÃºncio'),
+                        title: const Text('Barra de Anúncio'),
                         value: state.catalog.announcementEnabled,
                         onChanged: notifier.setAnnouncementEnabled,
                       ),
@@ -273,13 +279,13 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                         TextFormField(
                           initialValue: state.catalog.announcementText,
                           decoration: const InputDecoration(
-                            labelText: 'Texto do anÃºncio',
+                            labelText: 'Texto do anúncio',
                           ),
                           onChanged: notifier.setAnnouncementText,
                         ),
                       const SizedBox(height: 24),
                       const Text(
-                        'Banners Promocionais (ImplementaÃ§Ã£o futura de UI de upload)',
+                        'Banners Promocionais (Implementação futura de UI de upload)',
                       ),
                     ],
                   ),
@@ -292,3 +298,6 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
     );
   }
 }
+
+
+

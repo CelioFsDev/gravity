@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +7,7 @@ import 'package:gravity/models/category.dart';
 import 'package:gravity/viewmodels/products_viewmodel.dart';
 import 'package:gravity/features/admin/products/product_form_screen.dart';
 import 'package:intl/intl.dart';
+import 'package:gravity/core/utils/price_calculator.dart';
 
 class ProductDetailScreen extends ConsumerWidget {
   final Product product;
@@ -17,7 +18,12 @@ class ProductDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Watch for updates (e.g. if edited)
     final productsState = ref.watch(productsViewModelProvider);
-    final updatedProduct = productsState.value?.allProducts.firstWhere((p) => p.id == product.id, orElse: () => product) ?? product;
+    final updatedProduct =
+        productsState.value?.allProducts.firstWhere(
+          (p) => p.id == product.id,
+          orElse: () => product,
+        ) ??
+        product;
     final categories = productsState.value?.categories ?? [];
     final categoryById = {for (final c in categories) c.id: c};
     final collectionNames = updatedProduct.categoryIds
@@ -30,7 +36,9 @@ class ProductDetailScreen extends ConsumerWidget {
         .where((c) => c != null && c!.type == CategoryType.productType)
         .map((c) => c!.name)
         .toList();
-    final collectionLabel = collectionNames.isNotEmpty ? collectionNames.first : '-';
+    final collectionLabel = collectionNames.isNotEmpty
+        ? collectionNames.first
+        : '-';
     final typeLabel = typeNames.isNotEmpty ? typeNames.join(', ') : '-';
 
     final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
@@ -42,14 +50,20 @@ class ProductDetailScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.edit),
             onPressed: () {
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProductFormScreen(product: updatedProduct)));
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ProductFormScreen(product: updatedProduct),
+                ),
+              );
             },
           ),
           IconButton(
             icon: const Icon(Icons.delete),
             onPressed: () {
-               ref.read(productsViewModelProvider.notifier).deleteProduct(updatedProduct.id);
-               Navigator.of(context).pop();
+              ref
+                  .read(productsViewModelProvider.notifier)
+                  .deleteProduct(updatedProduct.id);
+              Navigator.of(context).pop();
             },
           ),
         ],
@@ -83,48 +97,106 @@ class ProductDetailScreen extends ConsumerWidget {
                 height: 200,
                 width: double.infinity,
                 color: Colors.grey.shade200,
-                child: const Icon(Icons.image_not_supported, size: 64, color: Colors.grey),
+                child: const Icon(
+                  Icons.image_not_supported,
+                  size: 64,
+                  color: Colors.grey,
+                ),
               ),
-              
+
             const SizedBox(height: 24),
-            
+
             // Header Info
             Row(
               children: [
-                if (!updatedProduct.isActive) _statusBadge('Inativo', Colors.grey),
-                if (updatedProduct.isOutOfStock) _statusBadge('Esgotado', Colors.red),
-                if (updatedProduct.isOnSale) _statusBadge('Em Promoção', Colors.orange),
+                if (!updatedProduct.isActive)
+                  _statusBadge('Inativo', Colors.grey),
+                if (updatedProduct.isOutOfStock)
+                  _statusBadge('Esgotado', Colors.red),
+                if (updatedProduct.isOnSale)
+                  _statusBadge('Em Promoção', Colors.orange),
               ],
             ),
             const SizedBox(height: 8),
-            Text(updatedProduct.name, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
+            Text(
+              updatedProduct.name,
+              style: Theme.of(
+                context,
+              ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             Row(
               children: [
-                 Text('REF: ${updatedProduct.reference}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                 const SizedBox(width: 16),
-                 Text('SKU: ${updatedProduct.sku}', style: const TextStyle(color: Colors.grey)),
-                 const SizedBox(width: 16),
-                 Text('Colecao: $collectionLabel', style: const TextStyle(color: Colors.blue)),
+                Text(
+                  'REF: ${updatedProduct.reference}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(width: 16),
+                Text(
+                  'SKU: ${updatedProduct.sku}',
+                  style: const TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(width: 16),
+                Text(
+                  'Colecao: $collectionLabel',
+                  style: const TextStyle(color: Colors.blue),
+                ),
               ],
             ),
             const SizedBox(height: 6),
-            Text('Categorias: $typeLabel', style: const TextStyle(color: Colors.grey)),
-            
+            Text(
+              'Categorias: $typeLabel',
+              style: const TextStyle(color: Colors.grey),
+            ),
+
             const Divider(height: 32),
-            
+
             // Pricing
-            Text('Preços', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+            Text(
+              'Preços',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 16),
             LayoutBuilder(
               builder: (context, constraints) {
                 final cardWidth = constraints.maxWidth >= 720
                     ? (constraints.maxWidth - 32) / 3
                     : constraints.maxWidth;
+                final retailEffective = PriceCalculator.effectiveRetail(
+                  updatedProduct.retailPrice,
+                  updatedProduct.isOnSale,
+                  updatedProduct.saleDiscountPercent.toDouble(),
+                );
+                final wholesaleEffective = PriceCalculator.effectiveWholesale(
+                  updatedProduct.wholesalePrice,
+                  updatedProduct.isOnSale,
+                  updatedProduct.saleDiscountPercent.toDouble(),
+                );
                 final cards = [
-                  _buildInfoCard(context, 'Varejo', currency.format(updatedProduct.retailPrice), Icons.attach_money),
-                  _buildInfoCard(context, 'Atacado', currency.format(updatedProduct.wholesalePrice), Icons.store),
-                  _buildInfoCard(context, 'Mín. Atacado', '${updatedProduct.minWholesaleQty} un', Icons.inventory_2),
+                  _buildPriceCard(
+                    context,
+                    'Varejo',
+                    currency.format(updatedProduct.retailPrice),
+                    currency.format(retailEffective),
+                    updatedProduct.isOnSale,
+                    Icons.attach_money,
+                  ),
+                  _buildPriceCard(
+                    context,
+                    'Atacado',
+                    currency.format(updatedProduct.wholesalePrice),
+                    currency.format(wholesaleEffective),
+                    updatedProduct.isOnSale,
+                    Icons.store,
+                  ),
+                  _buildInfoCard(
+                    context,
+                    'Mín. Atacado',
+                    '${updatedProduct.minWholesaleQty} un',
+                    Icons.inventory_2,
+                  ),
                 ];
                 return Wrap(
                   spacing: 16,
@@ -135,35 +207,52 @@ class ProductDetailScreen extends ConsumerWidget {
                 );
               },
             ),
-            
+
             const Divider(height: 32),
-            
+
             // Attributes
-            Text('Atributos', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+            Text(
+              'Atributos',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 16),
             Text('Tamanhos:', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
-              children: updatedProduct.sizes.map((s) => Chip(label: Text(s))).toList(),
+              children: updatedProduct.sizes
+                  .map((s) => Chip(label: Text(s)))
+                  .toList(),
             ),
             const SizedBox(height: 16),
             Text('Cores:', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
-              children: updatedProduct.colors.map((c) => Chip(label: Text(c))).toList(),
+              children: updatedProduct.colors
+                  .map((c) => Chip(label: Text(c)))
+                  .toList(),
             ),
-            
+
             const Divider(height: 32),
-            Text('Criado em: ${DateFormat('dd/MM/yyyy HH:mm').format(updatedProduct.createdAt)}', style: const TextStyle(color: Colors.grey)),
+            Text(
+              'Criado em: ${DateFormat('dd/MM/yyyy HH:mm').format(updatedProduct.createdAt)}',
+              style: const TextStyle(color: Colors.grey),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildInfoCard(BuildContext context, String label, String value, IconData icon) {
+  Widget _buildInfoCard(
+    BuildContext context,
+    String label,
+    String value,
+    IconData icon,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -183,18 +272,75 @@ class ProductDetailScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
         ],
       ),
     );
   }
-  
+
+  Widget _buildPriceCard(
+    BuildContext context,
+    String label,
+    String baseValue,
+    String effectiveValue,
+    bool promoEnabled,
+    IconData icon,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: Colors.grey),
+              const SizedBox(width: 8),
+              Text(label, style: const TextStyle(color: Colors.grey)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (!promoEnabled || effectiveValue == baseValue)
+            Text(
+              baseValue,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            )
+          else ...[
+            Text(
+              baseValue,
+              style: const TextStyle(
+                color: Colors.grey,
+                decoration: TextDecoration.lineThrough,
+              ),
+            ),
+            Text(
+              effectiveValue,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildDetailImage(String? imagePath) {
     if (imagePath == null || kIsWeb) {
       return Container(
         color: Colors.grey.shade200,
         alignment: Alignment.center,
-        child: const Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
+        child: const Icon(
+          Icons.image_not_supported,
+          size: 48,
+          color: Colors.grey,
+        ),
       );
     }
 
@@ -218,7 +364,15 @@ class ProductDetailScreen extends ConsumerWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: color),
       ),
-      child: Text(text, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold)),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 }
+

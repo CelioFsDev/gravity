@@ -1,14 +1,10 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 class FilterChipsRow extends StatelessWidget {
   final List<Widget> chips;
   final VoidCallback? onClear;
 
-  const FilterChipsRow({
-    super.key,
-    required this.chips,
-    this.onClear,
-  });
+  const FilterChipsRow({super.key, required this.chips, this.onClear});
 
   @override
   Widget build(BuildContext context) {
@@ -41,4 +37,3 @@ class FilterChipsRow extends StatelessWidget {
     return widgets;
   }
 }
-

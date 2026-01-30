@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -31,15 +31,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     if (_loading) return;
     if (!(_formKey.currentState?.validate() ?? false)) return;
     if (_passwordController.text != _confirmController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('As senhas não conferem')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('As senhas não conferem')));
       return;
     }
 
     setState(() => _loading = true);
     try {
-      await ref.read(authControllerProvider.notifier).register(
+      await ref
+          .read(authControllerProvider.notifier)
+          .register(
             email: _emailController.text.trim(),
             password: _passwordController.text,
           );
@@ -47,9 +49,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       GoRouter.of(context).go('/admin/products');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao registrar: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erro ao registrar: $e')));
     } finally {
       if (mounted) {
         setState(() => _loading = false);
@@ -76,7 +78,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     decoration: const InputDecoration(labelText: 'E-mail'),
                     keyboardType: TextInputType.emailAddress,
                     validator: (value) {
-                      if ((value ?? '').trim().isEmpty) return 'Informe o e-mail';
+                      if ((value ?? '').trim().isEmpty)
+                        return 'Informe o e-mail';
                       if (!(value!.contains('@'))) return 'E-mail inválido';
                       return null;
                     },
@@ -88,14 +91,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     obscureText: true,
                     validator: (value) {
                       if ((value ?? '').isEmpty) return 'Informe a senha';
-                      if ((value ?? '').length < 6) return 'Mínimo 6 caracteres';
+                      if ((value ?? '').length < 6)
+                        return 'Mínimo 6 caracteres';
                       return null;
                     },
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _confirmController,
-                    decoration: const InputDecoration(labelText: 'Confirme a senha'),
+                    decoration: const InputDecoration(
+                      labelText: 'Confirme a senha',
+                    ),
                     obscureText: true,
                     validator: (value) {
                       if ((value ?? '').isEmpty) return 'Confirme a senha';
@@ -125,3 +131,4 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     );
   }
 }
+

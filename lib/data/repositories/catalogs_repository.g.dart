@@ -7,20 +7,20 @@ part of 'catalogs_repository.dart';
 // **************************************************************************
 
 String _$catalogsRepositoryHash() =>
-    r'e85e7358f473221aff8904c08009908a9532f32c';
+    r'f75834b935cba1bf31189810f62b2098221bafc6';
 
 /// See also [catalogsRepository].
 @ProviderFor(catalogsRepository)
 final catalogsRepositoryProvider =
     Provider<CatalogsRepositoryContract>.internal(
-  catalogsRepository,
-  name: r'catalogsRepositoryProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$catalogsRepositoryHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
+      catalogsRepository,
+      name: r'catalogsRepositoryProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$catalogsRepositoryHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
 
 typedef CatalogsRepositoryRef = ProviderRef<CatalogsRepositoryContract>;
 // ignore_for_file: type=lint

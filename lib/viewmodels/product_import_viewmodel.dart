@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' hide Category;
@@ -271,6 +271,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       final categoryValue = _cellByKeys(row, headerMap, [
         'category',
         'categoryid',
+        'categoria',
       ], 3).trim();
       final categoryId = await _resolveCategoryId(
         categoryValue,
@@ -286,16 +287,6 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       final isOutOfStock = _parseBool(
         _cellByKeys(row, headerMap, ['isoutofstock'], 10),
       );
-      final isOnSale = _parseBool(
-        _cellByKeys(row, headerMap, ['isonsale'], 11),
-      );
-
-      final saleDiscountPercent =
-          int.tryParse(
-            _cellByKeys(row, headerMap, ['salediscountpercent'], 12),
-          ) ??
-          existing?.saleDiscountPercent ??
-          0;
 
       final createdAt =
           _parseDateTime(_cellByKeys(row, headerMap, ['createdat'], 14)) ??
@@ -315,19 +306,41 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         imagesMatched += images.length;
       }
 
+      final priceRetail = _parsePrice(
+        _cellByKeys(row, headerMap, ['price', 'preco', 'retailprice'], 4),
+      );
+      if (priceRetail <= 0) {
+        continue;
+      }
+
+      final promoPrice = _parsePrice(
+        _cellByKeys(row, headerMap, [
+          'promoprice',
+          'promotionalprice',
+          'saleprice',
+          'precopromocional',
+          'preco_promocional',
+        ], 0),
+      );
+      var promoPercent = 0;
+      var promoEnabled = false;
+      if (promoPrice > 0 && promoPrice < priceRetail) {
+        promoPercent = (100 * (1 - (promoPrice / priceRetail))).round();
+        promoPercent = promoPercent.clamp(0, 100);
+        promoEnabled = promoPercent > 0;
+      }
+
+      final priceWholesale = existing?.priceAtacado ?? priceRetail;
+
       products.add(
         Product(
           id: existing?.id ?? const Uuid().v4(),
-          name: _cellByKeys(row, headerMap, ['name'], 0),
-          reference: _cellByKeys(row, headerMap, ['ref'], 1),
+          name: _cellByKeys(row, headerMap, ['name', 'nome'], 0),
+          ref: _cellByKeys(row, headerMap, ['ref'], 1),
           sku: sku,
           categoryIds: categoryId.isNotEmpty ? [categoryId] : <String>[],
-          priceVarejo: _parsePrice(
-            _cellByKeys(row, headerMap, ['retailprice'], 4),
-          ),
-          priceAtacado: _parsePrice(
-            _cellByKeys(row, headerMap, ['wholesaleprice'], 5),
-          ),
+          priceRetail: priceRetail,
+          priceWholesale: priceWholesale,
           minWholesaleQty:
               int.tryParse(_cellByKeys(row, headerMap, ['minqty'], 6)) ?? 1,
           sizes: sizes,
@@ -336,9 +349,9 @@ class ProductImportViewModel extends _$ProductImportViewModel {
           mainImageIndex: mainImageIndex,
           isActive: isActive,
           isOutOfStock: isOutOfStock,
-          isOnSale: isOnSale,
+          promoEnabled: promoEnabled,
           createdAt: createdAt,
-          saleDiscountPercent: saleDiscountPercent,
+          promoPercent: promoPercent.toDouble(),
         ),
       );
     }
@@ -690,3 +703,4 @@ class ParsedImport {
     required this.imagesTotalCount,
   });
 }
+

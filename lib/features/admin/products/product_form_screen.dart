@@ -12,6 +12,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart' hide Category; // Added for kIsWeb
 import 'package:flutter/services.dart';
+import 'package:gravity/core/utils/price_calculator.dart';
 
 class ProductFormScreen extends ConsumerStatefulWidget {
   final Product? product; // null for Create, non-null for Edit
@@ -134,11 +135,11 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     final product = Product(
       id: widget.product?.id ?? const Uuid().v4(),
       name: _nameController.text,
-      reference: _refController.text,
+      ref: _refController.text,
       sku: _skuController.text,
       categoryIds: categoryIds.toSet().toList(),
-      priceVarejo: _parsePrice(_retailController.text),
-      priceAtacado: _parsePrice(_wholesaleController.text),
+      priceRetail: _parsePrice(_retailController.text),
+      priceWholesale: _parsePrice(_wholesaleController.text),
       minWholesaleQty: int.tryParse(_minQtyController.text) ?? 1,
       sizes: _sizesController.text
           .split(',')
@@ -154,8 +155,12 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       mainImageIndex: imagesForSave.isEmpty ? 0 : 0,
       isActive: _isActive,
       isOutOfStock: _isOutOfStock,
-      isOnSale: _isOnSale,
+      promoEnabled: _isOnSale,
       createdAt: widget.product?.createdAt ?? DateTime.now(),
+      updatedAt: DateTime.now(),
+      promoPercent: _isOnSale
+          ? (int.tryParse(_discountController.text) ?? 0).toDouble()
+          : 0.0,
     );
 
     try {
@@ -196,7 +201,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       debugPrint('Error in _pickMainImage: $e\n$stack');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro crÃ­tico ao selecionar foto: $e')),
+          SnackBar(content: Text('Erro crítico ao selecionar foto: $e')),
         );
       }
     }
@@ -223,7 +228,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       debugPrint('Error in _pickVariationImages: $e\n$stack');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao selecionar variaÃ§Ãµes: $e')),
+          SnackBar(content: Text('Erro ao selecionar variações: $e')),
         );
       }
     }
@@ -235,9 +240,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'Arquivo "${file.name}" ignorado (nÃ£o Ã© imagem).',
-            ),
+            content: Text('Arquivo "${file.name}" ignorado (não é imagem).'),
           ),
         );
       }
@@ -338,7 +341,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'AtenÃ§Ã£o: O salvamento de fotos nÃ£o Ã© suportado no Navegador. Use a versÃ£o Windows Desktop.',
+              'Atenção: O salvamento de fotos não é suportado no Navegador. Use a versão Windows Desktop.',
             ),
           ),
         );
@@ -356,18 +359,21 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     final categories = productsState.hasValue
         ? productsState.value!.categories
         : <Category>[];
-    final collections =
-        categories.where((c) => c.type == CategoryType.collection).toList();
-    final productTypes =
-        categories.where((c) => c.type == CategoryType.productType).toList();
+    final collections = categories
+        .where((c) => c.type == CategoryType.collection)
+        .toList();
+    final productTypes = categories
+        .where((c) => c.type == CategoryType.productType)
+        .toList();
 
     if (!_categorySelectionInitialized && categories.isNotEmpty) {
       final collectionMatches = collections
           .where((c) => _initialCategoryIds.contains(c.id))
           .map((c) => c.id)
           .toList();
-      _selectedCollectionId =
-          collectionMatches.isNotEmpty ? collectionMatches.first : null;
+      _selectedCollectionId = collectionMatches.isNotEmpty
+          ? collectionMatches.first
+          : null;
       _selectedTypeIds = productTypes
           .where((c) => _initialCategoryIds.contains(c.id))
           .map((c) => c.id)
@@ -393,18 +399,18 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Basic Info
-                    _buildSectionTitle('InformaÃ§Ãµes BÃ¡sicas'),
+                    _buildSectionTitle('Informações Básicas'),
                     if (isMobile) ...[
                       _buildTextField(
                         _nameController,
                         'Nome',
-                        validator: (v) => v!.isEmpty ? 'ObrigatÃ³rio' : null,
+                        validator: (v) => v!.isEmpty ? 'Obrigatório' : null,
                       ),
                       const SizedBox(height: 16),
                       _buildTextField(
                         _refController,
                         'REF',
-                        validator: (v) => v!.isEmpty ? 'ObrigatÃ³rio' : null,
+                        validator: (v) => v!.isEmpty ? 'Obrigatório' : null,
                       ),
                       const SizedBox(height: 16),
                       _buildTextField(_skuController, 'SKU'),
@@ -417,7 +423,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                               _nameController,
                               'Nome',
                               validator: (v) =>
-                                  v!.isEmpty ? 'ObrigatÃ³rio' : null,
+                                  v!.isEmpty ? 'Obrigatório' : null,
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -426,7 +432,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                               _refController,
                               'REF',
                               validator: (v) =>
-                                  v!.isEmpty ? 'ObrigatÃ³rio' : null,
+                                  v!.isEmpty ? 'Obrigatório' : null,
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -437,14 +443,11 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                       ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
-                      initialValue: collections.any(
-                        (c) => c.id == _selectedCollectionId,
-                      )
+                      initialValue:
+                          collections.any((c) => c.id == _selectedCollectionId)
                           ? _selectedCollectionId
                           : null,
-                      decoration: const InputDecoration(
-                        labelText: 'Colecao',
-                      ),
+                      decoration: const InputDecoration(labelText: 'Colecao'),
                       items: [
                         const DropdownMenuItem(
                           value: null,
@@ -462,15 +465,12 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                     ),
                     const SizedBox(height: 16),
                     _buildSectionTitle('Categorias'),
-                    _buildCategoryMultiSelect(
-                      context,
-                      productTypes,
-                    ),
+                    _buildCategoryMultiSelect(context, productTypes),
 
                     const SizedBox(height: 24),
 
                     // Pricing
-                    _buildSectionTitle('PreÃ§os e Estoque'),
+                    _buildSectionTitle('Preços e Estoque'),
                     if (isMobile) ...[
                       _buildTextField(
                         _retailController,
@@ -486,7 +486,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                       const SizedBox(height: 16),
                       _buildTextField(
                         _minQtyController,
-                        'MÃ­n. Atacado',
+                        'Mín. Atacado',
                         isNumber: true,
                       ),
                     ] else
@@ -511,24 +511,29 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                           Expanded(
                             child: _buildTextField(
                               _minQtyController,
-                              'MÃ­n. Atacado',
+                              'Mín. Atacado',
                               isNumber: true,
                             ),
                           ),
                         ],
                       ),
                     const SizedBox(height: 24),
+                    Text(
+                      'Preço atacado pode ser ajustado conforme sua política.',
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 16),
 
                     // Attributes
                     _buildSectionTitle('Atributos'),
                     _buildTextField(
                       _sizesController,
-                      'Tamanhos (separados por vÃ­rgula)',
+                      'Tamanhos (separados por vírgula)',
                     ),
                     const SizedBox(height: 16),
                     _buildTextField(
                       _colorsController,
-                      'Cores (separados por vÃ­rgula)',
+                      'Cores (separados por vírgula)',
                     ),
 
                     const SizedBox(height: 24),
@@ -546,7 +551,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                       onChanged: (v) => setState(() => _isOutOfStock = v),
                     ),
                     SwitchListTile(
-                      title: const Text('Em PromoÃ§Ã£o'),
+                      title: const Text('Em Promoção'),
                       value: _isOnSale,
                       onChanged: (v) => setState(() => _isOnSale = v),
                     ),
@@ -577,6 +582,11 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                           },
                         ),
                       ),
+                      const SizedBox(height: 12),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: _buildPromoPreview(),
+                      ),
                     ],
 
                     const SizedBox(height: 24),
@@ -602,21 +612,21 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                           child: _mainImagePath == null
                               ? const Center(child: Icon(Icons.image))
                               : kIsWeb
-                                  ? const Center(
-                                      child: Text(
-                                        'Imagem nÃ£o renderizada no navegador',
-                                      ),
-                                    )
-                                  : Image.file(
-                                      File(_mainImagePath!),
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, _, _) => const Center(
-                                        child: Icon(
-                                          Icons.broken_image,
-                                          color: Colors.red,
-                                        ),
-                                      ),
+                              ? const Center(
+                                  child: Text(
+                                    'Imagem não renderizada no navegador',
+                                  ),
+                                )
+                              : Image.file(
+                                  File(_mainImagePath!),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) => const Center(
+                                    child: Icon(
+                                      Icons.broken_image,
+                                      color: Colors.red,
                                     ),
+                                  ),
+                                ),
                         ),
                         const SizedBox(width: 16),
                         ElevatedButton.icon(
@@ -636,7 +646,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'VariaÃ§Ãµes (atÃ© 3 fotos)',
+                      'Variações (até 3 fotos)',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 8),
@@ -645,9 +655,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                         final hasImage = index < _variationImages.length;
                         final path = hasImage ? _variationImages[index] : null;
                         return Padding(
-                          padding: EdgeInsets.only(
-                            right: index == 2 ? 0 : 8,
-                          ),
+                          padding: EdgeInsets.only(right: index == 2 ? 0 : 8),
                           child: Stack(
                             children: [
                               Container(
@@ -663,23 +671,22 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                                         child: Icon(Icons.add_photo_alternate),
                                       )
                                     : kIsWeb
-                                        ? const Center(
-                                            child: Text(
-                                              'Sem preview',
-                                              textAlign: TextAlign.center,
-                                            ),
-                                          )
-                                        : Image.file(
-                                            File(path),
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (_, _, _) =>
-                                                const Center(
-                                                  child: Icon(
-                                                    Icons.broken_image,
-                                                    color: Colors.red,
-                                                  ),
-                                                ),
+                                    ? const Center(
+                                        child: Text(
+                                          'Sem preview',
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      )
+                                    : Image.file(
+                                        File(path),
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, _, _) => const Center(
+                                          child: Icon(
+                                            Icons.broken_image,
+                                            color: Colors.red,
                                           ),
+                                        ),
+                                      ),
                               ),
                               if (path != null)
                                 Positioned(
@@ -716,7 +723,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                       label: Text(
                         _variationImages.length >= 3
                             ? 'Limite atingido'
-                            : 'Adicionar variaÃ§Ãµes',
+                            : 'Adicionar variações',
                       ),
                     ),
                   ],
@@ -808,7 +815,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   child: SizedBox(
                     width: double.infinity,
                     child: FilledButton(
-                      onPressed: () => Navigator.pop(sheetContext, tempSelected),
+                      onPressed: () =>
+                          Navigator.pop(sheetContext, tempSelected),
                       child: const Text('Aplicar'),
                     ),
                   ),
@@ -834,6 +842,38 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           context,
         ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
       ),
+    );
+  }
+
+  Widget _buildPromoPreview() {
+    final retail = _parsePrice(_retailController.text);
+    final wholesale = _parsePrice(_wholesaleController.text);
+    final percent = double.tryParse(_discountController.text) ?? 0;
+    final retailFinal = PriceCalculator.effectiveRetail(
+      retail,
+      _isOnSale,
+      percent,
+    );
+    final wholesaleFinal = PriceCalculator.effectiveWholesale(
+      wholesale,
+      _isOnSale,
+      percent,
+    );
+    final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Varejo final: ${currency.format(retailFinal)}',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Atacado final: ${currency.format(wholesaleFinal)}',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ],
     );
   }
 

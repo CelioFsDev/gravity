@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 class AdminDrawerHeader extends StatelessWidget {
   final String title;
@@ -46,10 +46,9 @@ class AdminDrawerHeader extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     subtitle!,
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: Colors.grey.shade600),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.grey.shade600,
+                    ),
                   ),
                 ],
               ],
@@ -60,4 +59,3 @@ class AdminDrawerHeader extends StatelessWidget {
     );
   }
 }
-

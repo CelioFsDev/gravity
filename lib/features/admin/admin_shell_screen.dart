@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gravity/core/widgets/admin_drawer_header.dart';
 
@@ -11,6 +11,7 @@ class AdminShellScreen extends StatelessWidget {
     _NavItem(icon: Icons.inventory, label: 'Products'),
     _NavItem(icon: Icons.category, label: 'Categories'),
     _NavItem(icon: Icons.menu_book, label: 'Catalogs'),
+    _NavItem(icon: Icons.cloud_download, label: 'Importacoes'),
   ];
 
   @override
@@ -122,3 +123,4 @@ class _NavItem {
 
   const _NavItem({required this.icon, required this.label});
 }
+

@@ -1,12 +1,18 @@
-﻿import 'dart:math' as math;
+import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:gravity/models/category.dart';
+import 'package:gravity/core/services/local_media_service.dart';
 import 'package:gravity/viewmodels/categories_viewmodel.dart';
 import 'package:gravity/core/widgets/responsive_scaffold.dart';
 import 'package:gravity/core/widgets/section_header.dart';
 import 'package:gravity/core/widgets/filter_chips_row.dart';
 import 'package:gravity/core/widgets/filter_chip_button.dart';
+import 'package:path/path.dart' as p;
+import 'package:uuid/uuid.dart';
 
 class CategoriesScreen extends ConsumerStatefulWidget {
   const CategoriesScreen({super.key});
@@ -51,7 +57,8 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     CategoriesViewModel notifier,
   ) {
     final hasFilters =
-        state.searchQuery.isNotEmpty || state.sortOption != CategorySortOption.manual;
+        state.searchQuery.isNotEmpty ||
+        state.sortOption != CategorySortOption.manual;
 
     if (_searchController.text != state.searchQuery) {
       _searchController.value = TextEditingValue(
@@ -125,19 +132,22 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     CategoriesViewModel notifier,
   ) {
     final isManual =
-        state.sortOption == CategorySortOption.manual && state.searchQuery.isEmpty;
+        state.sortOption == CategorySortOption.manual &&
+        state.searchQuery.isEmpty;
 
     final query = state.searchQuery.trim().toLowerCase();
     final filtered = query.isEmpty
         ? state.categories
         : state.categories
-            .where((c) => c.name.toLowerCase().contains(query))
-            .toList();
+              .where((c) => c.name.toLowerCase().contains(query))
+              .toList();
 
-    final collections =
-        filtered.where((c) => c.type == CategoryType.collection).toList();
-    final productTypes =
-        filtered.where((c) => c.type == CategoryType.productType).toList();
+    final collections = filtered
+        .where((c) => c.type == CategoryType.collection)
+        .toList();
+    final productTypes = filtered
+        .where((c) => c.type == CategoryType.productType)
+        .toList();
 
     return ListView(
       padding: EdgeInsets.zero,
@@ -227,10 +237,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   }
 
   Widget _buildSectionTitle(String text) {
-    return Text(
-      text,
-      style: const TextStyle(fontWeight: FontWeight.bold),
-    );
+    return Text(text, style: const TextStyle(fontWeight: FontWeight.bold));
   }
 
   Widget _buildListItem(
@@ -266,10 +273,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
             }
           },
           itemBuilder: (context) => const [
-            PopupMenuItem(
-              value: _CategoryAction.edit,
-              child: Text('Editar'),
-            ),
+            PopupMenuItem(value: _CategoryAction.edit, child: Text('Editar')),
             PopupMenuItem(
               value: _CategoryAction.delete,
               child: Text('Excluir'),
@@ -326,17 +330,133 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     }
   }
 
+  Future<String?> _pickCoverImage(
+    BuildContext context, {
+    required String collectionId,
+    required String fileName,
+  }) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: false,
+        type: FileType.any,
+      );
+      if (result == null || result.files.isEmpty) return null;
+      return _processPickedCoverImage(
+        result.files.first,
+        context,
+        collectionId: collectionId,
+        fileName: fileName,
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao selecionar imagem: $e')));
+      }
+      return null;
+    }
+  }
+
+  Future<String?> _processPickedCoverImage(
+    PlatformFile file,
+    BuildContext context, {
+    required String collectionId,
+    required String fileName,
+  }) async {
+    final ext = p.extension(file.name).toLowerCase();
+    if (!['.jpg', '.jpeg', '.png', '.webp'].contains(ext)) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Arquivo "${file.name}" ignorado (nao e imagem).'),
+          ),
+        );
+      }
+      return null;
+    }
+
+    final resolved = await _copyCoverFileToStorage(
+      file,
+      collectionId: collectionId,
+      fileName: fileName,
+    );
+    if (resolved == null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Falha ao processar "${file.name}".')),
+      );
+    }
+    return resolved;
+  }
+
+  Future<String?> _copyCoverFileToStorage(
+    PlatformFile file, {
+    required String collectionId,
+    required String fileName,
+  }) async {
+    try {
+      final extension = p.extension(file.name).isNotEmpty
+          ? p.extension(file.name).toLowerCase()
+          : '.jpg';
+      final targetFileName = '$fileName$extension';
+
+      if (!kIsWeb && file.path != null) {
+        final sourceFile = File(file.path!);
+        if (!await sourceFile.exists()) return null;
+        return await LocalMediaService.savePickedImage(
+          sourceFile,
+          folder: p.join('media', 'covers', collectionId),
+          fileName: targetFileName,
+        );
+      }
+
+      if (!kIsWeb && file.bytes != null) {
+        final tempDir = Directory.systemTemp;
+        final tempPath = p.join(tempDir.path, '${const Uuid().v4()}$extension');
+        final tempFile = File(tempPath);
+        await tempFile.writeAsBytes(file.bytes!);
+        return await LocalMediaService.savePickedImage(
+          tempFile,
+          folder: p.join('media', 'covers', collectionId),
+          fileName: targetFileName,
+        );
+      }
+
+      if (kIsWeb) {
+        return 'web_placeholder_${const Uuid().v4()}';
+      }
+    } catch (_) {
+      return null;
+    }
+
+    return null;
+  }
+
   Future<void> _showCategoryDialog(
     BuildContext context,
     CategoriesViewModel notifier, {
     Category? category,
   }) async {
     final isEdit = category != null;
-    CategoryType selectedType =
-        category?.type ?? CategoryType.productType;
+    CategoryType selectedType = category?.type ?? CategoryType.productType;
+    final collectionId = category?.id ?? const Uuid().v4();
     _categoryNameController.text = category?.name ?? '';
     _categoryNameController.selection = TextSelection.collapsed(
       offset: _categoryNameController.text.length,
+    );
+    final existingCover = category?.cover;
+    CollectionCoverMode coverMode =
+        existingCover?.mode ?? CollectionCoverMode.template;
+    String? coverImagePath = existingCover?.coverImagePath;
+    String? bannerImagePath = existingCover?.bannerImagePath;
+    String? heroImagePath = existingCover?.heroImagePath;
+    final coverTitleController = TextEditingController(
+      text: existingCover?.title ?? CollectionCover.defaultTitle,
+    );
+    final coverBrandController = TextEditingController(
+      text: existingCover?.brand ?? CollectionCover.defaultBrand,
+    );
+    final coverSubtitleController = TextEditingController(
+      text: existingCover?.subtitle ?? (category?.name ?? ''),
     );
 
     await showDialog(
@@ -401,6 +521,226 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                     style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
                   ),
                 ),
+              if (selectedType == CategoryType.collection) ...[
+                const SizedBox(height: 20),
+                Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Capa do catalogo',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                ToggleButtons(
+                  isSelected: [
+                    coverMode == CollectionCoverMode.image,
+                    coverMode == CollectionCoverMode.template,
+                  ],
+                  onPressed: (index) {
+                    setState(() {
+                      coverMode = index == 0
+                          ? CollectionCoverMode.image
+                          : CollectionCoverMode.template;
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  constraints: const BoxConstraints(minHeight: 40),
+                  children: const [
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Text('Capa personalizada'),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Text('Gerar capa automatica'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (coverMode == CollectionCoverMode.image) ...[
+                  Row(
+                    children: [
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            final picked = await _pickCoverImage(
+                              context,
+                              collectionId: collectionId,
+                              fileName: 'cover',
+                            );
+                            if (picked != null) {
+                              setState(() => coverImagePath = picked);
+                            }
+                          },
+                        icon: const Icon(Icons.image_outlined),
+                        label: const Text('Escolher imagem'),
+                      ),
+                      if (coverImagePath != null) ...[
+                        const SizedBox(width: 8),
+                        IconButton(
+                          onPressed: () =>
+                              setState(() => coverImagePath = null),
+                          icon: const Icon(Icons.delete_outline),
+                        ),
+                      ],
+                    ],
+                  ),
+                    if (coverImagePath != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        p.basename(coverImagePath!),
+                        style: TextStyle(color: Colors.grey.shade600),
+                      ),
+                      if (!kIsWeb)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: SizedBox(
+                              height: 140,
+                              width: double.infinity,
+                              child: Image.file(
+                                File(coverImagePath!),
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  color: Colors.grey.shade200,
+                                  alignment: Alignment.center,
+                                  child: const Icon(Icons.broken_image),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                    const SizedBox(height: 16),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Banner (horizontal)',
+                        style: Theme.of(context).textTheme.labelLarge,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            final picked = await _pickCoverImage(
+                              context,
+                              collectionId: collectionId,
+                              fileName: 'banner',
+                            );
+                            if (picked != null) {
+                              setState(() => bannerImagePath = picked);
+                            }
+                          },
+                          icon: const Icon(Icons.image_outlined),
+                          label: const Text('Selecionar banner'),
+                        ),
+                        if (bannerImagePath != null) ...[
+                          const SizedBox(width: 8),
+                          IconButton(
+                            onPressed: () =>
+                                setState(() => bannerImagePath = null),
+                            icon: const Icon(Icons.delete_outline),
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (bannerImagePath != null && !kIsWeb)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: SizedBox(
+                            height: 90,
+                            width: double.infinity,
+                            child: Image.file(
+                              File(bannerImagePath!),
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                color: Colors.grey.shade200,
+                                alignment: Alignment.center,
+                                child: const Icon(Icons.broken_image),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Foto principal (9:16)',
+                        style: Theme.of(context).textTheme.labelLarge,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            final picked = await _pickCoverImage(
+                              context,
+                              collectionId: collectionId,
+                              fileName: 'hero',
+                            );
+                            if (picked != null) {
+                              setState(() => heroImagePath = picked);
+                            }
+                          },
+                          icon: const Icon(Icons.image_outlined),
+                          label: const Text('Selecionar foto principal'),
+                        ),
+                        if (heroImagePath != null) ...[
+                          const SizedBox(width: 8),
+                          IconButton(
+                            onPressed: () =>
+                                setState(() => heroImagePath = null),
+                            icon: const Icon(Icons.delete_outline),
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (heroImagePath != null && !kIsWeb)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: SizedBox(
+                            height: 220,
+                            width: double.infinity,
+                            child: Image.file(
+                              File(heroImagePath!),
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) => Container(
+                                color: Colors.grey.shade200,
+                                alignment: Alignment.center,
+                                child: const Icon(Icons.broken_image),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ] else ...[
+                  TextField(
+                    controller: coverSubtitleController,
+                    decoration: const InputDecoration(
+                      labelText: 'Subtitulo',
+                      hintText: 'Ex: CAPSULA 2026',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: coverTitleController,
+                    decoration: const InputDecoration(labelText: 'Titulo'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: coverBrandController,
+                    decoration: const InputDecoration(labelText: 'Marca'),
+                  ),
+                ],
+              ],
             ],
           ),
           actions: [
@@ -410,20 +750,54 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
-                final name = _categoryNameController.text;
-                if (name.trim().isEmpty) return;
+                final name = _categoryNameController.text.trim();
+                if (name.isEmpty) return;
+
+                CollectionCover? cover;
+                if (selectedType == CategoryType.collection) {
+                  final subtitle = coverSubtitleController.text.trim().isNotEmpty
+                      ? coverSubtitleController.text.trim()
+                      : name;
+                  final title = coverTitleController.text.trim().isNotEmpty
+                      ? coverTitleController.text.trim()
+                      : CollectionCover.defaultTitle;
+                  final brand = coverBrandController.text.trim().isNotEmpty
+                      ? coverBrandController.text.trim()
+                      : CollectionCover.defaultBrand;
+                  cover = CollectionCover(
+                    mode: coverMode,
+                    coverImagePath: coverImagePath,
+                    title: title,
+                    brand: brand,
+                    subtitle: subtitle,
+                    backgroundColor: existingCover?.backgroundColor,
+                    overlayOpacity: existingCover?.overlayOpacity,
+                    bannerImagePath: bannerImagePath,
+                    heroImagePath: heroImagePath,
+                  );
+                }
 
                 String? error;
                 if (isEdit) {
-                  error = await notifier.updateCategory(category.id, name);
+                  error = await notifier.updateCategory(
+                    category.id,
+                    name,
+                    cover: cover,
+                  );
                 } else {
-                  error = await notifier.addCategory(name, selectedType);
+                  error = await notifier.addCategory(
+                    name,
+                    selectedType,
+                    cover: cover,
+                    id: collectionId,
+                  );
                 }
 
                 if (context.mounted) {
                   if (error != null) {
-                    ScaffoldMessenger.of(context)
-                        .showSnackBar(SnackBar(content: Text(error)));
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text(error)));
                   } else {
                     Navigator.pop(context);
                   }
@@ -435,6 +809,10 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
         ),
       ),
     );
+
+    coverTitleController.dispose();
+    coverBrandController.dispose();
+    coverSubtitleController.dispose();
 
     if (mounted) {
       _categoryNameController.clear();
@@ -451,8 +829,9 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     if (!context.mounted) return;
 
     if (result.success) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Categoria excluida')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Categoria excluida')));
       return;
     }
 
@@ -555,10 +934,7 @@ class _CategoriesErrorState extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
 
-  const _CategoriesErrorState({
-    required this.message,
-    required this.onRetry,
-  });
+  const _CategoriesErrorState({required this.message, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -572,10 +948,7 @@ class _CategoriesErrorState extends StatelessWidget {
             children: [
               const Icon(Icons.error_outline, color: Colors.red, size: 40),
               const SizedBox(height: 12),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-              ),
+              Text(message, textAlign: TextAlign.center),
               const SizedBox(height: 16),
               OutlinedButton.icon(
                 onPressed: onRetry,
@@ -589,5 +962,3 @@ class _CategoriesErrorState extends StatelessWidget {
     );
   }
 }
-
-

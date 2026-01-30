@@ -13,11 +13,18 @@ class PublicCatalogData {
   final List<Product> products;
   final List<Category> categories;
 
-  PublicCatalogData({required this.catalog, required this.products, required this.categories});
+  PublicCatalogData({
+    required this.catalog,
+    required this.products,
+    required this.categories,
+  });
 }
 
 @riverpod
-Future<PublicCatalogData?> catalogPublic(CatalogPublicRef ref, String shareCode) async {
+Future<PublicCatalogData?> catalogPublic(
+  CatalogPublicRef ref,
+  String shareCode,
+) async {
   final catalogRepo = ref.watch(catalogsRepositoryProvider);
   final productRepo = ref.watch(productsRepositoryProvider);
 
@@ -32,19 +39,24 @@ Future<PublicCatalogData?> catalogPublic(CatalogPublicRef ref, String shareCode)
   final catalogProducts = allProducts.where((p) {
     return catalog.productIds.contains(p.id) && p.isActive;
   }).toList();
-  
+
   // Sort or maintain order? Usually existing order or manual sort.
   // Prompt doesn't specify sort order for public, but usually it follows product list order or add date.
   // Let's assume order of productIds? Or just retrieval order.
-  
+
   // Also filter categories that are used by these products
-  final usedCategoryIds = catalogProducts
-      .expand((p) => p.categoryIds)
-      .toSet();
+  final usedCategoryIds = catalogProducts.expand((p) => p.categoryIds).toSet();
   final usedCategories = allCategories
-      .where((c) =>
-          c.type == CategoryType.productType && usedCategoryIds.contains(c.id))
+      .where(
+        (c) =>
+            c.type == CategoryType.productType &&
+            usedCategoryIds.contains(c.id),
+      )
       .toList();
 
-  return PublicCatalogData(catalog: catalog, products: catalogProducts, categories: usedCategories);
+  return PublicCatalogData(
+    catalog: catalog,
+    products: catalogProducts,
+    categories: usedCategories,
+  );
 }

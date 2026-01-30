@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+﻿import 'dart:typed_data';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:gravity/models/catalog.dart';
 import 'package:share_plus/share_plus.dart';
@@ -20,15 +20,18 @@ class WhatsAppShareService {
     String? text,
     String? mimeType,
   }) async {
-    await Share.shareXFiles([
-      XFile.fromData(
-        Uint8List.fromList(bytes),
-        name: fileName,
-        mimeType: mimeType ?? 'application/pdf',
-      ),
-    ], text: text, subject: text);
+    await Share.shareXFiles(
+      [
+        XFile.fromData(
+          Uint8List.fromList(bytes),
+          name: fileName,
+          mimeType: mimeType ?? 'application/pdf',
+        ),
+      ],
+      text: text,
+      subject: text,
+    );
   }
-
 
   static Future<void> _launchWhatsApp({
     String? phone,

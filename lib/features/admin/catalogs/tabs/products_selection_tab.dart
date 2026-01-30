@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
 import 'package:gravity/models/product.dart';
@@ -41,8 +41,7 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
   Widget build(BuildContext context) {
     final filtered = widget.allProducts.where((p) {
       if (_onlySelected && !widget.selectedIds.contains(p.id)) return false;
-      if (_categoryFilter != null &&
-          !p.categoryIds.contains(_categoryFilter)) {
+      if (_categoryFilter != null && !p.categoryIds.contains(_categoryFilter)) {
         return false;
       }
       if (_search.isNotEmpty) {
@@ -83,7 +82,8 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
                   FilterChipButton(
                     label: 'Apenas selecionados',
                     isActive: _onlySelected,
-                    onPressed: () => setState(() => _onlySelected = !_onlySelected),
+                    onPressed: () =>
+                        setState(() => _onlySelected = !_onlySelected),
                   ),
                   Chip(
                     label: Text('Selecionados: ${widget.selectedIds.length}'),
@@ -194,7 +194,9 @@ class _ProductSelectTile extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: ListTile(
-        leading: _ProductThumb(imagePath: product.images.isNotEmpty ? product.images.first : null),
+        leading: _ProductThumb(
+          imagePath: product.images.isNotEmpty ? product.images.first : null,
+        ),
         title: Text(product.name),
         subtitle: Text(
           'REF ${product.reference} • ${currency.format(product.retailPrice)}',
@@ -234,9 +236,6 @@ class _ProductThumb extends StatelessWidget {
   }
 
   Widget _placeholder() {
-    return const Center(
-      child: Icon(Icons.image_outlined, color: Colors.grey),
-    );
+    return const Center(child: Icon(Icons.image_outlined, color: Colors.grey));
   }
 }
-

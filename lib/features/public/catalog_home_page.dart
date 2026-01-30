@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +6,7 @@ import 'package:gravity/models/catalog.dart';
 import 'package:gravity/models/product.dart';
 import 'package:gravity/viewmodels/catalog_public_viewmodel.dart';
 import 'package:intl/intl.dart';
+import 'package:gravity/core/utils/price_calculator.dart';
 
 class CatalogHomePage extends ConsumerStatefulWidget {
   final String shareCode;
@@ -43,8 +44,8 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
         final filteredProducts = _selectedCategoryId == null
             ? data.products
             : data.products
-                .where((p) => p.categoryIds.contains(_selectedCategoryId))
-                .toList();
+                  .where((p) => p.categoryIds.contains(_selectedCategoryId))
+                  .toList();
 
         return Material(
           child: Container(
@@ -169,15 +170,7 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
               trailing: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                    Text(
-                      currency.format(product.priceForMode(mode.name)),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                ],
+                children: [_buildPriceDisplay(currency, product, mode)],
               ),
               onTap: null,
             ),
@@ -249,13 +242,7 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        currency.format(product.priceForMode(mode.name)),
-                        style: const TextStyle(
-                          color: Colors.green,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      _buildPriceDisplay(currency, product, mode),
                     ],
                   ),
                 ),
@@ -264,6 +251,58 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildPriceDisplay(
+    NumberFormat currency,
+    Product product,
+    CatalogMode mode,
+  ) {
+    final base = mode == CatalogMode.atacado
+        ? product.wholesalePrice
+        : product.retailPrice;
+    final effective = mode == CatalogMode.atacado
+        ? PriceCalculator.effectiveWholesale(
+            base,
+            product.isOnSale,
+            product.saleDiscountPercent.toDouble(),
+          )
+        : PriceCalculator.effectiveRetail(
+            base,
+            product.isOnSale,
+            product.saleDiscountPercent.toDouble(),
+          );
+    final baseText = currency.format(base);
+    final effectiveText = currency.format(effective);
+
+    if (!product.isOnSale || effective >= base) {
+      return Text(
+        baseText,
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(
+          baseText,
+          style: const TextStyle(
+            decoration: TextDecoration.lineThrough,
+            fontSize: 12,
+            color: Colors.grey,
+          ),
+        ),
+        Text(
+          effectiveText,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color: Colors.green,
+          ),
+        ),
+      ],
     );
   }
 
@@ -303,3 +342,4 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
     );
   }
 }
+

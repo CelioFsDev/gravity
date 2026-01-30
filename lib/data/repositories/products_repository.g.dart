@@ -7,20 +7,20 @@ part of 'products_repository.dart';
 // **************************************************************************
 
 String _$productsRepositoryHash() =>
-    r'e785c3361676940eba50b9c65466057ec85d426c';
+    r'f554d9959529a147100007bb0c7879463dd19fbb';
 
 /// See also [productsRepository].
 @ProviderFor(productsRepository)
 final productsRepositoryProvider =
     Provider<ProductsRepositoryContract>.internal(
-  productsRepository,
-  name: r'productsRepositoryProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$productsRepositoryHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
+      productsRepository,
+      name: r'productsRepositoryProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$productsRepositoryHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
 
 typedef ProductsRepositoryRef = ProviderRef<ProductsRepositoryContract>;
 // ignore_for_file: type=lint

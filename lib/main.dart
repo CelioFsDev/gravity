@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -14,10 +14,12 @@ import 'package:go_router/go_router.dart';
 import 'package:gravity/models/product.dart';
 import 'package:gravity/models/category.dart';
 import 'package:gravity/models/catalog.dart';
+import 'package:gravity/models/product_variant.dart';
 import 'package:gravity/features/admin/admin_shell_screen.dart';
 import 'package:gravity/features/admin/products/products_screen.dart';
 import 'package:gravity/features/admin/categories/categories_screen.dart';
 import 'package:gravity/features/admin/catalogs/catalogs_screen.dart';
+import 'package:gravity/features/admin/import/nuvemshop_import_screen.dart';
 import 'package:gravity/features/theme/theme_providers.dart';
 import 'package:gravity/features/public/catalog_home_page.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -31,7 +33,10 @@ void main() async {
 
   // Register Adapters
   Hive.registerAdapter(CategoryTypeAdapter());
+  Hive.registerAdapter(CollectionCoverModeAdapter());
+  Hive.registerAdapter(CollectionCoverAdapter());
   Hive.registerAdapter(CategoryAdapter());
+  Hive.registerAdapter(ProductVariantAdapter());
   Hive.registerAdapter(ProductAdapter());
   Hive.registerAdapter(CatalogBannerAdapter());
   Hive.registerAdapter(CatalogAdapter());
@@ -113,6 +118,14 @@ class MyApp extends ConsumerWidget {
                 ),
               ],
             ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: '/admin/imports/nuvemshop',
+                  builder: (c, s) => const NuvemshopImportScreen(),
+                ),
+              ],
+            ),
           ],
         ),
       ],
@@ -127,7 +140,9 @@ class MyApp extends ConsumerWidget {
         visualDensity: VisualDensity.adaptivePlatformDensity,
         cardTheme: CardThemeData(
           elevation: 1,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
         filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
@@ -167,7 +182,9 @@ class MyApp extends ConsumerWidget {
         visualDensity: VisualDensity.adaptivePlatformDensity,
         cardTheme: CardThemeData(
           elevation: 1,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
         filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
@@ -262,3 +279,4 @@ class PublicHomeScreen extends StatelessWidget {
     );
   }
 }
+

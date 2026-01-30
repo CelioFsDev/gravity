@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/core/services/product_transfer_service.dart';
 import 'package:gravity/viewmodels/product_import_viewmodel.dart';
@@ -99,7 +99,11 @@ class ProductImportScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 const Text(
-                  'Colunas: SKU, Name, REF, Category, RetailPrice, WholesalePrice, MinQty, Sizes, Colors, IsActive, IsOutOfStock, IsOnSale, SaleDiscountPercent, MainImageIndex, CreatedAt, ImageFiles',
+                  'Colunas: SKU, Name, REF, Category, RetailPrice, WholesalePrice(opcional), MinQty, Sizes, Colors, IsActive, IsOutOfStock, IsOnSale, SaleDiscountPercent, MainImageIndex, CreatedAt, ImageFiles',
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Na importacao Nuvemshop, o atacado nao e lido do CSV.',
                 ),
               ],
             ),
@@ -110,6 +114,27 @@ class ProductImportScreen extends ConsumerWidget {
             content: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.amber.shade200),
+                  ),
+                  child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.orange),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'O preço atacado não vem da Nuvemshop. Após importar, revise o atacado conforme sua política.',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
                 ElevatedButton.icon(
                   onPressed: viewModel.pickAndParseCsv,
                   icon: const Icon(Icons.upload_file),
@@ -192,3 +217,4 @@ class ProductImportScreen extends ConsumerWidget {
     );
   }
 }
+

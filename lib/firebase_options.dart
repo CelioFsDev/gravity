@@ -15,8 +15,10 @@ class DefaultFirebaseOptions {
         return _ios;
       default:
         return FirebaseOptions(
-          apiKey: 'REPLACE', // Get this from `flutterfire configure` or Firebase console
-          appId: 'REPLACE', // Get this from `flutterfire configure` or Firebase console
+          apiKey:
+              'REPLACE', // Get this from `flutterfire configure` or Firebase console
+          appId:
+              'REPLACE', // Get this from `flutterfire configure` or Firebase console
           messagingSenderId: '666583578619',
           projectId: 'catalogo-fc9b5',
         );
@@ -24,27 +26,34 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions _android = FirebaseOptions(
-    apiKey: 'REPLACE_WITH_FIREBASE_API_KEY', // Get this from `flutterfire configure` or Firebase console
-    appId: 'REPLACE_WITH_FIREBASE_APP_ID', // Get this from `flutterfire configure` or Firebase console
+    apiKey:
+        'REPLACE_WITH_FIREBASE_API_KEY', // Get this from `flutterfire configure` or Firebase console
+    appId:
+        'REPLACE_WITH_FIREBASE_APP_ID', // Get this from `flutterfire configure` or Firebase console
     messagingSenderId: '666583578619',
     projectId: 'catalogo-fc9b5',
   );
 
   static const FirebaseOptions _ios = FirebaseOptions(
-    apiKey: 'REPLACE_WITH_FIREBASE_API_KEY', // Get this from `flutterfire configure` or Firebase console
-    appId: 'REPLACE_WITH_FIREBASE_APP_ID', // Get this from `flutterfire configure` or Firebase console
+    apiKey:
+        'REPLACE_WITH_FIREBASE_API_KEY', // Get this from `flutterfire configure` or Firebase console
+    appId:
+        'REPLACE_WITH_FIREBASE_APP_ID', // Get this from `flutterfire configure` or Firebase console
     messagingSenderId: '666583578619',
     projectId: 'catalogo-fc9b5',
     iosBundleId: 'REPLACE_WITH_BUNDLE_ID',
   );
 
   static const FirebaseOptions _web = FirebaseOptions(
-    apiKey: 'REPLACE_WITH_FIREBASE_API_KEY', // Get this from `flutterfire configure` or Firebase console
-    appId: 'REPLACE_WITH_FIREBASE_APP_ID', // Get this from `flutterfire configure` or Firebase console
+    apiKey:
+        'REPLACE_WITH_FIREBASE_API_KEY', // Get this from `flutterfire configure` or Firebase console
+    appId:
+        'REPLACE_WITH_FIREBASE_APP_ID', // Get this from `flutterfire configure` or Firebase console
     messagingSenderId: '666583578619',
     projectId: 'catalogo-fc9b5',
     authDomain: 'catalogo-fc9b5.firebaseapp.com',
     storageBucket: 'catalogo-fc9b5.appspot.com',
-    measurementId: 'REPLACE_WITH_FIREBASE_MEASUREMENT_ID', // This is different from the Google Analytics Property ID and typically starts with 'G-'. Get this from `flutterfire configure` or Firebase console.
+    measurementId:
+        'REPLACE_WITH_FIREBASE_MEASUREMENT_ID', // This is different from the Google Analytics Property ID and typically starts with 'G-'. Get this from `flutterfire configure` or Firebase console.
   );
 }

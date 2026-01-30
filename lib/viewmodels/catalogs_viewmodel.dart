@@ -1,4 +1,4 @@
-import 'package:gravity/core/auth/auth_controller.dart';
+﻿import 'package:gravity/core/auth/auth_controller.dart';
 import 'package:gravity/core/auth/auth_guards.dart';
 import 'package:gravity/data/repositories/catalogs_repository.dart';
 import 'package:gravity/models/catalog.dart';
@@ -18,19 +18,20 @@ class CatalogsViewModel extends _$CatalogsViewModel {
     final repository = ref.read(catalogsRepositoryProvider);
     final user = ref.read(currentUserProvider);
     if (!isLoggedIn(user)) {
-      throw Exception('Sem permissÃ£o para excluir catÃ¡logos.');
+      throw Exception('Sem permissão para excluir catálogos.');
     }
     final catalogs = state.value ?? await repository.getCatalogs();
     final target = catalogs.firstWhere(
       (c) => c.id == id,
-      orElse: () => throw Exception('CatÃ¡logo nÃ£o encontrado.'),
+      orElse: () => throw Exception('Catálogo não encontrado.'),
     );
     if (user != null &&
         target.ownerUid.isNotEmpty &&
         target.ownerUid != user.uid) {
-      throw Exception('Sem permissÃ£o para excluir este catÃ¡logo.');
+      throw Exception('Sem permissão para excluir este catálogo.');
     }
     await repository.deleteCatalog(id);
     ref.invalidateSelf();
   }
 }
+

@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -60,18 +60,16 @@ class ProductTransferService {
 
   static Future<void> saveTemplateCsv(BuildContext context) async {
     try {
-      final csv = const ListToCsvConverter().convert([
-        _csvHeader,
-      ]);
+      final csv = const ListToCsvConverter().convert([_csvHeader]);
       final dir =
           await getDownloadsDirectory() ??
           await getApplicationDocumentsDirectory();
       final filePath = p.join(dir.path, 'template_produtos.csv');
       await File(filePath).writeAsString(csv);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Template salvo em $filePath')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Template salvo em $filePath')));
       }
     } catch (e) {
       if (context.mounted) {
@@ -192,3 +190,4 @@ class ProductTransferService {
     'ImageFiles',
   ];
 }
+

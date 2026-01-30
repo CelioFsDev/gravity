@@ -1,4 +1,4 @@
-import 'package:gravity/core/auth/auth_controller.dart';
+﻿import 'package:gravity/core/auth/auth_controller.dart';
 import 'package:gravity/core/auth/auth_guards.dart';
 import 'package:gravity/data/repositories/catalogs_repository.dart';
 import 'package:gravity/models/catalog.dart';
@@ -128,9 +128,7 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
   }
 
   void setMode(CatalogMode mode) {
-    state = state.copyWith(
-      catalog: state.catalog.copyWith(mode: mode),
-    );
+    state = state.copyWith(catalog: state.catalog.copyWith(mode: mode));
   }
 
   void setIsPublic(bool value) {
@@ -138,9 +136,7 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
     if (value && catalog.shareCode.isEmpty) {
       catalog = catalog.copyWith(shareCode: _generateShareCode());
     }
-    state = state.copyWith(
-      catalog: catalog.copyWith(isPublic: value),
-    );
+    state = state.copyWith(catalog: catalog.copyWith(isPublic: value));
   }
 
   void regenerateShareCode() {
@@ -179,13 +175,19 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
     final user = ref.read(currentUserProvider);
     var toSave = state.catalog;
     if (!isLoggedIn(user)) {
-      state = state.copyWith(isSaving: false, slugError: 'UsuÃ¡rio nÃ£o autenticado.');
+      state = state.copyWith(
+        isSaving: false,
+        slugError: 'Usuário não autenticado.',
+      );
       return false;
     }
     if (user != null &&
         toSave.ownerUid.isNotEmpty &&
         toSave.ownerUid != user.uid) {
-      state = state.copyWith(isSaving: false, slugError: 'Sem permissÃ£o para editar este catÃ¡logo.');
+      state = state.copyWith(
+        isSaving: false,
+        slugError: 'Sem permissão para editar este catálogo.',
+      );
       return false;
     }
     if (toSave.shareCode.isEmpty) {
@@ -193,8 +195,9 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
     }
     toSave = toSave.copyWith(
       updatedAt: DateTime.now(),
-      ownerUid:
-          toSave.ownerUid.isEmpty && user != null ? user.uid : toSave.ownerUid,
+      ownerUid: toSave.ownerUid.isEmpty && user != null
+          ? user.uid
+          : toSave.ownerUid,
     );
 
     await repository.addCatalog(toSave);
@@ -211,3 +214,5 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
   String _generateShareCode() =>
       const Uuid().v4().split('-').first.toLowerCase();
 }
+
+

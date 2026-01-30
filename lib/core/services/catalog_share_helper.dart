@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -7,6 +7,8 @@ import 'package:gravity/core/services/catalog_pdf_service.dart';
 import 'package:gravity/core/services/whatsapp_share_service.dart';
 import 'package:gravity/data/repositories/products_repository.dart';
 import 'package:gravity/models/catalog.dart';
+import 'package:gravity/models/category.dart';
+import 'package:gravity/models/product.dart';
 import 'package:gravity/viewmodels/products_viewmodel.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
@@ -174,6 +176,10 @@ class CatalogShareHelper {
     final bannerImagePath = catalog.banners.isNotEmpty
         ? catalog.banners.first.imagePath
         : null;
+    final coverInfo = _resolveCollectionCover(
+      catalogProducts,
+      productsState.categories,
+    );
 
     if (catalogProducts.isEmpty) {
       if (catalog.productIds.isEmpty) {
@@ -193,6 +199,10 @@ class CatalogShareHelper {
         );
       }
 
+      final fallbackCoverInfo = _resolveCollectionCover(
+        fallbackProducts,
+        productsState.categories,
+      );
       final catalogName = catalog.name.isEmpty ? 'Meu Catálogo' : catalog.name;
       return CatalogPdfService.generateCatalogPdf(
         catalogName: catalogName,
@@ -200,6 +210,8 @@ class CatalogShareHelper {
         columnsCount: columnsCount,
         mode: mode,
         bannerImagePath: bannerImagePath,
+        collectionCover: fallbackCoverInfo.cover,
+        collectionName: fallbackCoverInfo.name,
       );
     }
 
@@ -210,6 +222,8 @@ class CatalogShareHelper {
       columnsCount: columnsCount,
       mode: mode,
       bannerImagePath: bannerImagePath,
+      collectionCover: coverInfo.cover,
+      collectionName: coverInfo.name,
     );
   }
 
@@ -242,16 +256,17 @@ class CatalogShareHelper {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Escolha o preÃ§o do catÃ¡logo'),
-          content: const Text('Deseja exportar com preÃ§o de varejo ou atacado?'),
+          title: const Text('Escolha o preço do catálogo'),
+          content: const Text(
+            'Deseja exportar com preço de varejo ou atacado?',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Cancelar'),
             ),
             TextButton(
-              onPressed: () =>
-                  Navigator.pop(dialogContext, CatalogMode.varejo),
+              onPressed: () => Navigator.pop(dialogContext, CatalogMode.varejo),
               child: const Text('Varejo'),
             ),
             ElevatedButton(
@@ -265,3 +280,49 @@ class CatalogShareHelper {
     );
   }
 }
+
+class _CollectionCoverResult {
+  final CollectionCover? cover;
+  final String? name;
+
+  const _CollectionCoverResult(this.cover, this.name);
+}
+
+_CollectionCoverResult _resolveCollectionCover(
+  List<Product> products,
+  List<Category> categories,
+) {
+  if (products.isEmpty || categories.isEmpty) {
+    return const _CollectionCoverResult(null, null);
+  }
+
+  final collections = {
+    for (final category in categories)
+      if (category.type == CategoryType.collection) category.id: category,
+  };
+
+  if (collections.isEmpty) return const _CollectionCoverResult(null, null);
+
+  final matchedIds = <String>{};
+  for (final product in products) {
+    for (final id in product.categoryIds) {
+      if (collections.containsKey(id)) {
+        matchedIds.add(id);
+      }
+    }
+  }
+
+  if (matchedIds.length != 1) {
+    return const _CollectionCoverResult(null, null);
+  }
+
+  final collection = collections[matchedIds.first];
+  if (collection == null) return const _CollectionCoverResult(null, null);
+
+  return _CollectionCoverResult(collection.cover, collection.name);
+}
+
+
+
+
+

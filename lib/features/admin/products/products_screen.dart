@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +15,7 @@ import 'package:gravity/core/widgets/section_header.dart';
 import 'package:gravity/core/widgets/kpi_card.dart';
 import 'package:gravity/core/widgets/filter_chips_row.dart';
 import 'package:gravity/core/widgets/filter_chip_button.dart';
+import 'package:gravity/core/utils/price_calculator.dart';
 
 class ProductsScreen extends ConsumerStatefulWidget {
   const ProductsScreen({super.key});
@@ -60,9 +61,8 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
           onSelectStatus: (value) => ref
               .read(productsViewModelProvider.notifier)
               .setStatusFilter(value),
-          onSelectSort: (value) => ref
-              .read(productsViewModelProvider.notifier)
-              .setSortOption(value),
+          onSelectSort: (value) =>
+              ref.read(productsViewModelProvider.notifier).setSortOption(value),
           onNewProduct: () => _openNewProduct(context),
           onImport: () => _openImport(context),
           onExport: () => _exportProducts(context),
@@ -90,15 +90,15 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   }
 
   void _openNewProduct(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const ProductFormScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const ProductFormScreen()));
   }
 
   void _openImport(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const ProductImportScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const ProductImportScreen()));
   }
 
   void _exportProducts(BuildContext context) {
@@ -158,7 +158,8 @@ class _ProductsContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final hasFilters = state.searchQuery.isNotEmpty ||
+    final hasFilters =
+        state.searchQuery.isNotEmpty ||
         state.collectionFilterId != null ||
         state.productTypeFilterId != null ||
         state.statusFilter != ProductStatusFilter.all ||
@@ -217,16 +218,16 @@ class _ProductsContent extends StatelessWidget {
                     const SizedBox(height: 20),
                     _KpiSection(state: state),
                     const SizedBox(height: 20),
-                _SearchAndFiltersSection(
-                  state: state,
-                  controller: searchController,
-                  onSearchChanged: onSearchChanged,
-                  onClearFilters: hasFilters ? onClearFilters : null,
-                  onSelectCollection: onSelectCollection,
-                  onSelectCategory: onSelectCategory,
-                  onSelectStatus: onSelectStatus,
-                  onSelectSort: onSelectSort,
-                ),
+                    _SearchAndFiltersSection(
+                      state: state,
+                      controller: searchController,
+                      onSearchChanged: onSearchChanged,
+                      onClearFilters: hasFilters ? onClearFilters : null,
+                      onSelectCollection: onSelectCollection,
+                      onSelectCategory: onSelectCategory,
+                      onSelectStatus: onSelectStatus,
+                      onSelectSort: onSelectSort,
+                    ),
                     const SizedBox(height: 16),
                     _ProductsListSection(
                       state: state,
@@ -418,9 +419,11 @@ class _SearchAndFiltersSection extends StatelessWidget {
   String _collectionLabel(ProductsState state) {
     if (state.collectionFilterId == null) return 'Colecao: Todas';
     final collection = state.categories
-        .where((c) =>
-            c.id == state.collectionFilterId &&
-            c.type == CategoryType.collection)
+        .where(
+          (c) =>
+              c.id == state.collectionFilterId &&
+              c.type == CategoryType.collection,
+        )
         .map((c) => c.name)
         .toList();
     if (collection.isEmpty) return 'Colecao: Todas';
@@ -430,9 +433,11 @@ class _SearchAndFiltersSection extends StatelessWidget {
   String _categoryLabel(ProductsState state) {
     if (state.productTypeFilterId == null) return 'Categoria: Todas';
     final category = state.categories
-        .where((c) =>
-            c.id == state.productTypeFilterId &&
-            c.type == CategoryType.productType)
+        .where(
+          (c) =>
+              c.id == state.productTypeFilterId &&
+              c.type == CategoryType.productType,
+        )
         .map((c) => c.name)
         .toList();
     if (category.isEmpty) return 'Categoria: Todas';
@@ -580,8 +585,9 @@ class _SearchAndFiltersSection extends StatelessWidget {
                   final isSelected = option.value == selected;
                   return ListTile(
                     title: Text(option.label),
-                    trailing:
-                        isSelected ? const Icon(Icons.check) : const SizedBox(),
+                    trailing: isSelected
+                        ? const Icon(Icons.check)
+                        : const SizedBox(),
                     onTap: () => Navigator.pop(sheetContext, option.value),
                   );
                 },
@@ -663,9 +669,10 @@ class ProductListCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
     final imagePath =
-        (product.images.isNotEmpty && product.mainImageIndex < product.images.length)
-            ? product.images[product.mainImageIndex]
-            : null;
+        (product.images.isNotEmpty &&
+            product.mainImageIndex < product.images.length)
+        ? product.images[product.mainImageIndex]
+        : null;
     final categoryById = {for (final c in categories) c.id: c};
     final collectionName = product.categoryIds
         .map((id) => categoryById[id])
@@ -677,8 +684,21 @@ class ProductListCard extends StatelessWidget {
         .where((c) => c != null && c!.type == CategoryType.productType)
         .map((c) => c!.name)
         .toList();
-    final collectionLabel = collectionName.isNotEmpty ? collectionName.first : '-';
+    final collectionLabel = collectionName.isNotEmpty
+        ? collectionName.first
+        : '-';
     final typeLabel = typeNames.isNotEmpty ? typeNames.join(', ') : '-';
+
+    final retailEffective = PriceCalculator.effectiveRetail(
+      product.retailPrice,
+      product.isOnSale,
+      product.saleDiscountPercent.toDouble(),
+    );
+    final wholesaleEffective = PriceCalculator.effectiveWholesale(
+      product.wholesalePrice,
+      product.isOnSale,
+      product.saleDiscountPercent.toDouble(),
+    );
 
     return Card(
       child: InkWell(
@@ -706,11 +726,27 @@ class ProductListCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'REF ${product.reference} • ${currency.format(product.retailPrice)} • ${product.isActive ? 'Ativo' : 'Inativo'}',
+                      'REF ${product.reference} • ${product.isActive ? 'Ativo' : 'Inativo'}',
                       style: TextStyle(
                         color: Colors.grey.shade600,
                         fontSize: 12,
                       ),
+                    ),
+                    const SizedBox(height: 4),
+                    _buildPriceLine(
+                      currency,
+                      'Varejo',
+                      product.retailPrice,
+                      retailEffective,
+                      product.isOnSale,
+                    ),
+                    const SizedBox(height: 2),
+                    _buildPriceLine(
+                      currency,
+                      'Atacado',
+                      product.wholesalePrice,
+                      wholesaleEffective,
+                      product.isOnSale,
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -765,6 +801,40 @@ class ProductListCard extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildPriceLine(
+    NumberFormat currency,
+    String label,
+    double base,
+    double effective,
+    bool promoEnabled,
+  ) {
+    final baseText = currency.format(base);
+    final effectiveText = currency.format(effective);
+    if (!promoEnabled || effective >= base) {
+      return Text(
+        '$label: $baseText',
+        style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+      );
+    }
+    return Row(
+      children: [
+        Text(
+          '$label: $baseText',
+          style: TextStyle(
+            color: Colors.grey.shade500,
+            fontSize: 12,
+            decoration: TextDecoration.lineThrough,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          effectiveText,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+        ),
+      ],
+    );
+  }
 }
 
 enum _ProductMenuAction { view, edit, delete }
@@ -794,9 +864,7 @@ class _ProductThumbnail extends StatelessWidget {
   }
 
   Widget _placeholder() {
-    return const Center(
-      child: Icon(Icons.image_outlined, color: Colors.grey),
-    );
+    return const Center(child: Icon(Icons.image_outlined, color: Colors.grey));
   }
 }
 
@@ -867,7 +935,11 @@ class _ProductsEmptyState extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 32),
         child: Column(
           children: [
-            const Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey),
+            const Icon(
+              Icons.inventory_2_outlined,
+              size: 48,
+              color: Colors.grey,
+            ),
             const SizedBox(height: 12),
             const Text(
               'Nenhum produto cadastrado',
@@ -909,10 +981,7 @@ class _ProductsErrorState extends StatelessWidget {
             children: [
               const Icon(Icons.error_outline, color: Colors.red, size: 40),
               const SizedBox(height: 12),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-              ),
+              Text(message, textAlign: TextAlign.center),
               const SizedBox(height: 16),
               OutlinedButton.icon(
                 onPressed: onRetry,
@@ -926,4 +995,3 @@ class _ProductsErrorState extends StatelessWidget {
     );
   }
 }
-

@@ -1,4 +1,4 @@
-import 'package:hive/hive.dart';
+﻿import 'package:hive/hive.dart';
 
 part 'catalog.g.dart';
 
@@ -130,3 +130,4 @@ class Catalog {
     );
   }
 }
+

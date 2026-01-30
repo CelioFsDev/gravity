@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 class KpiCard extends StatelessWidget {
   final String title;
@@ -41,17 +41,16 @@ class KpiCard extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: Theme.of(context)
-                      .textTheme
-                      .labelMedium
-                      ?.copyWith(color: Colors.grey.shade600),
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: Colors.grey.shade600,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   value,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
               ],
             ),
@@ -59,14 +58,10 @@ class KpiCard extends StatelessWidget {
           Container(
             width: 6,
             height: 6,
-            decoration: BoxDecoration(
-              color: tone,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: tone, shape: BoxShape.circle),
           ),
         ],
       ),
     );
   }
 }
-

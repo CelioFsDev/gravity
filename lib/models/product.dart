@@ -1,7 +1,10 @@
 import 'package:hive/hive.dart';
+import 'package:gravity/core/utils/price_calculator.dart';
+import 'package:gravity/models/product_variant.dart';
 
 part 'product.g.dart';
 
+@HiveType(typeId: 4)
 @HiveType(typeId: 4)
 class Product {
   @HiveField(0)
@@ -11,7 +14,7 @@ class Product {
   final String name;
 
   @HiveField(2)
-  final String reference; // REF
+  final String ref; // Renamed from reference
 
   @HiveField(3)
   final String sku;
@@ -20,10 +23,10 @@ class Product {
   final List<String> categoryIds;
 
   @HiveField(5)
-  final double priceVarejo;
+  final double priceRetail; // Renamed from priceVarejo
 
   @HiveField(6)
-  final double priceAtacado;
+  final double priceWholesale; // Renamed from priceAtacado
 
   @HiveField(7)
   final int minWholesaleQty;
@@ -47,22 +50,40 @@ class Product {
   final bool isOutOfStock;
 
   @HiveField(14)
-  final bool isOnSale;
+  final bool promoEnabled; // Renamed from isOnSale
 
   @HiveField(15)
   final DateTime createdAt;
 
   @HiveField(16)
-  final int saleDiscountPercent; // Porcentagem de desconto (ex: 10 para 10%)
+  final double promoPercent; // Renamed from saleDiscountPercent (and int -> double)
+
+  @HiveField(18)
+  final String slug;
+
+  @HiveField(19)
+  final String? description;
+
+  @HiveField(20)
+  final List<String> tags;
+
+  @HiveField(21)
+  final List<String> remoteImages;
+
+  @HiveField(22)
+  final List<ProductVariant> variants;
+
+  @HiveField(23)
+  final DateTime updatedAt;
 
   Product({
     required this.id,
     required this.name,
-    required this.reference,
+    required this.ref,
     required this.sku,
     required this.categoryIds,
-    required this.priceVarejo,
-    required this.priceAtacado,
+    required this.priceRetail,
+    required this.priceWholesale,
     required this.minWholesaleQty,
     required this.sizes,
     required this.colors,
@@ -70,19 +91,25 @@ class Product {
     required this.mainImageIndex,
     required this.isActive,
     required this.isOutOfStock,
-    required this.isOnSale,
+    required this.promoEnabled,
     required this.createdAt,
-    this.saleDiscountPercent = 0,
-  });
+    this.promoPercent = 0.0,
+    this.slug = '',
+    this.description,
+    this.tags = const [],
+    this.remoteImages = const [],
+    this.variants = const [],
+    DateTime? updatedAt,
+  }) : updatedAt = updatedAt ?? createdAt;
 
   Product copyWith({
     String? id,
     String? name,
-    String? reference,
+    String? ref,
     String? sku,
     List<String>? categoryIds,
-    double? priceVarejo,
-    double? priceAtacado,
+    double? priceRetail,
+    double? priceWholesale,
     int? minWholesaleQty,
     List<String>? sizes,
     List<String>? colors,
@@ -90,18 +117,24 @@ class Product {
     int? mainImageIndex,
     bool? isActive,
     bool? isOutOfStock,
-    bool? isOnSale,
+    bool? promoEnabled,
     DateTime? createdAt,
-    int? saleDiscountPercent,
+    double? promoPercent,
+    String? slug,
+    String? description,
+    List<String>? tags,
+    List<String>? remoteImages,
+    List<ProductVariant>? variants,
+    DateTime? updatedAt,
   }) {
     return Product(
       id: id ?? this.id,
       name: name ?? this.name,
-      reference: reference ?? this.reference,
+      ref: ref ?? this.ref,
       sku: sku ?? this.sku,
       categoryIds: categoryIds ?? this.categoryIds,
-      priceVarejo: priceVarejo ?? this.priceVarejo,
-      priceAtacado: priceAtacado ?? this.priceAtacado,
+      priceRetail: priceRetail ?? this.priceRetail,
+      priceWholesale: priceWholesale ?? this.priceWholesale,
       minWholesaleQty: minWholesaleQty ?? this.minWholesaleQty,
       sizes: sizes ?? this.sizes,
       colors: colors ?? this.colors,
@@ -109,15 +142,28 @@ class Product {
       mainImageIndex: mainImageIndex ?? this.mainImageIndex,
       isActive: isActive ?? this.isActive,
       isOutOfStock: isOutOfStock ?? this.isOutOfStock,
-      isOnSale: isOnSale ?? this.isOnSale,
+      promoEnabled: promoEnabled ?? this.promoEnabled,
       createdAt: createdAt ?? this.createdAt,
-      saleDiscountPercent: saleDiscountPercent ?? this.saleDiscountPercent,
+      promoPercent: promoPercent ?? this.promoPercent,
+      slug: slug ?? this.slug,
+      description: description ?? this.description,
+      tags: tags ?? this.tags,
+      remoteImages: remoteImages ?? this.remoteImages,
+      variants: variants ?? this.variants,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
-  double get retailPrice => priceVarejo;
+  // ALIASES for compatibility
+  double get retailPrice => priceRetail; // Alias
+  double get priceVarejo => priceRetail; // Alias old
+  double get wholesalePrice => priceWholesale; // Alias
+  double get priceAtacado => priceWholesale; // Alias old
+  String get reference => ref; // Alias old
+  bool get isOnSale => promoEnabled; // Alias old
+  int get saleDiscountPercent => promoPercent.toInt(); // Alias old compatible
 
-  double get wholesalePrice => priceAtacado;
+  String? get primarySku => variants.isNotEmpty ? variants.first.sku : null;
 
   String? get primaryCategoryId =>
       categoryIds.isNotEmpty ? categoryIds.first : null;
@@ -125,6 +171,17 @@ class Product {
   bool hasCategory(String categoryId) => categoryIds.contains(categoryId);
 
   double priceForMode(String mode) {
-    return mode.toLowerCase() == 'atacado' ? priceAtacado : priceVarejo;
+    final isWholesale = mode.toLowerCase() == 'atacado';
+    return isWholesale
+        ? PriceCalculator.effectiveWholesale(
+            priceWholesale,
+            promoEnabled,
+            promoPercent,
+          )
+        : PriceCalculator.effectiveRetail(
+            priceRetail,
+            promoEnabled,
+            promoPercent,
+          );
   }
 }

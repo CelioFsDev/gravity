@@ -7,20 +7,23 @@ part of 'categories_viewmodel.dart';
 // **************************************************************************
 
 String _$categoriesViewModelHash() =>
-    r'527b4001b8434652e3acaea52ed9c4440fbde4ee';
+    r'145f12a13971adc4a566bc173c2036390a226f1a';
 
 /// See also [CategoriesViewModel].
 @ProviderFor(CategoriesViewModel)
-final categoriesViewModelProvider = AutoDisposeAsyncNotifierProvider<
-    CategoriesViewModel, CategoriesState>.internal(
-  CategoriesViewModel.new,
-  name: r'categoriesViewModelProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$categoriesViewModelHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
+final categoriesViewModelProvider =
+    AutoDisposeAsyncNotifierProvider<
+      CategoriesViewModel,
+      CategoriesState
+    >.internal(
+      CategoriesViewModel.new,
+      name: r'categoriesViewModelProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$categoriesViewModelHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
 
 typedef _$CategoriesViewModel = AutoDisposeAsyncNotifier<CategoriesState>;
 // ignore_for_file: type=lint

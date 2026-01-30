@@ -7,20 +7,20 @@ part of 'categories_repository.dart';
 // **************************************************************************
 
 String _$categoriesRepositoryHash() =>
-    r'a0633280cb536dfd4ff157f4239eae686d066bfa';
+    r'c57bfdbe8434038998c8e90fdee2993112a13c9f';
 
 /// See also [categoriesRepository].
 @ProviderFor(categoriesRepository)
 final categoriesRepositoryProvider =
     Provider<CategoriesRepositoryContract>.internal(
-  categoriesRepository,
-  name: r'categoriesRepositoryProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$categoriesRepositoryHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
+      categoriesRepository,
+      name: r'categoriesRepositoryProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$categoriesRepositoryHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
 
 typedef CategoriesRepositoryRef = ProviderRef<CategoriesRepositoryContract>;
 // ignore_for_file: type=lint

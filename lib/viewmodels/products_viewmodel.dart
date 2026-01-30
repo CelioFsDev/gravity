@@ -1,5 +1,4 @@
-
-import 'package:gravity/core/auth/auth_controller.dart';
+﻿import 'package:gravity/core/auth/auth_controller.dart';
 import 'package:gravity/core/auth/auth_guards.dart';
 import 'package:gravity/data/repositories/categories_repository.dart';
 import 'package:gravity/data/repositories/products_repository.dart';
@@ -13,13 +12,19 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 part 'products_viewmodel.g.dart';
 
 enum ProductSort { recent, priceAsc, priceDesc, aToZ }
-enum ProductStatusFilter { all, active, outOfStock, inactive } // Inactive not in logic yet but part of UI req
+
+enum ProductStatusFilter {
+  all,
+  active,
+  outOfStock,
+  inactive,
+} // Inactive not in logic yet but part of UI req
 
 class ProductsState {
   final List<Product> allProducts;
   final List<Product> filteredProducts;
   final List<Category> categories;
-  
+
   final String searchQuery;
   final String? collectionFilterId; // null = all
   final String? productTypeFilterId; // null = all
@@ -80,10 +85,12 @@ class ProductsState {
       filteredProducts: filteredProducts ?? this.filteredProducts,
       categories: categories ?? this.categories,
       searchQuery: searchQuery ?? this.searchQuery,
-      collectionFilterId:
-          forceNullCollection ? null : (collectionFilterId ?? this.collectionFilterId),
-      productTypeFilterId:
-          forceNullProductType ? null : (productTypeFilterId ?? this.productTypeFilterId),
+      collectionFilterId: forceNullCollection
+          ? null
+          : (collectionFilterId ?? this.collectionFilterId),
+      productTypeFilterId: forceNullProductType
+          ? null
+          : (productTypeFilterId ?? this.productTypeFilterId),
       statusFilter: statusFilter ?? this.statusFilter,
       sortOption: sortOption ?? this.sortOption,
       totalCount: totalCount ?? this.totalCount,
@@ -102,39 +109,51 @@ class ProductsViewModel extends _$ProductsViewModel {
     final categoryRepository = ref.watch(categoriesRepositoryProvider);
     final products = await productRepository.getProducts();
     final categories = await categoryRepository.getCategories();
-    
+
     // Create initial state
-    return _applyFilters(ProductsState.initial().copyWith(
-      allProducts: products,
-      categories: categories,
-    ));
+    return _applyFilters(
+      ProductsState.initial().copyWith(
+        allProducts: products,
+        categories: categories,
+      ),
+    );
   }
 
   // Actions
   void setSearchQuery(String query) {
-     if (state.value == null) return;
-     state = AsyncData(_applyFilters(state.value!.copyWith(searchQuery: query)));
+    if (state.value == null) return;
+    state = AsyncData(_applyFilters(state.value!.copyWith(searchQuery: query)));
   }
-  
+
   void setCategoryFilter(String? categoryId) {
     if (state.value == null) return;
-    state = AsyncData(_applyFilters(state.value!.copyWith(
-      productTypeFilterId: categoryId,
-      forceNullProductType: categoryId == null,
-    )));
+    state = AsyncData(
+      _applyFilters(
+        state.value!.copyWith(
+          productTypeFilterId: categoryId,
+          forceNullProductType: categoryId == null,
+        ),
+      ),
+    );
   }
 
   void setCollectionFilter(String? collectionId) {
     if (state.value == null) return;
-    state = AsyncData(_applyFilters(state.value!.copyWith(
-      collectionFilterId: collectionId,
-      forceNullCollection: collectionId == null,
-    )));
+    state = AsyncData(
+      _applyFilters(
+        state.value!.copyWith(
+          collectionFilterId: collectionId,
+          forceNullCollection: collectionId == null,
+        ),
+      ),
+    );
   }
 
   void setStatusFilter(ProductStatusFilter status) {
     if (state.value == null) return;
-    state = AsyncData(_applyFilters(state.value!.copyWith(statusFilter: status)));
+    state = AsyncData(
+      _applyFilters(state.value!.copyWith(statusFilter: status)),
+    );
   }
 
   void setSortOption(ProductSort sort) {
@@ -149,7 +168,7 @@ class ProductsViewModel extends _$ProductsViewModel {
     await refresh();
     _notifyChanges();
   }
-  
+
   Future<void> addProduct(Product product) async {
     _requireAdmin();
     final repository = ref.read(productsRepositoryProvider);
@@ -157,7 +176,7 @@ class ProductsViewModel extends _$ProductsViewModel {
     await refresh();
     _notifyChanges();
   }
-  
+
   Future<void> updateProduct(Product product) async {
     _requireAdmin();
     final repository = ref.read(productsRepositoryProvider);
@@ -165,15 +184,13 @@ class ProductsViewModel extends _$ProductsViewModel {
     await refresh();
     _notifyChanges();
   }
-  
+
   void _notifyChanges() {
     // Notify other viewmodels that products changed
     ref.invalidate(categoriesViewModelProvider);
     ref.invalidate(catalogsViewModelProvider);
     ref.invalidate(catalogPublicProvider);
   }
-  
-
 
   Future<void> refresh() async {
     final previous = state.value ?? ProductsState.initial();
@@ -200,9 +217,9 @@ class ProductsViewModel extends _$ProductsViewModel {
       final q = currentState.searchQuery.toLowerCase();
       filtered = filtered.where((p) {
         return p.name.toLowerCase().contains(q) ||
-               p.reference.toLowerCase().contains(q) ||
-               p.sku.toLowerCase().contains(q) || 
-               p.colors.any((c) => c.toLowerCase().contains(q));
+            p.reference.toLowerCase().contains(q) ||
+            p.sku.toLowerCase().contains(q) ||
+            p.colors.any((c) => c.toLowerCase().contains(q));
       }).toList();
     }
 
@@ -214,7 +231,9 @@ class ProductsViewModel extends _$ProductsViewModel {
     }
     if (currentState.productTypeFilterId != null) {
       filtered = filtered
-          .where((p) => p.categoryIds.contains(currentState.productTypeFilterId))
+          .where(
+            (p) => p.categoryIds.contains(currentState.productTypeFilterId),
+          )
           .toList();
     }
 
@@ -227,26 +246,32 @@ class ProductsViewModel extends _$ProductsViewModel {
         filtered = filtered.where((p) => p.isOutOfStock).toList();
         break;
       case ProductStatusFilter.inactive:
-         filtered = filtered.where((p) => !p.isActive).toList();
-         break;
+        filtered = filtered.where((p) => !p.isActive).toList();
+        break;
       case ProductStatusFilter.all:
         break;
     }
 
     // 4. Sort
     filtered.sort((a, b) {
-       switch (currentState.sortOption) {
-         case ProductSort.recent: return b.createdAt.compareTo(a.createdAt);
-         case ProductSort.priceAsc: return a.retailPrice.compareTo(b.retailPrice);
-         case ProductSort.priceDesc: return b.retailPrice.compareTo(a.retailPrice);
-         case ProductSort.aToZ: return a.name.compareTo(b.name);
-       }
+      switch (currentState.sortOption) {
+        case ProductSort.recent:
+          return b.createdAt.compareTo(a.createdAt);
+        case ProductSort.priceAsc:
+          return a.retailPrice.compareTo(b.retailPrice);
+        case ProductSort.priceDesc:
+          return b.retailPrice.compareTo(a.retailPrice);
+        case ProductSort.aToZ:
+          return a.name.compareTo(b.name);
+      }
     });
 
     // Calc KPIs (Always based on allProducts)
     final total = currentState.allProducts.length;
     final active = currentState.allProducts.where((p) => p.isActive).length;
-    final outOfStock = currentState.allProducts.where((p) => p.isOutOfStock).length;
+    final outOfStock = currentState.allProducts
+        .where((p) => p.isOutOfStock)
+        .length;
     final onSale = currentState.allProducts.where((p) => p.isOnSale).length;
 
     return currentState.copyWith(
@@ -265,3 +290,4 @@ class ProductsViewModel extends _$ProductsViewModel {
     }
   }
 }
+
