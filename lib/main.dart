@@ -30,6 +30,7 @@ void main() async {
   await Hive.initFlutter();
 
   // Register Adapters
+  Hive.registerAdapter(CategoryTypeAdapter());
   Hive.registerAdapter(CategoryAdapter());
   Hive.registerAdapter(ProductAdapter());
   Hive.registerAdapter(CatalogBannerAdapter());

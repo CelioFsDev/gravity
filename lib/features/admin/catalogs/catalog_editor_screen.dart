@@ -3,6 +3,7 @@ import 'package:gravity/core/services/catalog_share_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/models/catalog.dart';
+import 'package:gravity/models/category.dart' show CategoryType;
 import 'package:gravity/viewmodels/catalog_editor_viewmodel.dart';
 import 'package:gravity/viewmodels/products_viewmodel.dart';
 import 'package:gravity/features/admin/catalogs/tabs/products_selection_tab.dart';
@@ -42,7 +43,7 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
     final notifier = ref.read(
       catalogEditorViewModelProvider(widget.catalog?.id).notifier,
     );
-    final canShare = state.catalog.shareCode.isNotEmpty;
+    final canShare = state.catalog.productIds.isNotEmpty;
 
     return ResponsiveScaffold(
       maxWidth: 800,
@@ -61,15 +62,21 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
           IconButton(
             icon: const Icon(Icons.share),
             tooltip: 'Compartilhar',
-            onPressed: canShare
-                ? () async {
-                    await CatalogShareHelper.showShareOptions(
-                      context: context,
-                      ref: ref,
-                      catalog: state.catalog,
-                    );
-                  }
-                : null,
+            onPressed: () async {
+              if (!canShare) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Selecione produtos para compartilhar'),
+                  ),
+                );
+                return;
+              }
+              await CatalogShareHelper.showShareOptions(
+                context: context,
+                ref: ref,
+                catalog: state.catalog,
+              );
+            },
           ),
           IconButton(
             icon: const Icon(Icons.check),
@@ -110,7 +117,9 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                         selectedIds: state.catalog.productIds,
                         onToggle: notifier.toggleProduct,
                         allProducts: pData.allProducts,
-                        categories: pData.categories,
+                        categories: pData.categories
+                            .where((c) => c.type == CategoryType.productType)
+                            .toList(),
                       ),
                       error: (e, s) => Text('$e'),
                       loading: () => const Center(
@@ -283,4 +292,3 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
     );
   }
 }
-

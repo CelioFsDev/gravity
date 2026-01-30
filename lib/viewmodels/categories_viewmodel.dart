@@ -1,4 +1,4 @@
-import 'package:gravity/core/auth/auth_controller.dart';
+﻿import 'package:gravity/core/auth/auth_controller.dart';
 import 'package:gravity/core/auth/auth_guards.dart';
 import 'package:gravity/data/repositories/categories_repository.dart';
 import 'package:gravity/data/repositories/products_repository.dart';
@@ -49,7 +49,8 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     // Count products
     final counts = <String, int>{};
     for (var c in allCategories) {
-      counts[c.id] = allProducts.where((p) => p.categoryId == c.id).length;
+      counts[c.id] =
+          allProducts.where((p) => p.categoryIds.contains(c.id)).length;
     }
     
     // Initial sort
@@ -121,14 +122,16 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     }
   }
 
-  Future<String?> addCategory(String name) async {
+  Future<String?> addCategory(String name, CategoryType type) async {
     _requireAdmin();
     final categoriesRepo = ref.read(categoriesRepositoryProvider);
     final currentCategories = await categoriesRepo.getCategories();
     
     // Check duplicate
-    if (currentCategories.any((c) => c.name.trim().toLowerCase() == name.trim().toLowerCase())) {
-      return 'Categoria já existe';
+    if (currentCategories.any((c) =>
+        c.name.trim().toLowerCase() == name.trim().toLowerCase() &&
+        c.type == type)) {
+      return 'Categoria jÃ¡ existe';
     }
 
     final maxOrder = currentCategories.isNotEmpty 
@@ -141,6 +144,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       order: maxOrder + 1,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
+      type: type,
     );
     
     await categoriesRepo.addCategory(newCat);
@@ -159,7 +163,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     
     // Check duplicate (exclude self)
     if (currentCategories.any((c) => c.id != id && c.name.trim().toLowerCase() == newName.trim().toLowerCase())) {
-       return 'Nome já em uso';
+       return 'Nome jÃ¡ em uso';
     }
     
     final cat = currentCategories.firstWhere((c) => c.id == id);
@@ -256,7 +260,8 @@ class CategoriesViewModel extends _$CategoriesViewModel {
   void _requireAdmin() {
     final user = ref.read(currentUserProvider);
     if (!isAdmin(user)) {
-      throw Exception('Sem permissão para modificar categorias.');
+      throw Exception('Sem permissÃ£o para modificar categorias.');
     }
   }
 }
+

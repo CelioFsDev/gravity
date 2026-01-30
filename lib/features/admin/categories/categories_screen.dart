@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'dart:math' as math;
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/models/category.dart';
 import 'package:gravity/viewmodels/categories_viewmodel.dart';
@@ -126,19 +127,82 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     final isManual =
         state.sortOption == CategorySortOption.manual && state.searchQuery.isEmpty;
 
+    final query = state.searchQuery.trim().toLowerCase();
+    final filtered = query.isEmpty
+        ? state.categories
+        : state.categories
+            .where((c) => c.name.toLowerCase().contains(query))
+            .toList();
+
+    final collections =
+        filtered.where((c) => c.type == CategoryType.collection).toList();
+    final productTypes =
+        filtered.where((c) => c.type == CategoryType.productType).toList();
+
+    return ListView(
+      padding: EdgeInsets.zero,
+      children: [
+        _buildSectionTitle('Colecoes'),
+        const SizedBox(height: 8),
+        _buildSectionList(
+          context,
+          state,
+          notifier,
+          collections,
+          isManual: isManual,
+        ),
+        const SizedBox(height: 16),
+        _buildSectionTitle('Categorias'),
+        const SizedBox(height: 8),
+        _buildSectionList(
+          context,
+          state,
+          notifier,
+          productTypes,
+          isManual: isManual,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionList(
+    BuildContext context,
+    CategoriesState state,
+    CategoriesViewModel notifier,
+    List<Category> categories, {
+    required bool isManual,
+  }) {
+    if (categories.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Text(
+          'Nenhum item nesta secao.',
+          style: TextStyle(color: Colors.grey.shade600),
+        ),
+      );
+    }
+
     if (isManual) {
+      final indices = categories
+          .map((c) => state.categories.indexWhere((e) => e.id == c.id))
+          .toList();
       return ReorderableListView.builder(
         buildDefaultDragHandles: false,
-        padding: EdgeInsets.zero,
-        itemCount: state.categories.length,
-        onReorder: notifier.reorder,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: categories.length,
+        onReorder: (oldIndex, newIndex) {
+          final oldFull = indices[oldIndex];
+          final newFull = indices[math.min(newIndex, indices.length - 1)];
+          notifier.reorder(oldFull, newFull);
+        },
         itemBuilder: (context, index) {
           return _buildListItem(
             context,
             state,
             notifier,
-            state.categories[index],
-            index,
+            categories[index],
+            indices[index],
             isManual: true,
           );
         },
@@ -146,18 +210,26 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     }
 
     return ListView.builder(
-      padding: EdgeInsets.zero,
-      itemCount: state.categories.length,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: categories.length,
       itemBuilder: (context, index) {
         return _buildListItem(
           context,
           state,
           notifier,
-          state.categories[index],
+          categories[index],
           index,
           isManual: false,
         );
       },
+    );
+  }
+
+  Widget _buildSectionTitle(String text) {
+    return Text(
+      text,
+      style: const TextStyle(fontWeight: FontWeight.bold),
     );
   }
 
@@ -260,6 +332,8 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     Category? category,
   }) async {
     final isEdit = category != null;
+    CategoryType selectedType =
+        category?.type ?? CategoryType.productType;
     _categoryNameController.text = category?.name ?? '';
     _categoryNameController.selection = TextSelection.collapsed(
       offset: _categoryNameController.text.length,
@@ -267,47 +341,98 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
 
     await showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(isEdit ? 'Editar Categoria' : 'Nova Categoria'),
-        content: TextField(
-          controller: _categoryNameController,
-          focusNode: _categoryNameFocus,
-          textInputAction: TextInputAction.done,
-          decoration: const InputDecoration(
-            labelText: 'Nome',
-            hintText: 'Ex: Camisetas',
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text(isEdit ? 'Editar Categoria' : 'Nova Categoria'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _categoryNameController,
+                focusNode: _categoryNameFocus,
+                textInputAction: TextInputAction.done,
+                decoration: const InputDecoration(
+                  labelText: 'Nome',
+                  hintText: 'Ex: Camisetas',
+                ),
+                autofocus: true,
+              ),
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Tipo',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ToggleButtons(
+                isSelected: [
+                  selectedType == CategoryType.collection,
+                  selectedType == CategoryType.productType,
+                ],
+                onPressed: isEdit
+                    ? null
+                    : (index) {
+                        setState(() {
+                          selectedType = index == 0
+                              ? CategoryType.collection
+                              : CategoryType.productType;
+                        });
+                      },
+                borderRadius: BorderRadius.circular(8),
+                constraints: const BoxConstraints(minHeight: 40),
+                children: const [
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Text('Colecao'),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Text('Categoria'),
+                  ),
+                ],
+              ),
+              if (isEdit)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    'O tipo nao pode ser alterado.',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                  ),
+                ),
+            ],
           ),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final name = _categoryNameController.text;
-              if (name.trim().isEmpty) return;
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final name = _categoryNameController.text;
+                if (name.trim().isEmpty) return;
 
-              String? error;
-              if (isEdit) {
-                error = await notifier.updateCategory(category.id, name);
-              } else {
-                error = await notifier.addCategory(name);
-              }
-
-              if (context.mounted) {
-                if (error != null) {
-                  ScaffoldMessenger.of(context)
-                      .showSnackBar(SnackBar(content: Text(error)));
+                String? error;
+                if (isEdit) {
+                  error = await notifier.updateCategory(category.id, name);
                 } else {
-                  Navigator.pop(context);
+                  error = await notifier.addCategory(name, selectedType);
                 }
-              }
-            },
-            child: const Text('Salvar'),
-          ),
-        ],
+
+                if (context.mounted) {
+                  if (error != null) {
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(SnackBar(content: Text(error)));
+                  } else {
+                    Navigator.pop(context);
+                  }
+                }
+              },
+              child: const Text('Salvar'),
+            ),
+          ],
+        ),
       ),
     );
 
@@ -464,4 +589,5 @@ class _CategoriesErrorState extends StatelessWidget {
     );
   }
 }
+
 

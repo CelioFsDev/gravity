@@ -51,12 +51,17 @@ class HiveCategoriesRepository implements CategoriesRepositoryContract {
     String newCategoryId,
   ) async {
     final products = _productsBox.values
-        .where((p) => p.categoryId == oldCategoryId)
+        .where((p) => p.categoryIds.contains(oldCategoryId))
         .toList();
     for (var product in products) {
+      final updatedCategories = List<String>.from(product.categoryIds);
+      updatedCategories.remove(oldCategoryId);
+      if (newCategoryId.isNotEmpty) {
+        updatedCategories.add(newCategoryId);
+      }
       await _productsBox.put(
         product.id,
-        product.copyWith(categoryId: newCategoryId),
+        product.copyWith(categoryIds: updatedCategories),
       );
     }
   }

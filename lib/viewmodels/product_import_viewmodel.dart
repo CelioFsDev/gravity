@@ -248,7 +248,9 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       for (final p in existingProducts) _normalizeSku(p.sku): p,
     };
 
-    final categories = await categoriesRepo.getCategories();
+    final categories = (await categoriesRepo.getCategories())
+        .where((c) => c.type == CategoryType.productType)
+        .toList();
     final categoryById = {for (final c in categories) c.id: c.name};
     final categoryByName = {
       for (final c in categories) c.name.toLowerCase(): c.id,
@@ -319,7 +321,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
           name: _cellByKeys(row, headerMap, ['name'], 0),
           reference: _cellByKeys(row, headerMap, ['ref'], 1),
           sku: sku,
-          categoryId: categoryId,
+          categoryIds: categoryId.isNotEmpty ? [categoryId] : <String>[],
           priceVarejo: _parsePrice(
             _cellByKeys(row, headerMap, ['retailprice'], 4),
           ),
@@ -549,6 +551,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       order: categoryByName.length + 1,
       createdAt: now,
       updatedAt: now,
+      type: CategoryType.productType,
     );
     await categoriesRepo.addCategory(category);
     categoryById[category.id] = category.name;

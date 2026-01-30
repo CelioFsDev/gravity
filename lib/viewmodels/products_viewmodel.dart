@@ -21,7 +21,8 @@ class ProductsState {
   final List<Category> categories;
   
   final String searchQuery;
-  final String? categoryFilterId; // null = all
+  final String? collectionFilterId; // null = all
+  final String? productTypeFilterId; // null = all
   final ProductStatusFilter statusFilter;
   final ProductSort sortOption;
 
@@ -36,7 +37,8 @@ class ProductsState {
     required this.filteredProducts,
     required this.categories,
     this.searchQuery = '',
-    this.categoryFilterId,
+    this.collectionFilterId,
+    this.productTypeFilterId,
     this.statusFilter = ProductStatusFilter.all,
     this.sortOption = ProductSort.recent,
     required this.totalCount,
@@ -62,21 +64,26 @@ class ProductsState {
     List<Product>? filteredProducts,
     List<Category>? categories,
     String? searchQuery,
-    String? categoryFilterId,
+    String? collectionFilterId,
+    String? productTypeFilterId,
     ProductStatusFilter? statusFilter,
     ProductSort? sortOption,
     int? totalCount,
     int? activeCount,
     int? outOfStockCount,
     int? onSaleCount,
-    bool forceNullCategory = false,
+    bool forceNullCollection = false,
+    bool forceNullProductType = false,
   }) {
     return ProductsState(
       allProducts: allProducts ?? this.allProducts,
       filteredProducts: filteredProducts ?? this.filteredProducts,
       categories: categories ?? this.categories,
       searchQuery: searchQuery ?? this.searchQuery,
-      categoryFilterId: forceNullCategory ? null : (categoryFilterId ?? this.categoryFilterId),
+      collectionFilterId:
+          forceNullCollection ? null : (collectionFilterId ?? this.collectionFilterId),
+      productTypeFilterId:
+          forceNullProductType ? null : (productTypeFilterId ?? this.productTypeFilterId),
       statusFilter: statusFilter ?? this.statusFilter,
       sortOption: sortOption ?? this.sortOption,
       totalCount: totalCount ?? this.totalCount,
@@ -112,8 +119,16 @@ class ProductsViewModel extends _$ProductsViewModel {
   void setCategoryFilter(String? categoryId) {
     if (state.value == null) return;
     state = AsyncData(_applyFilters(state.value!.copyWith(
-      categoryFilterId: categoryId,
-      forceNullCategory: categoryId == null,
+      productTypeFilterId: categoryId,
+      forceNullProductType: categoryId == null,
+    )));
+  }
+
+  void setCollectionFilter(String? collectionId) {
+    if (state.value == null) return;
+    state = AsyncData(_applyFilters(state.value!.copyWith(
+      collectionFilterId: collectionId,
+      forceNullCollection: collectionId == null,
     )));
   }
 
@@ -192,8 +207,15 @@ class ProductsViewModel extends _$ProductsViewModel {
     }
 
     // 2. Category
-    if (currentState.categoryFilterId != null) {
-      filtered = filtered.where((p) => p.categoryId == currentState.categoryFilterId).toList();
+    if (currentState.collectionFilterId != null) {
+      filtered = filtered
+          .where((p) => p.categoryIds.contains(currentState.collectionFilterId))
+          .toList();
+    }
+    if (currentState.productTypeFilterId != null) {
+      filtered = filtered
+          .where((p) => p.categoryIds.contains(currentState.productTypeFilterId))
+          .toList();
     }
 
     // 3. Status

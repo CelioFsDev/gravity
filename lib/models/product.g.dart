@@ -16,12 +16,20 @@ class ProductAdapter extends TypeAdapter<Product> {
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
+    final legacyCategoryId = fields[4] as String?;
+    final categoryIds =
+        (fields[17] as List?)?.cast<String>() ?? <String>[];
+    final resolvedCategoryIds = categoryIds.isNotEmpty
+        ? categoryIds
+        : (legacyCategoryId != null && legacyCategoryId.isNotEmpty)
+            ? <String>[legacyCategoryId]
+            : <String>[];
     return Product(
       id: fields[0] as String,
       name: fields[1] as String,
       reference: fields[2] as String,
       sku: fields[3] as String,
-      categoryId: fields[4] as String,
+      categoryIds: resolvedCategoryIds,
       priceVarejo: fields[5] as double,
       priceAtacado: fields[6] as double,
       minWholesaleQty: fields[7] as int,
@@ -39,8 +47,10 @@ class ProductAdapter extends TypeAdapter<Product> {
 
   @override
   void write(BinaryWriter writer, Product obj) {
+    final primaryCategoryId =
+        obj.categoryIds.isNotEmpty ? obj.categoryIds.first : '';
     writer
-      ..writeByte(17)
+      ..writeByte(18)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -50,7 +60,7 @@ class ProductAdapter extends TypeAdapter<Product> {
       ..writeByte(3)
       ..write(obj.sku)
       ..writeByte(4)
-      ..write(obj.categoryId)
+      ..write(primaryCategoryId)
       ..writeByte(5)
       ..write(obj.priceVarejo)
       ..writeByte(6)
@@ -74,7 +84,9 @@ class ProductAdapter extends TypeAdapter<Product> {
       ..writeByte(15)
       ..write(obj.createdAt)
       ..writeByte(16)
-      ..write(obj.saleDiscountPercent);
+      ..write(obj.saleDiscountPercent)
+      ..writeByte(17)
+      ..write(obj.categoryIds);
   }
 
   @override

@@ -16,8 +16,8 @@ class Product {
   @HiveField(3)
   final String sku;
 
-  @HiveField(4)
-  final String categoryId;
+  @HiveField(17)
+  final List<String> categoryIds;
 
   @HiveField(5)
   final double priceVarejo;
@@ -60,7 +60,7 @@ class Product {
     required this.name,
     required this.reference,
     required this.sku,
-    required this.categoryId,
+    required this.categoryIds,
     required this.priceVarejo,
     required this.priceAtacado,
     required this.minWholesaleQty,
@@ -80,7 +80,7 @@ class Product {
     String? name,
     String? reference,
     String? sku,
-    String? categoryId,
+    List<String>? categoryIds,
     double? priceVarejo,
     double? priceAtacado,
     int? minWholesaleQty,
@@ -99,7 +99,7 @@ class Product {
       name: name ?? this.name,
       reference: reference ?? this.reference,
       sku: sku ?? this.sku,
-      categoryId: categoryId ?? this.categoryId,
+      categoryIds: categoryIds ?? this.categoryIds,
       priceVarejo: priceVarejo ?? this.priceVarejo,
       priceAtacado: priceAtacado ?? this.priceAtacado,
       minWholesaleQty: minWholesaleQty ?? this.minWholesaleQty,
@@ -118,6 +118,11 @@ class Product {
   double get retailPrice => priceVarejo;
 
   double get wholesalePrice => priceAtacado;
+
+  String? get primaryCategoryId =>
+      categoryIds.isNotEmpty ? categoryIds.first : null;
+
+  bool hasCategory(String categoryId) => categoryIds.contains(categoryId);
 
   double priceForMode(String mode) {
     return mode.toLowerCase() == 'atacado' ? priceAtacado : priceVarejo;

@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:gravity/core/widgets/responsive_scaffold.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -36,7 +36,10 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   late TextEditingController _colorsController;
   late TextEditingController _discountController;
 
-  String? _selectedCategoryId;
+  String? _selectedCollectionId;
+  List<String> _selectedTypeIds = [];
+  List<String> _initialCategoryIds = [];
+  bool _categorySelectionInitialized = false;
   bool _isActive = true;
   bool _isOutOfStock = false;
   bool _isOnSale = false;
@@ -68,7 +71,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       text: pr?.saleDiscountPercent.toString() ?? '0',
     );
 
-    _selectedCategoryId = pr?.categoryId;
+    _initialCategoryIds = pr?.categoryIds ?? [];
     _isActive = pr?.isActive ?? true;
     _isOutOfStock = pr?.isOutOfStock ?? false;
     _isOnSale = pr?.isOnSale ?? false;
@@ -116,20 +119,24 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedCategoryId == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Selecione uma categoria')));
+    if (_selectedTypeIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selecione ao menos uma categoria')),
+      );
       return;
     }
 
     final imagesForSave = _buildImagesForSave();
+    final categoryIds = <String>[
+      if (_selectedCollectionId != null) _selectedCollectionId!,
+      ..._selectedTypeIds,
+    ];
     final product = Product(
       id: widget.product?.id ?? const Uuid().v4(),
       name: _nameController.text,
       reference: _refController.text,
       sku: _skuController.text,
-      categoryId: _selectedCategoryId!,
+      categoryIds: categoryIds.toSet().toList(),
       priceVarejo: _parsePrice(_retailController.text),
       priceAtacado: _parsePrice(_wholesaleController.text),
       minWholesaleQty: int.tryParse(_minQtyController.text) ?? 1,
@@ -189,7 +196,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       debugPrint('Error in _pickMainImage: $e\n$stack');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro crítico ao selecionar foto: $e')),
+          SnackBar(content: Text('Erro crÃ­tico ao selecionar foto: $e')),
         );
       }
     }
@@ -216,7 +223,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       debugPrint('Error in _pickVariationImages: $e\n$stack');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao selecionar variações: $e')),
+          SnackBar(content: Text('Erro ao selecionar variaÃ§Ãµes: $e')),
         );
       }
     }
@@ -229,7 +236,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Arquivo "${file.name}" ignorado (não é imagem).',
+              'Arquivo "${file.name}" ignorado (nÃ£o Ã© imagem).',
             ),
           ),
         );
@@ -331,7 +338,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Atenção: O salvamento de fotos não é suportado no Navegador. Use a versão Windows Desktop.',
+              'AtenÃ§Ã£o: O salvamento de fotos nÃ£o Ã© suportado no Navegador. Use a versÃ£o Windows Desktop.',
             ),
           ),
         );
@@ -349,6 +356,24 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     final categories = productsState.hasValue
         ? productsState.value!.categories
         : <Category>[];
+    final collections =
+        categories.where((c) => c.type == CategoryType.collection).toList();
+    final productTypes =
+        categories.where((c) => c.type == CategoryType.productType).toList();
+
+    if (!_categorySelectionInitialized && categories.isNotEmpty) {
+      final collectionMatches = collections
+          .where((c) => _initialCategoryIds.contains(c.id))
+          .map((c) => c.id)
+          .toList();
+      _selectedCollectionId =
+          collectionMatches.isNotEmpty ? collectionMatches.first : null;
+      _selectedTypeIds = productTypes
+          .where((c) => _initialCategoryIds.contains(c.id))
+          .map((c) => c.id)
+          .toList();
+      _categorySelectionInitialized = true;
+    }
 
     return ResponsiveScaffold(
       maxWidth: 900,
@@ -368,18 +393,18 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Basic Info
-                    _buildSectionTitle('Informações Básicas'),
+                    _buildSectionTitle('InformaÃ§Ãµes BÃ¡sicas'),
                     if (isMobile) ...[
                       _buildTextField(
                         _nameController,
                         'Nome',
-                        validator: (v) => v!.isEmpty ? 'Obrigatório' : null,
+                        validator: (v) => v!.isEmpty ? 'ObrigatÃ³rio' : null,
                       ),
                       const SizedBox(height: 16),
                       _buildTextField(
                         _refController,
                         'REF',
-                        validator: (v) => v!.isEmpty ? 'Obrigatório' : null,
+                        validator: (v) => v!.isEmpty ? 'ObrigatÃ³rio' : null,
                       ),
                       const SizedBox(height: 16),
                       _buildTextField(_skuController, 'SKU'),
@@ -392,7 +417,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                               _nameController,
                               'Nome',
                               validator: (v) =>
-                                  v!.isEmpty ? 'Obrigatório' : null,
+                                  v!.isEmpty ? 'ObrigatÃ³rio' : null,
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -401,7 +426,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                               _refController,
                               'REF',
                               validator: (v) =>
-                                  v!.isEmpty ? 'Obrigatório' : null,
+                                  v!.isEmpty ? 'ObrigatÃ³rio' : null,
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -412,30 +437,40 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                       ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
-                      initialValue:
-                          categories.any((c) => c.id == _selectedCategoryId)
-                          ? _selectedCategoryId
+                      initialValue: collections.any(
+                        (c) => c.id == _selectedCollectionId,
+                      )
+                          ? _selectedCollectionId
                           : null,
                       decoration: const InputDecoration(
-                        labelText: 'Categoria',
-                        border: OutlineInputBorder(),
+                        labelText: 'Colecao',
                       ),
-                      items: categories
-                          .map(
-                            (c) => DropdownMenuItem(
-                              value: c.id,
-                              child: Text(c.name),
-                            ),
-                          )
-                          .toList(),
+                      items: [
+                        const DropdownMenuItem(
+                          value: null,
+                          child: Text('Sem colecao'),
+                        ),
+                        ...collections.map(
+                          (c) => DropdownMenuItem(
+                            value: c.id,
+                            child: Text(c.name),
+                          ),
+                        ),
+                      ],
                       onChanged: (val) =>
-                          setState(() => _selectedCategoryId = val),
+                          setState(() => _selectedCollectionId = val),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildSectionTitle('Categorias'),
+                    _buildCategoryMultiSelect(
+                      context,
+                      productTypes,
                     ),
 
                     const SizedBox(height: 24),
 
                     // Pricing
-                    _buildSectionTitle('Preços e Estoque'),
+                    _buildSectionTitle('PreÃ§os e Estoque'),
                     if (isMobile) ...[
                       _buildTextField(
                         _retailController,
@@ -451,7 +486,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                       const SizedBox(height: 16),
                       _buildTextField(
                         _minQtyController,
-                        'Mín. Atacado',
+                        'MÃ­n. Atacado',
                         isNumber: true,
                       ),
                     ] else
@@ -476,7 +511,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                           Expanded(
                             child: _buildTextField(
                               _minQtyController,
-                              'Mín. Atacado',
+                              'MÃ­n. Atacado',
                               isNumber: true,
                             ),
                           ),
@@ -488,12 +523,12 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                     _buildSectionTitle('Atributos'),
                     _buildTextField(
                       _sizesController,
-                      'Tamanhos (separados por vírgula)',
+                      'Tamanhos (separados por vÃ­rgula)',
                     ),
                     const SizedBox(height: 16),
                     _buildTextField(
                       _colorsController,
-                      'Cores (separados por vírgula)',
+                      'Cores (separados por vÃ­rgula)',
                     ),
 
                     const SizedBox(height: 24),
@@ -511,7 +546,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                       onChanged: (v) => setState(() => _isOutOfStock = v),
                     ),
                     SwitchListTile(
-                      title: const Text('Em Promoção'),
+                      title: const Text('Em PromoÃ§Ã£o'),
                       value: _isOnSale,
                       onChanged: (v) => setState(() => _isOnSale = v),
                     ),
@@ -569,7 +604,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                               : kIsWeb
                                   ? const Center(
                                       child: Text(
-                                        'Imagem não renderizada no navegador',
+                                        'Imagem nÃ£o renderizada no navegador',
                                       ),
                                     )
                                   : Image.file(
@@ -601,7 +636,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Variações (até 3 fotos)',
+                      'VariaÃ§Ãµes (atÃ© 3 fotos)',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 8),
@@ -681,7 +716,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                       label: Text(
                         _variationImages.length >= 3
                             ? 'Limite atingido'
-                            : 'Adicionar variações',
+                            : 'Adicionar variaÃ§Ãµes',
                       ),
                     ),
                   ],
@@ -692,6 +727,102 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildCategoryMultiSelect(
+    BuildContext context,
+    List<Category> productTypes,
+  ) {
+    final selected = productTypes
+        .where((c) => _selectedTypeIds.contains(c.id))
+        .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: selected.isEmpty
+              ? [
+                  Text(
+                    'Nenhuma categoria selecionada',
+                    style: TextStyle(color: Colors.grey.shade600),
+                  ),
+                ]
+              : selected.map((c) => Chip(label: Text(c.name))).toList(),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: () => _selectProductTypes(context, productTypes),
+          icon: const Icon(Icons.tune),
+          label: const Text('Selecionar categorias'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _selectProductTypes(
+    BuildContext context,
+    List<Category> productTypes,
+  ) async {
+    final tempSelected = Set<String>.from(_selectedTypeIds);
+    final result = await showModalBottomSheet<Set<String>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const ListTile(
+                  title: Text(
+                    'Categorias',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: productTypes.map((category) {
+                      final checked = tempSelected.contains(category.id);
+                      return CheckboxListTile(
+                        value: checked,
+                        onChanged: (value) {
+                          setModalState(() {
+                            if (value == true) {
+                              tempSelected.add(category.id);
+                            } else {
+                              tempSelected.remove(category.id);
+                            }
+                          });
+                        },
+                        title: Text(category.name),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(sheetContext, tempSelected),
+                      child: const Text('Aplicar'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (result != null && mounted) {
+      setState(() => _selectedTypeIds = result.toList());
+    }
   }
 
   Widget _buildSectionTitle(String title) {
@@ -727,3 +858,4 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     );
   }
 }
+

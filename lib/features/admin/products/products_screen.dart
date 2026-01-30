@@ -2,6 +2,7 @@
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gravity/models/category.dart';
 import 'package:gravity/models/product.dart';
 import 'package:gravity/viewmodels/products_viewmodel.dart';
 import 'package:gravity/features/admin/products/product_form_screen.dart';
@@ -50,6 +51,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               .read(productsViewModelProvider.notifier)
               .setSearchQuery(value),
           onClearFilters: () => _clearFilters(data),
+          onSelectCollection: (value) => ref
+              .read(productsViewModelProvider.notifier)
+              .setCollectionFilter(value),
           onSelectCategory: (value) => ref
               .read(productsViewModelProvider.notifier)
               .setCategoryFilter(value),
@@ -78,6 +82,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   void _clearFilters(ProductsState state) {
     final notifier = ref.read(productsViewModelProvider.notifier);
     notifier.setSearchQuery('');
+    notifier.setCollectionFilter(null);
     notifier.setCategoryFilter(null);
     notifier.setStatusFilter(ProductStatusFilter.all);
     notifier.setSortOption(ProductSort.recent);
@@ -122,6 +127,7 @@ class _ProductsContent extends StatelessWidget {
   final TextEditingController searchController;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onClearFilters;
+  final ValueChanged<String?> onSelectCollection;
   final ValueChanged<String?> onSelectCategory;
   final ValueChanged<ProductStatusFilter> onSelectStatus;
   final ValueChanged<ProductSort> onSelectSort;
@@ -137,6 +143,7 @@ class _ProductsContent extends StatelessWidget {
     required this.searchController,
     required this.onSearchChanged,
     required this.onClearFilters,
+    required this.onSelectCollection,
     required this.onSelectCategory,
     required this.onSelectStatus,
     required this.onSelectSort,
@@ -152,7 +159,8 @@ class _ProductsContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hasFilters = state.searchQuery.isNotEmpty ||
-        state.categoryFilterId != null ||
+        state.collectionFilterId != null ||
+        state.productTypeFilterId != null ||
         state.statusFilter != ProductStatusFilter.all ||
         state.sortOption != ProductSort.recent;
 
@@ -209,18 +217,20 @@ class _ProductsContent extends StatelessWidget {
                     const SizedBox(height: 20),
                     _KpiSection(state: state),
                     const SizedBox(height: 20),
-                    _SearchAndFiltersSection(
-                      state: state,
-                      controller: searchController,
-                      onSearchChanged: onSearchChanged,
-                      onClearFilters: hasFilters ? onClearFilters : null,
-                      onSelectCategory: onSelectCategory,
-                      onSelectStatus: onSelectStatus,
-                      onSelectSort: onSelectSort,
-                    ),
+                _SearchAndFiltersSection(
+                  state: state,
+                  controller: searchController,
+                  onSearchChanged: onSearchChanged,
+                  onClearFilters: hasFilters ? onClearFilters : null,
+                  onSelectCollection: onSelectCollection,
+                  onSelectCategory: onSelectCategory,
+                  onSelectStatus: onSelectStatus,
+                  onSelectSort: onSelectSort,
+                ),
                     const SizedBox(height: 16),
                     _ProductsListSection(
                       state: state,
+                      categories: state.categories,
                       onNewProduct: onNewProduct,
                       onViewProduct: onViewProduct,
                       onEditProduct: onEditProduct,
@@ -343,6 +353,7 @@ class _SearchAndFiltersSection extends StatelessWidget {
   final TextEditingController controller;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback? onClearFilters;
+  final ValueChanged<String?> onSelectCollection;
   final ValueChanged<String?> onSelectCategory;
   final ValueChanged<ProductStatusFilter> onSelectStatus;
   final ValueChanged<ProductSort> onSelectSort;
@@ -352,6 +363,7 @@ class _SearchAndFiltersSection extends StatelessWidget {
     required this.controller,
     required this.onSearchChanged,
     required this.onClearFilters,
+    required this.onSelectCollection,
     required this.onSelectCategory,
     required this.onSelectStatus,
     required this.onSelectSort,
@@ -377,8 +389,13 @@ class _SearchAndFiltersSection extends StatelessWidget {
         FilterChipsRow(
           chips: [
             FilterChipButton(
+              label: _collectionLabel(state),
+              isActive: state.collectionFilterId != null,
+              onPressed: () => _selectCollection(context),
+            ),
+            FilterChipButton(
               label: _categoryLabel(state),
-              isActive: state.categoryFilterId != null,
+              isActive: state.productTypeFilterId != null,
               onPressed: () => _selectCategory(context),
             ),
             FilterChipButton(
@@ -398,10 +415,24 @@ class _SearchAndFiltersSection extends StatelessWidget {
     );
   }
 
+  String _collectionLabel(ProductsState state) {
+    if (state.collectionFilterId == null) return 'Colecao: Todas';
+    final collection = state.categories
+        .where((c) =>
+            c.id == state.collectionFilterId &&
+            c.type == CategoryType.collection)
+        .map((c) => c.name)
+        .toList();
+    if (collection.isEmpty) return 'Colecao: Todas';
+    return 'Colecao: ${collection.first}';
+  }
+
   String _categoryLabel(ProductsState state) {
-    if (state.categoryFilterId == null) return 'Categoria: Todas';
+    if (state.productTypeFilterId == null) return 'Categoria: Todas';
     final category = state.categories
-        .where((c) => c.id == state.categoryFilterId)
+        .where((c) =>
+            c.id == state.productTypeFilterId &&
+            c.type == CategoryType.productType)
         .map((c) => c.name)
         .toList();
     if (category.isEmpty) return 'Categoria: Todas';
@@ -435,18 +466,40 @@ class _SearchAndFiltersSection extends StatelessWidget {
   }
 
   Future<void> _selectCategory(BuildContext context) async {
+    final categories = state.categories
+        .where((c) => c.type == CategoryType.productType)
+        .toList();
     final options = <_SheetOption<String?>>[
       const _SheetOption(value: null, label: 'Todas categorias'),
-      ...state.categories.map((c) => _SheetOption(value: c.id, label: c.name)),
+      ...categories.map((c) => _SheetOption(value: c.id, label: c.name)),
     ];
     final result = await _showSelectionSheet<String?>(
       context,
       title: 'Categoria',
       options: options,
-      selected: state.categoryFilterId,
+      selected: state.productTypeFilterId,
     );
-    if (result != null || state.categoryFilterId != null) {
+    if (result != null || state.productTypeFilterId != null) {
       onSelectCategory(result);
+    }
+  }
+
+  Future<void> _selectCollection(BuildContext context) async {
+    final collections = state.categories
+        .where((c) => c.type == CategoryType.collection)
+        .toList();
+    final options = <_SheetOption<String?>>[
+      const _SheetOption(value: null, label: 'Todas colecoes'),
+      ...collections.map((c) => _SheetOption(value: c.id, label: c.name)),
+    ];
+    final result = await _showSelectionSheet<String?>(
+      context,
+      title: 'Colecao',
+      options: options,
+      selected: state.collectionFilterId,
+    );
+    if (result != null || state.collectionFilterId != null) {
+      onSelectCollection(result);
     }
   }
 
@@ -550,6 +603,7 @@ class _SheetOption<T> {
 
 class _ProductsListSection extends StatelessWidget {
   final ProductsState state;
+  final List<Category> categories;
   final VoidCallback onNewProduct;
   final ValueChanged<Product> onViewProduct;
   final ValueChanged<Product> onEditProduct;
@@ -557,6 +611,7 @@ class _ProductsListSection extends StatelessWidget {
 
   const _ProductsListSection({
     required this.state,
+    required this.categories,
     required this.onNewProduct,
     required this.onViewProduct,
     required this.onEditProduct,
@@ -578,6 +633,7 @@ class _ProductsListSection extends StatelessWidget {
         final product = state.filteredProducts[index];
         return ProductListCard(
           product: product,
+          categories: categories,
           onView: () => onViewProduct(product),
           onEdit: () => onEditProduct(product),
           onDelete: () => onDeleteProduct(product),
@@ -589,6 +645,7 @@ class _ProductsListSection extends StatelessWidget {
 
 class ProductListCard extends StatelessWidget {
   final Product product;
+  final List<Category> categories;
   final VoidCallback onView;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -596,6 +653,7 @@ class ProductListCard extends StatelessWidget {
   const ProductListCard({
     super.key,
     required this.product,
+    required this.categories,
     required this.onView,
     required this.onEdit,
     required this.onDelete,
@@ -608,6 +666,19 @@ class ProductListCard extends StatelessWidget {
         (product.images.isNotEmpty && product.mainImageIndex < product.images.length)
             ? product.images[product.mainImageIndex]
             : null;
+    final categoryById = {for (final c in categories) c.id: c};
+    final collectionName = product.categoryIds
+        .map((id) => categoryById[id])
+        .where((c) => c != null && c!.type == CategoryType.collection)
+        .map((c) => c!.name)
+        .toList();
+    final typeNames = product.categoryIds
+        .map((id) => categoryById[id])
+        .where((c) => c != null && c!.type == CategoryType.productType)
+        .map((c) => c!.name)
+        .toList();
+    final collectionLabel = collectionName.isNotEmpty ? collectionName.first : '-';
+    final typeLabel = typeNames.isNotEmpty ? typeNames.join(', ') : '-';
 
     return Card(
       child: InkWell(
@@ -636,6 +707,14 @@ class ProductListCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       'REF ${product.reference} • ${currency.format(product.retailPrice)} • ${product.isActive ? 'Ativo' : 'Inativo'}',
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Colecao: $collectionLabel • ${typeLabel}',
                       style: TextStyle(
                         color: Colors.grey.shade600,
                         fontSize: 12,

@@ -41,7 +41,8 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
   Widget build(BuildContext context) {
     final filtered = widget.allProducts.where((p) {
       if (_onlySelected && !widget.selectedIds.contains(p.id)) return false;
-      if (_categoryFilter != null && p.categoryId != _categoryFilter) {
+      if (_categoryFilter != null &&
+          !p.categoryIds.contains(_categoryFilter)) {
         return false;
       }
       if (_search.isNotEmpty) {

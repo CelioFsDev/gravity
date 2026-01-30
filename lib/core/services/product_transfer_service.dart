@@ -87,6 +87,7 @@ class ProductTransferService {
     List<Category> categories,
   ) async {
     final categoryById = {for (final c in categories) c.id: c.name};
+    final categoryTypeById = {for (final c in categories) c.id: c.type};
     final rows = <List<dynamic>>[];
     rows.add(_csvHeader);
 
@@ -112,11 +113,15 @@ class ProductTransferService {
       final sizes = product.sizes.join('|');
       final colors = product.colors.join('|');
       final images = imageNames.join('|');
+      final productTypeId = product.categoryIds.firstWhere(
+        (id) => categoryTypeById[id] == CategoryType.productType,
+        orElse: () => '',
+      );
       rows.add([
         product.sku,
         product.name,
         product.reference,
-        categoryById[product.categoryId] ?? '',
+        categoryById[productTypeId] ?? '',
         product.priceVarejo,
         product.priceAtacado,
         product.minWholesaleQty,

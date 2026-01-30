@@ -30,7 +30,7 @@ class HiveProductsRepository implements ProductsRepositoryContract {
   @override
   Future<List<Product>> getProductsByCategory(String categoryId) async {
     return _productsBox.values
-        .where((p) => p.categoryId == categoryId)
+        .where((p) => p.categoryIds.contains(categoryId))
         .toList();
   }
 
@@ -53,7 +53,7 @@ class HiveProductsRepository implements ProductsRepositoryContract {
   @override
   Stream<List<Product>> watchProductsByCategory(String categoryId) {
     return watchProducts().map((products) {
-      return products.where((p) => p.categoryId == categoryId).toList();
+      return products.where((p) => p.categoryIds.contains(categoryId)).toList();
     });
   }
 }

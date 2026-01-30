@@ -43,8 +43,8 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
         final filteredProducts = _selectedCategoryId == null
             ? data.products
             : data.products
-                  .where((p) => p.categoryId == _selectedCategoryId)
-                  .toList();
+                .where((p) => p.categoryIds.contains(_selectedCategoryId))
+                .toList();
 
         return Material(
           child: Container(

@@ -38,8 +38,13 @@ Future<PublicCatalogData?> catalogPublic(CatalogPublicRef ref, String shareCode)
   // Let's assume order of productIds? Or just retrieval order.
   
   // Also filter categories that are used by these products
-  final usedCategoryIds = catalogProducts.map((p) => p.categoryId).toSet();
-  final usedCategories = allCategories.where((c) => usedCategoryIds.contains(c.id)).toList();
+  final usedCategoryIds = catalogProducts
+      .expand((p) => p.categoryIds)
+      .toSet();
+  final usedCategories = allCategories
+      .where((c) =>
+          c.type == CategoryType.productType && usedCategoryIds.contains(c.id))
+      .toList();
 
   return PublicCatalogData(catalog: catalog, products: catalogProducts, categories: usedCategories);
 }

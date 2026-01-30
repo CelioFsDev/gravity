@@ -19,18 +19,19 @@ class ProductDetailScreen extends ConsumerWidget {
     final productsState = ref.watch(productsViewModelProvider);
     final updatedProduct = productsState.value?.allProducts.firstWhere((p) => p.id == product.id, orElse: () => product) ?? product;
     final categories = productsState.value?.categories ?? [];
-    final categoryName = categories
-        .firstWhere(
-          (c) => c.id == updatedProduct.categoryId,
-          orElse: () => Category(
-            id: '',
-            name: '-',
-            order: 0,
-            createdAt: DateTime.fromMillisecondsSinceEpoch(0),
-            updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
-          ),
-        )
-        .name;
+    final categoryById = {for (final c in categories) c.id: c};
+    final collectionNames = updatedProduct.categoryIds
+        .map((id) => categoryById[id])
+        .where((c) => c != null && c!.type == CategoryType.collection)
+        .map((c) => c!.name)
+        .toList();
+    final typeNames = updatedProduct.categoryIds
+        .map((id) => categoryById[id])
+        .where((c) => c != null && c!.type == CategoryType.productType)
+        .map((c) => c!.name)
+        .toList();
+    final collectionLabel = collectionNames.isNotEmpty ? collectionNames.first : '-';
+    final typeLabel = typeNames.isNotEmpty ? typeNames.join(', ') : '-';
 
     final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
 
@@ -104,9 +105,11 @@ class ProductDetailScreen extends ConsumerWidget {
                  const SizedBox(width: 16),
                  Text('SKU: ${updatedProduct.sku}', style: const TextStyle(color: Colors.grey)),
                  const SizedBox(width: 16),
-                 Text('Categoria: $categoryName', style: const TextStyle(color: Colors.blue)),
+                 Text('Colecao: $collectionLabel', style: const TextStyle(color: Colors.blue)),
               ],
             ),
+            const SizedBox(height: 6),
+            Text('Categorias: $typeLabel', style: const TextStyle(color: Colors.grey)),
             
             const Divider(height: 32),
             
