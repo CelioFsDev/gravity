@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/services.dart';
 import 'package:gravity/core/services/catalog_share_helper.dart';
 import 'package:gravity/core/widgets/responsive_scaffold.dart';
 import 'package:gravity/core/widgets/section_header.dart';
@@ -11,7 +10,6 @@ import 'package:intl/intl.dart';
 
 class CatalogsScreen extends ConsumerWidget {
   const CatalogsScreen({super.key});
-  static const _defaultBaseUrl = 'https://gravity.app';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -28,7 +26,6 @@ class CatalogsScreen extends ConsumerWidget {
             ref: ref,
             catalog: catalog,
           ),
-          onCopy: (catalog) => _copyLink(context, catalog),
           onEdit: (catalog) => _openEdit(context, catalog),
           onDelete: (catalog) => notifier.deleteCatalog(catalog.id),
         ),
@@ -52,26 +49,12 @@ class CatalogsScreen extends ConsumerWidget {
       MaterialPageRoute(builder: (_) => CatalogEditorScreen(catalog: catalog)),
     );
   }
-
-  Future<void> _copyLink(BuildContext context, Catalog catalog) async {
-    final linkId = catalog.shareCode.isNotEmpty
-        ? catalog.shareCode
-        : catalog.slug;
-    final url = '$_defaultBaseUrl/c/$linkId';
-    await Clipboard.setData(ClipboardData(text: url));
-    if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Link copiado: $url')));
-    }
-  }
 }
 
 class _CatalogsContent extends StatelessWidget {
   final List<Catalog> catalogs;
   final VoidCallback onCreate;
   final ValueChanged<Catalog> onShare;
-  final ValueChanged<Catalog> onCopy;
   final ValueChanged<Catalog> onEdit;
   final ValueChanged<Catalog> onDelete;
 
@@ -79,7 +62,6 @@ class _CatalogsContent extends StatelessWidget {
     required this.catalogs,
     required this.onCreate,
     required this.onShare,
-    required this.onCopy,
     required this.onEdit,
     required this.onDelete,
   });
@@ -121,7 +103,6 @@ class _CatalogsContent extends StatelessWidget {
                         return CatalogCard(
                           catalog: catalog,
                           onShare: () => onShare(catalog),
-                          onCopy: () => onCopy(catalog),
                           onEdit: () => onEdit(catalog),
                           onDelete: () => onDelete(catalog),
                         );
@@ -140,7 +121,6 @@ class _CatalogsContent extends StatelessWidget {
 class CatalogCard extends StatelessWidget {
   final Catalog catalog;
   final VoidCallback onShare;
-  final VoidCallback onCopy;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -148,7 +128,6 @@ class CatalogCard extends StatelessWidget {
     super.key,
     required this.catalog,
     required this.onShare,
-    required this.onCopy,
     required this.onEdit,
     required this.onDelete,
   });
@@ -170,9 +149,6 @@ class CatalogCard extends StatelessWidget {
           tooltip: 'Acoes',
           onSelected: (value) {
             switch (value) {
-              case _CatalogAction.copy:
-                onCopy();
-                break;
               case _CatalogAction.share:
                 onShare();
                 break;
@@ -186,12 +162,8 @@ class CatalogCard extends StatelessWidget {
           },
           itemBuilder: (context) => const [
             PopupMenuItem(
-              value: _CatalogAction.copy,
-              child: Text('Copiar link'),
-            ),
-            PopupMenuItem(
               value: _CatalogAction.share,
-              child: Text('Compartilhar'),
+              child: Text('PDF / Compartilhar'),
             ),
             PopupMenuItem(value: _CatalogAction.edit, child: Text('Editar')),
             PopupMenuItem(value: _CatalogAction.delete, child: Text('Excluir')),
@@ -202,7 +174,7 @@ class CatalogCard extends StatelessWidget {
   }
 }
 
-enum _CatalogAction { copy, share, edit, delete }
+enum _CatalogAction { share, edit, delete }
 
 class _CatalogsEmptyState extends StatelessWidget {
   final VoidCallback onCreate;
@@ -228,7 +200,7 @@ class _CatalogsEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Crie um catalogo para compartilhar no WhatsApp.',
+              'Crie um catálogo para gerar PDF e compartilhar.',
               style: TextStyle(color: Colors.grey.shade600),
               textAlign: TextAlign.center,
             ),

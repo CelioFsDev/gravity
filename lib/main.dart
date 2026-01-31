@@ -264,17 +264,123 @@ String? _authRedirect(AuthUser? user, GoRouterState state) {
   return null;
 }
 
-class PublicHomeScreen extends StatelessWidget {
+class PublicHomeScreen extends ConsumerStatefulWidget {
   const PublicHomeScreen({super.key});
 
   @override
+  ConsumerState<PublicHomeScreen> createState() => _PublicHomeScreenState();
+}
+
+class _PublicHomeScreenState extends ConsumerState<PublicHomeScreen> {
+  final _codeController = TextEditingController();
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    super.dispose();
+  }
+
+  void _openCatalog() {
+    final code = _codeController.text.trim().toLowerCase();
+    if (code.isEmpty) return;
+    context.go('/c/$code');
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final themeMode = ref.watch(themeModeProvider);
+    final isDark = themeMode == ThemeMode.dark;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Catálogo Público')),
-      body: const Center(
-        child: Text(
-          'Acesse um catálogo compartilhado usando /c/{shareCode} ou peça para um administrador publicar um link.',
-          textAlign: TextAlign.center,
+      appBar: AppBar(
+        title: const Text('Catálogo'),
+        actions: [
+          IconButton(
+            tooltip: isDark ? 'Modo claro' : 'Modo noturno',
+            icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
+            onPressed: () {
+              ref.read(themeModeProvider.notifier).state =
+                  isDark ? ThemeMode.light : ThemeMode.dark;
+            },
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Acesse seu catálogo',
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Digite o código do catálogo e abra em segundos.',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.grey.shade600,
+                            ),
+                      ),
+                      const SizedBox(height: 20),
+                      TextField(
+                        controller: _codeController,
+                        textInputAction: TextInputAction.go,
+                        onSubmitted: (_) => _openCatalog(),
+                        decoration: const InputDecoration(
+                          labelText: 'Código do catálogo',
+                          hintText: 'Ex: a1b2c3',
+                          prefixIcon: Icon(Icons.link),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: _openCatalog,
+                          icon: const Icon(Icons.open_in_new),
+                          label: const Text('Abrir catálogo'),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      const Divider(),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Área administrativa',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => context.go('/login'),
+                              child: const Text('Entrar'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: () => context.go('/register'),
+                              child: const Text('Criar conta'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );

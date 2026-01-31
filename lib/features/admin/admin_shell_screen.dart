@@ -1,21 +1,30 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:gravity/core/widgets/admin_drawer_header.dart';
+import 'package:gravity/features/theme/theme_providers.dart';
 
-class AdminShellScreen extends StatelessWidget {
+class AdminShellScreen extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
 
   const AdminShellScreen({super.key, required this.navigationShell});
 
   static const _destinations = [
-    _NavItem(icon: Icons.inventory, label: 'Products'),
-    _NavItem(icon: Icons.category, label: 'Categories'),
-    _NavItem(icon: Icons.menu_book, label: 'Catalogs'),
-    _NavItem(icon: Icons.cloud_download, label: 'Importacoes'),
+    _NavItem(icon: Icons.inventory, label: 'Produtos'),
+    _NavItem(icon: Icons.category, label: 'Categorias'),
+    _NavItem(icon: Icons.menu_book, label: 'Catálogos'),
+    _NavItem(icon: Icons.cloud_download, label: 'Importações'),
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
+    final isDark = themeMode == ThemeMode.dark;
+    void toggleTheme() {
+      ref.read(themeModeProvider.notifier).state =
+          isDark ? ThemeMode.light : ThemeMode.dark;
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= 900;
@@ -26,6 +35,15 @@ class AdminShellScreen extends StatelessWidget {
                   title: Text(
                     _destinations[navigationShell.currentIndex].label,
                   ),
+                  actions: [
+                    IconButton(
+                      tooltip: isDark ? 'Modo claro' : 'Modo noturno',
+                      icon: Icon(
+                        isDark ? Icons.light_mode : Icons.dark_mode,
+                      ),
+                      onPressed: toggleTheme,
+                    ),
+                  ],
                   leading: Builder(
                     builder: (context) => IconButton(
                       icon: const Icon(Icons.menu),
@@ -62,6 +80,15 @@ class AdminShellScreen extends StatelessWidget {
                               ),
                             )
                             .toList(),
+                        const Divider(),
+                        SwitchListTile(
+                          title: const Text('Modo noturno'),
+                          value: isDark,
+                          onChanged: (_) => toggleTheme(),
+                          secondary: Icon(
+                            isDark ? Icons.dark_mode : Icons.light_mode,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -82,6 +109,16 @@ class AdminShellScreen extends StatelessWidget {
                               icon: Icons.auto_awesome,
                             ),
                           ],
+                        ),
+                      ),
+                      trailing: Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: IconButton(
+                          tooltip: isDark ? 'Modo claro' : 'Modo noturno',
+                          icon: Icon(
+                            isDark ? Icons.light_mode : Icons.dark_mode,
+                          ),
+                          onPressed: toggleTheme,
                         ),
                       ),
                       destinations: _destinations
@@ -123,4 +160,3 @@ class _NavItem {
 
   const _NavItem({required this.icon, required this.label});
 }
-

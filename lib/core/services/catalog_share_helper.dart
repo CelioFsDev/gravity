@@ -15,8 +15,6 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 class CatalogShareHelper {
-  static const _defaultBaseUrl = 'https://gravity.app';
-
   static Future<void> showShareOptions({
     required BuildContext context,
     required WidgetRef ref,
@@ -27,32 +25,6 @@ class CatalogShareHelper {
       builder: (sheetContext) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ListTile(
-            leading: const Icon(Icons.link),
-            title: const Text('Enviar Link'),
-            subtitle: const Text('Compartilha o link do catálogo web'),
-            onTap: () async {
-              Navigator.pop(sheetContext);
-              if (!catalog.isPublic || catalog.shareCode.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Marque o catálogo como público e salve para gerar um link.',
-                    ),
-                  ),
-                );
-                return;
-              }
-
-              final url = '$_defaultBaseUrl/c/${catalog.shareCode}';
-
-              await WhatsAppShareService.shareCatalog(
-                catalogName: catalog.name,
-                catalogUrl: url,
-                mode: catalog.mode,
-              );
-            },
-          ),
           ListTile(
             leading: const Icon(Icons.picture_as_pdf),
             title: const Text('Gerar PDF e Enviar'),
