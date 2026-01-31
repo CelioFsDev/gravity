@@ -25,6 +25,7 @@ class CatalogPdfService {
     CollectionCover? collectionCover,
     String? collectionName,
     String defaultSubtitle = 'SELE\u00c7\u00c3O DE PRODUTOS',
+    bool includeCover = true,
   }) async {
     // Parameters kept for API compatibility.
     final _ = catalogName;
@@ -34,13 +35,15 @@ class CatalogPdfService {
     final pdf = pw.Document();
     final currencyFormat = NumberFormat.simpleCurrency(locale: 'pt_BR');
 
-    _addCoverPage(
-      pdf,
-      pageFormat,
-      collectionCover,
-      collectionName: collectionName,
-      defaultSubtitle: defaultSubtitle,
-    );
+    if (includeCover) {
+      _addCoverPage(
+        pdf,
+        pageFormat,
+        collectionCover,
+        collectionName: collectionName,
+        defaultSubtitle: defaultSubtitle,
+      );
+    }
 
     for (final product in products) {
       pdf.addPage(
@@ -74,18 +77,23 @@ class CatalogPdfService {
     final primaryPhoto = _selectPrimaryPhoto(product.photos);
     final heroPath = primaryPhoto?.path;
     final activeColor = _selectActiveColor(product.photos, primaryPhoto);
-    final miniPhotos =
-        _selectMiniPhotos(product.photos, activeColor, primaryPhoto);
+    final miniPhotos = _selectMiniPhotos(
+      product.photos,
+      activeColor,
+      primaryPhoto,
+    );
 
     final colors = _extractColorNames(product);
     final sizesText = _extractSizesText(product);
     final footerText =
         (collectionName != null && collectionName.trim().isNotEmpty)
-            ? collectionName.trim()
-            : defaultSubtitle;
+        ? collectionName.trim()
+        : defaultSubtitle;
     final availableWidth = pageFormat.width - 36;
-    final mainPhotoHeight =
-        _calcMainPhotoHeight(availableWidth, pageFormat.height);
+    final mainPhotoHeight = _calcMainPhotoHeight(
+      availableWidth,
+      pageFormat.height,
+    );
     final refStyle = pw.TextStyle(
       fontSize: 12,
       color: _colorMuted,
@@ -93,12 +101,11 @@ class CatalogPdfService {
     );
 
     final formattedPrice = currencyFormat.format(displayPrice);
-    final originalPrice =
-        (product.promoEnabled && product.promoPercent > 0)
-            ? (mode == CatalogMode.atacado
-                ? product.priceWholesale
-                : product.priceRetail)
-            : null;
+    final originalPrice = (product.promoEnabled && product.promoPercent > 0)
+        ? (mode == CatalogMode.atacado
+              ? product.priceWholesale
+              : product.priceRetail)
+        : null;
     final showPromo = originalPrice != null && originalPrice > displayPrice;
 
     return pw.Column(
@@ -116,19 +123,29 @@ class CatalogPdfService {
           ),
         ),
         pw.SizedBox(height: 12),
-        if (heroPath != null)
-          _buildMainPhotoBox(
-            heroPath,
-            width: availableWidth,
-            height: mainPhotoHeight,
-            radius: 20,
-          )
-        else
-          _buildImagePlaceholder(
-            height: mainPhotoHeight,
-            width: availableWidth,
-            radius: 20,
-          ),
+        pw.Stack(
+          children: [
+            if (heroPath != null)
+              _buildMainPhotoBox(
+                heroPath,
+                width: availableWidth,
+                height: mainPhotoHeight,
+                radius: 20,
+              )
+            else
+              _buildImagePlaceholder(
+                height: mainPhotoHeight,
+                width: availableWidth,
+                radius: 20,
+              ),
+            if (product.promoEnabled && product.promoPercent > 0)
+              pw.Positioned(
+                top: 12,
+                right: 12,
+                child: _buildPromoBadge(product.promoPercent),
+              ),
+          ],
+        ),
         pw.SizedBox(height: 14),
         pw.Row(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -185,10 +202,7 @@ class CatalogPdfService {
             else
               pw.Text(
                 'sem cores',
-                style: pw.TextStyle(
-                  fontSize: 12,
-                  color: _colorMuted,
-                ),
+                style: pw.TextStyle(fontSize: 12, color: _colorMuted),
               ),
             pw.SizedBox(width: 10),
             _buildSizePill(sizesText),
@@ -223,8 +237,8 @@ class CatalogPdfService {
   ) {
     return colors.take(5).map((color) {
       final normalized = color.trim().toLowerCase();
-      final isActive = activeColor != null &&
-          normalized == activeColor.trim().toLowerCase();
+      final isActive =
+          activeColor != null && normalized == activeColor.trim().toLowerCase();
       return pw.Container(
         width: 16,
         height: 16,
@@ -354,17 +368,13 @@ class CatalogPdfService {
     if (normalizedActive != null) {
       ordered.addAll(
         pick(
-          photos.where(
-            (p) => p.colorKey?.toLowerCase() == normalizedActive,
-          ),
+          photos.where((p) => p.colorKey?.toLowerCase() == normalizedActive),
         ),
       );
     }
     if (ordered.length < 3) {
       ordered.addAll(
-        pick(
-          photos.where((p) => p.colorKey == null || p.colorKey!.isEmpty),
-        ),
+        pick(photos.where((p) => p.colorKey == null || p.colorKey!.isEmpty)),
       );
     }
     if (ordered.length < 3) {
@@ -403,10 +413,7 @@ class CatalogPdfService {
           child: pw.ClipRRect(
             horizontalRadius: radius,
             verticalRadius: radius,
-            child: pw.FittedBox(
-              fit: pw.BoxFit.contain,
-              child: pw.Image(image),
-            ),
+            child: pw.FittedBox(fit: pw.BoxFit.contain, child: pw.Image(image)),
           ),
         );
       }
@@ -422,12 +429,7 @@ class CatalogPdfService {
     required double height,
     double radius = 0,
   }) {
-    return _buildImageBox(
-      path,
-      height: height,
-      width: width,
-      radius: radius,
-    );
+    return _buildImageBox(path, height: height, width: width, radius: radius);
   }
 
   static pw.Widget _buildImagePlaceholder({
@@ -454,7 +456,8 @@ class CatalogPdfService {
     String? collectionName,
     String defaultSubtitle = 'SELE\u00c7\u00c3O DE PRODUTOS',
   }) {
-    final resolved = cover ??
+    final resolved =
+        cover ??
         CollectionCover(
           mode: CollectionCoverMode.template,
           title: CollectionCover.defaultTitle,
@@ -538,9 +541,7 @@ class CatalogPdfService {
           child: pw.Stack(
             children: [
               if (overlayOpacity > 0)
-                pw.Container(
-                  color: PdfColor(0, 0, 0, overlayOpacity),
-                ),
+                pw.Container(color: PdfColor(0, 0, 0, overlayOpacity)),
               pw.Center(
                 child: pw.Column(
                   mainAxisSize: pw.MainAxisSize.min,
@@ -627,6 +628,33 @@ class CatalogPdfService {
     return ratioHeight > maxHeight ? maxHeight : ratioHeight;
   }
 
+  static pw.Widget _buildPromoBadge(double percent) {
+    final value = percent.round().clamp(1, 100);
+    return pw.Container(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: pw.BoxDecoration(
+        color: PdfColors.green600,
+        borderRadius: pw.BorderRadius.circular(20),
+        boxShadow: [
+          pw.BoxShadow(
+            blurRadius: 6,
+            color: PdfColors.orange,
+            offset: const PdfPoint(0, 2),
+          ),
+        ],
+      ),
+      child: pw.Text(
+        '-$value%',
+        style: pw.TextStyle(
+          fontSize: 18,
+          fontWeight: pw.FontWeight.bold,
+          color: PdfColors.white,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+
   static pw.Widget _buildMiniPhotosRow(
     List<ProductPhoto> photos, {
     required double height,
@@ -658,5 +686,3 @@ class CatalogPdfService {
     );
   }
 }
-
-

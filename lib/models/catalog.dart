@@ -73,6 +73,9 @@ class Catalog {
   @HiveField(15)
   final String ownerUid;
 
+  @HiveField(16)
+  final bool includeCover;
+
   Catalog({
     required this.id,
     required this.name,
@@ -90,6 +93,7 @@ class Catalog {
     this.isPublic = false,
     this.shareCode = '',
     this.ownerUid = '',
+    this.includeCover = true,
   });
 
   Catalog copyWith({
@@ -109,6 +113,7 @@ class Catalog {
     bool? isPublic,
     String? shareCode,
     String? ownerUid,
+    bool? includeCover,
   }) {
     return Catalog(
       id: id ?? this.id,
@@ -127,6 +132,7 @@ class Catalog {
       isPublic: isPublic ?? this.isPublic,
       shareCode: shareCode ?? this.shareCode,
       ownerUid: ownerUid ?? this.ownerUid,
+      includeCover: includeCover ?? this.includeCover,
     );
   }
 }

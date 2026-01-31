@@ -69,6 +69,7 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
       isPublic: false,
       shareCode: '',
       ownerUid: '',
+      includeCover: true,
     );
   }
 
@@ -137,6 +138,10 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
       catalog = catalog.copyWith(shareCode: _generateShareCode());
     }
     state = state.copyWith(catalog: catalog.copyWith(isPublic: value));
+  }
+
+  void setIncludeCover(bool value) {
+    state = state.copyWith(catalog: state.catalog.copyWith(includeCover: value));
   }
 
   void regenerateShareCode() {

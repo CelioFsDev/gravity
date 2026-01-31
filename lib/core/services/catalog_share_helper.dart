@@ -212,6 +212,7 @@ class CatalogShareHelper {
         bannerImagePath: bannerImagePath,
         collectionCover: fallbackCoverInfo.cover,
         collectionName: fallbackCoverInfo.name,
+        includeCover: catalog.includeCover,
       );
     }
 
@@ -224,6 +225,7 @@ class CatalogShareHelper {
       bannerImagePath: bannerImagePath,
       collectionCover: coverInfo.cover,
       collectionName: coverInfo.name,
+      includeCover: catalog.includeCover,
     );
   }
 

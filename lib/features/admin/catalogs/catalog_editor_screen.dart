@@ -269,6 +269,15 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                         ],
                         onChanged: (v) => notifier.setPhotoLayout(v!),
                       ),
+                      const SizedBox(height: 8),
+                      SwitchListTile(
+                        title: const Text('Incluir capa no PDF'),
+                        subtitle: const Text(
+                          'Usa a capa da coleção quando existir',
+                        ),
+                        value: state.catalog.includeCover,
+                        onChanged: notifier.setIncludeCover,
+                      ),
                       const Divider(height: 32),
                       SwitchListTile(
                         title: const Text('Barra de Anúncio'),

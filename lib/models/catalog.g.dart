@@ -73,13 +73,14 @@ class CatalogAdapter extends TypeAdapter<Catalog> {
       isPublic: fields[13] as bool,
       shareCode: fields[14] as String,
       ownerUid: fields[15] as String,
+      includeCover: (fields[16] as bool?) ?? true,
     );
   }
 
   @override
   void write(BinaryWriter writer, Catalog obj) {
     writer
-      ..writeByte(16)
+      ..writeByte(17)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -111,7 +112,9 @@ class CatalogAdapter extends TypeAdapter<Catalog> {
       ..writeByte(14)
       ..write(obj.shareCode)
       ..writeByte(15)
-      ..write(obj.ownerUid);
+      ..write(obj.ownerUid)
+      ..writeByte(16)
+      ..write(obj.includeCover);
   }
 
   @override
