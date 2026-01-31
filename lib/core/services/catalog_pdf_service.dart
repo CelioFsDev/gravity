@@ -195,48 +195,12 @@ class CatalogPdfService {
           ],
         ),
         pw.SizedBox(height: 14),
-        pw.Row(
-          children: [
-            pw.Expanded(
-              child: miniPhotos.isNotEmpty
-                  ? _buildImageBox(
-                      miniPhotos[0].path,
-                      height: pageFormat.height * 0.22,
-                      radius: 12,
-                    )
-                  : _buildImagePlaceholder(
-                      height: pageFormat.height * 0.22,
-                      radius: 12,
-                    ),
-            ),
-            pw.SizedBox(width: 10),
-            pw.Expanded(
-              child: miniPhotos.length > 1
-                  ? _buildImageBox(
-                      miniPhotos[1].path,
-                      height: pageFormat.height * 0.22,
-                      radius: 12,
-                    )
-                  : _buildImagePlaceholder(
-                      height: pageFormat.height * 0.22,
-                      radius: 12,
-                    ),
-            ),
-            pw.SizedBox(width: 10),
-            pw.Expanded(
-              child: miniPhotos.length > 2
-                  ? _buildImageBox(
-                      miniPhotos[2].path,
-                      height: pageFormat.height * 0.22,
-                      radius: 12,
-                    )
-                  : _buildImagePlaceholder(
-                      height: pageFormat.height * 0.22,
-                      radius: 12,
-                    ),
-            ),
-          ],
-        ),
+        if (miniPhotos.isNotEmpty)
+          _buildMiniPhotosRow(
+            miniPhotos,
+            height: pageFormat.height * 0.22,
+            width: availableWidth,
+          ),
         pw.Spacer(),
         pw.Divider(color: PdfColors.grey300),
         pw.SizedBox(height: 6),
@@ -372,33 +336,50 @@ class CatalogPdfService {
   ) {
     if (photos.isEmpty) return const [];
     final normalizedActive = activeColor?.toLowerCase();
-    var pool = normalizedActive == null
-        ? <ProductPhoto>[]
-        : photos
-            .where(
-              (p) =>
-                  p.colorKey?.toLowerCase() == normalizedActive &&
-                  p.path.isNotEmpty,
-            )
-            .toList();
-    if (pool.isEmpty) {
-      pool = photos
-          .where((p) => (p.colorKey == null || p.colorKey!.isEmpty))
+    final primaryPath = primary?.path;
+
+    List<ProductPhoto> pick(Iterable<ProductPhoto> source) {
+      final filtered = source
+          .where((p) => p.path.isNotEmpty && p.path != primaryPath)
           .toList();
+      filtered.sort((a, b) {
+        final aScore = a.isPrimary ? 1 : 0;
+        final bScore = b.isPrimary ? 1 : 0;
+        return bScore.compareTo(aScore);
+      });
+      return filtered;
     }
-    if (pool.isEmpty) {
-      pool = List<ProductPhoto>.from(photos);
+
+    final ordered = <ProductPhoto>[];
+    if (normalizedActive != null) {
+      ordered.addAll(
+        pick(
+          photos.where(
+            (p) => p.colorKey?.toLowerCase() == normalizedActive,
+          ),
+        ),
+      );
     }
-    if (primary != null) {
-      pool.removeWhere((p) => p.path == primary.path);
+    if (ordered.length < 3) {
+      ordered.addAll(
+        pick(
+          photos.where((p) => p.colorKey == null || p.colorKey!.isEmpty),
+        ),
+      );
     }
-    pool.sort((a, b) {
-      final aScore = a.isPrimary ? 1 : 0;
-      final bScore = b.isPrimary ? 1 : 0;
-      return bScore.compareTo(aScore);
-    });
-    if (pool.length <= 3) return pool;
-    return pool.take(3).toList();
+    if (ordered.length < 3) {
+      ordered.addAll(pick(photos));
+    }
+
+    final unique = <String>{};
+    final result = <ProductPhoto>[];
+    for (final photo in ordered) {
+      if (unique.add(photo.path)) {
+        result.add(photo);
+      }
+      if (result.length == 3) break;
+    }
+    return result;
   }
 
   static pw.Widget _buildImageBox(
@@ -644,6 +625,37 @@ class CatalogPdfService {
     final ratioHeight = width * 4 / 3;
     final maxHeight = pageHeight * 0.5;
     return ratioHeight > maxHeight ? maxHeight : ratioHeight;
+  }
+
+  static pw.Widget _buildMiniPhotosRow(
+    List<ProductPhoto> photos, {
+    required double height,
+    required double width,
+  }) {
+    final count = photos.length >= 3 ? 3 : photos.length;
+    if (count <= 0) return pw.SizedBox.shrink();
+    final gap = 10.0;
+    final totalGap = gap * (count - 1);
+    final itemWidth = (width - totalGap) / count;
+
+    return pw.Row(
+      children: List.generate(count, (index) {
+        final photo = photos[index];
+        final widget = _buildImageBox(
+          photo.path,
+          height: height,
+          width: itemWidth,
+          radius: 12,
+        );
+        if (index == count - 1) return widget;
+        return pw.Row(
+          children: [
+            widget,
+            pw.SizedBox(width: gap),
+          ],
+        );
+      }),
+    );
   }
 }
 

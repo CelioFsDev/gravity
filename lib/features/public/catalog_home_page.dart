@@ -163,7 +163,7 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
             margin: const EdgeInsets.only(bottom: 16),
             child: ListTile(
               leading: _buildProductThumbnail(
-                product.images.isNotEmpty ? product.images.first : null,
+                _resolvePrimaryImage(product),
               ),
               title: Text(product.name),
               subtitle: Text('REF: ${product.reference}'),
@@ -213,7 +213,7 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
                     fit: StackFit.expand,
                     children: [
                       _buildProductImageWidget(
-                        product.images.isNotEmpty ? product.images.first : null,
+                        _resolvePrimaryImage(product),
                       ),
                       if (product.isOutOfStock)
                         Container(
@@ -306,6 +306,21 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
     );
   }
 
+  String? _resolvePrimaryImage(Product product) {
+    if (product.remoteImages.isNotEmpty) {
+      return product.remoteImages.first;
+    }
+    if (product.images.isNotEmpty) {
+      return product.images.first;
+    }
+    if (product.photos.isNotEmpty) {
+      final primaryIndex = product.photos.indexWhere((p) => p.isPrimary);
+      if (primaryIndex >= 0) return product.photos[primaryIndex].path;
+      return product.photos.first.path;
+    }
+    return null;
+  }
+
   Widget _buildProductThumbnail(String? imagePath) {
     return Container(
       width: 60,
@@ -323,7 +338,7 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
     String? imagePath, {
     BoxFit fit = BoxFit.cover,
   }) {
-    if (imagePath == null || kIsWeb) {
+    if (imagePath == null) {
       return Container(
         color: Colors.grey.shade200,
         alignment: Alignment.center,
@@ -331,6 +346,38 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
       );
     }
 
+    final isRemote = imagePath.startsWith('http://') ||
+        imagePath.startsWith('https://') ||
+        imagePath.startsWith('data:');
+    if (kIsWeb) {
+      if (!isRemote) {
+        return Container(
+          color: Colors.grey.shade200,
+          alignment: Alignment.center,
+          child: const Icon(Icons.image_not_supported),
+        );
+      }
+      return Image.network(
+        imagePath,
+        fit: fit,
+        errorBuilder: (context, error, stackTrace) => Container(
+          color: Colors.grey.shade200,
+          alignment: Alignment.center,
+          child: const Icon(Icons.broken_image),
+        ),
+      );
+    }
+    if (isRemote) {
+      return Image.network(
+        imagePath,
+        fit: fit,
+        errorBuilder: (context, error, stackTrace) => Container(
+          color: Colors.grey.shade200,
+          alignment: Alignment.center,
+          child: const Icon(Icons.broken_image),
+        ),
+      );
+    }
     return Image.file(
       File(imagePath),
       fit: fit,
