@@ -8,9 +8,13 @@ import 'package:gravity/models/category.dart';
 import 'package:gravity/core/services/local_media_service.dart';
 import 'package:gravity/viewmodels/categories_viewmodel.dart';
 import 'package:gravity/core/widgets/responsive_scaffold.dart';
-import 'package:gravity/core/widgets/section_header.dart';
-import 'package:gravity/core/widgets/filter_chips_row.dart';
-import 'package:gravity/core/widgets/filter_chip_button.dart';
+import 'package:gravity/ui/theme/app_tokens.dart';
+import 'package:gravity/ui/widgets/app_section_header.dart';
+import 'package:gravity/ui/widgets/app_search_field.dart';
+import 'package:gravity/ui/widgets/app_chip.dart';
+import 'package:gravity/ui/widgets/app_primary_button.dart';
+import 'package:gravity/ui/widgets/app_empty_state.dart';
+import 'package:gravity/ui/widgets/app_card.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
@@ -73,54 +77,77 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
         final padding = EdgeInsets.all(isWide ? 24 : 16);
         return Padding(
           padding: padding,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SectionHeader(
-                title: 'Categorias',
-                subtitle: 'Organize as categorias do catalogo',
-                primaryAction: SectionHeaderAction(
-                  label: 'Nova categoria',
-                  icon: Icons.add,
-                  onPressed: () => _showCategoryDialog(context, notifier),
-                ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                height: 48,
-                child: TextField(
-                  controller: _searchController,
-                  decoration: const InputDecoration(
-                    hintText: 'Buscar categorias...',
-                    prefixIcon: Icon(Icons.search),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 980),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AppSectionHeader(
+                    title: 'Categorias',
+                    subtitle: 'Organize as categorias do catálogo',
+                    actions: [
+                      AppPrimaryButton(
+                        label: 'Nova',
+                        icon: Icons.add,
+                        onPressed: () => _showCategoryDialog(context, notifier),
+                      ),
+                    ],
                   ),
-                  onChanged: notifier.setSearchQuery,
-                ),
-              ),
-              const SizedBox(height: 12),
-              FilterChipsRow(
-                chips: [
-                  FilterChipButton(
-                    label: _sortLabel(state.sortOption),
-                    isActive: state.sortOption != CategorySortOption.manual,
-                    onPressed: () => _selectSort(context, state, notifier),
+                  const SizedBox(height: 20),
+                  AppCard(
+                    padding: const EdgeInsets.all(AppTokens.space16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AppSearchField(
+                          controller: _searchController,
+                          hintText: 'Buscar categorias...',
+                          onChanged: notifier.setSearchQuery,
+                        ),
+                        const SizedBox(height: AppTokens.space12),
+                        Wrap(
+                          spacing: AppTokens.space8,
+                          runSpacing: AppTokens.space8,
+                          children: [
+                            AppChip(
+                              label: _sortLabel(state.sortOption),
+                              isActive:
+                                  state.sortOption != CategorySortOption.manual,
+                              onPressed: () =>
+                                  _selectSort(context, state, notifier),
+                            ),
+                            if (hasFilters)
+                              AppChip(
+                                label: 'Limpar filtros',
+                                isActive: true,
+                                onPressed: () {
+                                  notifier.setSearchQuery('');
+                                  notifier.setSortOption(
+                                    CategorySortOption.manual,
+                                  );
+                                  _searchController.clear();
+                                },
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: state.categories.isEmpty
+                        ? const AppEmptyState(
+                            icon: Icons.folder_open,
+                            title: 'Nenhuma categoria encontrada',
+                            message:
+                                'Crie categorias para organizar o catálogo.',
+                          )
+                        : _buildCategoriesList(state, notifier),
                   ),
                 ],
-                onClear: hasFilters
-                    ? () {
-                        notifier.setSearchQuery('');
-                        notifier.setSortOption(CategorySortOption.manual);
-                        _searchController.clear();
-                      }
-                    : null,
               ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: state.categories.isEmpty
-                    ? const _CategoriesEmptyState()
-                    : _buildCategoriesList(state, notifier),
-              ),
-            ],
+            ),
           ),
         );
       },
@@ -248,9 +275,10 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     int index, {
     required bool isManual,
   }) {
-    return Card(
+    return AppCard(
       key: ValueKey(category.id),
       margin: const EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.zero,
       child: ListTile(
         leading: isManual
             ? ReorderableDragStartListener(
@@ -264,7 +292,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
         ),
         subtitle: Text('${state.productCounts[category.id] ?? 0} produtos'),
         trailing: PopupMenuButton<_CategoryAction>(
-          tooltip: 'Acoes',
+          tooltip: 'Ações',
           onSelected: (value) {
             if (value == _CategoryAction.edit) {
               _showCategoryDialog(context, notifier, category: category);
@@ -909,40 +937,12 @@ class _CategoriesLoadingState extends StatelessWidget {
                 height: 72,
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(16),
+                  color: AppTokens.border,
+                  borderRadius: BorderRadius.circular(AppTokens.radiusMd),
                 ),
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CategoriesEmptyState extends StatelessWidget {
-  const _CategoriesEmptyState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 32),
-        child: Column(
-          children: [
-            const Icon(Icons.folder_open, size: 48, color: Colors.grey),
-            const SizedBox(height: 12),
-            const Text(
-              'Nenhuma categoria encontrada',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Crie categorias para organizar o catalogo.',
-              style: TextStyle(color: Colors.grey.shade600),
-            ),
-          ],
         ),
       ),
     );

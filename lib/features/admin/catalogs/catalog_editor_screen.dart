@@ -8,7 +8,8 @@ import 'package:gravity/models/category.dart' show CategoryType;
 import 'package:gravity/viewmodels/catalog_editor_viewmodel.dart';
 import 'package:gravity/viewmodels/products_viewmodel.dart';
 import 'package:gravity/features/admin/catalogs/tabs/products_selection_tab.dart';
-import 'package:gravity/core/widgets/section_header.dart';
+import 'package:gravity/ui/widgets/app_section_header.dart';
+import 'package:gravity/ui/widgets/app_primary_button.dart';
 
 class CatalogEditorScreen extends ConsumerStatefulWidget {
   final Catalog? catalog;
@@ -78,34 +79,37 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
               );
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.check),
-            onPressed: state.isSaving
-                ? null
-                : () async {
-                    final success = await notifier.save();
-                    if (success && context.mounted) {
-                      Navigator.pop(context);
-                    } else if (!success &&
-                        state.slugError != null &&
-                        context.mounted) {
-                      ScaffoldMessenger.of(
-                        context,
-                      ).showSnackBar(SnackBar(content: Text(state.slugError!)));
-                    }
-                  },
-          ),
         ],
       ),
       body: Column(
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
-            child: SectionHeader(
+            child: AppSectionHeader(
               title: widget.catalog == null
                   ? 'Novo Catálogo'
                   : 'Editar Catálogo',
               subtitle: 'Selecione produtos e personalize o catálogo',
+              actions: [
+                AppPrimaryButton(
+                  label: 'Salvar',
+                  icon: Icons.check,
+                  onPressed: state.isSaving
+                      ? null
+                      : () async {
+                          final success = await notifier.save();
+                          if (success && context.mounted) {
+                            Navigator.pop(context);
+                          } else if (!success &&
+                              state.slugError != null &&
+                              context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(state.slugError!)),
+                            );
+                          }
+                        },
+                ),
+              ],
             ),
           ),
           Expanded(

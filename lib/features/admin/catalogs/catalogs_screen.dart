@@ -1,8 +1,12 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/core/services/catalog_share_helper.dart';
 import 'package:gravity/core/widgets/responsive_scaffold.dart';
-import 'package:gravity/core/widgets/section_header.dart';
+import 'package:gravity/ui/theme/app_tokens.dart';
+import 'package:gravity/ui/widgets/app_section_header.dart';
+import 'package:gravity/ui/widgets/app_primary_button.dart';
+import 'package:gravity/ui/widgets/app_empty_state.dart';
+import 'package:gravity/ui/widgets/app_card.dart';
 import 'package:gravity/features/admin/catalogs/catalog_editor_screen.dart';
 import 'package:gravity/models/catalog.dart';
 import 'package:gravity/viewmodels/catalogs_viewmodel.dart';
@@ -76,22 +80,30 @@ class _CatalogsContent extends StatelessWidget {
           padding: padding,
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1100),
+              constraints: const BoxConstraints(maxWidth: 980),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SectionHeader(
-                    title: 'Catalogos',
-                    subtitle: 'Gerencie seus catalogos digitais',
-                    primaryAction: SectionHeaderAction(
-                      label: 'Novo catalogo',
-                      icon: Icons.add,
-                      onPressed: onCreate,
-                    ),
+                  AppSectionHeader(
+                    title: 'Catálogos',
+                    subtitle: 'Gerencie seus catálogos digitais',
+                    actions: [
+                      AppPrimaryButton(
+                        label: 'Novo',
+                        icon: Icons.add,
+                        onPressed: onCreate,
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 20),
                   if (catalogs.isEmpty)
-                    _CatalogsEmptyState(onCreate: onCreate)
+                    AppEmptyState(
+                      icon: Icons.collections_bookmark_outlined,
+                      title: 'Nenhum catálogo ainda',
+                      message: 'Crie um catálogo para gerar PDF e compartilhar.',
+                      actionLabel: 'Criar catálogo',
+                      onAction: onCreate,
+                    )
                   else
                     ListView.separated(
                       shrinkWrap: true,
@@ -136,7 +148,8 @@ class CatalogCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final date = DateFormat('dd/MM/yyyy').format(catalog.updatedAt);
 
-    return Card(
+    return AppCard(
+      padding: EdgeInsets.zero,
       child: ListTile(
         title: Text(
           catalog.name,
@@ -146,7 +159,7 @@ class CatalogCard extends StatelessWidget {
           '${catalog.productIds.length} produtos • Atualizado em $date',
         ),
         trailing: PopupMenuButton<_CatalogAction>(
-          tooltip: 'Acoes',
+          tooltip: 'Ações',
           onSelected: (value) {
             switch (value) {
               case _CatalogAction.share:
@@ -176,47 +189,6 @@ class CatalogCard extends StatelessWidget {
 
 enum _CatalogAction { share, edit, delete }
 
-class _CatalogsEmptyState extends StatelessWidget {
-  final VoidCallback onCreate;
-
-  const _CatalogsEmptyState({required this.onCreate});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 32),
-        child: Column(
-          children: [
-            const Icon(
-              Icons.collections_bookmark_outlined,
-              size: 56,
-              color: Colors.grey,
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Nenhum catalogo ainda',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Crie um catálogo para gerar PDF e compartilhar.',
-              style: TextStyle(color: Colors.grey.shade600),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: onCreate,
-              icon: const Icon(Icons.add),
-              label: const Text('Criar primeiro catalogo'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _CatalogsLoadingState extends StatelessWidget {
   const _CatalogsLoadingState();
 
@@ -234,8 +206,8 @@ class _CatalogsLoadingState extends StatelessWidget {
                 height: 80,
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(16),
+                  color: AppTokens.border,
+                  borderRadius: BorderRadius.circular(AppTokens.radiusMd),
                 ),
               ),
             ),
@@ -278,3 +250,5 @@ class _CatalogsErrorState extends StatelessWidget {
     );
   }
 }
+
+
