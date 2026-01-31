@@ -71,14 +71,11 @@ class CatalogPdfService {
     String defaultSubtitle = 'SELEÇÃO DE PRODUTOS',
   }) {
     final displayPrice = product.priceForMode(mode.name);
-    final heroPath = product.images.isNotEmpty
-        ? product.images[product.mainImageIndex.clamp(
-            0,
-            product.images.length - 1,
-          )]
-        : null;
-    final thumb1 = product.images.length > 1 ? product.images[1] : null;
-    final thumb2 = product.images.length > 2 ? product.images[2] : null;
+    final primaryPhoto = _selectPrimaryPhoto(product.photos);
+    final heroPath = primaryPhoto?.path;
+    final activeColor = _selectActiveColor(product.photos, primaryPhoto);
+    final miniPhotos =
+        _selectMiniPhotos(product.photos, activeColor, primaryPhoto);
 
     final colors = _extractColorNames(product);
     final sizesText = _extractSizesText(product);
@@ -184,7 +181,7 @@ class CatalogPdfService {
             ),
             pw.Spacer(),
             if (colors.isNotEmpty)
-              pw.Row(children: _buildColorDots(colors))
+              pw.Row(children: _buildColorDots(colors, activeColor))
             else
               pw.Text(
                 'sem cores',
@@ -201,9 +198,9 @@ class CatalogPdfService {
         pw.Row(
           children: [
             pw.Expanded(
-              child: thumb1 != null
+              child: miniPhotos.isNotEmpty
                   ? _buildImageBox(
-                      thumb1,
+                      miniPhotos[0].path,
                       height: pageFormat.height * 0.22,
                       radius: 12,
                     )
@@ -214,22 +211,29 @@ class CatalogPdfService {
             ),
             pw.SizedBox(width: 10),
             pw.Expanded(
-              child: thumb2 != null
+              child: miniPhotos.length > 1
                   ? _buildImageBox(
-                      thumb2,
+                      miniPhotos[1].path,
                       height: pageFormat.height * 0.22,
                       radius: 12,
                     )
-                  : (heroPath != null
-                      ? _buildImageBox(
-                          heroPath,
-                          height: pageFormat.height * 0.22,
-                          radius: 12,
-                        )
-                      : _buildImagePlaceholder(
-                          height: pageFormat.height * 0.22,
-                          radius: 12,
-                        )),
+                  : _buildImagePlaceholder(
+                      height: pageFormat.height * 0.22,
+                      radius: 12,
+                    ),
+            ),
+            pw.SizedBox(width: 10),
+            pw.Expanded(
+              child: miniPhotos.length > 2
+                  ? _buildImageBox(
+                      miniPhotos[2].path,
+                      height: pageFormat.height * 0.22,
+                      radius: 12,
+                    )
+                  : _buildImagePlaceholder(
+                      height: pageFormat.height * 0.22,
+                      radius: 12,
+                    ),
             ),
           ],
         ),
@@ -249,19 +253,27 @@ class CatalogPdfService {
     );
   }
 
-  static List<pw.Widget> _buildColorDots(List<String> colors) {
+  static List<pw.Widget> _buildColorDots(
+    List<String> colors,
+    String? activeColor,
+  ) {
     return colors.take(5).map((color) {
       final normalized = color.trim().toLowerCase();
-        return pw.Container(
-          width: 16,
-          height: 16,
-          margin: const pw.EdgeInsets.only(left: 6),
-          decoration: pw.BoxDecoration(
-            color: _colorFromName(normalized),
-            borderRadius: pw.BorderRadius.circular(8),
-            border: pw.Border.all(color: PdfColors.grey400),
+      final isActive = activeColor != null &&
+          normalized == activeColor.trim().toLowerCase();
+      return pw.Container(
+        width: 16,
+        height: 16,
+        margin: const pw.EdgeInsets.only(left: 6),
+        decoration: pw.BoxDecoration(
+          color: _colorFromName(normalized),
+          borderRadius: pw.BorderRadius.circular(8),
+          border: pw.Border.all(
+            color: isActive ? PdfColors.black : PdfColors.grey400,
+            width: isActive ? 1.4 : 1,
           ),
-        );
+        ),
+      );
     }).toList();
   }
 
@@ -302,6 +314,14 @@ class CatalogPdfService {
 
   static List<String> _extractColorNames(Product product) {
     final colors = <String>{};
+    for (final photo in product.photos) {
+      final key = photo.colorKey?.trim();
+      if (key != null && key.isNotEmpty) {
+        colors.add(key);
+      }
+    }
+    if (colors.isNotEmpty) return colors.toList();
+
     for (final variant in product.variants) {
       for (final entry in variant.attributes.entries) {
         final key = entry.key.toLowerCase();
@@ -315,6 +335,70 @@ class CatalogPdfService {
       colors.addAll(product.colors.map((c) => c.trim()));
     }
     return colors.toList();
+  }
+
+  static ProductPhoto? _selectPrimaryPhoto(List<ProductPhoto> photos) {
+    if (photos.isEmpty) return null;
+    for (final photo in photos) {
+      if (photo.isPrimary) return photo;
+    }
+    for (final photo in photos) {
+      final key = photo.colorKey?.trim();
+      if (key != null && key.isNotEmpty) return photo;
+    }
+    return photos.first;
+  }
+
+  static String? _selectActiveColor(
+    List<ProductPhoto> photos,
+    ProductPhoto? primary,
+  ) {
+    if (photos.isEmpty) return null;
+    final primaryColor = primary?.colorKey?.trim();
+    if (primaryColor != null && primaryColor.isNotEmpty) {
+      return primaryColor;
+    }
+    for (final photo in photos) {
+      final key = photo.colorKey?.trim();
+      if (key != null && key.isNotEmpty) return key;
+    }
+    return null;
+  }
+
+  static List<ProductPhoto> _selectMiniPhotos(
+    List<ProductPhoto> photos,
+    String? activeColor,
+    ProductPhoto? primary,
+  ) {
+    if (photos.isEmpty) return const [];
+    final normalizedActive = activeColor?.toLowerCase();
+    var pool = normalizedActive == null
+        ? <ProductPhoto>[]
+        : photos
+            .where(
+              (p) =>
+                  p.colorKey?.toLowerCase() == normalizedActive &&
+                  p.path.isNotEmpty,
+            )
+            .toList();
+    if (pool.isEmpty) {
+      pool = photos
+          .where((p) => (p.colorKey == null || p.colorKey!.isEmpty))
+          .toList();
+    }
+    if (pool.isEmpty) {
+      pool = List<ProductPhoto>.from(photos);
+    }
+    if (primary != null) {
+      pool.removeWhere((p) => p.path == primary.path);
+    }
+    pool.sort((a, b) {
+      final aScore = a.isPrimary ? 1 : 0;
+      final bScore = b.isPrimary ? 1 : 0;
+      return bScore.compareTo(aScore);
+    });
+    if (pool.length <= 3) return pool;
+    return pool.take(3).toList();
   }
 
   static pw.Widget _buildImageBox(

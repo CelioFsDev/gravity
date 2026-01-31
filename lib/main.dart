@@ -37,6 +37,7 @@ void main() async {
   Hive.registerAdapter(CollectionCoverAdapter());
   Hive.registerAdapter(CategoryAdapter());
   Hive.registerAdapter(ProductVariantAdapter());
+  Hive.registerAdapter(ProductPhotoAdapter());
   Hive.registerAdapter(ProductAdapter());
   Hive.registerAdapter(CatalogBannerAdapter());
   Hive.registerAdapter(CatalogAdapter());

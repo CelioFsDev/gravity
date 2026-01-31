@@ -6,6 +6,46 @@ part of 'product.dart';
 // TypeAdapterGenerator
 // **************************************************************************
 
+class ProductPhotoAdapter extends TypeAdapter<ProductPhoto> {
+  @override
+  final int typeId = 11;
+
+  @override
+  ProductPhoto read(BinaryReader reader) {
+    final numOfFields = reader.readByte();
+    final fields = <int, dynamic>{
+      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
+    };
+    return ProductPhoto(
+      path: fields[0] as String,
+      colorKey: fields[1] as String?,
+      isPrimary: fields[2] as bool,
+    );
+  }
+
+  @override
+  void write(BinaryWriter writer, ProductPhoto obj) {
+    writer
+      ..writeByte(3)
+      ..writeByte(0)
+      ..write(obj.path)
+      ..writeByte(1)
+      ..write(obj.colorKey)
+      ..writeByte(2)
+      ..write(obj.isPrimary);
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ProductPhotoAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
 class ProductAdapter extends TypeAdapter<Product> {
   @override
   final int typeId = 4;
@@ -16,6 +56,11 @@ class ProductAdapter extends TypeAdapter<Product> {
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
+    final legacyImages = (fields[10] as List?)?.cast<String>() ?? <String>[];
+    final legacyMainIndex = fields[11] as int? ?? 0;
+    final photos =
+        (fields[24] as List?)?.cast<ProductPhoto>() ??
+        Product._photosFromLegacy(legacyImages, legacyMainIndex);
     return Product(
       id: fields[0] as String,
       name: fields[1] as String,
@@ -27,8 +72,8 @@ class ProductAdapter extends TypeAdapter<Product> {
       minWholesaleQty: fields[7] as int,
       sizes: (fields[8] as List).cast<String>(),
       colors: (fields[9] as List).cast<String>(),
-      images: (fields[10] as List).cast<String>(),
-      mainImageIndex: fields[11] as int,
+      images: legacyImages,
+      mainImageIndex: legacyMainIndex,
       isActive: fields[12] as bool,
       isOutOfStock: fields[13] as bool,
       promoEnabled: fields[14] as bool,
@@ -40,13 +85,14 @@ class ProductAdapter extends TypeAdapter<Product> {
       remoteImages: (fields[21] as List).cast<String>(),
       variants: (fields[22] as List).cast<ProductVariant>(),
       updatedAt: fields[23] as DateTime?,
+      photos: photos,
     );
   }
 
   @override
   void write(BinaryWriter writer, Product obj) {
     writer
-      ..writeByte(23)
+      ..writeByte(24)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -92,7 +138,9 @@ class ProductAdapter extends TypeAdapter<Product> {
       ..writeByte(22)
       ..write(obj.variants)
       ..writeByte(23)
-      ..write(obj.updatedAt);
+      ..write(obj.updatedAt)
+      ..writeByte(24)
+      ..write(obj.photos);
   }
 
   @override

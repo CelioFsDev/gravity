@@ -23,6 +23,18 @@ class ProductFormScreen extends ConsumerStatefulWidget {
   ConsumerState<ProductFormScreen> createState() => _ProductFormScreenState();
 }
 
+class _PhotoMetaResult {
+  final String? colorKey;
+  final bool isPrimary;
+  final bool isNewColor;
+
+  const _PhotoMetaResult({
+    required this.colorKey,
+    required this.isPrimary,
+    required this.isNewColor,
+  });
+}
+
 class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   final _formKey = GlobalKey<FormState>();
 
@@ -44,8 +56,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   bool _isActive = true;
   bool _isOutOfStock = false;
   bool _isOnSale = false;
-  String? _mainImagePath;
-  List<String> _variationImages = [];
+  List<ProductPhoto> _photos = [];
 
   @override
   void initState() {
@@ -76,16 +87,17 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     _isActive = pr?.isActive ?? true;
     _isOutOfStock = pr?.isOutOfStock ?? false;
     _isOnSale = pr?.isOnSale ?? false;
-    if (pr != null && pr.images.isNotEmpty) {
+    if (pr != null && pr.photos.isNotEmpty) {
+      _photos = List<ProductPhoto>.from(pr.photos);
+    } else if (pr != null && pr.images.isNotEmpty) {
       final safeIndex = pr.mainImageIndex.clamp(0, pr.images.length - 1);
-      _mainImagePath = pr.images[safeIndex];
-      _variationImages = pr.images
-          .asMap()
-          .entries
-          .where((entry) => entry.key != safeIndex)
-          .map((entry) => entry.value)
-          .take(3)
-          .toList();
+      _photos = pr.images.asMap().entries.map((entry) {
+        return ProductPhoto(
+          path: entry.value,
+          colorKey: null,
+          isPrimary: entry.key == safeIndex,
+        );
+      }).toList();
     }
   }
 
@@ -127,7 +139,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       return;
     }
 
-    final imagesForSave = _buildImagesForSave();
+    final photosForSave = _normalizePhotosForSave();
+    final imagesForSave = _imagesFromPhotos(photosForSave);
+    final mainImageIndex = _mainIndexFromPhotos(photosForSave);
     final categoryIds = <String>[
       if (_selectedCollectionId != null) _selectedCollectionId!,
       ..._selectedTypeIds,
@@ -152,7 +166,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           .where((e) => e.isNotEmpty)
           .toList(),
       images: imagesForSave,
-      mainImageIndex: imagesForSave.isEmpty ? 0 : 0,
+      mainImageIndex: mainImageIndex,
+      photos: photosForSave,
       isActive: _isActive,
       isOutOfStock: _isOutOfStock,
       promoEnabled: _isOnSale,
@@ -181,57 +196,160 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     }
   }
 
-  Future<void> _pickMainImage() async {
+  Future<void> _addPhoto() async {
     try {
-      debugPrint('Picking main image...');
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: false,
-        type: FileType
-            .any, // Back to any to avoid filter issues on some Windows versions
-        // allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'], // Filtered manually below
+        type: FileType.any,
       );
-
       if (result == null || result.files.isEmpty) return;
       final file = result.files.first;
       final resolved = await _processPickedImage(file);
-      if (resolved != null && mounted) {
-        setState(() => _mainImagePath = resolved);
-      }
+      if (resolved == null || !mounted) return;
+
+      final meta = await _showPhotoMetaDialog(context);
+      if (meta == null || !mounted) return;
+
+      setState(() {
+        if (meta.isPrimary) {
+          _photos = _photos
+              .map((p) => p.copyWith(isPrimary: false))
+              .toList();
+        }
+        if (meta.isNewColor && meta.colorKey != null) {
+          final current = _parseColorOptions().toSet();
+          if (!current.contains(meta.colorKey)) {
+            final sep = _colorsController.text.trim().isEmpty ? '' : ', ';
+            _colorsController.text =
+                '${_colorsController.text.trim()}$sep${meta.colorKey}';
+          }
+        }
+        _photos.add(
+          ProductPhoto(
+            path: resolved,
+            colorKey: meta.colorKey,
+            isPrimary: meta.isPrimary || _photos.isEmpty,
+          ),
+        );
+      });
     } catch (e, stack) {
-      debugPrint('Error in _pickMainImage: $e\n$stack');
+      debugPrint('Error in _addPhoto: $e\n$stack');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro crítico ao selecionar foto: $e')),
+          SnackBar(content: Text('Erro ao selecionar foto: $e')),
         );
       }
     }
   }
 
-  Future<void> _pickVariationImages() async {
-    if (_variationImages.length >= 3) return;
-    try {
-      debugPrint('Picking variation images...');
-      final result = await FilePicker.platform.pickFiles(
-        allowMultiple: true,
-        type: FileType.any,
-      );
+  Future<_PhotoMetaResult?> _showPhotoMetaDialog(
+    BuildContext context,
+  ) async {
+    final colors = _parseColorOptions();
+    String selected = '__none__';
+    final newColorController = TextEditingController();
+    bool isPrimary = false;
 
-      if (result == null || result.files.isEmpty) return;
-      for (final file in result.files) {
-        if (_variationImages.length >= 3) break;
-        final resolved = await _processPickedImage(file);
-        if (resolved != null && mounted) {
-          setState(() => _variationImages.add(resolved));
-        }
-      }
-    } catch (e, stack) {
-      debugPrint('Error in _pickVariationImages: $e\n$stack');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao selecionar variações: $e')),
-        );
-      }
-    }
+    final result = await showDialog<_PhotoMetaResult>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setModalState) => AlertDialog(
+          title: const Text('Vincular foto a cor'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                value: selected,
+                decoration: const InputDecoration(labelText: 'Cor'),
+                items: [
+                  const DropdownMenuItem(
+                    value: '__none__',
+                    child: Text('Sem cor (geral)'),
+                  ),
+                  const DropdownMenuItem(
+                    value: '__new__',
+                    child: Text('Adicionar nova cor'),
+                  ),
+                  ...colors.map(
+                    (c) => DropdownMenuItem(value: c, child: Text(c)),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setModalState(() => selected = value);
+                },
+              ),
+              if (selected == '__new__') ...[
+                const SizedBox(height: 12),
+                TextField(
+                  controller: newColorController,
+                  decoration: const InputDecoration(
+                    labelText: 'Nova cor',
+                    hintText: 'Ex: PRETO',
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                value: isPrimary,
+                onChanged: (value) =>
+                    setModalState(() => isPrimary = value ?? false),
+                title: const Text('Foto principal'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                String? colorKey;
+                bool isNewColor = false;
+                if (selected == '__new__') {
+                  final text = newColorController.text.trim();
+                  if (text.isEmpty) return;
+                  colorKey = text.toUpperCase();
+                  isNewColor = true;
+                } else if (selected == '__none__') {
+                  colorKey = null;
+                } else {
+                  colorKey = selected.toUpperCase();
+                }
+                Navigator.pop(
+                  dialogContext,
+                  _PhotoMetaResult(
+                    colorKey: colorKey,
+                    isPrimary: isPrimary,
+                    isNewColor: isNewColor,
+                  ),
+                );
+              },
+              child: const Text('Salvar'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      newColorController.dispose();
+    });
+    return result;
+  }
+
+  List<String> _parseColorOptions() {
+    final values = _colorsController.text
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .map((e) => e.toUpperCase())
+        .toSet()
+        .toList();
+    values.sort();
+    return values;
   }
 
   Future<String?> _processPickedImage(PlatformFile file) async {
@@ -265,11 +383,44 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     return resolved;
   }
 
-  List<String> _buildImagesForSave() {
-    final images = <String>[];
-    if (_mainImagePath != null) images.add(_mainImagePath!);
-    images.addAll(_variationImages);
-    return images;
+  List<ProductPhoto> _normalizePhotosForSave() {
+    if (_photos.isEmpty) return const [];
+    final hasPrimary = _photos.any((p) => p.isPrimary);
+    if (hasPrimary) return List<ProductPhoto>.from(_photos);
+    final updated = <ProductPhoto>[];
+    for (var i = 0; i < _photos.length; i++) {
+      updated.add(_photos[i].copyWith(isPrimary: i == 0));
+    }
+    return updated;
+  }
+
+  List<String> _imagesFromPhotos(List<ProductPhoto> photos) {
+    return photos.map((p) => p.path).toList();
+  }
+
+  int _mainIndexFromPhotos(List<ProductPhoto> photos) {
+    final index = photos.indexWhere((p) => p.isPrimary);
+    return index >= 0 ? index : 0;
+  }
+
+  void _setPrimaryPhoto(int index) {
+    setState(() {
+      _photos = _photos.asMap().entries.map((entry) {
+        return entry.value.copyWith(isPrimary: entry.key == index);
+      }).toList();
+    });
+  }
+
+  void _removePhoto(int index) {
+    setState(() {
+      final removedPrimary = _photos[index].isPrimary;
+      _photos.removeAt(index);
+      if (removedPrimary && _photos.isNotEmpty) {
+        _photos = _photos.asMap().entries.map((entry) {
+          return entry.value.copyWith(isPrimary: entry.key == 0);
+        }).toList();
+      }
+    });
   }
 
   Future<String?> _copyFileToPersistentStorage(PlatformFile file) async {
@@ -593,138 +744,19 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
                     // Images
                     _buildSectionTitle('Imagens'),
-                    Text(
-                      'Imagem principal',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
                     const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Container(
-                          width: 120,
-                          height: 120,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade200,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.blue, width: 2),
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: _mainImagePath == null
-                              ? const Center(child: Icon(Icons.image))
-                              : kIsWeb
-                              ? const Center(
-                                  child: Text(
-                                    'Imagem não renderizada no navegador',
-                                  ),
-                                )
-                              : Image.file(
-                                  File(_mainImagePath!),
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) => const Center(
-                                    child: Icon(
-                                      Icons.broken_image,
-                                      color: Colors.red,
-                                    ),
-                                  ),
-                                ),
-                        ),
-                        const SizedBox(width: 16),
-                        ElevatedButton.icon(
-                          onPressed: _pickMainImage,
-                          icon: const Icon(Icons.upload),
-                          label: const Text('Adicionar principal'),
-                        ),
-                        if (_mainImagePath != null) ...[
-                          const SizedBox(width: 8),
-                          IconButton(
-                            onPressed: () =>
-                                setState(() => _mainImagePath = null),
-                            icon: const Icon(Icons.delete_outline),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Variações (até 3 fotos)',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: List.generate(3, (index) {
-                        final hasImage = index < _variationImages.length;
-                        final path = hasImage ? _variationImages[index] : null;
-                        return Padding(
-                          padding: EdgeInsets.only(right: index == 2 ? 0 : 8),
-                          child: Stack(
-                            children: [
-                              Container(
-                                width: 80,
-                                height: 80,
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade200,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                clipBehavior: Clip.antiAlias,
-                                child: path == null
-                                    ? const Center(
-                                        child: Icon(Icons.add_photo_alternate),
-                                      )
-                                    : kIsWeb
-                                    ? const Center(
-                                        child: Text(
-                                          'Sem preview',
-                                          textAlign: TextAlign.center,
-                                        ),
-                                      )
-                                    : Image.file(
-                                        File(path),
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, _, _) => const Center(
-                                          child: Icon(
-                                            Icons.broken_image,
-                                            color: Colors.red,
-                                          ),
-                                        ),
-                                      ),
-                              ),
-                              if (path != null)
-                                Positioned(
-                                  top: 0,
-                                  right: 0,
-                                  child: Container(
-                                    decoration: const BoxDecoration(
-                                      color: Colors.black54,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: IconButton(
-                                      icon: const Icon(
-                                        Icons.close,
-                                        color: Colors.white,
-                                        size: 16,
-                                      ),
-                                      onPressed: () => setState(() {
-                                        _variationImages.removeAt(index);
-                                      }),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        );
-                      }),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: _photos.asMap().entries.map((entry) {
+                        return _buildPhotoTile(entry.key, entry.value);
+                      }).toList(),
                     ),
                     const SizedBox(height: 12),
                     ElevatedButton.icon(
-                      onPressed: _variationImages.length >= 3
-                          ? null
-                          : _pickVariationImages,
+                      onPressed: _addPhoto,
                       icon: const Icon(Icons.upload),
-                      label: Text(
-                        _variationImages.length >= 3
-                            ? 'Limite atingido'
-                            : 'Adicionar variações',
-                      ),
+                      label: const Text('Adicionar foto'),
                     ),
                   ],
                 ),
@@ -874,6 +906,95 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
       ],
+    );
+  }
+
+  Widget _buildPhotoTile(int index, ProductPhoto photo) {
+    final colorLabel = photo.colorKey?.toUpperCase() ?? 'GERAL';
+    return SizedBox(
+      width: 110,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Stack(
+            children: [
+              Container(
+                width: 110,
+                height: 110,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: photo.isPrimary ? Colors.blue : Colors.transparent,
+                    width: 2,
+                  ),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: kIsWeb
+                    ? const Center(child: Text('Sem preview'))
+                    : Image.file(
+                        File(photo.path),
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Center(
+                          child: Icon(
+                            Icons.broken_image,
+                            color: Colors.red,
+                          ),
+                        ),
+                      ),
+              ),
+              Positioned(
+                top: 6,
+                right: 6,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: Icon(
+                        photo.isPrimary ? Icons.star : Icons.star_border,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      onPressed: () => _setPrimaryPhoto(index),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.black54,
+                        padding: const EdgeInsets.all(4),
+                        minimumSize: const Size(28, 28),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      onPressed: () => _removePhoto(index),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.black54,
+                        padding: const EdgeInsets.all(4),
+                        minimumSize: const Size(28, 28),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            colorLabel,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+          if (photo.isPrimary)
+            const Text(
+              'principal',
+              style: TextStyle(fontSize: 11, color: Colors.blueGrey),
+            ),
+        ],
+      ),
     );
   }
 

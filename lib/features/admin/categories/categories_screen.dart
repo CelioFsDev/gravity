@@ -349,9 +349,9 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
       );
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Erro ao selecionar imagem: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao selecionar imagem: $e')),
+        );
       }
       return null;
     }
@@ -464,284 +464,302 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           title: Text(isEdit ? 'Editar Categoria' : 'Nova Categoria'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: _categoryNameController,
-                focusNode: _categoryNameFocus,
-                textInputAction: TextInputAction.done,
-                decoration: const InputDecoration(
-                  labelText: 'Nome',
-                  hintText: 'Ex: Camisetas',
-                ),
-                autofocus: true,
+          content: SizedBox(
+            width: 420,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.7,
               ),
-              const SizedBox(height: 16),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Tipo',
-                  style: Theme.of(context).textTheme.labelLarge,
-                ),
-              ),
-              const SizedBox(height: 8),
-              ToggleButtons(
-                isSelected: [
-                  selectedType == CategoryType.collection,
-                  selectedType == CategoryType.productType,
-                ],
-                onPressed: isEdit
-                    ? null
-                    : (index) {
-                        setState(() {
-                          selectedType = index == 0
-                              ? CategoryType.collection
-                              : CategoryType.productType;
-                        });
-                      },
-                borderRadius: BorderRadius.circular(8),
-                constraints: const BoxConstraints(minHeight: 40),
-                children: const [
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: Text('Colecao'),
-                  ),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: Text('Categoria'),
-                  ),
-                ],
-              ),
-              if (isEdit)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    'O tipo nao pode ser alterado.',
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                  ),
-                ),
-              if (selectedType == CategoryType.collection) ...[
-                const SizedBox(height: 20),
-                Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Capa do catalogo',
-                      style: Theme.of(context).textTheme.labelLarge,
-                    ),
-                  ),
-                const SizedBox(height: 8),
-                ToggleButtons(
-                  isSelected: [
-                    coverMode == CollectionCoverMode.image,
-                    coverMode == CollectionCoverMode.template,
-                  ],
-                  onPressed: (index) {
-                    setState(() {
-                      coverMode = index == 0
-                          ? CollectionCoverMode.image
-                          : CollectionCoverMode.template;
-                    });
-                  },
-                  borderRadius: BorderRadius.circular(8),
-                  constraints: const BoxConstraints(minHeight: 40),
-                  children: const [
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Text('Capa personalizada'),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Text('Gerar capa automatica'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if (coverMode == CollectionCoverMode.image) ...[
-                  Row(
-                    children: [
-                        ElevatedButton.icon(
-                          onPressed: () async {
-                            final picked = await _pickCoverImage(
-                              context,
-                              collectionId: collectionId,
-                              fileName: 'cover',
-                            );
-                            if (picked != null) {
-                              setState(() => coverImagePath = picked);
-                            }
-                          },
-                        icon: const Icon(Icons.image_outlined),
-                        label: const Text('Escolher imagem'),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: _categoryNameController,
+                      focusNode: _categoryNameFocus,
+                      textInputAction: TextInputAction.done,
+                      decoration: const InputDecoration(
+                        labelText: 'Nome',
+                        hintText: 'Ex: Camisetas',
                       ),
-                      if (coverImagePath != null) ...[
-                        const SizedBox(width: 8),
-                        IconButton(
-                          onPressed: () =>
-                              setState(() => coverImagePath = null),
-                          icon: const Icon(Icons.delete_outline),
+                      autofocus: true,
+                    ),
+                    const SizedBox(height: 16),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Tipo',
+                        style: Theme.of(context).textTheme.labelLarge,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ToggleButtons(
+                      isSelected: [
+                        selectedType == CategoryType.collection,
+                        selectedType == CategoryType.productType,
+                      ],
+                      onPressed: isEdit
+                          ? null
+                          : (index) {
+                              setState(() {
+                                selectedType = index == 0
+                                    ? CategoryType.collection
+                                    : CategoryType.productType;
+                              });
+                            },
+                      borderRadius: BorderRadius.circular(8),
+                      constraints: const BoxConstraints(minHeight: 40),
+                      children: const [
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          child: Text('Colecao'),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          child: Text('Categoria'),
                         ),
                       ],
-                    ],
-                  ),
-                    if (coverImagePath != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        p.basename(coverImagePath!),
-                        style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                    if (isEdit)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          'O tipo nao pode ser alterado.',
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 12,
+                          ),
+                        ),
                       ),
-                      if (!kIsWeb)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: SizedBox(
-                              height: 140,
-                              width: double.infinity,
-                              child: Image.file(
-                                File(coverImagePath!),
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
-                                  color: Colors.grey.shade200,
-                                  alignment: Alignment.center,
-                                  child: const Icon(Icons.broken_image),
+                    if (selectedType == CategoryType.collection) ...[
+                      const SizedBox(height: 20),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Capa do catalogo',
+                          style: Theme.of(context).textTheme.labelLarge,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: ToggleButtons(
+                          isSelected: [
+                            coverMode == CollectionCoverMode.image,
+                            coverMode == CollectionCoverMode.template,
+                          ],
+                          onPressed: (index) {
+                            setState(() {
+                              coverMode = index == 0
+                                  ? CollectionCoverMode.image
+                                  : CollectionCoverMode.template;
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          constraints: const BoxConstraints(minHeight: 40),
+                          children: const [
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 16),
+                              child: Text('Capa personalizada'),
+                            ),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 16),
+                              child: Text('Gerar capa automatica'),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (coverMode == CollectionCoverMode.image) ...[
+                        Row(
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: () async {
+                                final picked = await _pickCoverImage(
+                                  context,
+                                  collectionId: collectionId,
+                                  fileName: 'cover',
+                                );
+                                if (picked != null) {
+                                  setState(() => coverImagePath = picked);
+                                }
+                              },
+                              icon: const Icon(Icons.image_outlined),
+                              label: const Text('Escolher imagem'),
+                            ),
+                            if (coverImagePath != null) ...[
+                              const SizedBox(width: 8),
+                              IconButton(
+                                onPressed: () =>
+                                    setState(() => coverImagePath = null),
+                                icon: const Icon(Icons.delete_outline),
+                              ),
+                            ],
+                          ],
+                        ),
+                        if (coverImagePath != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            p.basename(coverImagePath!),
+                            style: TextStyle(color: Colors.grey.shade600),
+                          ),
+                          if (!kIsWeb)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: SizedBox(
+                                  height: 140,
+                                  width: double.infinity,
+                                  child: Image.file(
+                                    File(coverImagePath!),
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      color: Colors.grey.shade200,
+                                      alignment: Alignment.center,
+                                      child: const Icon(Icons.broken_image),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                        const SizedBox(height: 16),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Banner (horizontal)',
+                            style: Theme.of(context).textTheme.labelLarge,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: () async {
+                                final picked = await _pickCoverImage(
+                                  context,
+                                  collectionId: collectionId,
+                                  fileName: 'banner',
+                                );
+                                if (picked != null) {
+                                  setState(() => bannerImagePath = picked);
+                                }
+                              },
+                              icon: const Icon(Icons.image_outlined),
+                              label: const Text('Selecionar banner'),
+                            ),
+                            if (bannerImagePath != null) ...[
+                              const SizedBox(width: 8),
+                              IconButton(
+                                onPressed: () =>
+                                    setState(() => bannerImagePath = null),
+                                icon: const Icon(Icons.delete_outline),
+                              ),
+                            ],
+                          ],
+                        ),
+                        if (bannerImagePath != null && !kIsWeb)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: SizedBox(
+                                height: 90,
+                                width: double.infinity,
+                                child: Image.file(
+                                  File(bannerImagePath!),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    color: Colors.grey.shade200,
+                                    alignment: Alignment.center,
+                                    child: const Icon(Icons.broken_image),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
+                        const SizedBox(height: 16),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Foto principal (9:16)',
+                            style: Theme.of(context).textTheme.labelLarge,
+                          ),
                         ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: () async {
+                                final picked = await _pickCoverImage(
+                                  context,
+                                  collectionId: collectionId,
+                                  fileName: 'hero',
+                                );
+                                if (picked != null) {
+                                  setState(() => heroImagePath = picked);
+                                }
+                              },
+                              icon: const Icon(Icons.image_outlined),
+                              label: const Text('Selecionar foto principal'),
+                            ),
+                            if (heroImagePath != null) ...[
+                              const SizedBox(width: 8),
+                              IconButton(
+                                onPressed: () =>
+                                    setState(() => heroImagePath = null),
+                                icon: const Icon(Icons.delete_outline),
+                              ),
+                            ],
+                          ],
+                        ),
+                        if (heroImagePath != null && !kIsWeb)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: SizedBox(
+                                height: 220,
+                                width: double.infinity,
+                                child: Image.file(
+                                  File(heroImagePath!),
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    color: Colors.grey.shade200,
+                                    alignment: Alignment.center,
+                                    child: const Icon(Icons.broken_image),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ] else ...[
+                        TextField(
+                          controller: coverSubtitleController,
+                          decoration: const InputDecoration(
+                            labelText: 'Subtitulo',
+                            hintText: 'Ex: CAPSULA 2026',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: coverTitleController,
+                          decoration: const InputDecoration(
+                            labelText: 'Titulo',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: coverBrandController,
+                          decoration: const InputDecoration(labelText: 'Marca'),
+                        ),
+                      ],
                     ],
-                    const SizedBox(height: 16),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Banner (horizontal)',
-                        style: Theme.of(context).textTheme.labelLarge,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        ElevatedButton.icon(
-                          onPressed: () async {
-                            final picked = await _pickCoverImage(
-                              context,
-                              collectionId: collectionId,
-                              fileName: 'banner',
-                            );
-                            if (picked != null) {
-                              setState(() => bannerImagePath = picked);
-                            }
-                          },
-                          icon: const Icon(Icons.image_outlined),
-                          label: const Text('Selecionar banner'),
-                        ),
-                        if (bannerImagePath != null) ...[
-                          const SizedBox(width: 8),
-                          IconButton(
-                            onPressed: () =>
-                                setState(() => bannerImagePath = null),
-                            icon: const Icon(Icons.delete_outline),
-                          ),
-                        ],
-                      ],
-                    ),
-                    if (bannerImagePath != null && !kIsWeb)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: SizedBox(
-                            height: 90,
-                            width: double.infinity,
-                            child: Image.file(
-                              File(bannerImagePath!),
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
-                                color: Colors.grey.shade200,
-                                alignment: Alignment.center,
-                                child: const Icon(Icons.broken_image),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    const SizedBox(height: 16),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Foto principal (9:16)',
-                        style: Theme.of(context).textTheme.labelLarge,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        ElevatedButton.icon(
-                          onPressed: () async {
-                            final picked = await _pickCoverImage(
-                              context,
-                              collectionId: collectionId,
-                              fileName: 'hero',
-                            );
-                            if (picked != null) {
-                              setState(() => heroImagePath = picked);
-                            }
-                          },
-                          icon: const Icon(Icons.image_outlined),
-                          label: const Text('Selecionar foto principal'),
-                        ),
-                        if (heroImagePath != null) ...[
-                          const SizedBox(width: 8),
-                          IconButton(
-                            onPressed: () =>
-                                setState(() => heroImagePath = null),
-                            icon: const Icon(Icons.delete_outline),
-                          ),
-                        ],
-                      ],
-                    ),
-                    if (heroImagePath != null && !kIsWeb)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: SizedBox(
-                            height: 220,
-                            width: double.infinity,
-                            child: Image.file(
-                              File(heroImagePath!),
-                              fit: BoxFit.contain,
-                              errorBuilder: (_, __, ___) => Container(
-                                color: Colors.grey.shade200,
-                                alignment: Alignment.center,
-                                child: const Icon(Icons.broken_image),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                  ] else ...[
-                  TextField(
-                    controller: coverSubtitleController,
-                    decoration: const InputDecoration(
-                      labelText: 'Subtitulo',
-                      hintText: 'Ex: CAPSULA 2026',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: coverTitleController,
-                    decoration: const InputDecoration(labelText: 'Titulo'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: coverBrandController,
-                    decoration: const InputDecoration(labelText: 'Marca'),
-                  ),
-                ],
-              ],
-            ],
+                  ],
+                ),
+              ),
+            ),
           ),
           actions: [
             TextButton(
@@ -755,7 +773,8 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
 
                 CollectionCover? cover;
                 if (selectedType == CategoryType.collection) {
-                  final subtitle = coverSubtitleController.text.trim().isNotEmpty
+                  final subtitle =
+                      coverSubtitleController.text.trim().isNotEmpty
                       ? coverSubtitleController.text.trim()
                       : name;
                   final title = coverTitleController.text.trim().isNotEmpty
@@ -958,6 +977,24 @@ class _CategoriesErrorState extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ScrollLabel extends StatelessWidget {
+  final String text;
+
+  const _ScrollLabel({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 140,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Text(text),
       ),
     );
   }

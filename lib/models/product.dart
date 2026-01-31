@@ -4,6 +4,32 @@ import 'package:gravity/models/product_variant.dart';
 
 part 'product.g.dart';
 
+@HiveType(typeId: 11)
+class ProductPhoto {
+  @HiveField(0)
+  final String path;
+
+  @HiveField(1)
+  final String? colorKey;
+
+  @HiveField(2)
+  final bool isPrimary;
+
+  const ProductPhoto({
+    required this.path,
+    this.colorKey,
+    this.isPrimary = false,
+  });
+
+  ProductPhoto copyWith({String? path, String? colorKey, bool? isPrimary}) {
+    return ProductPhoto(
+      path: path ?? this.path,
+      colorKey: colorKey ?? this.colorKey,
+      isPrimary: isPrimary ?? this.isPrimary,
+    );
+  }
+}
+
 @HiveType(typeId: 4)
 @HiveType(typeId: 4)
 class Product {
@@ -76,6 +102,9 @@ class Product {
   @HiveField(23)
   final DateTime updatedAt;
 
+  @HiveField(24)
+  final List<ProductPhoto> photos;
+
   Product({
     required this.id,
     required this.name,
@@ -93,6 +122,7 @@ class Product {
     required this.isOutOfStock,
     required this.promoEnabled,
     required this.createdAt,
+    List<ProductPhoto> photos = const [],
     this.promoPercent = 0.0,
     this.slug = '',
     this.description,
@@ -100,7 +130,10 @@ class Product {
     this.remoteImages = const [],
     this.variants = const [],
     DateTime? updatedAt,
-  }) : updatedAt = updatedAt ?? createdAt;
+  })  : photos = photos.isNotEmpty
+            ? photos
+            : _photosFromLegacy(images, mainImageIndex),
+        updatedAt = updatedAt ?? createdAt;
 
   Product copyWith({
     String? id,
@@ -126,7 +159,18 @@ class Product {
     List<String>? remoteImages,
     List<ProductVariant>? variants,
     DateTime? updatedAt,
+    List<ProductPhoto>? photos,
   }) {
+    final resolvedPhotos = photos ??
+        (images != null
+            ? _photosFromLegacy(
+                images,
+                mainImageIndex ?? this.mainImageIndex,
+              )
+            : this.photos);
+    final resolvedImages = images ?? _imagesFromPhotos(resolvedPhotos);
+    final resolvedMainIndex = mainImageIndex ??
+        _mainIndexFromPhotos(resolvedPhotos, this.mainImageIndex);
     return Product(
       id: id ?? this.id,
       name: name ?? this.name,
@@ -138,8 +182,8 @@ class Product {
       minWholesaleQty: minWholesaleQty ?? this.minWholesaleQty,
       sizes: sizes ?? this.sizes,
       colors: colors ?? this.colors,
-      images: images ?? this.images,
-      mainImageIndex: mainImageIndex ?? this.mainImageIndex,
+      images: resolvedImages,
+      mainImageIndex: resolvedMainIndex,
       isActive: isActive ?? this.isActive,
       isOutOfStock: isOutOfStock ?? this.isOutOfStock,
       promoEnabled: promoEnabled ?? this.promoEnabled,
@@ -151,6 +195,7 @@ class Product {
       remoteImages: remoteImages ?? this.remoteImages,
       variants: variants ?? this.variants,
       updatedAt: updatedAt ?? this.updatedAt,
+      photos: resolvedPhotos,
     );
   }
 
@@ -183,5 +228,34 @@ class Product {
             promoEnabled,
             promoPercent,
           );
+  }
+
+  static List<ProductPhoto> _photosFromLegacy(
+    List<String> images,
+    int mainImageIndex,
+  ) {
+    if (images.isEmpty) return const [];
+    final safeIndex = mainImageIndex.clamp(0, images.length - 1);
+    return images.asMap().entries.map((entry) {
+      return ProductPhoto(
+        path: entry.value,
+        colorKey: null,
+        isPrimary: entry.key == safeIndex,
+      );
+    }).toList();
+  }
+
+  static List<String> _imagesFromPhotos(List<ProductPhoto> photos) {
+    if (photos.isEmpty) return const [];
+    return photos.map((p) => p.path).toList();
+  }
+
+  static int _mainIndexFromPhotos(
+    List<ProductPhoto> photos,
+    int fallback,
+  ) {
+    if (photos.isEmpty) return fallback;
+    final primaryIndex = photos.indexWhere((p) => p.isPrimary);
+    return primaryIndex >= 0 ? primaryIndex : 0;
   }
 }
