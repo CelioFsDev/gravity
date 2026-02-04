@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/core/services/catalog_pdf_service.dart';
+import 'package:gravity/viewmodels/settings_viewmodel.dart';
 import 'package:gravity/core/services/whatsapp_share_service.dart';
 import 'package:gravity/data/repositories/products_repository.dart';
 import 'package:gravity/models/catalog.dart';
@@ -32,6 +33,15 @@ class CatalogShareHelper {
             onTap: () async {
               Navigator.pop(sheetContext);
               await generateAndSharePdf(context, ref, catalog);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.link),
+            title: const Text('Compartilhar Link'),
+            subtitle: const Text('Envia o link do catálogo online'),
+            onTap: () async {
+              Navigator.pop(sheetContext);
+              await shareCatalogLink(context, ref, catalog);
             },
           ),
           ListTile(
@@ -83,6 +93,31 @@ class CatalogShareHelper {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Erro ao gerar PDF: $e')));
+      }
+    }
+  }
+
+  static Future<void> shareCatalogLink(
+    BuildContext context,
+    WidgetRef ref,
+    Catalog catalog,
+  ) async {
+    try {
+      final settings = ref.read(settingsViewModelProvider);
+      final baseUrl = settings.publicBaseUrl.isEmpty
+          ? 'https://gravity.app'
+          : settings.publicBaseUrl;
+      final shareUrl = '$baseUrl/c/${catalog.slug}';
+      await WhatsAppShareService.shareCatalog(
+        catalogName: catalog.name,
+        catalogUrl: shareUrl,
+        mode: catalog.mode,
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao compartilhar link: $e')),
+        );
       }
     }
   }
@@ -286,17 +321,13 @@ _CollectionCoverResult _resolveCollectionCover(
     }
   }
 
-  if (matchedIds.length != 1) {
+  if (matchedIds.isEmpty) {
     return const _CollectionCoverResult(null, null);
   }
 
+  // Use the first matched collection cover
   final collection = collections[matchedIds.first];
   if (collection == null) return const _CollectionCoverResult(null, null);
 
   return _CollectionCoverResult(collection.cover, collection.name);
 }
-
-
-
-
-

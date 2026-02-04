@@ -45,6 +45,12 @@ class CollectionCover {
   @HiveField(8)
   final String? heroImagePath;
 
+  @HiveField(9)
+  final String? coverHeaderImagePath;
+
+  @HiveField(10)
+  final String? coverMainImagePath;
+
   const CollectionCover({
     this.mode = CollectionCoverMode.template,
     this.coverImagePath,
@@ -55,6 +61,8 @@ class CollectionCover {
     this.overlayOpacity,
     this.bannerImagePath,
     this.heroImagePath,
+    this.coverHeaderImagePath,
+    this.coverMainImagePath,
   });
 
   CollectionCover copyWith({
@@ -67,6 +75,8 @@ class CollectionCover {
     double? overlayOpacity,
     String? bannerImagePath,
     String? heroImagePath,
+    String? coverHeaderImagePath,
+    String? coverMainImagePath,
   }) {
     return CollectionCover(
       mode: mode ?? this.mode,
@@ -78,6 +88,9 @@ class CollectionCover {
       overlayOpacity: overlayOpacity ?? this.overlayOpacity,
       bannerImagePath: bannerImagePath ?? this.bannerImagePath,
       heroImagePath: heroImagePath ?? this.heroImagePath,
+      coverHeaderImagePath:
+          coverHeaderImagePath ?? this.coverHeaderImagePath,
+      coverMainImagePath: coverMainImagePath ?? this.coverMainImagePath,
     );
   }
 }

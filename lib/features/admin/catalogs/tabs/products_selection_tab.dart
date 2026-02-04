@@ -4,8 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:gravity/models/product.dart';
 import 'package:gravity/models/category.dart';
 import 'package:intl/intl.dart';
-import 'package:gravity/core/widgets/filter_chips_row.dart';
-import 'package:gravity/core/widgets/filter_chip_button.dart';
+import 'package:gravity/ui/theme/app_tokens.dart';
+import 'package:gravity/ui/widgets/app_search_field.dart';
+import 'package:gravity/ui/widgets/app_empty_state.dart';
 
 class ProductsSelectionTab extends StatefulWidget {
   final List<String> selectedIds;
@@ -56,75 +57,82 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTokens.space24,
+            vertical: AppTokens.space12,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(
-                height: 48,
-                child: TextField(
-                  controller: _searchController,
-                  decoration: const InputDecoration(
-                    hintText: 'Buscar produtos',
-                    prefixIcon: Icon(Icons.search),
-                  ),
-                  onChanged: (val) => setState(() => _search = val),
-                ),
+              AppSearchField(
+                controller: _searchController,
+                hintText: 'Buscar por nome ou REF...',
+                onChanged: (val) => setState(() => _search = val),
+                onClear: () {
+                  setState(() => _search = '');
+                  _searchController.clear();
+                },
               ),
               const SizedBox(height: 12),
-              FilterChipsRow(
-                chips: [
-                  FilterChipButton(
-                    label: _categoryLabel(),
-                    isActive: _categoryFilter != null,
-                    onPressed: () => _selectCategory(context),
-                  ),
-                  FilterChipButton(
-                    label: 'Apenas selecionados',
-                    isActive: _onlySelected,
-                    onPressed: () =>
-                        setState(() => _onlySelected = !_onlySelected),
-                  ),
-                  Chip(
-                    label: Text('Selecionados: ${widget.selectedIds.length}'),
-                  ),
-                ],
-                onClear: _hasFilters()
-                    ? () {
-                        setState(() {
-                          _search = '';
-                          _categoryFilter = null;
-                          _onlySelected = false;
-                        });
-                        _searchController.clear();
-                      }
-                    : null,
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    ActionChip(
+                      label: Text(_categoryLabel()),
+                      onPressed: () => _selectCategory(context),
+                      avatar: const Icon(Icons.filter_list, size: 16),
+                    ),
+                    const SizedBox(width: 8),
+                    FilterChip(
+                      label: const Text('Apenas Selecionados'),
+                      selected: _onlySelected,
+                      onSelected: (val) => setState(() => _onlySelected = val),
+                    ),
+                    const SizedBox(width: 8),
+                    Chip(
+                      label: Text('${widget.selectedIds.length} selecionados'),
+                      backgroundColor: AppTokens.accentBlue.withOpacity(0.1),
+                      side: BorderSide.none,
+                      labelStyle: const TextStyle(
+                        color: AppTokens.accentBlue,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
         ),
+        const Divider(height: 1),
         Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.only(bottom: 16),
-            itemCount: filtered.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (context, index) {
-              final product = filtered[index];
-              final isSelected = widget.selectedIds.contains(product.id);
-              return _ProductSelectTile(
-                product: product,
-                isSelected: isSelected,
-                onToggle: () => widget.onToggle(product.id),
-              );
-            },
-          ),
+          child: filtered.isEmpty
+              ? const AppEmptyState(
+                  icon: Icons.search_off,
+                  title: 'Nenhum produto encontrado',
+                  message: 'Tente ajustar os filtros ou a busca.',
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppTokens.space24,
+                    vertical: AppTokens.space16,
+                  ),
+                  itemCount: filtered.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final product = filtered[index];
+                    final isSelected = widget.selectedIds.contains(product.id);
+                    return _ProductSelectTile(
+                      product: product,
+                      isSelected: isSelected,
+                      onToggle: () => widget.onToggle(product.id),
+                    );
+                  },
+                ),
         ),
       ],
     );
-  }
-
-  bool _hasFilters() {
-    return _search.isNotEmpty || _categoryFilter != null || _onlySelected;
   }
 
   String _categoryLabel() {
@@ -191,18 +199,36 @@ class _ProductSelectTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+    return Container(
+      decoration: BoxDecoration(
+        color: isSelected
+            ? AppTokens.accentBlue.withOpacity(0.05)
+            : AppTokens.card,
+        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+        border: Border.all(
+          color: isSelected ? AppTokens.accentBlue : AppTokens.border,
+          width: isSelected ? 1.5 : 1,
+        ),
+      ),
       child: ListTile(
+        contentPadding: const EdgeInsets.all(12),
         leading: _ProductThumb(
           imagePath: product.images.isNotEmpty ? product.images.first : null,
         ),
-        title: Text(product.name),
-        subtitle: Text(
-          'REF ${product.reference} • ${currency.format(product.retailPrice)}',
+        title: Text(
+          product.name,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            'REF ${product.reference} • ${currency.format(product.retailPrice)}',
+            style: const TextStyle(color: AppTokens.textMuted, fontSize: 13),
+          ),
         ),
         trailing: Checkbox.adaptive(
           value: isSelected,
+          activeColor: AppTokens.accentBlue,
           onChanged: (_) => onToggle(),
         ),
         onTap: onToggle,

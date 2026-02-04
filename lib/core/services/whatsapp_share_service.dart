@@ -9,8 +9,9 @@ class WhatsAppShareService {
     required String catalogUrl,
     required CatalogMode mode,
   }) async {
-    final label = mode.label;
-    final text = '$label\nConfira nosso catálogo *$catalogName*:\n$catalogUrl';
+    final label = mode == CatalogMode.atacado ? '🛍️ *ATACADO*' : '✨ *VAREJO*';
+    final text =
+        'Olá! 👋\n\nConfira nosso catálogo digital: *${catalogName.toUpperCase()}*\n\n$label\n🔗 Clique para ver os produtos: $catalogUrl\n\nAguardamos seu pedido! 🚀';
     await _launchWhatsApp(text: text);
   }
 
@@ -49,4 +50,3 @@ class WhatsAppShareService {
     }
   }
 }
-

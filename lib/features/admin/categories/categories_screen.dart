@@ -7,14 +7,11 @@ import 'package:file_picker/file_picker.dart';
 import 'package:gravity/models/category.dart';
 import 'package:gravity/core/services/local_media_service.dart';
 import 'package:gravity/viewmodels/categories_viewmodel.dart';
-import 'package:gravity/core/widgets/responsive_scaffold.dart';
 import 'package:gravity/ui/theme/app_tokens.dart';
-import 'package:gravity/ui/widgets/app_section_header.dart';
+import 'package:gravity/ui/widgets/app_scaffold.dart';
 import 'package:gravity/ui/widgets/app_search_field.dart';
-import 'package:gravity/ui/widgets/app_chip.dart';
-import 'package:gravity/ui/widgets/app_primary_button.dart';
 import 'package:gravity/ui/widgets/app_empty_state.dart';
-import 'package:gravity/ui/widgets/app_card.dart';
+import 'package:gravity/ui/widgets/section_card.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
@@ -43,14 +40,20 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     final state = ref.watch(categoriesViewModelProvider);
     final notifier = ref.read(categoriesViewModelProvider.notifier);
 
-    return ResponsiveScaffold(
+    return AppScaffold(
+      title: 'Categorias',
+      subtitle: 'Organize as categorias do catálogo',
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.add),
+          onPressed: () => _showCategoryDialog(context, notifier),
+          tooltip: 'Nova Categoria',
+        ),
+      ],
       body: state.when(
         data: (data) => _buildContent(context, data, notifier),
-        error: (e, s) => _CategoriesErrorState(
-          message: 'Erro ao carregar categorias: $e',
-          onRetry: () => ref.invalidate(categoriesViewModelProvider),
-        ),
-        loading: () => const _CategoriesLoadingState(),
+        error: (e, s) => Center(child: Text('Erro: $e')),
+        loading: () => const Center(child: CircularProgressIndicator()),
       ),
     );
   }
@@ -60,10 +63,6 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     CategoriesState state,
     CategoriesViewModel notifier,
   ) {
-    final hasFilters =
-        state.searchQuery.isNotEmpty ||
-        state.sortOption != CategorySortOption.manual;
-
     if (_searchController.text != state.searchQuery) {
       _searchController.value = TextEditingValue(
         text: state.searchQuery,
@@ -71,86 +70,56 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
       );
     }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 900;
-        final padding = EdgeInsets.all(isWide ? 24 : 16);
-        return Padding(
-          padding: padding,
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 980),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  AppSectionHeader(
-                    title: 'Categorias',
-                    subtitle: 'Organize as categorias do catálogo',
-                    actions: [
-                      AppPrimaryButton(
-                        label: 'Nova',
-                        icon: Icons.add,
-                        onPressed: () => _showCategoryDialog(context, notifier),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  AppCard(
-                    padding: const EdgeInsets.all(AppTokens.space16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        AppSearchField(
-                          controller: _searchController,
-                          hintText: 'Buscar categorias...',
-                          onChanged: notifier.setSearchQuery,
-                        ),
-                        const SizedBox(height: AppTokens.space12),
-                        Wrap(
-                          spacing: AppTokens.space8,
-                          runSpacing: AppTokens.space8,
-                          children: [
-                            AppChip(
-                              label: _sortLabel(state.sortOption),
-                              isActive:
-                                  state.sortOption != CategorySortOption.manual,
-                              onPressed: () =>
-                                  _selectSort(context, state, notifier),
-                            ),
-                            if (hasFilters)
-                              AppChip(
-                                label: 'Limpar filtros',
-                                isActive: true,
-                                onPressed: () {
-                                  notifier.setSearchQuery('');
-                                  notifier.setSortOption(
-                                    CategorySortOption.manual,
-                                  );
-                                  _searchController.clear();
-                                },
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: state.categories.isEmpty
-                        ? const AppEmptyState(
-                            icon: Icons.folder_open,
-                            title: 'Nenhuma categoria encontrada',
-                            message:
-                                'Crie categorias para organizar o catálogo.',
-                          )
-                        : _buildCategoriesList(state, notifier),
-                  ),
-                ],
-              ),
-            ),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
+          child: AppSearchField(
+            controller: _searchController,
+            hintText: 'Buscar categorias...',
+            onChanged: notifier.setSearchQuery,
+            onClear: () {
+              notifier.setSearchQuery('');
+              _searchController.clear();
+            },
           ),
-        );
-      },
+        ),
+        const SizedBox(height: AppTokens.space8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
+          child: Row(
+            children: [
+              ActionChip(
+                label: Text(_sortLabel(state.sortOption)),
+                onPressed: () => _selectSort(context, state, notifier),
+                avatar: const Icon(Icons.sort, size: 16),
+              ),
+              if (state.searchQuery.isNotEmpty ||
+                  state.sortOption != CategorySortOption.manual) ...[
+                const SizedBox(width: 8),
+                ActionChip(
+                  label: const Text('Limpar'),
+                  onPressed: () {
+                    notifier.setSearchQuery('');
+                    notifier.setSortOption(CategorySortOption.manual);
+                    _searchController.clear();
+                  },
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: AppTokens.space16),
+        Expanded(
+          child: state.categories.isEmpty
+              ? const AppEmptyState(
+                  icon: Icons.folder_open,
+                  title: 'Nenhuma categoria',
+                  message: 'Toque no + para criar sua primeira categoria.',
+                )
+              : _buildCategoriesList(state, notifier),
+        ),
+      ],
     );
   }
 
@@ -177,27 +146,34 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
         .toList();
 
     return ListView(
-      padding: EdgeInsets.zero,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTokens.space24,
+        vertical: AppTokens.space12,
+      ),
       children: [
-        _buildSectionTitle('Colecoes'),
-        const SizedBox(height: 8),
-        _buildSectionList(
-          context,
-          state,
-          notifier,
-          collections,
-          isManual: isManual,
-        ),
-        const SizedBox(height: 16),
-        _buildSectionTitle('Categorias'),
-        const SizedBox(height: 8),
-        _buildSectionList(
-          context,
-          state,
-          notifier,
-          productTypes,
-          isManual: isManual,
-        ),
+        if (collections.isNotEmpty) ...[
+          _buildSectionTitle('Coleções'),
+          const SizedBox(height: 12),
+          _buildSectionList(
+            context,
+            state,
+            notifier,
+            collections,
+            isManual: isManual,
+          ),
+          const SizedBox(height: 24),
+        ],
+        if (productTypes.isNotEmpty) ...[
+          _buildSectionTitle('Categorias de Produtos'),
+          const SizedBox(height: 12),
+          _buildSectionList(
+            context,
+            state,
+            notifier,
+            productTypes,
+            isManual: isManual,
+          ),
+        ],
       ],
     );
   }
@@ -264,7 +240,13 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   }
 
   Widget _buildSectionTitle(String text) {
-    return Text(text, style: const TextStyle(fontWeight: FontWeight.bold));
+    return Text(
+      text.toUpperCase(),
+      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+        fontWeight: FontWeight.w800,
+        letterSpacing: 1.2,
+      ),
+    );
   }
 
   Widget _buildListItem(
@@ -275,10 +257,14 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     int index, {
     required bool isManual,
   }) {
-    return AppCard(
+    return Container(
       key: ValueKey(category.id),
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: EdgeInsets.zero,
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
       child: ListTile(
         leading: isManual
             ? ReorderableDragStartListener(
@@ -474,9 +460,13 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     final existingCover = category?.cover;
     CollectionCoverMode coverMode =
         existingCover?.mode ?? CollectionCoverMode.template;
-    String? coverImagePath = existingCover?.coverImagePath;
-    String? bannerImagePath = existingCover?.bannerImagePath;
-    String? heroImagePath = existingCover?.heroImagePath;
+    String? headerImagePath =
+        existingCover?.coverHeaderImagePath ?? existingCover?.bannerImagePath;
+    String? mainImagePath =
+        existingCover?.coverMainImagePath ??
+        existingCover?.heroImagePath ??
+        existingCover?.coverImagePath;
+    bool mainImageError = false;
     final coverTitleController = TextEditingController(
       text: existingCover?.title ?? CollectionCover.defaultTitle,
     );
@@ -491,13 +481,11 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
+          scrollable: false,
           title: Text(isEdit ? 'Editar Categoria' : 'Nova Categoria'),
           content: SizedBox(
             width: 420,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.7,
-              ),
+            child: SafeArea(
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -540,7 +528,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                       children: const [
                         Padding(
                           padding: EdgeInsets.symmetric(horizontal: 16),
-                          child: Text('Colecao'),
+                          child: Text('Coleção'),
                         ),
                         Padding(
                           padding: EdgeInsets.symmetric(horizontal: 16),
@@ -581,6 +569,9 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                               coverMode = index == 0
                                   ? CollectionCoverMode.image
                                   : CollectionCoverMode.template;
+                              if (coverMode != CollectionCoverMode.image) {
+                                mainImageError = false;
+                              }
                             });
                           },
                           borderRadius: BorderRadius.circular(8),
@@ -592,176 +583,167 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                             ),
                             Padding(
                               padding: EdgeInsets.symmetric(horizontal: 16),
-                              child: Text('Gerar capa automatica'),
+                              child: Text('Capa automática'),
                             ),
                           ],
                         ),
                       ),
                       const SizedBox(height: 12),
                       if (coverMode == CollectionCoverMode.image) ...[
-                        Row(
-                          children: [
-                            ElevatedButton.icon(
-                              onPressed: () async {
-                                final picked = await _pickCoverImage(
-                                  context,
-                                  collectionId: collectionId,
-                                  fileName: 'cover',
-                                );
-                                if (picked != null) {
-                                  setState(() => coverImagePath = picked);
-                                }
-                              },
-                              icon: const Icon(Icons.image_outlined),
-                              label: const Text('Escolher imagem'),
-                            ),
-                            if (coverImagePath != null) ...[
-                              const SizedBox(width: 8),
-                              IconButton(
-                                onPressed: () =>
-                                    setState(() => coverImagePath = null),
-                                icon: const Icon(Icons.delete_outline),
+                        const Divider(height: 32),
+                        SectionCard(
+                          title: 'Imagem superior / Banner',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Logo ou faixa superior do catÃ¡logo',
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                    ),
                               ),
-                            ],
-                          ],
-                        ),
-                        if (coverImagePath != null) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            p.basename(coverImagePath!),
-                            style: TextStyle(color: Colors.grey.shade600),
-                          ),
-                          if (!kIsWeb)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: SizedBox(
-                                  height: 140,
-                                  width: double.infinity,
-                                  child: Image.file(
-                                    File(coverImagePath!),
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Container(
-                                      color: Colors.grey.shade200,
-                                      alignment: Alignment.center,
-                                      child: const Icon(Icons.broken_image),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  ElevatedButton.icon(
+                                    onPressed: () async {
+                                      final picked = await _pickCoverImage(
+                                        context,
+                                        collectionId: collectionId,
+                                        fileName: 'header',
+                                      );
+                                      if (picked != null) {
+                                        setState(
+                                          () => headerImagePath = picked,
+                                        );
+                                      }
+                                    },
+                                    icon: const Icon(Icons.image_outlined),
+                                    label: const Text('Selecionar banner'),
+                                  ),
+                                  if (headerImagePath != null) ...[
+                                    const SizedBox(width: 8),
+                                    IconButton(
+                                      onPressed: () => setState(
+                                        () => headerImagePath = null,
+                                      ),
+                                      icon: const Icon(Icons.delete_outline),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              if (headerImagePath != null && !kIsWeb)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: SizedBox(
+                                      height: 90,
+                                      width: double.infinity,
+                                      child: Image.file(
+                                        File(headerImagePath!),
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => Container(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.surfaceContainerHighest,
+                                          alignment: Alignment.center,
+                                          child: const Icon(Icons.broken_image),
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ),
-                        ],
-                        const SizedBox(height: 16),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Banner (horizontal)',
-                            style: Theme.of(context).textTheme.labelLarge,
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            ElevatedButton.icon(
-                              onPressed: () async {
-                                final picked = await _pickCoverImage(
-                                  context,
-                                  collectionId: collectionId,
-                                  fileName: 'banner',
-                                );
-                                if (picked != null) {
-                                  setState(() => bannerImagePath = picked);
-                                }
-                              },
-                              icon: const Icon(Icons.image_outlined),
-                              label: const Text('Selecionar banner'),
-                            ),
-                            if (bannerImagePath != null) ...[
-                              const SizedBox(width: 8),
-                              IconButton(
-                                onPressed: () =>
-                                    setState(() => bannerImagePath = null),
-                                icon: const Icon(Icons.delete_outline),
+                        const SizedBox(height: 16),
+                        SectionCard(
+                          title: 'Imagem principal',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Foto principal da coleÃ§Ã£o',
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                    ),
                               ),
-                            ],
-                          ],
-                        ),
-                        if (bannerImagePath != null && !kIsWeb)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: SizedBox(
-                                height: 90,
-                                width: double.infinity,
-                                child: Image.file(
-                                  File(bannerImagePath!),
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Container(
-                                    color: Colors.grey.shade200,
-                                    alignment: Alignment.center,
-                                    child: const Icon(Icons.broken_image),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  ElevatedButton.icon(
+                                    onPressed: () async {
+                                      final picked = await _pickCoverImage(
+                                        context,
+                                        collectionId: collectionId,
+                                        fileName: 'main',
+                                      );
+                                      if (picked != null) {
+                                        setState(() {
+                                          mainImagePath = picked;
+                                          mainImageError = false;
+                                        });
+                                      }
+                                    },
+                                    icon: const Icon(Icons.image_outlined),
+                                    label: const Text('Selecionar imagem'),
+                                  ),
+                                  if (mainImagePath != null) ...[
+                                    const SizedBox(width: 8),
+                                    IconButton(
+                                      onPressed: () => setState(() {
+                                        mainImagePath = null;
+                                      }),
+                                      icon: const Icon(Icons.delete_outline),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              if (mainImageError)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: Text(
+                                    'Imagem principal Ã© obrigatÃ³ria.',
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.error,
+                                      fontSize: 12,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
-                          ),
-                        const SizedBox(height: 16),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Foto principal (9:16)',
-                            style: Theme.of(context).textTheme.labelLarge,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            ElevatedButton.icon(
-                              onPressed: () async {
-                                final picked = await _pickCoverImage(
-                                  context,
-                                  collectionId: collectionId,
-                                  fileName: 'hero',
-                                );
-                                if (picked != null) {
-                                  setState(() => heroImagePath = picked);
-                                }
-                              },
-                              icon: const Icon(Icons.image_outlined),
-                              label: const Text('Selecionar foto principal'),
-                            ),
-                            if (heroImagePath != null) ...[
-                              const SizedBox(width: 8),
-                              IconButton(
-                                onPressed: () =>
-                                    setState(() => heroImagePath = null),
-                                icon: const Icon(Icons.delete_outline),
-                              ),
-                            ],
-                          ],
-                        ),
-                        if (heroImagePath != null && !kIsWeb)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: SizedBox(
-                                height: 220,
-                                width: double.infinity,
-                                child: Image.file(
-                                  File(heroImagePath!),
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (_, __, ___) => Container(
-                                    color: Colors.grey.shade200,
-                                    alignment: Alignment.center,
-                                    child: const Icon(Icons.broken_image),
+                              if (mainImagePath != null && !kIsWeb)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: SizedBox(
+                                      height: 240,
+                                      width: double.infinity,
+                                      child: Image.file(
+                                        File(mainImagePath!),
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => Container(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.surfaceContainerHighest,
+                                          alignment: Alignment.center,
+                                          child: const Icon(Icons.broken_image),
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
+                            ],
                           ),
+                        ),
                       ] else ...[
                         TextField(
                           controller: coverSubtitleController,
@@ -798,6 +780,21 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
               onPressed: () async {
                 final name = _categoryNameController.text.trim();
                 if (name.isEmpty) return;
+                if (selectedType == CategoryType.collection &&
+                    coverMode == CollectionCoverMode.image &&
+                    mainImagePath == null) {
+                  setState(() => mainImageError = true);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Selecione uma imagem principal para salvar a capa.',
+                        ),
+                      ),
+                    );
+                  }
+                  return;
+                }
 
                 CollectionCover? cover;
                 if (selectedType == CategoryType.collection) {
@@ -813,14 +810,16 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                       : CollectionCover.defaultBrand;
                   cover = CollectionCover(
                     mode: coverMode,
-                    coverImagePath: coverImagePath,
+                    coverImagePath: mainImagePath,
                     title: title,
                     brand: brand,
                     subtitle: subtitle,
                     backgroundColor: existingCover?.backgroundColor,
                     overlayOpacity: existingCover?.overlayOpacity,
-                    bannerImagePath: bannerImagePath,
-                    heroImagePath: heroImagePath,
+                    bannerImagePath: headerImagePath,
+                    heroImagePath: mainImagePath,
+                    coverHeaderImagePath: headerImagePath,
+                    coverMainImagePath: mainImagePath,
                   );
                 }
 
@@ -919,68 +918,6 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
 }
 
 enum _CategoryAction { edit, delete }
-
-class _CategoriesLoadingState extends StatelessWidget {
-  const _CategoriesLoadingState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 900),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: List.generate(
-              6,
-              (index) => Container(
-                height: 72,
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: AppTokens.border,
-                  borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CategoriesErrorState extends StatelessWidget {
-  final String message;
-  final VoidCallback onRetry;
-
-  const _CategoriesErrorState({required this.message, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Card(
-        margin: const EdgeInsets.all(24),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline, color: Colors.red, size: 40),
-              const SizedBox(height: 12),
-              Text(message, textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Tentar novamente'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _ScrollLabel extends StatelessWidget {
   final String text;

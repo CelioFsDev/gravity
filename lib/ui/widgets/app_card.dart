@@ -28,7 +28,9 @@ class AppCard extends StatelessWidget {
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(AppTokens.radiusMd),
         boxShadow: const [AppTokens.shadowSm],
-        border: Border.all(color: AppTokens.border),
+        border: Border.all(
+          color: Theme.of(context).dividerColor.withOpacity(0.5),
+        ),
       ),
       child: Material(
         color: Colors.transparent,

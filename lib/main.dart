@@ -1,7 +1,7 @@
 ﻿import 'dart:async';
-
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/core/auth/auth_controller.dart';
 import 'package:gravity/core/auth/auth_guards.dart';
@@ -14,16 +14,20 @@ import 'package:go_router/go_router.dart';
 import 'package:gravity/models/product.dart';
 import 'package:gravity/models/category.dart';
 import 'package:gravity/models/catalog.dart';
+import 'package:gravity/models/settings.dart';
 import 'package:gravity/models/product_variant.dart';
 import 'package:gravity/features/admin/admin_shell_screen.dart';
 import 'package:gravity/features/admin/products/products_screen.dart';
 import 'package:gravity/features/admin/categories/categories_screen.dart';
 import 'package:gravity/features/admin/catalogs/catalogs_screen.dart';
 import 'package:gravity/features/admin/import/nuvemshop_import_screen.dart';
+import 'package:gravity/features/admin/settings/settings_screen.dart';
 import 'package:gravity/features/theme/theme_providers.dart';
 import 'package:gravity/features/public/catalog_home_page.dart';
 import 'package:gravity/core/auth/auth_repository.dart';
+import 'package:gravity/features/public/product_detail_screen.dart';
 import 'package:gravity/ui/theme/app_theme.dart';
+import 'package:gravity/ui/theme/app_tokens.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,6 +42,7 @@ void main() async {
   Hive.registerAdapter(CategoryAdapter());
   Hive.registerAdapter(ProductVariantAdapter());
   Hive.registerAdapter(ProductPhotoAdapter());
+  Hive.registerAdapter(AppSettingsAdapter());
   Hive.registerAdapter(ProductAdapter());
   Hive.registerAdapter(CatalogBannerAdapter());
   Hive.registerAdapter(CatalogAdapter());
@@ -46,9 +51,9 @@ void main() async {
   await Hive.openBox<Category>('categories');
   await Hive.openBox<Product>('products');
   await Hive.openBox<Catalog>('catalogs');
+  await Hive.openBox<AppSettings>('settings');
 
   try {
-    // Initialize Firebase (after Hive to reuse local cache first)
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
@@ -56,7 +61,7 @@ void main() async {
     debugPrint('Firebase init failed (Offline Mode Active): $e');
   }
 
-  runApp(ProviderScope(child: const MyApp()));
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 class MyApp extends ConsumerWidget {
@@ -68,6 +73,7 @@ class MyApp extends ConsumerWidget {
     final authState = ref.watch(authControllerProvider);
     final user = authState.value;
     final streamSource = ref.watch(authRepositoryProvider).authStateChanges();
+
     final router = GoRouter(
       initialLocation: '/admin/products',
       refreshListenable: GoRouterRefreshStream(streamSource),
@@ -86,6 +92,26 @@ class MyApp extends ConsumerWidget {
           builder: (context, state) => const RegisterScreen(),
         ),
         GoRoute(
+          path: 'p/:productId',
+          builder: (context, state) {
+            final productId = state.pathParameters['productId']!;
+            final extra = state.extra as Map<String, dynamic>?;
+
+            if (extra != null && extra.containsKey('product')) {
+              return PublicProductDetailScreen(
+                product: extra['product'] as Product,
+                mode: extra['mode'] as CatalogMode,
+              );
+            }
+
+            // Deep link support: Fallback to loading screen that fetches the product
+            return Scaffold(
+              appBar: AppBar(),
+              body: Center(child: Text('Carregando produto $productId...')),
+            );
+          },
+        ),
+        GoRoute(
           path: '/c/:shareCode',
           builder: (context, state) =>
               CatalogHomePage(shareCode: state.pathParameters['shareCode']!),
@@ -99,7 +125,7 @@ class MyApp extends ConsumerWidget {
               routes: [
                 GoRoute(
                   path: '/admin/products',
-                  builder: (c, s) => const ProductsScreen(),
+                  builder: (context, state) => const ProductsScreen(),
                 ),
               ],
             ),
@@ -107,7 +133,7 @@ class MyApp extends ConsumerWidget {
               routes: [
                 GoRoute(
                   path: '/admin/categories',
-                  builder: (c, s) => const CategoriesScreen(),
+                  builder: (context, state) => const CategoriesScreen(),
                 ),
               ],
             ),
@@ -115,7 +141,15 @@ class MyApp extends ConsumerWidget {
               routes: [
                 GoRoute(
                   path: '/admin/catalogs',
-                  builder: (c, s) => const CatalogsScreen(),
+                  builder: (context, state) => const CatalogsScreen(),
+                ),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: '/admin/settings',
+                  builder: (context, state) => const SettingsScreen(),
                 ),
               ],
             ),
@@ -123,7 +157,7 @@ class MyApp extends ConsumerWidget {
               routes: [
                 GoRoute(
                   path: '/admin/imports/nuvemshop',
-                  builder: (c, s) => const NuvemshopImportScreen(),
+                  builder: (context, state) => const NuvemshopImportScreen(),
                 ),
               ],
             ),
@@ -132,27 +166,35 @@ class MyApp extends ConsumerWidget {
       ],
     );
 
-    return MaterialApp.router(
-      title: 'Admin Dashboard',
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
-      themeMode: mode,
-      routerConfig: router,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: ref.watch(themeModeProvider) == ThemeMode.dark
+          ? SystemUiOverlayStyle.light.copyWith(
+              statusBarColor: Colors.transparent,
+              systemNavigationBarColor: AppTokens.bgDark,
+              systemNavigationBarIconBrightness: Brightness.light,
+            )
+          : SystemUiOverlayStyle.dark.copyWith(
+              statusBarColor: Colors.transparent,
+              systemNavigationBarColor: AppTokens.bg,
+              systemNavigationBarIconBrightness: Brightness.dark,
+            ),
+      child: MaterialApp.router(
+        title: 'Gravity',
+        theme: AppTheme.light(),
+        darkTheme: AppTheme.dark(),
+        themeMode: mode,
+        routerConfig: router,
+        debugShowCheckedModeBanner: false,
+      ),
     );
   }
 }
 
-/// Converts a [Stream] into a [Listenable] by notifying listeners whenever
-/// a new event is emitted.
 class GoRouterRefreshStream extends ChangeNotifier {
   GoRouterRefreshStream(Stream<dynamic> stream) {
-    _subscription = stream.listen((event) {
-      notifyListeners();
-    });
+    _subscription = stream.listen((event) => notifyListeners());
   }
-
   late final StreamSubscription<dynamic> _subscription;
-
   @override
   void dispose() {
     _subscription.cancel();
@@ -161,42 +203,31 @@ class GoRouterRefreshStream extends ChangeNotifier {
 }
 
 String? _authRedirect(AuthUser? user, GoRouterState state) {
-  if (kBypassAuth) {
-    return null;
-  }
+  if (kBypassAuth) return null;
   final path = state.uri.path;
-  final isLogin = path == '/login';
-  final isRegister = path == '/register';
-  final isAdminPath = path.startsWith('/admin');
-  final isShareRoute = path.startsWith('/c/');
-  final isPublicHome = path == '/';
-
   if (!isLoggedIn(user)) {
-    if (isLogin || isRegister || isShareRoute || isPublicHome) return null;
+    if (path == '/login' ||
+        path == '/register' ||
+        path.startsWith('/c/') ||
+        path == '/')
+      return null;
     return '/login';
   }
-
-  if (isLogin || isRegister) {
+  if (path == '/login' || path == '/register') {
     return isAdmin(user) ? '/admin/products' : '/';
   }
-
-  if (isAdminPath && !isAdmin(user)) {
-    return '/';
-  }
-
+  if (path.startsWith('/admin') && !isAdmin(user)) return '/';
   return null;
 }
 
 class PublicHomeScreen extends ConsumerStatefulWidget {
   const PublicHomeScreen({super.key});
-
   @override
   ConsumerState<PublicHomeScreen> createState() => _PublicHomeScreenState();
 }
 
 class _PublicHomeScreenState extends ConsumerState<PublicHomeScreen> {
   final _codeController = TextEditingController();
-
   @override
   void dispose() {
     _codeController.dispose();
@@ -205,101 +236,74 @@ class _PublicHomeScreenState extends ConsumerState<PublicHomeScreen> {
 
   void _openCatalog() {
     final code = _codeController.text.trim().toLowerCase();
-    if (code.isEmpty) return;
-    context.go('/c/$code');
+    if (code.isNotEmpty) context.go('/c/$code');
   }
 
   @override
   Widget build(BuildContext context) {
-    final themeMode = ref.watch(themeModeProvider);
-    final isDark = themeMode == ThemeMode.dark;
-
+    final isDark = ref.watch(themeModeProvider) == ThemeMode.dark;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Catálogo'),
         actions: [
           IconButton(
-            tooltip: isDark ? 'Modo claro' : 'Modo noturno',
             icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
-            onPressed: () {
-              ref.read(themeModeProvider.notifier).state =
-                  isDark ? ThemeMode.light : ThemeMode.dark;
-            },
+            onPressed: () => ref.read(themeModeProvider.notifier).state = isDark
+                ? ThemeMode.light
+                : ThemeMode.dark,
           ),
         ],
       ),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Acesse seu catálogo',
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(fontWeight: FontWeight.bold),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 500),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    Text(
+                      'Acesse seu catálogo',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _codeController,
+                      decoration: const InputDecoration(
+                        labelText: 'Código do catálogo',
+                        prefixIcon: Icon(Icons.link),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Digite o código do catálogo e abra em segundos.',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Colors.grey.shade600,
-                            ),
+                      onSubmitted: (_) => _openCatalog(),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: _openCatalog,
+                        child: const Text('Abrir catálogo'),
                       ),
-                      const SizedBox(height: 20),
-                      TextField(
-                        controller: _codeController,
-                        textInputAction: TextInputAction.go,
-                        onSubmitted: (_) => _openCatalog(),
-                        decoration: const InputDecoration(
-                          labelText: 'Código do catálogo',
-                          hintText: 'Ex: a1b2c3',
-                          prefixIcon: Icon(Icons.link),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed: _openCatalog,
-                          icon: const Icon(Icons.open_in_new),
-                          label: const Text('Abrir catálogo'),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      const Divider(),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Área administrativa',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: () => context.go('/login'),
-                              child: const Text('Entrar'),
-                            ),
+                    ),
+                    const Divider(height: 48),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => context.go('/login'),
+                            child: const Text('Entrar'),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: FilledButton(
-                              onPressed: () => context.go('/register'),
-                              child: const Text('Criar conta'),
-                            ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: () => context.go('/register'),
+                            child: const Text('Criar conta'),
                           ),
-                        ],
-                      ),
-                    ],
-                  ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -309,4 +313,3 @@ class _PublicHomeScreenState extends ConsumerState<PublicHomeScreen> {
     );
   }
 }
-

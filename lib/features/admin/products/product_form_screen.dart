@@ -1,5 +1,4 @@
 ﻿import 'dart:io';
-import 'package:gravity/core/widgets/responsive_scaffold.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/models/product.dart';
@@ -10,9 +9,12 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter/foundation.dart' hide Category; // Added for kIsWeb
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/services.dart';
-import 'package:gravity/core/utils/price_calculator.dart';
+import 'package:gravity/ui/theme/app_tokens.dart';
+import 'package:gravity/ui/widgets/app_scaffold.dart';
+import 'package:gravity/ui/widgets/section_card.dart';
+import 'package:gravity/ui/widgets/app_primary_button.dart';
 
 class ProductFormScreen extends ConsumerStatefulWidget {
   final Product? product; // null for Create, non-null for Edit
@@ -212,9 +214,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
       setState(() {
         if (meta.isPrimary) {
-          _photos = _photos
-              .map((p) => p.copyWith(isPrimary: false))
-              .toList();
+          _photos = _photos.map((p) => p.copyWith(isPrimary: false)).toList();
         }
         if (meta.isNewColor && meta.colorKey != null) {
           final current = _parseColorOptions().toSet();
@@ -235,16 +235,14 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     } catch (e, stack) {
       debugPrint('Error in _addPhoto: $e\n$stack');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao selecionar foto: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao selecionar foto: $e')));
       }
     }
   }
 
-  Future<_PhotoMetaResult?> _showPhotoMetaDialog(
-    BuildContext context,
-  ) async {
+  Future<_PhotoMetaResult?> _showPhotoMetaDialog(BuildContext context) async {
     final colors = _parseColorOptions();
     String selected = '__none__';
     final newColorController = TextEditingController();
@@ -532,238 +530,526 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       _categorySelectionInitialized = true;
     }
 
-    return ResponsiveScaffold(
-      maxWidth: 900,
-      appBar: AppBar(
-        title: Text(widget.product == null ? 'Novo Produto' : 'Editar Produto'),
-        actions: [IconButton(icon: const Icon(Icons.check), onPressed: _save)],
-      ),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isMobile = constraints.maxWidth < 600;
-            return Form(
-              key: _formKey,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Basic Info
-                    _buildSectionTitle('Informações Básicas'),
-                    if (isMobile) ...[
-                      _buildTextField(
-                        _nameController,
-                        'Nome',
-                        validator: (v) => v!.isEmpty ? 'Obrigatório' : null,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildTextField(
-                        _refController,
-                        'REF',
-                        validator: (v) => v!.isEmpty ? 'Obrigatório' : null,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildTextField(_skuController, 'SKU'),
-                    ] else
-                      Row(
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: _buildTextField(
-                              _nameController,
-                              'Nome',
-                              validator: (v) =>
-                                  v!.isEmpty ? 'Obrigatório' : null,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: _buildTextField(
-                              _refController,
-                              'REF',
-                              validator: (v) =>
-                                  v!.isEmpty ? 'Obrigatório' : null,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: _buildTextField(_skuController, 'SKU'),
-                          ),
-                        ],
-                      ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      initialValue:
-                          collections.any((c) => c.id == _selectedCollectionId)
-                          ? _selectedCollectionId
-                          : null,
-                      decoration: const InputDecoration(labelText: 'Colecao'),
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('Sem colecao'),
+    return AppScaffold(
+      title: widget.product == null ? 'Novo Produto' : 'Editar Produto',
+      subtitle: widget.product == null
+          ? 'Preencha os dados do novo item'
+          : 'Atualize as informações do produto',
+      body: Form(
+        key: _formKey,
+        child: Column(
+          children: [
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppTokens.space24,
+                ),
+                children: [
+                  const SizedBox(height: AppTokens.space24),
+                  SectionCard(
+                    title: 'Informações Básicas',
+                    child: Column(
+                      children: [
+                        _buildTextField(
+                          _nameController,
+                          'Nome do Produto',
+                          validator: (v) => v!.isEmpty ? 'Obrigatório' : null,
                         ),
-                        ...collections.map(
-                          (c) => DropdownMenuItem(
-                            value: c.id,
-                            child: Text(c.name),
-                          ),
+                        const SizedBox(height: AppTokens.space16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildTextField(
+                                _refController,
+                                'REF (Código)',
+                                validator: (v) {
+                                  if (v == null || v.isEmpty)
+                                    return 'Obrigatório';
+                                  final state = ref
+                                      .read(productsViewModelProvider)
+                                      .value;
+                                  if (state != null) {
+                                    final exists = state.allProducts.any(
+                                      (p) =>
+                                          p.ref.toUpperCase() ==
+                                              v.toUpperCase() &&
+                                          p.id != widget.product?.id,
+                                    );
+                                    if (exists) return 'Indisponível';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: AppTokens.space12),
+                            Expanded(
+                              child: _buildTextField(_skuController, 'SKU'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppTokens.space16),
+                        _buildCollectionDropdown(collections),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppTokens.space24),
+                  SectionCard(
+                    title: 'Categorias',
+                    child: _buildCategoryMultiSelect(context, productTypes),
+                  ),
+                  const SizedBox(height: AppTokens.space24),
+                  SectionCard(
+                    title: 'Preços e Estoque',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildTextField(
+                                _retailController,
+                                'Preço Varejo',
+                                isPrice: true,
+                              ),
+                            ),
+                            const SizedBox(width: AppTokens.space12),
+                            Expanded(
+                              child: _buildTextField(
+                                _wholesaleController,
+                                'Preço Atacado',
+                                isPrice: true,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppTokens.space16),
+                        _buildTextField(
+                          _minQtyController,
+                          'Quantidade Mínima para Atacado',
+                          isNumber: true,
+                        ),
+                        const SizedBox(height: AppTokens.space12),
+                        Text(
+                          'O preço atacado será aplicado automaticamente no carrinho para quantidades maiores que o mínimo.',
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
-                      onChanged: (val) =>
-                          setState(() => _selectedCollectionId = val),
                     ),
-                    const SizedBox(height: 16),
-                    _buildSectionTitle('Categorias'),
-                    _buildCategoryMultiSelect(context, productTypes),
-
-                    const SizedBox(height: 24),
-
-                    // Pricing
-                    _buildSectionTitle('Preços e Estoque'),
-                    if (isMobile) ...[
-                      _buildTextField(
-                        _retailController,
-                        'Varejo (R\$)',
-                        isPrice: true,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildTextField(
-                        _wholesaleController,
-                        'Atacado (R\$)',
-                        isPrice: true,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildTextField(
-                        _minQtyController,
-                        'Mín. Atacado',
-                        isNumber: true,
-                      ),
-                    ] else
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildTextField(
-                              _retailController,
-                              'Varejo (R\$)',
-                              isPrice: true,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: _buildTextField(
-                              _wholesaleController,
-                              'Atacado (R\$)',
-                              isPrice: true,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: _buildTextField(
-                              _minQtyController,
-                              'Mín. Atacado',
-                              isNumber: true,
-                            ),
-                          ),
-                        ],
-                      ),
-                    const SizedBox(height: 24),
-                    Text(
-                      'Preço atacado pode ser ajustado conforme sua política.',
-                      style: TextStyle(color: Colors.grey.shade600),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Attributes
-                    _buildSectionTitle('Atributos'),
-                    _buildTextField(
-                      _sizesController,
-                      'Tamanhos (separados por vírgula)',
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                      _colorsController,
-                      'Cores (separados por vírgula)',
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Status
-                    _buildSectionTitle('Status'),
-                    SwitchListTile(
-                      title: const Text('Ativo'),
-                      value: _isActive,
-                      onChanged: (v) => setState(() => _isActive = v),
-                    ),
-                    SwitchListTile(
-                      title: const Text('Esgotado'),
-                      value: _isOutOfStock,
-                      onChanged: (v) => setState(() => _isOutOfStock = v),
-                    ),
-                    SwitchListTile(
-                      title: const Text('Em Promoção'),
-                      value: _isOnSale,
-                      onChanged: (v) => setState(() => _isOnSale = v),
-                    ),
-                    if (_isOnSale) ...[
-                      const SizedBox(height: 8),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: TextFormField(
-                          controller: _discountController,
-                          decoration: const InputDecoration(
-                            labelText: 'Desconto (%)',
-                            hintText: 'Ex: 10 para 10% OFF',
-                            border: OutlineInputBorder(),
-                          ),
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                          ],
-                          validator: (v) {
-                            if (_isOnSale && (v == null || v.isEmpty)) {
-                              return 'Informe o desconto';
-                            }
-                            final val = int.tryParse(v ?? '0') ?? 0;
-                            if (val < 0 || val > 100) {
-                              return 'Desconto deve estar entre 0 e 100';
-                            }
-                            return null;
-                          },
+                  ),
+                  const SizedBox(height: AppTokens.space24),
+                  SectionCard(
+                    title: 'Variações (Opcional)',
+                    child: Column(
+                      children: [
+                        _buildTextField(
+                          _sizesController,
+                          'Tamanhos (ex: P, M, G ou 38, 40)',
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: _buildPromoPreview(),
-                      ),
-                    ],
-
-                    const SizedBox(height: 24),
-
-                    // Images
-                    _buildSectionTitle('Imagens'),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: _photos.asMap().entries.map((entry) {
-                        return _buildPhotoTile(entry.key, entry.value);
-                      }).toList(),
+                        const SizedBox(height: AppTokens.space16),
+                        _buildTextField(
+                          _colorsController,
+                          'Cores (ex: Preto, Branco, Azul)',
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 12),
-                    ElevatedButton.icon(
+                  ),
+                  const SizedBox(height: AppTokens.space24),
+                  SectionCard(
+                    title: 'Disponibilidade e Promoção',
+                    child: Column(
+                      children: [
+                        _buildSwitchTile(
+                          'Produto Ativo no Catálogo',
+                          _isActive,
+                          (v) => setState(() => _isActive = v),
+                        ),
+                        const Divider(),
+                        _buildSwitchTile(
+                          'Produto Esgotado',
+                          _isOutOfStock,
+                          (v) => setState(() => _isOutOfStock = v),
+                        ),
+                        const Divider(),
+                        _buildSwitchTile(
+                          'Em Promoção',
+                          _isOnSale,
+                          (v) => setState(() => _isOnSale = v),
+                        ),
+                        if (_isOnSale) ...[
+                          const SizedBox(height: AppTokens.space16),
+                          _buildTextField(
+                            _discountController,
+                            'Porcentagem de Desconto (%)',
+                            isNumber: true,
+                            validator: (v) {
+                              if (_isOnSale && (v == null || v.isEmpty))
+                                return 'Informe o desconto';
+                              final val = int.tryParse(v ?? '0') ?? 0;
+                              if (val < 0 || val > 100) return '0 a 100%';
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: AppTokens.space12),
+                          _buildPromoPreview(),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppTokens.space24),
+                  SectionCard(
+                    title: 'Imagens do Produto',
+                    trailing: TextButton.icon(
                       onPressed: _addPhoto,
-                      icon: const Icon(Icons.upload),
-                      label: const Text('Adicionar foto'),
+                      icon: const Icon(Icons.add_a_photo_outlined, size: 18),
+                      label: const Text('Adicionar'),
                     ),
-                  ],
+                    child: _photos.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(AppTokens.space24),
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    Icons.image_outlined,
+                                    size: 48,
+                                    color: AppTokens.textMuted.withOpacity(0.3),
+                                  ),
+                                  const SizedBox(height: AppTokens.space12),
+                                  Text(
+                                    'Nenhuma imagem adicionada',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodyMedium,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 3,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                  childAspectRatio: 1,
+                                ),
+                            itemCount: _photos.length,
+                            itemBuilder: (context, index) =>
+                                _buildPhotoTile(index, _photos[index]),
+                          ),
+                  ),
+                  const SizedBox(height: AppTokens.space48),
+                ],
+              ),
+            ),
+            _buildBottomBar(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomBar() {
+    return Container(
+      padding: const EdgeInsets.all(AppTokens.space24),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: AppPrimaryButton(
+          label: widget.product == null ? 'Criar Produto' : 'Salvar Alterações',
+          onPressed: _save,
+          icon: Icons.check_circle_outline,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCollectionDropdown(List<Category> collections) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Coleção',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: collections.any((c) => c.id == _selectedCollectionId)
+              ? _selectedCollectionId
+              : null,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 12,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Theme.of(context).dividerColor),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Theme.of(context).dividerColor),
+            ),
+          ),
+          items: [
+            const DropdownMenuItem(value: null, child: Text('Nenhuma coleção')),
+            ...collections.map(
+              (c) => DropdownMenuItem(value: c.id, child: Text(c.name)),
+            ),
+          ],
+          onChanged: (val) => setState(() => _selectedCollectionId = val),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSwitchTile(
+    String title,
+    bool value,
+    ValueChanged<bool> onChanged,
+  ) {
+    return InkWell(
+      onTap: () => onChanged(!value),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ),
+            Switch.adaptive(
+              value: value,
+              onChanged: onChanged,
+              activeColor: AppTokens.accentBlue,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField(
+    TextEditingController controller,
+    String label, {
+    String? Function(String?)? validator,
+    bool isPrice = false,
+    bool isNumber = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          decoration: InputDecoration(
+            hintText: 'Digite aqui...',
+            prefixText: isPrice ? 'R\$ ' : null,
+            prefixStyle: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontWeight: FontWeight.bold,
+            ),
+            filled: true,
+            fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 12,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppTokens.border),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppTokens.border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppTokens.accentBlue, width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppTokens.accentRed),
+            ),
+          ),
+          style: const TextStyle(fontSize: 15),
+          validator: validator,
+          keyboardType: (isPrice || isNumber)
+              ? const TextInputType.numberWithOptions(decimal: true)
+              : null,
+          inputFormatters: [
+            if (isPrice) FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+            if (isNumber && !isPrice) FilteringTextInputFormatter.digitsOnly,
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPhotoTile(int index, ProductPhoto photo) {
+    return Stack(
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+            border: Border.all(
+              color: photo.isPrimary
+                  ? AppTokens.accentBlue
+                  : Theme.of(context).dividerColor,
+              width: photo.isPrimary ? 2 : 1,
+            ),
+            image: DecorationImage(
+              image: photo.path.startsWith('http')
+                  ? NetworkImage(photo.path)
+                  : FileImage(File(photo.path)) as ImageProvider,
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
+        if (photo.colorKey != null)
+          Positioned(
+            top: 4,
+            left: 4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                photo.colorKey!,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-            );
-          },
+            ),
+          ),
+        Positioned(
+          top: -10,
+          right: -10,
+          child: IconButton(
+            icon: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                shape: BoxShape.circle,
+                boxShadow: [AppTokens.shadowSm],
+              ),
+              child: const Icon(
+                Icons.close,
+                size: 14,
+                color: AppTokens.accentRed,
+              ),
+            ),
+            onPressed: () => _removePhoto(index),
+          ),
         ),
+        if (!photo.isPrimary)
+          Positioned(
+            bottom: 4,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: GestureDetector(
+                onTap: () => _setPrimaryPhoto(index),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor.withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(AppTokens.radiusFull),
+                    boxShadow: const [AppTokens.shadowSm],
+                  ),
+                  child: const Text(
+                    'Tornar Principal',
+                    style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+            ),
+          )
+        else
+          Positioned(
+            bottom: 4,
+            right: 4,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(
+                color: AppTokens.accentBlue,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.star, size: 12, color: Colors.white),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildPromoPreview() {
+    final retail = _parsePrice(_retailController.text);
+    final discount = int.tryParse(_discountController.text) ?? 0;
+    if (retail <= 0 || discount <= 0) return const SizedBox.shrink();
+
+    final value = retail * (1 - (discount / 100));
+    final f = NumberFormat.currency(symbol: 'R\$', locale: 'pt_BR');
+
+    return Container(
+      padding: const EdgeInsets.all(AppTokens.space12),
+      decoration: BoxDecoration(
+        color: AppTokens.accentOrange.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+        border: Border.all(color: AppTokens.accentOrange.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.local_offer_outlined,
+            size: 16,
+            color: AppTokens.accentOrange,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Preço Promocional: ${f.format(value)}',
+              style: const TextStyle(
+                color: AppTokens.accentOrange,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -772,251 +1058,39 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     BuildContext context,
     List<Category> productTypes,
   ) {
-    final selected = productTypes
-        .where((c) => _selectedTypeIds.contains(c.id))
-        .toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: selected.isEmpty
-              ? [
-                  Text(
-                    'Nenhuma categoria selecionada',
-                    style: TextStyle(color: Colors.grey.shade600),
-                  ),
-                ]
-              : selected.map((c) => Chip(label: Text(c.name))).toList(),
-        ),
-        const SizedBox(height: 8),
-        OutlinedButton.icon(
-          onPressed: () => _selectProductTypes(context, productTypes),
-          icon: const Icon(Icons.tune),
-          label: const Text('Selecionar categorias'),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _selectProductTypes(
-    BuildContext context,
-    List<Category> productTypes,
-  ) async {
-    final tempSelected = Set<String>.from(_selectedTypeIds);
-    final result = await showModalBottomSheet<Set<String>>(
-      context: context,
-      isScrollControlled: true,
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (context, setModalState) => SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const ListTile(
-                  title: Text(
-                    'Categorias',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                Flexible(
-                  child: ListView(
-                    shrinkWrap: true,
-                    children: productTypes.map((category) {
-                      final checked = tempSelected.contains(category.id);
-                      return CheckboxListTile(
-                        value: checked,
-                        onChanged: (value) {
-                          setModalState(() {
-                            if (value == true) {
-                              tempSelected.add(category.id);
-                            } else {
-                              tempSelected.remove(category.id);
-                            }
-                          });
-                        },
-                        title: Text(category.name),
-                      );
-                    }).toList(),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: () =>
-                          Navigator.pop(sheetContext, tempSelected),
-                      child: const Text('Aplicar'),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+    if (productTypes.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: Text('Nenhuma categoria cadastrada. Crie categorias primeiro.'),
+      );
+    }
+    return Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      children: productTypes.map((cat) {
+        final isSelected = _selectedTypeIds.contains(cat.id);
+        return FilterChip(
+          label: Text(cat.name),
+          selected: isSelected,
+          onSelected: (val) {
+            setState(() {
+              if (val) {
+                _selectedTypeIds.add(cat.id);
+              } else {
+                _selectedTypeIds.remove(cat.id);
+              }
+            });
+          },
+          selectedColor: AppTokens.accentBlue.withOpacity(0.1),
+          checkmarkColor: AppTokens.accentBlue,
+          labelStyle: TextStyle(
+            color: isSelected
+                ? AppTokens.accentBlue
+                : Theme.of(context).colorScheme.onSurfaceVariant,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),
         );
-      },
-    );
-
-    if (result != null && mounted) {
-      setState(() => _selectedTypeIds = result.toList());
-    }
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Text(
-        title,
-        style: Theme.of(
-          context,
-        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-
-  Widget _buildPromoPreview() {
-    final retail = _parsePrice(_retailController.text);
-    final wholesale = _parsePrice(_wholesaleController.text);
-    final percent = double.tryParse(_discountController.text) ?? 0;
-    final retailFinal = PriceCalculator.effectiveRetail(
-      retail,
-      _isOnSale,
-      percent,
-    );
-    final wholesaleFinal = PriceCalculator.effectiveWholesale(
-      wholesale,
-      _isOnSale,
-      percent,
-    );
-    final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Varejo final: ${currency.format(retailFinal)}',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Atacado final: ${currency.format(wholesaleFinal)}',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPhotoTile(int index, ProductPhoto photo) {
-    final colorLabel = photo.colorKey?.toUpperCase() ?? 'GERAL';
-    return SizedBox(
-      width: 110,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Stack(
-            children: [
-              Container(
-                width: 110,
-                height: 110,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: photo.isPrimary ? Colors.blue : Colors.transparent,
-                    width: 2,
-                  ),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: kIsWeb
-                    ? const Center(child: Text('Sem preview'))
-                    : Image.file(
-                        File(photo.path),
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Center(
-                          child: Icon(
-                            Icons.broken_image,
-                            color: Colors.red,
-                          ),
-                        ),
-                      ),
-              ),
-              Positioned(
-                top: 6,
-                right: 6,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: Icon(
-                        photo.isPrimary ? Icons.star : Icons.star_border,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                      onPressed: () => _setPrimaryPhoto(index),
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.black54,
-                        padding: const EdgeInsets.all(4),
-                        minimumSize: const Size(28, 28),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.delete_outline,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                      onPressed: () => _removePhoto(index),
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.black54,
-                        padding: const EdgeInsets.all(4),
-                        minimumSize: const Size(28, 28),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            colorLabel,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-          ),
-          if (photo.isPrimary)
-            const Text(
-              'principal',
-              style: TextStyle(fontSize: 11, color: Colors.blueGrey),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTextField(
-    TextEditingController controller,
-    String label, {
-    bool isNumber = false,
-    bool isPrice = false,
-    String? Function(String?)? validator,
-  }) {
-    return TextFormField(
-      controller: controller,
-      decoration: InputDecoration(
-        labelText: label,
-        border: const OutlineInputBorder(),
-        helperText: isPrice ? 'Ex: 10,50' : null,
-      ),
-      keyboardType: isPrice
-          ? const TextInputType.numberWithOptions(decimal: true)
-          : (isNumber ? TextInputType.number : TextInputType.text),
-      validator: validator,
+      }).toList(),
     );
   }
 }
-

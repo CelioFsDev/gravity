@@ -1,5 +1,4 @@
 ﻿import 'dart:io';
-import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/models/product.dart';
@@ -8,6 +7,10 @@ import 'package:gravity/viewmodels/products_viewmodel.dart';
 import 'package:gravity/features/admin/products/product_form_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:gravity/core/utils/price_calculator.dart';
+import 'package:gravity/ui/theme/app_tokens.dart';
+import 'package:gravity/ui/widgets/app_scaffold.dart';
+import 'package:gravity/ui/widgets/section_card.dart';
+import 'package:gravity/ui/widgets/app_badge_pill.dart';
 
 class ProductDetailScreen extends ConsumerWidget {
   final Product product;
@@ -43,50 +46,62 @@ class ProductDetailScreen extends ConsumerWidget {
 
     final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Detalhes do Produto'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => ProductFormScreen(product: updatedProduct),
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete),
-            onPressed: () {
-              ref
-                  .read(productsViewModelProvider.notifier)
-                  .deleteProduct(updatedProduct.id);
-              Navigator.of(context).pop();
-            },
-          ),
-        ],
-      ),
+    return AppScaffold(
+      title: updatedProduct.name,
+      subtitle: 'REF: ${updatedProduct.reference}',
+      useAppBar: false,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.edit_outlined),
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ProductFormScreen(product: updatedProduct),
+              ),
+            );
+          },
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete_outline, color: AppTokens.accentRed),
+          onPressed: () {
+            ref
+                .read(productsViewModelProvider.notifier)
+                .deleteProduct(updatedProduct.id);
+            Navigator.of(context).pop();
+          },
+        ),
+      ],
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const SizedBox(height: AppTokens.space16),
             // Images Carousel / Main Image
             if (updatedProduct.images.isNotEmpty)
               SizedBox(
-                height: 300,
+                height: 320,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   itemCount: updatedProduct.images.length,
                   itemBuilder: (context, index) {
                     return Container(
                       margin: const EdgeInsets.only(right: 16),
-                      width: 300,
+                      width: 280,
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: _buildDetailImage(updatedProduct.images[index]),
+                        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: Theme.of(context).dividerColor,
+                            ),
+                            boxShadow: const [AppTokens.shadowSm],
+                          ),
+                          child: _buildDetailImage(
+                            context,
+                            updatedProduct.images[index],
+                          ),
+                        ),
                       ),
                     );
                   },
@@ -96,153 +111,206 @@ class ProductDetailScreen extends ConsumerWidget {
               Container(
                 height: 200,
                 width: double.infinity,
-                color: Colors.grey.shade200,
-                child: const Icon(
-                  Icons.image_not_supported,
-                  size: 64,
-                  color: Colors.grey,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+                  border: Border.all(color: Theme.of(context).dividerColor),
                 ),
+                child: const Icon(Icons.image_not_supported_outlined, size: 64),
               ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: AppTokens.space24),
 
-            // Header Info
+            // Header Info & Status
             Row(
               children: [
                 if (!updatedProduct.isActive)
-                  _statusBadge('Inativo', Colors.grey),
+                  AppBadgePill(label: 'Inativo', color: Colors.grey),
                 if (updatedProduct.isOutOfStock)
-                  _statusBadge('Esgotado', Colors.red),
+                  AppBadgePill(label: 'Esgotado', color: AppTokens.accentRed),
                 if (updatedProduct.isOnSale)
-                  _statusBadge('Em Promoção', Colors.orange),
+                  AppBadgePill(
+                    label: 'Em Promoção',
+                    color: AppTokens.accentOrange,
+                  ),
               ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              updatedProduct.name,
-              style: Theme.of(
-                context,
-              ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Text(
-                  'REF: ${updatedProduct.reference}',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(width: 16),
-                Text(
-                  'SKU: ${updatedProduct.sku}',
-                  style: const TextStyle(color: Colors.grey),
-                ),
-                const SizedBox(width: 16),
-                Text(
-                  'Colecao: $collectionLabel',
-                  style: const TextStyle(color: Colors.blue),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Categorias: $typeLabel',
-              style: const TextStyle(color: Colors.grey),
+            const SizedBox(height: AppTokens.space16),
+
+            SectionCard(
+              title: 'Informações Básicas',
+              child: Column(
+                children: [
+                  _buildDetailRow(context, 'SKU', updatedProduct.sku),
+                  _buildDetailRow(context, 'Coleção', collectionLabel),
+                  _buildDetailRow(context, 'Categorias', typeLabel),
+                ],
+              ),
             ),
 
-            const Divider(height: 32),
+            const SizedBox(height: AppTokens.space24),
 
             // Pricing
-            Text(
-              'Preços',
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final cardWidth = constraints.maxWidth >= 720
-                    ? (constraints.maxWidth - 32) / 3
-                    : constraints.maxWidth;
-                final retailEffective = PriceCalculator.effectiveRetail(
-                  updatedProduct.retailPrice,
-                  updatedProduct.isOnSale,
-                  updatedProduct.saleDiscountPercent.toDouble(),
-                );
-                final wholesaleEffective = PriceCalculator.effectiveWholesale(
-                  updatedProduct.wholesalePrice,
-                  updatedProduct.isOnSale,
-                  updatedProduct.saleDiscountPercent.toDouble(),
-                );
-                final cards = [
-                  _buildPriceCard(
-                    context,
-                    'Varejo',
-                    currency.format(updatedProduct.retailPrice),
-                    currency.format(retailEffective),
+            SectionCard(
+              title: 'Preços',
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final cardWidth = constraints.maxWidth >= 720
+                      ? (constraints.maxWidth - 32) / 3
+                      : constraints.maxWidth;
+                  final retailEffective = PriceCalculator.effectiveRetail(
+                    updatedProduct.retailPrice,
                     updatedProduct.isOnSale,
-                    Icons.attach_money,
-                  ),
-                  _buildPriceCard(
-                    context,
-                    'Atacado',
-                    currency.format(updatedProduct.wholesalePrice),
-                    currency.format(wholesaleEffective),
+                    updatedProduct.saleDiscountPercent.toDouble(),
+                  );
+                  final wholesaleEffective = PriceCalculator.effectiveWholesale(
+                    updatedProduct.wholesalePrice,
                     updatedProduct.isOnSale,
-                    Icons.store,
-                  ),
-                  _buildInfoCard(
-                    context,
-                    'Mín. Atacado',
-                    '${updatedProduct.minWholesaleQty} un',
-                    Icons.inventory_2,
-                  ),
-                ];
-                return Wrap(
-                  spacing: 16,
-                  runSpacing: 16,
-                  children: cards
-                      .map((card) => SizedBox(width: cardWidth, child: card))
-                      .toList(),
-                );
-              },
+                    updatedProduct.saleDiscountPercent.toDouble(),
+                  );
+                  final cards = [
+                    _buildPriceCard(
+                      context,
+                      'Varejo',
+                      currency.format(updatedProduct.retailPrice),
+                      currency.format(retailEffective),
+                      updatedProduct.isOnSale,
+                      Icons.person_outline,
+                    ),
+                    _buildPriceCard(
+                      context,
+                      'Atacado',
+                      currency.format(updatedProduct.wholesalePrice),
+                      currency.format(wholesaleEffective),
+                      updatedProduct.isOnSale,
+                      Icons.storefront_outlined,
+                    ),
+                    _buildInfoCard(
+                      context,
+                      'Mín. Atacado',
+                      '${updatedProduct.minWholesaleQty} un',
+                      Icons.shopping_bag_outlined,
+                    ),
+                  ];
+                  return Wrap(
+                    spacing: 16,
+                    runSpacing: 16,
+                    children: cards
+                        .map((card) => SizedBox(width: cardWidth, child: card))
+                        .toList(),
+                  );
+                },
+              ),
             ),
 
-            const Divider(height: 32),
+            const SizedBox(height: AppTokens.space24),
 
             // Attributes
-            Text(
-              'Atributos',
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            Text('Tamanhos:', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: updatedProduct.sizes
-                  .map((s) => Chip(label: Text(s)))
-                  .toList(),
-            ),
-            const SizedBox(height: 16),
-            Text('Cores:', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: updatedProduct.colors
-                  .map((c) => Chip(label: Text(c)))
-                  .toList(),
+            SectionCard(
+              title: 'Variantes e Atributos',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Tamanhos Disponíveis',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: updatedProduct.sizes.isEmpty
+                        ? [
+                            const Text(
+                              '-',
+                              style: TextStyle(color: AppTokens.textMuted),
+                            ),
+                          ]
+                        : updatedProduct.sizes
+                              .map((s) => _buildAttributeChip(context, s))
+                              .toList(),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Cores Disponíveis',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: AppTokens.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: updatedProduct.colors.isEmpty
+                        ? [
+                            const Text(
+                              '-',
+                              style: TextStyle(color: AppTokens.textMuted),
+                            ),
+                          ]
+                        : updatedProduct.colors
+                              .map((c) => _buildAttributeChip(context, c))
+                              .toList(),
+                  ),
+                ],
+              ),
             ),
 
-            const Divider(height: 32),
-            Text(
-              'Criado em: ${DateFormat('dd/MM/yyyy HH:mm').format(updatedProduct.createdAt)}',
-              style: const TextStyle(color: Colors.grey),
+            const SizedBox(height: AppTokens.space32),
+            Center(
+              child: Text(
+                'Criado em: ${DateFormat('dd/MM/yyyy HH:mm').format(updatedProduct.createdAt)}',
+                style: const TextStyle(
+                  color: AppTokens.textMuted,
+                  fontSize: 12,
+                ),
+              ),
             ),
+            const SizedBox(height: AppTokens.space48),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(BuildContext context, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+          ),
+          Text(
+            value,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttributeChip(BuildContext context, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -254,11 +322,11 @@ class ProductDetailScreen extends ConsumerWidget {
     IconData icon,
   ) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppTokens.space16),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        color: AppTokens.surface,
+        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+        border: Border.all(color: AppTokens.borderLight),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -266,15 +334,23 @@ class ProductDetailScreen extends ConsumerWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 16, color: Colors.grey),
+              Icon(icon, size: 16),
               const SizedBox(width: 8),
-              Text(label, style: const TextStyle(color: Colors.grey)),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppTokens.textMuted,
+                  fontSize: 13,
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Text(
             value,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -290,11 +366,11 @@ class ProductDetailScreen extends ConsumerWidget {
     IconData icon,
   ) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppTokens.space16),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        color: AppTokens.surface,
+        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+        border: Border.all(color: AppTokens.borderLight),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -302,28 +378,42 @@ class ProductDetailScreen extends ConsumerWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 16, color: Colors.grey),
+              Icon(icon, size: 16),
               const SizedBox(width: 8),
-              Text(label, style: const TextStyle(color: Colors.grey)),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppTokens.textMuted,
+                  fontSize: 13,
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           if (!promoEnabled || effectiveValue == baseValue)
             Text(
               baseValue,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             )
           else ...[
             Text(
               baseValue,
               style: const TextStyle(
-                color: Colors.grey,
+                color: AppTokens.textMuted,
                 decoration: TextDecoration.lineThrough,
+                fontSize: 13,
               ),
             ),
+            const SizedBox(height: 4),
             Text(
               effectiveValue,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppTokens.accentOrange,
+              ),
             ),
           ],
         ],
@@ -331,16 +421,12 @@ class ProductDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildDetailImage(String? imagePath) {
-    if (imagePath == null || kIsWeb) {
+  Widget _buildDetailImage(BuildContext context, String? imagePath) {
+    if (imagePath == null) {
       return Container(
-        color: Colors.grey.shade200,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         alignment: Alignment.center,
-        child: const Icon(
-          Icons.image_not_supported,
-          size: 48,
-          color: Colors.grey,
-        ),
+        child: const Icon(Icons.image_not_supported_outlined, size: 48),
       );
     }
 
@@ -348,31 +434,14 @@ class ProductDetailScreen extends ConsumerWidget {
       File(imagePath),
       fit: BoxFit.cover,
       errorBuilder: (context, error, stackTrace) => Container(
-        color: Colors.grey.shade200,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         alignment: Alignment.center,
-        child: const Icon(Icons.broken_image, size: 48, color: Colors.red),
-      ),
-    );
-  }
-
-  Widget _statusBadge(String text, Color color) {
-    return Container(
-      margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
+        child: const Icon(
+          Icons.broken_image_outlined,
+          size: 48,
+          color: AppTokens.accentRed,
         ),
       ),
     );
   }
 }
-

@@ -65,13 +65,15 @@ class CollectionCoverAdapter extends TypeAdapter<CollectionCover> {
       overlayOpacity: fields[6] as double?,
       bannerImagePath: fields[7] as String?,
       heroImagePath: fields[8] as String?,
+      coverHeaderImagePath: fields[9] as String?,
+      coverMainImagePath: fields[10] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, CollectionCover obj) {
     writer
-      ..writeByte(9)
+      ..writeByte(11)
       ..writeByte(0)
       ..write(obj.mode)
       ..writeByte(1)
@@ -89,7 +91,11 @@ class CollectionCoverAdapter extends TypeAdapter<CollectionCover> {
       ..writeByte(7)
       ..write(obj.bannerImagePath)
       ..writeByte(8)
-      ..write(obj.heroImagePath);
+      ..write(obj.heroImagePath)
+      ..writeByte(9)
+      ..write(obj.coverHeaderImagePath)
+      ..writeByte(10)
+      ..write(obj.coverMainImagePath);
   }
 
   @override

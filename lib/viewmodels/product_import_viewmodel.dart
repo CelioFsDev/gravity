@@ -263,7 +263,8 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       final row = rows[i];
       if (row.isEmpty) continue;
 
-      final sku = _cellByKeys(row, headerMap, ['sku'], 2).trim();
+      final name = _cellByKeys(row, headerMap, ['name', 'nome'], 1);
+      final sku = _cellByKeys(row, headerMap, ['sku'], 0).trim();
       if (sku.isEmpty) continue;
       final skuKey = _normalizeSku(sku);
       final existing = existingBySku[skuKey];
@@ -280,6 +281,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         categoriesRepo,
       );
 
+      final ref = _cellByKeys(row, headerMap, ['ref', 'reference'], 2);
       final sizes = _splitList(_cellByKeys(row, headerMap, ['sizes'], 7));
       final colors = _splitList(_cellByKeys(row, headerMap, ['colors'], 8));
 
@@ -307,40 +309,57 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       }
 
       final priceRetail = _parsePrice(
-        _cellByKeys(row, headerMap, ['price', 'preco', 'retailprice'], 4),
+        _cellByKeys(row, headerMap, ['retailprice', 'price', 'preco'], 4),
       );
       if (priceRetail <= 0) {
         continue;
       }
 
-      final promoPrice = _parsePrice(
-        _cellByKeys(row, headerMap, [
-          'promoprice',
-          'promotionalprice',
-          'saleprice',
-          'precopromocional',
-          'preco_promocional',
-        ], 0),
+      final priceWholesale = _parsePrice(
+        _cellByKeys(row, headerMap, ['wholesaleprice', 'priceatacado'], 5),
       );
-      var promoPercent = 0;
-      var promoEnabled = false;
-      if (promoPrice > 0 && promoPrice < priceRetail) {
-        promoPercent = (100 * (1 - (promoPrice / priceRetail))).round();
-        promoPercent = promoPercent.clamp(0, 100);
-        promoEnabled = promoPercent > 0;
-      }
 
-      final priceWholesale = existing?.priceAtacado ?? priceRetail;
+      // Promotion logic unification
+      double promoPercent = 0;
+      bool promoEnabled = false;
+
+      final promoPriceString = _cellByKeys(row, headerMap, [
+        'promoprice',
+        'promotionalprice',
+        'saleprice',
+        'precopromocional',
+        'preco_promocional',
+      ], -1);
+
+      if (promoPriceString.isNotEmpty && promoPriceString != '-1') {
+        final promoPrice = _parsePrice(promoPriceString);
+        if (promoPrice > 0 && promoPrice < priceRetail) {
+          promoPercent = (100 * (1 - (promoPrice / priceRetail)));
+          promoPercent = promoPercent.clamp(0, 100);
+          promoEnabled = promoPercent > 0;
+        }
+      } else {
+        // Fallback to direct percent (exported format)
+        promoEnabled = _parseBool(
+          _cellByKeys(row, headerMap, ['isonsale', 'promoenabled'], 11),
+        );
+        promoPercent = _parsePrice(
+          _cellByKeys(row, headerMap, [
+            'salediscountpercent',
+            'promopercent',
+          ], 12),
+        );
+      }
 
       products.add(
         Product(
           id: existing?.id ?? const Uuid().v4(),
-          name: _cellByKeys(row, headerMap, ['name', 'nome'], 0),
-          ref: _cellByKeys(row, headerMap, ['ref'], 1),
+          name: name,
+          ref: ref,
           sku: sku,
           categoryIds: categoryId.isNotEmpty ? [categoryId] : <String>[],
           priceRetail: priceRetail,
-          priceWholesale: priceWholesale,
+          priceWholesale: priceWholesale > 0 ? priceWholesale : priceRetail,
           minWholesaleQty:
               int.tryParse(_cellByKeys(row, headerMap, ['minqty'], 6)) ?? 1,
           sizes: sizes,
@@ -703,4 +722,3 @@ class ParsedImport {
     required this.imagesTotalCount,
   });
 }
-

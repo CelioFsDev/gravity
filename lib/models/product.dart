@@ -130,10 +130,10 @@ class Product {
     this.remoteImages = const [],
     this.variants = const [],
     DateTime? updatedAt,
-  })  : photos = photos.isNotEmpty
-            ? photos
-            : _photosFromLegacy(images, mainImageIndex),
-        updatedAt = updatedAt ?? createdAt;
+  }) : photos = photos.isNotEmpty
+           ? photos
+           : _photosFromLegacy(images, mainImageIndex),
+       updatedAt = updatedAt ?? createdAt;
 
   Product copyWith({
     String? id,
@@ -161,15 +161,14 @@ class Product {
     DateTime? updatedAt,
     List<ProductPhoto>? photos,
   }) {
-    final resolvedPhotos = photos ??
+    final resolvedPhotos =
+        photos ??
         (images != null
-            ? _photosFromLegacy(
-                images,
-                mainImageIndex ?? this.mainImageIndex,
-              )
+            ? _photosFromLegacy(images, mainImageIndex ?? this.mainImageIndex)
             : this.photos);
     final resolvedImages = images ?? _imagesFromPhotos(resolvedPhotos);
-    final resolvedMainIndex = mainImageIndex ??
+    final resolvedMainIndex =
+        mainImageIndex ??
         _mainIndexFromPhotos(resolvedPhotos, this.mainImageIndex);
     return Product(
       id: id ?? this.id,
@@ -208,6 +207,15 @@ class Product {
   bool get isOnSale => promoEnabled; // Alias old
   int get saleDiscountPercent => promoPercent.toInt(); // Alias old compatible
 
+  double get effectivePriceRetail =>
+      PriceCalculator.effectiveRetail(priceRetail, promoEnabled, promoPercent);
+
+  double get effectivePriceWholesale => PriceCalculator.effectiveWholesale(
+    priceWholesale,
+    promoEnabled,
+    promoPercent,
+  );
+
   String? get primarySku => variants.isNotEmpty ? variants.first.sku : null;
 
   String? get primaryCategoryId =>
@@ -230,6 +238,17 @@ class Product {
           );
   }
 
+  Map<String, List<int>> get imageIndicesByColor {
+    final map = <String, List<int>>{};
+    for (int i = 0; i < photos.length; i++) {
+      final color = photos[i].colorKey;
+      if (color != null) {
+        map.putIfAbsent(color, () => []).add(i);
+      }
+    }
+    return map;
+  }
+
   static List<ProductPhoto> _photosFromLegacy(
     List<String> images,
     int mainImageIndex,
@@ -250,10 +269,7 @@ class Product {
     return photos.map((p) => p.path).toList();
   }
 
-  static int _mainIndexFromPhotos(
-    List<ProductPhoto> photos,
-    int fallback,
-  ) {
+  static int _mainIndexFromPhotos(List<ProductPhoto> photos, int fallback) {
     if (photos.isEmpty) return fallback;
     final primaryIndex = photos.indexWhere((p) => p.isPrimary);
     return primaryIndex >= 0 ? primaryIndex : 0;

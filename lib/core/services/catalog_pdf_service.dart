@@ -42,6 +42,7 @@ class CatalogPdfService {
         collectionCover,
         collectionName: collectionName,
         defaultSubtitle: defaultSubtitle,
+        catalogBannerPath: bannerImagePath,
       );
     }
 
@@ -455,6 +456,7 @@ class CatalogPdfService {
     CollectionCover? cover, {
     String? collectionName,
     String defaultSubtitle = 'SELE\u00c7\u00c3O DE PRODUTOS',
+    String? catalogBannerPath,
   }) {
     final resolved =
         cover ??
@@ -475,57 +477,64 @@ class CatalogPdfService {
         ? resolved.subtitle!.trim()
         : (collectionName ?? defaultSubtitle);
 
-    if (resolved.mode == CollectionCoverMode.image &&
-        (resolved.coverImagePath != null ||
-            resolved.bannerImagePath != null ||
-            resolved.heroImagePath != null)) {
-      final bannerPath = resolved.bannerImagePath ?? resolved.coverImagePath;
-      final heroPath = resolved.heroImagePath;
-      final bannerHeight = pageFormat.height * 0.18;
-      final footerHeight = pageFormat.height * 0.12;
-      final heroHeight = pageFormat.height - bannerHeight - footerHeight - 36;
-      pdf.addPage(
-        pw.Page(
-          pageFormat: pageFormat,
-          margin: const pw.EdgeInsets.symmetric(horizontal: 18, vertical: 18),
-          build: (_) => pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-            children: [
-              if (bannerPath != null)
-                _buildImageBox(
-                  bannerPath,
-                  height: bannerHeight,
-                  width: pageFormat.width - 36,
-                  radius: 12,
-                )
-              else
-                pw.SizedBox(height: bannerHeight),
-              pw.SizedBox(height: 12),
-              if (heroPath != null)
-                _buildImageBox(
-                  heroPath,
-                  height: heroHeight,
-                  width: pageFormat.width - 36,
-                  radius: 18,
-                )
-              else
-                pw.SizedBox(height: heroHeight),
-              pw.Spacer(),
-              pw.Text(
-                subtitle.toUpperCase(),
-                style: pw.TextStyle(
-                  fontSize: 12,
-                  letterSpacing: 1.6,
-                  color: _colorMuted,
-                ),
-                textAlign: pw.TextAlign.center,
+    if (resolved.mode == CollectionCoverMode.image) {
+      final headerPath =
+          resolved.coverHeaderImagePath ??
+          resolved.bannerImagePath ??
+          catalogBannerPath;
+      final mainPath =
+          resolved.coverMainImagePath ??
+          resolved.heroImagePath ??
+          resolved.coverImagePath;
+
+      if (headerPath != null || mainPath != null) {
+        final availableHeight = pageFormat.height - 36;
+        final headerHeight = headerPath != null ? availableHeight * 0.16 : 0.0;
+        final mainHeight = mainPath != null
+            ? (headerPath != null ? availableHeight * 0.76 : availableHeight)
+            : 0.0;
+
+        pdf.addPage(
+          pw.Page(
+            pageFormat: pageFormat,
+            margin: pw.EdgeInsets.zero,
+            build: (_) => pw.Container(
+              color: PdfColors.white,
+              padding: const pw.EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 18,
               ),
-              pw.SizedBox(height: 6),
-            ],
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  if (headerPath != null) ...[
+                    _buildImageBox(
+                      headerPath,
+                      height: headerHeight,
+                      width: pageFormat.width - 36,
+                      radius: 12,
+                    ),
+                    pw.SizedBox(height: 12),
+                  ],
+                  if (mainPath != null) ...[
+                    pw.Spacer(),
+                    _buildImageBox(
+                      mainPath,
+                      height: mainHeight,
+                      width: pageFormat.width - 36,
+                      radius: 18,
+                    ),
+                    pw.Spacer(),
+                  ],
+                  if (mainPath == null && headerPath == null)
+                    pw.Center(child: pw.Text('Sem imagens de capa')),
+                ],
+              ),
+            ),
           ),
-        ),
-      );
-      return;
+        );
+        return;
+      }
     }
 
     final background =

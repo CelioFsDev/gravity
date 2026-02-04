@@ -21,30 +21,52 @@ class AppEmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppTokens.space32),
+        padding: const EdgeInsets.symmetric(
+          vertical: AppTokens.space48,
+          horizontal: AppTokens.space24,
+        ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 52, color: AppTokens.textMuted),
-            const SizedBox(height: AppTokens.space12),
+            Container(
+              padding: const EdgeInsets.all(AppTokens.space24),
+              decoration: BoxDecoration(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                shape: BoxShape.circle,
+                border: Border.all(color: Theme.of(context).dividerColor),
+              ),
+              child: Icon(
+                icon,
+                size: 48,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurfaceVariant.withOpacity(0.5),
+              ),
+            ),
+            const SizedBox(height: AppTokens.space24),
             Text(
               title,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppTokens.space8),
             Text(
               message,
-              style: Theme.of(context).textTheme.bodySmall,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
               textAlign: TextAlign.center,
             ),
             if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: AppTokens.space16),
-              FilledButton(
-                onPressed: onAction,
-                child: Text(actionLabel!),
+              const SizedBox(height: AppTokens.space32),
+              SizedBox(
+                width: 200,
+                child: ElevatedButton(
+                  onPressed: onAction,
+                  child: Text(actionLabel!),
+                ),
               ),
             ],
           ],

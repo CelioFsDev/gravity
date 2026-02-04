@@ -1,0 +1,191 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:gravity/models/product.dart';
+import 'package:gravity/ui/theme/app_tokens.dart';
+import 'package:gravity/ui/widgets/app_card.dart';
+import 'package:gravity/ui/widgets/app_badge_pill.dart';
+import 'package:intl/intl.dart';
+
+class AppProductListTile extends StatelessWidget {
+  final Product product;
+  final VoidCallback onTap;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+  final VoidCallback? onDuplicate;
+  final VoidCallback? onTogglePromo;
+  final Widget? trailing;
+
+  const AppProductListTile({
+    super.key,
+    required this.product,
+    required this.onTap,
+    this.onEdit,
+    this.onDelete,
+    this.onDuplicate,
+    this.onTogglePromo,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
+    final primaryImage = _resolvePrimaryImage(product);
+
+    return AppCard(
+      margin: const EdgeInsets.only(bottom: AppTokens.space12),
+      padding: const EdgeInsets.all(AppTokens.space12),
+      onTap: onTap,
+      child: Row(
+        children: [
+          // Thumbnail
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: _buildImage(primaryImage),
+          ),
+          const SizedBox(width: AppTokens.space16),
+
+          // Info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      product.ref,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                    const SizedBox(width: AppTokens.space8),
+                    if (product.promoEnabled)
+                      const AppBadgePill(
+                        label: 'PROMO',
+                        color: AppTokens.accentRed,
+                      ),
+                    if (product.isOutOfStock)
+                      const SizedBox(width: AppTokens.space4),
+                    if (product.isOutOfStock)
+                      const AppBadgePill(
+                        label: 'ESGOTADO',
+                        color: AppTokens.textMuted,
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  product.name,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleMedium?.copyWith(fontSize: 16),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Varejo: ${currency.format(product.effectivePriceRetail)} • Atacado: ${currency.format(product.effectivePriceWholesale)}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+
+          if (trailing != null) trailing!,
+          if (trailing == null && (onEdit != null || onDelete != null))
+            _buildAdminMenu(context),
+          if (trailing == null && onEdit == null && onDelete == null)
+            const Icon(Icons.chevron_right),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAdminMenu(BuildContext context) {
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.more_vert),
+      onSelected: (value) {
+        if (value == 'edit') onEdit?.call();
+        if (value == 'delete') onDelete?.call();
+        if (value == 'duplicate') onDuplicate?.call();
+        if (value == 'togglePromo') onTogglePromo?.call();
+      },
+      itemBuilder: (context) => [
+        if (onEdit != null)
+          const PopupMenuItem(
+            value: 'edit',
+            child: Row(
+              children: [
+                Icon(Icons.edit_outlined, size: 18),
+                SizedBox(width: 8),
+                Text('Editar'),
+              ],
+            ),
+          ),
+        if (onDuplicate != null)
+          const PopupMenuItem(
+            value: 'duplicate',
+            child: Row(
+              children: [
+                Icon(Icons.copy_outlined, size: 18),
+                SizedBox(width: 8),
+                Text('Duplicar'),
+              ],
+            ),
+          ),
+        if (onTogglePromo != null)
+          PopupMenuItem(
+            value: 'togglePromo',
+            child: Row(
+              children: [
+                const Icon(Icons.percent_outlined, size: 18),
+                const SizedBox(width: 8),
+                Text(product.promoEnabled ? 'Remover Promo' : 'Ativar Promo'),
+              ],
+            ),
+          ),
+        if (onDelete != null)
+          const PopupMenuItem(
+            value: 'delete',
+            child: Row(
+              children: [
+                Icon(
+                  Icons.delete_outline,
+                  size: 18,
+                  color: AppTokens.accentRed,
+                ),
+                SizedBox(width: 8),
+                Text('Excluir', style: TextStyle(color: AppTokens.accentRed)),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildImage(String? path) {
+    if (path == null) {
+      return const Icon(Icons.image_not_supported);
+    }
+
+    return kIsWeb || path.startsWith('http')
+        ? Image.network(path, fit: BoxFit.cover)
+        : Image.file(File(path), fit: BoxFit.cover);
+  }
+
+  String? _resolvePrimaryImage(Product product) {
+    if (product.images.isNotEmpty) {
+      final idx = product.mainImageIndex;
+      if (idx >= 0 && idx < product.images.length) return product.images[idx];
+      return product.images.first;
+    }
+    return null;
+  }
+}

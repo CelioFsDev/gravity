@@ -6,6 +6,10 @@ import 'package:gravity/core/importer/nuvemshop_forward_fill.dart';
 import 'package:gravity/core/importer/nuvemshop_import_service.dart';
 import 'package:gravity/data/repositories/categories_repository.dart';
 import 'package:gravity/data/repositories/products_repository.dart';
+import 'package:gravity/ui/theme/app_tokens.dart';
+import 'package:gravity/ui/widgets/app_scaffold.dart';
+import 'package:gravity/ui/widgets/section_card.dart';
+import 'package:gravity/ui/widgets/app_primary_button.dart';
 
 class NuvemshopImportScreen extends ConsumerStatefulWidget {
   const NuvemshopImportScreen({super.key});
@@ -88,93 +92,207 @@ class _NuvemshopImportScreenState extends ConsumerState<NuvemshopImportScreen> {
   @override
   Widget build(BuildContext context) {
     final previewRows = _preview?.rows.take(5).toList() ?? [];
-    return Scaffold(
-      appBar: AppBar(title: const Text('Importar Nuvemshop')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
+
+    return AppScaffold(
+      title: 'Importar Nuvemshop',
+      subtitle: 'Traga seus produtos via CSV',
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(AppTokens.space24),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.amber.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.amber.shade200),
-              ),
-              child: const Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.info_outline, color: Colors.orange),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Importe o CSV exportado em Produtos > Lista de produtos > Exportar.\n'
-                      'O preco atacado nao vem da Nuvemshop. Após importar, revise o atacado no editor do produto.',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: _loading ? null : _pickFile,
-              icon: const Icon(Icons.upload_file),
-              label: const Text('Selecionar CSV da Nuvemshop'),
-            ),
-            const SizedBox(height: 12),
-            if (_selectedFile != null)
-              Text(
-                'Arquivo: ${_selectedFile!.name}',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
+            _buildInstructions(),
+            const SizedBox(height: 24),
+            _buildFileSelection(),
             if (previewRows.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(
-                'Preview (5 linhas):',
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: previewRows.length,
-                  itemBuilder: (context, index) {
-                    final row = previewRows[index];
-                    return Card(
-                      child: ListTile(
-                        title: Text(row['Nome'] ?? '-'),
-                        subtitle: Text(
-                          'SKU: ${row['SKU'] ?? '-'} | Preco: ${row['Preço'] ?? '-'} | Categoria: ${row['Categorias'] ?? '-'}',
-                        ),
-                      ),
-                    );
-                  },
+              const SizedBox(height: 24),
+              _buildPreview(previewRows),
+            ],
+            if (_report != null) ...[
+              const SizedBox(height: 24),
+              _buildReport(),
+            ],
+            const SizedBox(height: 32),
+            if (_loading) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: _progress > 0 ? _progress : null,
+                  backgroundColor: AppTokens.borderLight,
+                  valueColor: const AlwaysStoppedAnimation(
+                    AppTokens.accentBlue,
+                  ),
+                  minHeight: 8,
                 ),
               ),
-            ] else
-              const Spacer(),
-            if (_loading)
-              LinearProgressIndicator(value: _progress > 0 ? _progress : null),
-            const SizedBox(height: 8),
+              const SizedBox(height: 16),
+            ],
             SizedBox(
               width: double.infinity,
-              child: FilledButton(
+              child: AppPrimaryButton(
+                label: _loading ? 'Importando...' : 'Iniciar Importação',
                 onPressed: _selectedFile == null || _loading ? null : _import,
-                child: const Text('Importar agora'),
+                icon: Icons.cloud_download_outlined,
               ),
             ),
-            if (_report != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                'Criados: ${_report!.createdCount} | Atualizados: ${_report!.updatedCount} | Variacoes: ${_report!.variantsCount}',
-              ),
-              if (_report!.warnings.isNotEmpty)
-                Text('Avisos: ${_report!.warnings.length}'),
-            ],
           ],
         ),
       ),
     );
   }
-}
 
+  Widget _buildInstructions() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(
+          context,
+        ).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline, color: Colors.orange, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Importe o CSV exportado em Produtos > Lista de produtos > Exportar em sua Nuvemshop.\n\n'
+              'Importante: O preço de atacado não é exportado pela Nuvemshop. Após a importação, revise os valores no editor de produtos.',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(height: 1.5),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFileSelection() {
+    return SectionCard(
+      title: 'Arquivo de Origem',
+      child: Column(
+        children: [
+          InkWell(
+            onTap: _loading ? null : _pickFile,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: AppTokens.border,
+                  style: BorderStyle.solid,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              ),
+              child: Column(
+                children: [
+                  Icon(
+                    _selectedFile == null
+                        ? Icons.upload_file_outlined
+                        : Icons.check_circle_outline,
+                    size: 48,
+                    color: _selectedFile == null
+                        ? Theme.of(context).colorScheme.onSurfaceVariant
+                        : AppTokens.accentGreen,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    _selectedFile == null
+                        ? 'Clique para selecionar o CSV'
+                        : _selectedFile!.name,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    textAlign: TextAlign.center,
+                  ),
+                  if (_selectedFile != null)
+                    Text(
+                      '${(_selectedFile!.size / 1024).toStringAsFixed(1)} KB',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPreview(List<Map<String, String>> previewRows) {
+    return SectionCard(
+      title: 'Prévia dos Dados',
+      child: Column(
+        children: previewRows.map((row) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: ListTile(
+              dense: true,
+              title: Text(
+                row['Nome'] ?? '-',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text(
+                'SKU: ${row['SKU'] ?? '-'} | Preço: ${row['Preço'] ?? '-'}',
+                style: const TextStyle(fontSize: 11),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildReport() {
+    return SectionCard(
+      title: 'Relatório de Importação',
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildReportStat(
+            'Criados',
+            _report!.createdCount,
+            AppTokens.accentGreen,
+          ),
+          _buildReportStat(
+            'Atualizados',
+            _report!.updatedCount,
+            AppTokens.accentBlue,
+          ),
+          _buildReportStat(
+            'Variações',
+            _report!.variantsCount,
+            AppTokens.accentPurple,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReportStat(String label, int value, Color color) {
+    return Column(
+      children: [
+        Text(
+          value.toString(),
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: AppTokens.textMuted),
+        ),
+      ],
+    );
+  }
+}

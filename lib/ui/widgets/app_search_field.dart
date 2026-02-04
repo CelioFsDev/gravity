@@ -1,16 +1,17 @@
 ﻿import 'package:flutter/material.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
 
 class AppSearchField extends StatelessWidget {
   final TextEditingController controller;
   final String hintText;
   final ValueChanged<String>? onChanged;
+  final VoidCallback? onClear;
 
   const AppSearchField({
     super.key,
     required this.controller,
     required this.hintText,
     this.onChanged,
+    this.onClear,
   });
 
   @override
@@ -18,23 +19,28 @@ class AppSearchField extends StatelessWidget {
     return TextField(
       controller: controller,
       onChanged: onChanged,
-      decoration: const InputDecoration().copyWith(
+      style: const TextStyle(fontSize: 15),
+      decoration: InputDecoration(
         hintText: hintText,
-        prefixIcon: const Icon(Icons.search),
+        prefixIcon: Icon(
+          Icons.search_rounded,
+          size: 22,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+        suffixIcon: controller.text.isNotEmpty
+            ? IconButton(
+                icon: const Icon(Icons.close_rounded, size: 18),
+                onPressed: () {
+                  controller.clear();
+                  onClear?.call();
+                  onChanged?.call('');
+                },
+              )
+            : null,
         filled: true,
-        fillColor: Theme.of(context).cardColor,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: AppTokens.space16,
-          vertical: AppTokens.space12,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-          borderSide: const BorderSide(color: AppTokens.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-          borderSide: const BorderSide(color: AppTokens.border),
-        ),
+        fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+        contentPadding: const EdgeInsets.symmetric(vertical: 0),
+        // Border and decoration are handled by AppTheme InputDecorationTheme
       ),
     );
   }
