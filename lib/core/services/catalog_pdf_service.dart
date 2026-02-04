@@ -477,6 +477,32 @@ class CatalogPdfService {
         ? resolved.subtitle!.trim()
         : (collectionName ?? defaultSubtitle);
 
+    final coverOnlyPath = resolved.coverImagePath?.trim();
+    if (coverOnlyPath != null && coverOnlyPath.isNotEmpty) {
+      pdf.addPage(
+        pw.Page(
+          pageFormat: pageFormat,
+          margin: pw.EdgeInsets.zero,
+          build: (_) => pw.Container(
+            color: PdfColors.white,
+            padding: const pw.EdgeInsets.symmetric(
+              horizontal: 18,
+              vertical: 18,
+            ),
+            child: pw.Center(
+              child: _buildImageBox(
+                coverOnlyPath,
+                height: pageFormat.height - 36,
+                width: pageFormat.width - 36,
+                radius: 18,
+              ),
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
     if (resolved.mode == CollectionCoverMode.image) {
       final headerPath =
           resolved.coverHeaderImagePath ??
