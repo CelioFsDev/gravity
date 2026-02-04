@@ -1,5 +1,6 @@
 ﻿import 'dart:io';
 import 'dart:typed_data';
+import 'dart:convert';
 
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -400,6 +401,31 @@ class CatalogPdfService {
     double radius = 0,
   }) {
     try {
+      if (path.startsWith('data:')) {
+        final commaIndex = path.indexOf(',');
+        if (commaIndex != -1) {
+          final base64Data = path.substring(commaIndex + 1);
+          final bytes = base64Decode(base64Data);
+          final image = pw.MemoryImage(bytes);
+          return pw.Container(
+            height: height,
+            width: width,
+            alignment: pw.Alignment.center,
+            decoration: pw.BoxDecoration(
+              color: _colorImageBg,
+              borderRadius: pw.BorderRadius.circular(radius),
+            ),
+            child: pw.ClipRRect(
+              horizontalRadius: radius,
+              verticalRadius: radius,
+              child: pw.FittedBox(
+                fit: pw.BoxFit.contain,
+                child: pw.Image(image),
+              ),
+            ),
+          );
+        }
+      }
       final file = File(path);
       if (file.existsSync()) {
         final image = pw.MemoryImage(file.readAsBytesSync());
@@ -502,23 +528,13 @@ class CatalogPdfService {
       );
       return;
     }
-
     if (resolved.mode == CollectionCoverMode.image) {
-      final headerPath =
-          resolved.coverHeaderImagePath ??
-          resolved.bannerImagePath ??
-          catalogBannerPath;
-      final mainPath =
-          resolved.coverMainImagePath ??
-          resolved.heroImagePath ??
-          resolved.coverImagePath;
+      final miniPath = resolved.coverMiniPath ?? resolved.coverImagePath;
+      final pagePath = resolved.coverPagePath;
 
-      if (headerPath != null || mainPath != null) {
-        final availableHeight = pageFormat.height - 36;
-        final headerHeight = headerPath != null ? availableHeight * 0.16 : 0.0;
-        final mainHeight = mainPath != null
-            ? (headerPath != null ? availableHeight * 0.76 : availableHeight)
-            : 0.0;
+      if (miniPath != null) {
+        final availableWidth = pageFormat.width - 36;
+        final miniHeight = availableWidth / (1365 / 420);
 
         pdf.addPage(
           pw.Page(
@@ -526,34 +542,27 @@ class CatalogPdfService {
             margin: pw.EdgeInsets.zero,
             build: (_) => pw.Container(
               color: PdfColors.white,
-              padding: const pw.EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 18,
-              ),
+              padding: const pw.EdgeInsets.all(18),
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                 children: [
-                  if (headerPath != null) ...[
-                    _buildImageBox(
-                      headerPath,
-                      height: headerHeight,
-                      width: pageFormat.width - 36,
-                      radius: 12,
-                    ),
+                  _buildImageBox(
+                    miniPath,
+                    height: miniHeight,
+                    width: availableWidth,
+                    radius: 12,
+                  ),
+                  if (pagePath != null) ...[
                     pw.SizedBox(height: 12),
-                  ],
-                  if (mainPath != null) ...[
-                    pw.Spacer(),
-                    _buildImageBox(
-                      mainPath,
-                      height: mainHeight,
-                      width: pageFormat.width - 36,
-                      radius: 18,
+                    pw.Expanded(
+                      child: _buildImageBox(
+                        pagePath,
+                        height: pageFormat.height, // Fits in Expanded
+                        width: availableWidth,
+                        radius: 18,
+                      ),
                     ),
-                    pw.Spacer(),
                   ],
-                  if (mainPath == null && headerPath == null)
-                    pw.Center(child: pw.Text('Sem imagens de capa')),
                 ],
               ),
             ),

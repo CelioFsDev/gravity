@@ -12,6 +12,7 @@ class AdminShellScreen extends ConsumerWidget {
 
   static const _destinations = [
     _NavItem(icon: Icons.inventory, label: 'Produtos'),
+    _NavItem(icon: Icons.collections_bookmark, label: 'Coleções'),
     _NavItem(icon: Icons.category, label: 'Categorias'),
     _NavItem(icon: Icons.menu_book, label: 'Catálogos'),
     _NavItem(icon: Icons.cloud_download, label: 'Importações'),

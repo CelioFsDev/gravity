@@ -1,5 +1,6 @@
 ﻿import 'dart:io';
 import 'dart:math' as math;
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -138,12 +139,16 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
               .where((c) => c.name.toLowerCase().contains(query))
               .toList();
 
-    final collections = filtered
-        .where((c) => c.type == CategoryType.collection)
-        .toList();
+    // Filter ONLY product types
     final productTypes = filtered
         .where((c) => c.type == CategoryType.productType)
         .toList();
+
+    if (productTypes.isEmpty) {
+      return const Center(
+          child: Text('Nenhuma categoria encontrada.')
+      );
+    }
 
     return ListView(
       padding: const EdgeInsets.symmetric(
@@ -151,29 +156,13 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
         vertical: AppTokens.space12,
       ),
       children: [
-        if (collections.isNotEmpty) ...[
-          _buildSectionTitle('Coleções'),
-          const SizedBox(height: 12),
-          _buildSectionList(
-            context,
-            state,
-            notifier,
-            collections,
-            isManual: isManual,
-          ),
-          const SizedBox(height: 24),
-        ],
-        if (productTypes.isNotEmpty) ...[
-          _buildSectionTitle('Categorias de Produtos'),
-          const SizedBox(height: 12),
-          _buildSectionList(
+            _buildSectionList(
             context,
             state,
             notifier,
             productTypes,
             isManual: isManual,
           ),
-        ],
       ],
     );
   }
@@ -344,132 +333,15 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     }
   }
 
-  Future<String?> _pickCoverImage(
-    BuildContext context, {
-    required String collectionId,
-    required String fileName,
-  }) async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        allowMultiple: false,
-        type: FileType.any,
-      );
-      if (result == null || result.files.isEmpty) return null;
-      return _processPickedCoverImage(
-        result.files.first,
-        context,
-        collectionId: collectionId,
-        fileName: fileName,
-      );
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao selecionar imagem: $e')),
-        );
-      }
-      return null;
-    }
-  }
-
-  Future<String?> _processPickedCoverImage(
-    PlatformFile file,
-    BuildContext context, {
-    required String collectionId,
-    required String fileName,
-  }) async {
-    final ext = p.extension(file.name).toLowerCase();
-    if (!['.jpg', '.jpeg', '.png', '.webp'].contains(ext)) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Arquivo "${file.name}" ignorado (nao e imagem).'),
-          ),
-        );
-      }
-      return null;
-    }
-
-    final resolved = await _copyCoverFileToStorage(
-      file,
-      collectionId: collectionId,
-      fileName: fileName,
-    );
-    if (resolved == null && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Falha ao processar "${file.name}".')),
-      );
-    }
-    return resolved;
-  }
-
-  Future<String?> _copyCoverFileToStorage(
-    PlatformFile file, {
-    required String collectionId,
-    required String fileName,
-  }) async {
-    try {
-      final extension = p.extension(file.name).isNotEmpty
-          ? p.extension(file.name).toLowerCase()
-          : '.jpg';
-      final targetFileName = '$fileName$extension';
-
-      if (!kIsWeb && file.path != null) {
-        final sourceFile = File(file.path!);
-        if (!await sourceFile.exists()) return null;
-        return await LocalMediaService.savePickedImage(
-          sourceFile,
-          folder: p.join('media', 'covers', collectionId),
-          fileName: targetFileName,
-        );
-      }
-
-      if (!kIsWeb && file.bytes != null) {
-        final tempDir = Directory.systemTemp;
-        final tempPath = p.join(tempDir.path, '${const Uuid().v4()}$extension');
-        final tempFile = File(tempPath);
-        await tempFile.writeAsBytes(file.bytes!);
-        return await LocalMediaService.savePickedImage(
-          tempFile,
-          folder: p.join('media', 'covers', collectionId),
-          fileName: targetFileName,
-        );
-      }
-
-      if (kIsWeb) {
-        return 'web_placeholder_${const Uuid().v4()}';
-      }
-    } catch (_) {
-      return null;
-    }
-
-    return null;
-  }
-
   Future<void> _showCategoryDialog(
     BuildContext context,
     CategoriesViewModel notifier, {
     Category? category,
   }) async {
     final isEdit = category != null;
-    CategoryType selectedType = category?.type ?? CategoryType.productType;
-    final collectionId = category?.id ?? const Uuid().v4();
     _categoryNameController.text = category?.name ?? '';
     _categoryNameController.selection = TextSelection.collapsed(
       offset: _categoryNameController.text.length,
-    );
-    final existingCover = category?.cover;
-    CollectionCoverMode coverMode =
-        existingCover?.mode ?? CollectionCoverMode.template;
-    String? coverImagePath = existingCover?.coverImagePath;
-    bool coverImageError = false;
-    final coverTitleController = TextEditingController(
-      text: existingCover?.title ?? CollectionCover.defaultTitle,
-    );
-    final coverBrandController = TextEditingController(
-      text: existingCover?.brand ?? CollectionCover.defaultBrand,
-    );
-    final coverSubtitleController = TextEditingController(
-      text: existingCover?.subtitle ?? (category?.name ?? ''),
     );
 
     await showDialog(
@@ -480,329 +352,55 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
           title: Text(isEdit ? 'Editar Categoria' : 'Nova Categoria'),
           content: ConstrainedBox(
             constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.82,
+              maxHeight: MediaQuery.of(context).size.height * 0.3,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: SizedBox(
-                      width: 420,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          TextField(
-                            controller: _categoryNameController,
-                            focusNode: _categoryNameFocus,
-                            textInputAction: TextInputAction.done,
-                            decoration: const InputDecoration(
-                              labelText: 'Nome',
-                              hintText: 'Ex: Camisetas',
-                            ),
-                            autofocus: true,
-                          ),
-                          const SizedBox(height: 16),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              'Tipo',
-                              style: Theme.of(context).textTheme.labelLarge,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          ToggleButtons(
-                            isSelected: [
-                              selectedType == CategoryType.collection,
-                              selectedType == CategoryType.productType,
-                            ],
-                            onPressed: isEdit
-                                ? null
-                                : (index) {
-                                    setState(() {
-                                      selectedType = index == 0
-                                          ? CategoryType.collection
-                                          : CategoryType.productType;
-                                    });
-                                  },
-                            borderRadius: BorderRadius.circular(8),
-                            constraints: const BoxConstraints(minHeight: 40),
-                            children: const [
-                              Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 16),
-                                child: Text('Coleção'),
-                              ),
-                              Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 16),
-                                child: Text('Categoria'),
-                              ),
-                            ],
-                          ),
-                          if (isEdit)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: Text(
-                                'O tipo nao pode ser alterado.',
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          if (selectedType == CategoryType.collection) ...[
-                            const SizedBox(height: 20),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                'Capa do catalogo',
-                                style: Theme.of(context).textTheme.labelLarge,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: ToggleButtons(
-                                isSelected: [
-                                  coverMode == CollectionCoverMode.image,
-                                  coverMode == CollectionCoverMode.template,
-                                ],
-                                onPressed: (index) {
-                                  setState(() {
-                                    coverMode = index == 0
-                                        ? CollectionCoverMode.image
-                                        : CollectionCoverMode.template;
-                                    if (coverMode !=
-                                        CollectionCoverMode.image) {
-                                      coverImageError = false;
-                                    }
-                                  });
-                                },
-                                borderRadius: BorderRadius.circular(8),
-                                constraints: const BoxConstraints(
-                                  minHeight: 40,
-                                ),
-                                children: const [
-                                  Padding(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                    ),
-                                    child: Text('Capa personalizada'),
-                                  ),
-                                  Padding(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                    ),
-                                    child: Text('Capa automática'),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            if (coverMode == CollectionCoverMode.image) ...[
-                              const Divider(height: 32),
-                              SectionCard(
-                                title: 'Imagem de capa',
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        ElevatedButton.icon(
-                                          onPressed: () async {
-                                            final picked =
-                                                await _pickCoverImage(
-                                                  context,
-                                                  collectionId: collectionId,
-                                                  fileName: 'cover',
-                                                );
-                                            if (picked != null) {
-                                              setState(() {
-                                                coverImagePath = picked;
-                                                coverImageError = false;
-                                              });
-                                            }
-                                          },
-                                          icon: const Icon(
-                                            Icons.image_outlined,
-                                          ),
-                                          label: const Text('Selecionar capa'),
-                                        ),
-                                        if (coverImagePath != null) ...[
-                                          const SizedBox(width: 8),
-                                          IconButton(
-                                            onPressed: () => setState(() {
-                                              coverImagePath = null;
-                                            }),
-                                            icon: const Icon(
-                                              Icons.delete_outline,
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                    if (coverImageError)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 6),
-                                        child: Text(
-                                          'Selecione uma imagem de capa.',
-                                          style: TextStyle(
-                                            color: Theme.of(
-                                              context,
-                                            ).colorScheme.error,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ),
-                                    if (coverImagePath != null && !kIsWeb)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 12),
-                                        child: ClipRRect(
-                                          borderRadius: BorderRadius.circular(
-                                            16,
-                                          ),
-                                          child: AspectRatio(
-                                            aspectRatio: 16 / 9,
-                                            child: Image.file(
-                                              File(coverImagePath!),
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (_, __, ___) =>
-                                                  Container(
-                                                    color: Theme.of(context)
-                                                        .colorScheme
-                                                        .surfaceContainerHighest,
-                                                    alignment: Alignment.center,
-                                                    child: const Icon(
-                                                      Icons.broken_image,
-                                                    ),
-                                                  ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ] else ...[
-                              TextField(
-                                controller: coverSubtitleController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Subtitulo',
-                                  hintText: 'Ex: CAPSULA 2026',
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              TextField(
-                                controller: coverTitleController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Titulo',
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              TextField(
-                                controller: coverBrandController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Marca',
-                                ),
-                              ),
-                            ],
-                          ],
-                        ],
-                      ),
-                    ),
+                TextField(
+                  controller: _categoryNameController,
+                  focusNode: _categoryNameFocus,
+                  textInputAction: TextInputAction.done,
+                  decoration: const InputDecoration(
+                    labelText: 'Nome',
+                    hintText: 'Ex: Camisetas',
                   ),
+                  autofocus: true,
+                  onSubmitted: (_) {
+                     // trigger save action via button press logic usually, or duplicate logic here
+                  },
                 ),
               ],
             ),
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.of(context).pop(),
               child: const Text('Cancelar'),
             ),
-            ElevatedButton(
-              onPressed: () async {
-                final name = _categoryNameController.text.trim();
-                if (name.isEmpty) return;
-                if (selectedType == CategoryType.collection &&
-                    coverMode == CollectionCoverMode.image &&
-                    coverImagePath == null) {
-                  setState(() => coverImageError = true);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Selecione uma imagem de capa para salvar.',
-                        ),
-                      ),
-                    );
-                  }
-                  return;
-                }
-
-                CollectionCover? cover;
-                if (selectedType == CategoryType.collection) {
-                  final subtitle =
-                      coverSubtitleController.text.trim().isNotEmpty
-                      ? coverSubtitleController.text.trim()
-                      : name;
-                  final title = coverTitleController.text.trim().isNotEmpty
-                      ? coverTitleController.text.trim()
-                      : CollectionCover.defaultTitle;
-                  final brand = coverBrandController.text.trim().isNotEmpty
-                      ? coverBrandController.text.trim()
-                      : CollectionCover.defaultBrand;
-                  cover = CollectionCover(
-                    mode: coverMode,
-                    coverImagePath: coverImagePath,
-                    title: title,
-                    brand: brand,
-                    subtitle: subtitle,
-                    backgroundColor: existingCover?.backgroundColor,
-                    overlayOpacity: existingCover?.overlayOpacity,
-                  );
-                }
-
-                String? error;
+            FilledButton(
+              onPressed: () {
+                if (_categoryNameController.text.trim().isEmpty) return;
+                
                 if (isEdit) {
-                  error = await notifier.updateCategory(
-                    category.id,
-                    name,
-                    cover: cover,
+                  notifier.updateCategory(
+                    category!.id,
+                    _categoryNameController.text.trim(),
                   );
                 } else {
-                  error = await notifier.addCategory(
-                    name,
-                    selectedType,
-                    cover: cover,
-                    id: collectionId,
+                  notifier.addCategory(
+                    _categoryNameController.text.trim(),
+                    CategoryType.productType, // Always product type here
                   );
                 }
-
-                if (context.mounted) {
-                  if (error != null) {
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text(error)));
-                  } else {
-                    Navigator.pop(context);
-                  }
-                }
+                Navigator.of(context).pop();
               },
-              child: const Text('Salvar'),
+              child: Text(isEdit ? 'Salvar' : 'Criar'),
             ),
           ],
         ),
       ),
     );
-
-    coverTitleController.dispose();
-    coverBrandController.dispose();
-    coverSubtitleController.dispose();
-
-    if (mounted) {
-      _categoryNameController.clear();
-      _categoryNameFocus.unfocus();
-    }
   }
 
   Future<void> _handleDelete(
@@ -814,64 +412,18 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     if (!context.mounted) return;
 
     if (result.success) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Categoria excluida')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Categoria excluída com sucesso.')),
+      );
       return;
     }
 
-    await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Excluir Categoria?'),
-        content: const Text(
-          'Esta categoria possui produtos vinculados.\nO que deseja fazer?',
-        ),
-        actions: [
-          TextButton(
-            child: const Text('Cancelar'),
-            onPressed: () => Navigator.pop(context),
-          ),
-          OutlinedButton(
-            child: const Text('Mover para "Sem Categoria"'),
-            onPressed: () async {
-              await notifier.deleteAndUncategorize(category.id);
-              if (context.mounted) Navigator.pop(context);
-            },
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Excluir Mesmo Assim'),
-            onPressed: () async {
-              await notifier.deleteAndUncategorize(category.id);
-              if (context.mounted) Navigator.pop(context);
-            },
-          ),
-        ],
-      ),
-    );
+    if (result.hasProducts) {
+       ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.message ?? 'Não é possível excluir.')),
+      );
+    }
   }
 }
 
 enum _CategoryAction { edit, delete }
-
-class _ScrollLabel extends StatelessWidget {
-  final String text;
-
-  const _ScrollLabel({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 140,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        child: Text(text),
-      ),
-    );
-  }
-}

@@ -51,6 +51,12 @@ class CollectionCover {
   @HiveField(10)
   final String? coverMainImagePath;
 
+  @HiveField(11)
+  final String? coverMiniPath;
+
+  @HiveField(12)
+  final String? coverPagePath;
+
   const CollectionCover({
     this.mode = CollectionCoverMode.template,
     this.coverImagePath,
@@ -63,6 +69,8 @@ class CollectionCover {
     this.heroImagePath,
     this.coverHeaderImagePath,
     this.coverMainImagePath,
+    this.coverMiniPath,
+    this.coverPagePath,
   });
 
   CollectionCover copyWith({
@@ -77,6 +85,8 @@ class CollectionCover {
     String? heroImagePath,
     String? coverHeaderImagePath,
     String? coverMainImagePath,
+    String? coverMiniPath,
+    String? coverPagePath,
   }) {
     return CollectionCover(
       mode: mode ?? this.mode,
@@ -91,6 +101,8 @@ class CollectionCover {
       coverHeaderImagePath:
           coverHeaderImagePath ?? this.coverHeaderImagePath,
       coverMainImagePath: coverMainImagePath ?? this.coverMainImagePath,
+      coverMiniPath: coverMiniPath ?? this.coverMiniPath,
+      coverPagePath: coverPagePath ?? this.coverPagePath,
     );
   }
 }

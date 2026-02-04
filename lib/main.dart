@@ -19,6 +19,7 @@ import 'package:gravity/models/product_variant.dart';
 import 'package:gravity/features/admin/admin_shell_screen.dart';
 import 'package:gravity/features/admin/products/products_screen.dart';
 import 'package:gravity/features/admin/categories/categories_screen.dart';
+import 'package:gravity/features/admin/collections/collections_screen.dart';
 import 'package:gravity/features/admin/catalogs/catalogs_screen.dart';
 import 'package:gravity/features/admin/import/nuvemshop_import_screen.dart';
 import 'package:gravity/features/admin/settings/settings_screen.dart';
@@ -126,6 +127,14 @@ class MyApp extends ConsumerWidget {
                 GoRoute(
                   path: '/admin/products',
                   builder: (context, state) => const ProductsScreen(),
+                ),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: '/admin/collections',
+                  builder: (context, state) => const CollectionsScreen(),
                 ),
               ],
             ),
