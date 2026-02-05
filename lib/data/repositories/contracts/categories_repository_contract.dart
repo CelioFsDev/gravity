@@ -8,6 +8,7 @@ abstract class CategoriesRepositoryContract {
   Future<void> updateCategory(Category category);
   Future<void> deleteCategory(String id);
   Future<void> reassignCategory(String oldCategoryId, String newCategoryId);
+  Future<Category?> getBySlug(String slug);
   Future<void> clearAll();
 
   Stream<List<Category>> watchCategories();

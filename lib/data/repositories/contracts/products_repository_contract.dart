@@ -8,6 +8,8 @@ abstract class ProductsRepositoryContract {
   Future<void> addProduct(Product product);
   Future<void> updateProduct(Product product);
   Future<void> deleteProduct(String id);
+  Future<void> clearAll();
+  Future<Product?> getByRef(String ref);
 
   Stream<List<Product>> watchProducts();
   Stream<List<Product>> watchProductsByCategory(String categoryId);

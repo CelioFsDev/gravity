@@ -1,27 +1,26 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'categories_viewmodel.dart';
+part of 'export_import_service.dart';
 
 // **************************************************************************
 // RiverpodGenerator
 // **************************************************************************
 
-String _$categoriesViewModelHash() =>
-    r'6ca542baa1d71ade77df5d1c8d04cc8ed9d8fcac';
+String _$exportImportServiceHash() =>
+    r'ae2b1ac928aa790860e95eef259f0ba2cbd0a0b0';
 
-/// See also [CategoriesViewModel].
-@ProviderFor(CategoriesViewModel)
-final categoriesViewModelProvider = AutoDisposeAsyncNotifierProvider<
-    CategoriesViewModel, CategoriesState>.internal(
-  CategoriesViewModel.new,
-  name: r'categoriesViewModelProvider',
+/// See also [exportImportService].
+@ProviderFor(exportImportService)
+final exportImportServiceProvider = Provider<ExportImportService>.internal(
+  exportImportService,
+  name: r'exportImportServiceProvider',
   debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
       ? null
-      : _$categoriesViewModelHash,
+      : _$exportImportServiceHash,
   dependencies: null,
   allTransitiveDependencies: null,
 );
 
-typedef _$CategoriesViewModel = AutoDisposeAsyncNotifier<CategoriesState>;
+typedef ExportImportServiceRef = ProviderRef<ExportImportService>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member

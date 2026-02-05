@@ -46,6 +46,17 @@ class HiveCategoriesRepository implements CategoriesRepositoryContract {
   }
 
   @override
+  Future<Category?> getBySlug(String slug) async {
+    try {
+      return _categoriesBox.values.firstWhere(
+        (c) => (c.slug ?? '').toLowerCase().trim() == slug.toLowerCase().trim(),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
   Future<void> reassignCategory(
     String oldCategoryId,
     String newCategoryId,

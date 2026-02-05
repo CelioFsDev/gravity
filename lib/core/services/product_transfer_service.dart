@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gravity/core/services/export_import_service.dart';
 import 'package:gravity/core/services/whatsapp_share_service.dart';
 import 'package:gravity/data/repositories/categories_repository.dart';
 import 'package:gravity/data/repositories/products_repository.dart';
@@ -54,6 +55,36 @@ class ProductTransferService {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Erro ao exportar: $e')));
+      }
+    }
+  }
+
+  static Future<void> shareGravityBackup(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    try {
+      final service = ref.read(exportImportServiceProvider);
+      final file = await _runWithLoadingDialog(
+        context,
+        () => service.exportToJsonFile(),
+      );
+
+      final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+      final fileName = 'gravity_backup_$timestamp.json';
+      final bytes = await file.readAsBytes();
+
+      await WhatsAppShareService.shareFile(
+        bytes: bytes,
+        fileName: fileName,
+        text: 'Backup Gravity',
+        mimeType: 'application/json',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao exportar backup: $e')));
       }
     }
   }
@@ -190,4 +221,3 @@ class ProductTransferService {
     'ImageFiles',
   ];
 }
-

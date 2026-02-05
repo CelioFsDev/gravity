@@ -48,6 +48,22 @@ class HiveProductsRepository implements ProductsRepositoryContract {
   }
 
   @override
+  Future<void> clearAll() async {
+    await _productsBox.clear();
+  }
+
+  @override
+  Future<Product?> getByRef(String ref) async {
+    try {
+      return _productsBox.values.firstWhere(
+        (p) => p.ref.toLowerCase().trim() == ref.toLowerCase().trim(),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
   Stream<List<Product>> watchProducts() => _boxValuesStream(_productsBox);
 
   @override

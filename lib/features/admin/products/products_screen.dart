@@ -8,6 +8,7 @@ import 'package:gravity/features/admin/products/product_form_screen.dart';
 import 'package:gravity/features/admin/products/product_import_screen.dart';
 import 'package:gravity/features/admin/products/product_detail_screen.dart';
 import 'package:gravity/core/services/product_transfer_service.dart';
+import 'package:gravity/features/admin/import/gravity_import_screen.dart';
 import 'package:gravity/ui/theme/app_tokens.dart';
 import 'package:gravity/ui/widgets/app_scaffold.dart';
 import 'package:gravity/ui/widgets/app_kpi_card.dart';
@@ -143,7 +144,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     return PopupMenuButton<String>(
       icon: const Icon(Icons.more_vert_rounded),
       onSelected: (value) {
-        if (value == 'export') _exportProducts(context);
+        if (value == 'export') _showExportOptions(context);
       },
       itemBuilder: (context) => const [
         PopupMenuItem(
@@ -177,13 +178,91 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   }
 
   void _openImport(BuildContext context) {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const ProductImportScreen()));
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTokens.radiusLg),
+        ),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.cloud_download_outlined),
+              title: const Text('Importar Backup (Gravity)'),
+              subtitle: const Text(
+                'Restaura produtos, categorias e coleções de um arquivo JSON.',
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const GravityImportScreen(),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.shopping_bag_outlined),
+              title: const Text('Importar de Nuvemshop'),
+              subtitle: const Text(
+                'Importa produtos de uma planilha CSV da Nuvemshop.',
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const ProductImportScreen(),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
   }
 
-  void _exportProducts(BuildContext context) {
-    ProductTransferService.shareProductsPackage(context, ref);
+  void _showExportOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTokens.radiusLg),
+        ),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.picture_as_pdf),
+              title: const Text('Exportar Catálogo (PDF/Link)'),
+              subtitle: const Text(
+                'Para compartilhar com clientes via WhatsApp.',
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                ProductTransferService.shareProductsPackage(context, ref);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.save_alt),
+              title: const Text('Backup Completo (JSON)'),
+              subtitle: const Text('Para migração ou segurança dos dados.'),
+              onTap: () {
+                Navigator.pop(context);
+                ProductTransferService.shareGravityBackup(context, ref);
+              },
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
   }
 
   void _openDetails(BuildContext context, Product product) {
