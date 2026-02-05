@@ -711,7 +711,7 @@ class CatalogPdfService {
                 pw.Spacer(),
                 pw.Center(
                   child: pw.Text(
-                    collection.name.toUpperCase(),
+                    collection.safeName.toUpperCase(),
                     style: pw.TextStyle(
                       fontSize: 24,
                       color: _colorMuted,

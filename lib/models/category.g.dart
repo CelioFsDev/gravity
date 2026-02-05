@@ -88,14 +88,14 @@ class CategoryAdapter extends TypeAdapter<Category> {
     };
     return Category(
       id: fields[0] as String,
-      name: fields[1] as String,
       order: fields[2] as int,
       createdAt: fields[3] as DateTime,
       updatedAt: fields[4] as DateTime,
       type: fields[5] as CategoryType,
       cover: fields[6] as CollectionCover?,
-      slug: fields[7] as String,
       isActive: fields[8] as bool,
+      name: fields[1] as String?,
+      slug: fields[7] as String?,
     );
   }
 

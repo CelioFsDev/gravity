@@ -136,7 +136,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     final filtered = query.isEmpty
         ? state.categories
         : state.categories
-              .where((c) => c.name.toLowerCase().contains(query))
+              .where((c) => c.safeName.toLowerCase().contains(query))
               .toList();
 
     // Filter ONLY product types
@@ -145,9 +145,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
         .toList();
 
     if (productTypes.isEmpty) {
-      return const Center(
-          child: Text('Nenhuma categoria encontrada.')
-      );
+      return const Center(child: Text('Nenhuma categoria encontrada.'));
     }
 
     return ListView(
@@ -156,13 +154,13 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
         vertical: AppTokens.space12,
       ),
       children: [
-            _buildSectionList(
-            context,
-            state,
-            notifier,
-            productTypes,
-            isManual: isManual,
-          ),
+        _buildSectionList(
+          context,
+          state,
+          notifier,
+          productTypes,
+          isManual: isManual,
+        ),
       ],
     );
   }
@@ -262,7 +260,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
               )
             : const Icon(Icons.folder_outlined, color: Colors.grey),
         title: Text(
-          category.name,
+          category.safeName,
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         subtitle: Text('${state.productCounts[category.id] ?? 0} produtos'),
@@ -367,7 +365,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                   ),
                   autofocus: true,
                   onSubmitted: (_) {
-                     // trigger save action via button press logic usually, or duplicate logic here
+                    // trigger save action via button press logic usually, or duplicate logic here
                   },
                 ),
               ],
@@ -381,7 +379,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
             FilledButton(
               onPressed: () {
                 if (_categoryNameController.text.trim().isEmpty) return;
-                
+
                 if (isEdit) {
                   notifier.updateCategory(
                     category!.id,
@@ -419,7 +417,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     }
 
     if (result.hasProducts) {
-       ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(result.message ?? 'Não é possível excluir.')),
       );
     }

@@ -474,7 +474,7 @@ class _SearchAndFiltersSection extends StatelessWidget {
         .toList();
     final options = <_SheetOption<String?>>[
       const _SheetOption(value: null, label: 'Todas categorias'),
-      ...categories.map((c) => _SheetOption(value: c.id, label: c.name)),
+      ...categories.map((c) => _SheetOption(value: c.id, label: c.safeName)),
     ];
     final result = await _showSelectionSheet<String?>(
       context,

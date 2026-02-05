@@ -112,7 +112,7 @@ class Category {
   final String id;
 
   @HiveField(1)
-  final String name;
+  final String? name;
 
   @HiveField(2)
   final int order;
@@ -130,22 +130,31 @@ class Category {
   final CollectionCover? cover;
 
   @HiveField(7)
-  final String slug;
+  final String? slug;
 
   @HiveField(8)
   final bool isActive;
 
   Category({
     required this.id,
-    required this.name,
     required this.order,
     required this.createdAt,
     required this.updatedAt,
     this.type = CategoryType.productType,
     this.cover,
-    required this.slug,
     this.isActive = true,
-  });
+    String? name,
+    String? slug,
+  }) : name = name,
+       slug = slug;
+
+  /// Retorna o nome ou um valor padrão se for nulo/vazio
+  String get safeName =>
+      (name == null || name!.trim().isEmpty) ? 'Sem nome' : name!;
+
+  /// Retorna o slug ou um valor padrão se for nulo/vazio
+  String get safeSlug =>
+      (slug == null || slug!.trim().isEmpty) ? 'sem-slug' : slug!;
 
   Category copyWith({
     String? id,

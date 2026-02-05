@@ -251,9 +251,9 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     final categories = (await categoriesRepo.getCategories())
         .where((c) => c.type == CategoryType.productType)
         .toList();
-    final categoryById = {for (final c in categories) c.id: c.name};
+    final categoryById = {for (final c in categories) c.id: c.safeName};
     final categoryByName = {
-      for (final c in categories) c.name.toLowerCase(): c.id,
+      for (final c in categories) c.safeName.toLowerCase(): c.id,
     };
 
     final products = <Product>[];
@@ -587,8 +587,8 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       slug: Category.generateSlug(name),
     );
     await categoriesRepo.addCategory(category);
-    categoryById[category.id] = category.name;
-    categoryByName[category.name.toLowerCase()] = category.id;
+    categoryById[category.id] = category.safeName;
+    categoryByName[category.safeName.toLowerCase()] = category.id;
     return category.id;
   }
 

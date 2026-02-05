@@ -123,12 +123,14 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         break;
       case CategorySortOption.aToZ:
         list.sort(
-          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+          (a, b) =>
+              a.safeName.toLowerCase().compareTo(b.safeName.toLowerCase()),
         );
         break;
       case CategorySortOption.zToA:
         list.sort(
-          (a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()),
+          (a, b) =>
+              b.safeName.toLowerCase().compareTo(a.safeName.toLowerCase()),
         );
         break;
     }
@@ -147,7 +149,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     // Check duplicate
     if (currentCategories.any(
       (c) =>
-          c.name.trim().toLowerCase() == name.trim().toLowerCase() &&
+          c.safeName.trim().toLowerCase() == name.trim().toLowerCase() &&
           c.type == type,
     )) {
       return 'Categoria já existe';
@@ -193,7 +195,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     if (currentCategories.any(
       (c) =>
           c.type == CategoryType.collection &&
-          c.slug.trim().toLowerCase() == slug.trim().toLowerCase(),
+          c.safeSlug.trim().toLowerCase() == slug.trim().toLowerCase(),
     )) {
       return 'Slug já existe';
     }
@@ -202,7 +204,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     if (currentCategories.any(
       (c) =>
           c.type == CategoryType.collection &&
-          c.name.trim().toLowerCase() == name.trim().toLowerCase(),
+          c.safeName.trim().toLowerCase() == name.trim().toLowerCase(),
     )) {
       return 'Coleção já existe';
     }
@@ -250,7 +252,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     if (currentCategories.any(
       (c) =>
           c.id != id &&
-          c.name.trim().toLowerCase() == newName.trim().toLowerCase(),
+          c.safeName.trim().toLowerCase() == newName.trim().toLowerCase(),
     )) {
       return 'Nome já em uso';
     }
@@ -287,7 +289,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       (c) =>
           c.id != id &&
           c.type == CategoryType.collection &&
-          c.slug.trim().toLowerCase() == slug.trim().toLowerCase(),
+          c.safeSlug.trim().toLowerCase() == slug.trim().toLowerCase(),
     )) {
       return 'Slug já existe';
     }

@@ -146,7 +146,7 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
               : _selectedCategoryId == cat?.id;
 
           return ChoiceChip(
-            label: Text(isAll ? 'Todos' : cat!.name),
+            label: Text(isAll ? 'Todos' : cat!.safeName),
             selected: isSelected,
             onSelected: (_) => setState(() => _selectedCategoryId = cat?.id),
             backgroundColor: AppTokens.card,

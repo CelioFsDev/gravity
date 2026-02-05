@@ -167,7 +167,7 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
             ),
             ...widget.categories.map(
               (category) => ListTile(
-                title: Text(category.name),
+                title: Text(category.safeName),
                 trailing: _categoryFilter == category.id
                     ? const Icon(Icons.check)
                     : const SizedBox(),

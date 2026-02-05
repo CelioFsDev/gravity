@@ -65,7 +65,7 @@ class NuvemshopImportService {
 
     final allCategories = await categoriesRepository.getCategories();
     final categoryByKey = {
-      for (final c in allCategories) _normalizeKey(c.name, c.type): c,
+      for (final c in allCategories) _normalizeKey(c.safeName, c.type): c,
     };
 
     var created = 0;

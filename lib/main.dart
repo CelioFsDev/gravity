@@ -50,7 +50,15 @@ void main() async {
   Hive.registerAdapter(CatalogAdapter());
 
   // Open Boxes
-  await Hive.openBox<Category>('categories');
+  try {
+    await Hive.openBox<Category>('categories');
+  } catch (e) {
+    debugPrint(
+      'Error opening "categories" box: $e. Deleting and recreating...',
+    );
+    await Hive.deleteBoxFromDisk('categories');
+    await Hive.openBox<Category>('categories');
+  }
   await Hive.openBox<Product>('products');
   await Hive.openBox<Catalog>('catalogs');
   await Hive.openBox<AppSettings>('settings');

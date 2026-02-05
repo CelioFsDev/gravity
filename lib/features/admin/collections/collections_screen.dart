@@ -49,7 +49,9 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
               .where(
                 (c) =>
                     _searchQuery.isEmpty ||
-                    c.name.toLowerCase().contains(_searchQuery.toLowerCase()),
+                    c.safeName.toLowerCase().contains(
+                      _searchQuery.toLowerCase(),
+                    ),
               )
               .toList();
 
@@ -188,7 +190,7 @@ class _CollectionCard extends StatelessWidget {
                         Row(
                           children: [
                             Text(
-                              collection.name,
+                              collection.safeName,
                               style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(fontWeight: FontWeight.bold),
                             ),

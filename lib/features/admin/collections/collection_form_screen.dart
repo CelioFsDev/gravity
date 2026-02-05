@@ -65,8 +65,8 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
         );
 
         setState(() {
-          _nameController.text = collection.name;
-          _slugController.text = collection.slug;
+          _nameController.text = collection.safeName;
+          _slugController.text = collection.safeSlug;
           _isActive = collection.isActive;
           _coverMiniPath = collection.cover?.coverMiniPath;
           _coverPagePath = collection.cover?.coverPagePath;

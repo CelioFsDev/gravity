@@ -1041,7 +1041,10 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                 ),
                 items: collections
                     .map(
-                      (c) => DropdownMenuItem(value: c.id, child: Text(c.name)),
+                      (c) => DropdownMenuItem(
+                        value: c.id,
+                        child: Text(c.safeName),
+                      ),
                     )
                     .toList(),
                 onChanged: (val) => setState(() => _selectedCollectionId = val),
@@ -1106,7 +1109,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           children: categories.map((cat) {
             final isSelected = _selectedCategoryIds.contains(cat.id);
             return FilterChip(
-              label: Text(cat.name),
+              label: Text(cat.safeName),
               selected: isSelected,
               onSelected: (val) {
                 setState(() {
