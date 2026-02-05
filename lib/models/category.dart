@@ -98,8 +98,7 @@ class CollectionCover {
       overlayOpacity: overlayOpacity ?? this.overlayOpacity,
       bannerImagePath: bannerImagePath ?? this.bannerImagePath,
       heroImagePath: heroImagePath ?? this.heroImagePath,
-      coverHeaderImagePath:
-          coverHeaderImagePath ?? this.coverHeaderImagePath,
+      coverHeaderImagePath: coverHeaderImagePath ?? this.coverHeaderImagePath,
       coverMainImagePath: coverMainImagePath ?? this.coverMainImagePath,
       coverMiniPath: coverMiniPath ?? this.coverMiniPath,
       coverPagePath: coverPagePath ?? this.coverPagePath,
@@ -130,6 +129,12 @@ class Category {
   @HiveField(6)
   final CollectionCover? cover;
 
+  @HiveField(7)
+  final String slug;
+
+  @HiveField(8)
+  final bool isActive;
+
   Category({
     required this.id,
     required this.name,
@@ -138,6 +143,8 @@ class Category {
     required this.updatedAt,
     this.type = CategoryType.productType,
     this.cover,
+    required this.slug,
+    this.isActive = true,
   });
 
   Category copyWith({
@@ -148,6 +155,8 @@ class Category {
     DateTime? updatedAt,
     CategoryType? type,
     CollectionCover? cover,
+    String? slug,
+    bool? isActive,
   }) {
     return Category(
       id: id ?? this.id,
@@ -157,6 +166,19 @@ class Category {
       updatedAt: updatedAt ?? this.updatedAt,
       type: type ?? this.type,
       cover: cover ?? this.cover,
+      slug: slug ?? this.slug,
+      isActive: isActive ?? this.isActive,
     );
+  }
+
+  /// Gera um slug a partir do nome
+  static String generateSlug(String name) {
+    return name
+        .toLowerCase()
+        .trim()
+        .replaceAll(RegExp(r'[^a-z0-9\s-]'), '')
+        .replaceAll(RegExp(r'\s+'), '-')
+        .replaceAll(RegExp(r'-+'), '-')
+        .replaceAll(RegExp(r'^-|-$'), '');
   }
 }

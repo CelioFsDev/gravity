@@ -165,6 +165,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       updatedAt: DateTime.now(),
       type: type,
       cover: cover,
+      slug: Category.generateSlug(name),
     );
 
     await categoriesRepo.addCategory(newCat);
@@ -174,6 +175,66 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     ref.invalidate(productsViewModelProvider);
 
     return null; // Success
+  }
+
+  Future<String?> addCollection({
+    required String name,
+    required String slug,
+    required String coverMiniPath,
+    String? coverPagePath,
+    bool isActive = true,
+    String? id,
+  }) async {
+    _requireAdmin();
+    final categoriesRepo = ref.read(categoriesRepositoryProvider);
+    final currentCategories = await categoriesRepo.getCategories();
+
+    // Check slug uniqueness
+    if (currentCategories.any(
+      (c) =>
+          c.type == CategoryType.collection &&
+          c.slug.trim().toLowerCase() == slug.trim().toLowerCase(),
+    )) {
+      return 'Slug já existe';
+    }
+
+    // Check name uniqueness among collections
+    if (currentCategories.any(
+      (c) =>
+          c.type == CategoryType.collection &&
+          c.name.trim().toLowerCase() == name.trim().toLowerCase(),
+    )) {
+      return 'Coleção já existe';
+    }
+
+    // Validation: Mini cover is mandatory
+    if (coverMiniPath.trim().isEmpty) {
+      return 'Mini capa é obrigatória';
+    }
+
+    final maxOrder = currentCategories.isNotEmpty
+        ? currentCategories.map((c) => c.order).reduce((a, b) => a > b ? a : b)
+        : -1;
+
+    final newCollection = Category(
+      id: id ?? const Uuid().v4(),
+      name: name.trim(),
+      slug: slug.trim(),
+      isActive: isActive,
+      order: maxOrder + 1,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      type: CategoryType.collection,
+      cover: CollectionCover(
+        coverMiniPath: coverMiniPath,
+        coverPagePath: coverPagePath,
+      ),
+    );
+
+    await categoriesRepo.addCategory(newCollection);
+    await _refresh();
+    ref.invalidate(productsViewModelProvider);
+    return null;
   }
 
   Future<String?> updateCategory(
@@ -206,6 +267,51 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     // Notify other viewmodels
     ref.invalidate(productsViewModelProvider);
 
+    return null;
+  }
+
+  Future<String?> updateCollection({
+    required String id,
+    required String name,
+    required String slug,
+    required String coverMiniPath,
+    String? coverPagePath,
+    required bool isActive,
+  }) async {
+    _requireAdmin();
+    final categoriesRepo = ref.read(categoriesRepositoryProvider);
+    final currentCategories = await categoriesRepo.getCategories();
+
+    // Check slug uniqueness (exclude self)
+    if (currentCategories.any(
+      (c) =>
+          c.id != id &&
+          c.type == CategoryType.collection &&
+          c.slug.trim().toLowerCase() == slug.trim().toLowerCase(),
+    )) {
+      return 'Slug já existe';
+    }
+
+    // Validation: Mini cover is mandatory
+    if (coverMiniPath.trim().isEmpty) {
+      return 'Mini capa é obrigatória';
+    }
+
+    final cat = currentCategories.firstWhere((c) => c.id == id);
+    final updated = cat.copyWith(
+      name: name.trim(),
+      slug: slug.trim(),
+      isActive: isActive,
+      updatedAt: DateTime.now(),
+      cover: (cat.cover ?? const CollectionCover()).copyWith(
+        coverMiniPath: coverMiniPath,
+        coverPagePath: coverPagePath,
+      ),
+    );
+
+    await categoriesRepo.updateCategory(updated);
+    await _refresh();
+    ref.invalidate(productsViewModelProvider);
     return null;
   }
 
@@ -303,4 +409,3 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     }
   }
 }
-

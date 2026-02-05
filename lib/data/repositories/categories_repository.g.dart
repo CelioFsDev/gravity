@@ -13,14 +13,14 @@ String _$categoriesRepositoryHash() =>
 @ProviderFor(categoriesRepository)
 final categoriesRepositoryProvider =
     Provider<CategoriesRepositoryContract>.internal(
-      categoriesRepository,
-      name: r'categoriesRepositoryProvider',
-      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-          ? null
-          : _$categoriesRepositoryHash,
-      dependencies: null,
-      allTransitiveDependencies: null,
-    );
+  categoriesRepository,
+  name: r'categoriesRepositoryProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$categoriesRepositoryHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
 
 typedef CategoriesRepositoryRef = ProviderRef<CategoriesRepositoryContract>;
 // ignore_for_file: type=lint

@@ -7,7 +7,7 @@ part of 'catalog_editor_viewmodel.dart';
 // **************************************************************************
 
 String _$catalogEditorViewModelHash() =>
-    r'd93d58bdb0bc914ad5ef524de511b01896c60479';
+    r'b42d25defa60b6c5cc04ed7c50b19f5e5b225073';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -34,7 +34,9 @@ abstract class _$CatalogEditorViewModel
     extends BuildlessAutoDisposeNotifier<CatalogEditorState> {
   late final String? catalogId;
 
-  CatalogEditorState build(String? catalogId);
+  CatalogEditorState build(
+    String? catalogId,
+  );
 }
 
 /// See also [CatalogEditorViewModel].
@@ -47,15 +49,21 @@ class CatalogEditorViewModelFamily extends Family<CatalogEditorState> {
   const CatalogEditorViewModelFamily();
 
   /// See also [CatalogEditorViewModel].
-  CatalogEditorViewModelProvider call(String? catalogId) {
-    return CatalogEditorViewModelProvider(catalogId);
+  CatalogEditorViewModelProvider call(
+    String? catalogId,
+  ) {
+    return CatalogEditorViewModelProvider(
+      catalogId,
+    );
   }
 
   @override
   CatalogEditorViewModelProvider getProviderOverride(
     covariant CatalogEditorViewModelProvider provider,
   ) {
-    return call(provider.catalogId);
+    return call(
+      provider.catalogId,
+    );
   }
 
   static const Iterable<ProviderOrFamily>? _dependencies = null;
@@ -74,26 +82,24 @@ class CatalogEditorViewModelFamily extends Family<CatalogEditorState> {
 }
 
 /// See also [CatalogEditorViewModel].
-class CatalogEditorViewModelProvider
-    extends
-        AutoDisposeNotifierProviderImpl<
-          CatalogEditorViewModel,
-          CatalogEditorState
-        > {
+class CatalogEditorViewModelProvider extends AutoDisposeNotifierProviderImpl<
+    CatalogEditorViewModel, CatalogEditorState> {
   /// See also [CatalogEditorViewModel].
-  CatalogEditorViewModelProvider(String? catalogId)
-    : this._internal(
-        () => CatalogEditorViewModel()..catalogId = catalogId,
-        from: catalogEditorViewModelProvider,
-        name: r'catalogEditorViewModelProvider',
-        debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-            ? null
-            : _$catalogEditorViewModelHash,
-        dependencies: CatalogEditorViewModelFamily._dependencies,
-        allTransitiveDependencies:
-            CatalogEditorViewModelFamily._allTransitiveDependencies,
-        catalogId: catalogId,
-      );
+  CatalogEditorViewModelProvider(
+    String? catalogId,
+  ) : this._internal(
+          () => CatalogEditorViewModel()..catalogId = catalogId,
+          from: catalogEditorViewModelProvider,
+          name: r'catalogEditorViewModelProvider',
+          debugGetCreateSourceHash:
+              const bool.fromEnvironment('dart.vm.product')
+                  ? null
+                  : _$catalogEditorViewModelHash,
+          dependencies: CatalogEditorViewModelFamily._dependencies,
+          allTransitiveDependencies:
+              CatalogEditorViewModelFamily._allTransitiveDependencies,
+          catalogId: catalogId,
+        );
 
   CatalogEditorViewModelProvider._internal(
     super._createNotifier, {
@@ -111,7 +117,9 @@ class CatalogEditorViewModelProvider
   CatalogEditorState runNotifierBuild(
     covariant CatalogEditorViewModel notifier,
   ) {
-    return notifier.build(catalogId);
+    return notifier.build(
+      catalogId,
+    );
   }
 
   @override
@@ -132,7 +140,7 @@ class CatalogEditorViewModelProvider
 
   @override
   AutoDisposeNotifierProviderElement<CatalogEditorViewModel, CatalogEditorState>
-  createElement() {
+      createElement() {
     return _CatalogEditorViewModelProviderElement(this);
   }
 
@@ -158,17 +166,12 @@ mixin CatalogEditorViewModelRef
 }
 
 class _CatalogEditorViewModelProviderElement
-    extends
-        AutoDisposeNotifierProviderElement<
-          CatalogEditorViewModel,
-          CatalogEditorState
-        >
-    with CatalogEditorViewModelRef {
+    extends AutoDisposeNotifierProviderElement<CatalogEditorViewModel,
+        CatalogEditorState> with CatalogEditorViewModelRef {
   _CatalogEditorViewModelProviderElement(super.provider);
 
   @override
   String? get catalogId => (origin as CatalogEditorViewModelProvider).catalogId;
 }
-
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member

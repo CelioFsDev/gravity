@@ -584,6 +584,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       createdAt: now,
       updatedAt: now,
       type: CategoryType.productType,
+      slug: Category.generateSlug(name),
     );
     await categoriesRepo.addCategory(category);
     categoryById[category.id] = category.name;

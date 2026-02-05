@@ -7,23 +7,20 @@ part of 'product_import_viewmodel.dart';
 // **************************************************************************
 
 String _$productImportViewModelHash() =>
-    r'6a314c82b1e9707085316f494338a3acbdd27e09';
+    r'd95100aad4f72989d93827c09772d74a70c1a53d';
 
 /// See also [ProductImportViewModel].
 @ProviderFor(ProductImportViewModel)
-final productImportViewModelProvider =
-    AutoDisposeNotifierProvider<
-      ProductImportViewModel,
-      ProductImportState
-    >.internal(
-      ProductImportViewModel.new,
-      name: r'productImportViewModelProvider',
-      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-          ? null
-          : _$productImportViewModelHash,
-      dependencies: null,
-      allTransitiveDependencies: null,
-    );
+final productImportViewModelProvider = AutoDisposeNotifierProvider<
+    ProductImportViewModel, ProductImportState>.internal(
+  ProductImportViewModel.new,
+  name: r'productImportViewModelProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$productImportViewModelHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
 
 typedef _$ProductImportViewModel = AutoDisposeNotifier<ProductImportState>;
 // ignore_for_file: type=lint

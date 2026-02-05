@@ -27,6 +27,7 @@ class CatalogPdfService {
     String? collectionName,
     String defaultSubtitle = 'SELE\u00c7\u00c3O DE PRODUTOS',
     bool includeCover = true,
+    Map<String, Category>? collectionsMap,
   }) async {
     // Parameters kept for API compatibility.
     final _ = catalogName;
@@ -47,7 +48,27 @@ class CatalogPdfService {
       );
     }
 
+    String? currentCollectionId;
+
     for (final product in products) {
+      // Check for collection change
+      if (collectionsMap != null) {
+        String? prodCollectionId;
+        for (final catId in product.categoryIds) {
+          if (collectionsMap.containsKey(catId)) {
+            prodCollectionId = catId;
+            break;
+          }
+        }
+
+        if (prodCollectionId != null &&
+            prodCollectionId != currentCollectionId) {
+          final collection = collectionsMap[prodCollectionId]!;
+          _addCollectionOpeningPage(pdf, pageFormat, collection);
+          currentCollectionId = prodCollectionId;
+        }
+      }
+
       pdf.addPage(
         pw.Page(
           pageFormat: pageFormat,
@@ -57,7 +78,10 @@ class CatalogPdfService {
             mode,
             currencyFormat,
             pageFormat,
-            collectionName: collectionName,
+            collectionName: collectionName, // This might be stale if mixed?
+            // If mixed collections, maybe we shouldn't pass collectionName to footer?
+            // Or pass the current collection name?
+            // For now keeping original behavior or passing current name if available
             defaultSubtitle: defaultSubtitle,
           ),
         ),
@@ -632,6 +656,71 @@ class CatalogPdfService {
                   ],
                 ),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static void _addCollectionOpeningPage(
+    pw.Document pdf,
+    PdfPageFormat pageFormat,
+    Category collection,
+  ) {
+    // Priority: Images
+    final cover = collection.cover;
+    if (cover == null) return;
+
+    final miniPath = cover.coverMiniPath ?? cover.coverImagePath;
+    final pagePath = cover.coverPagePath;
+
+    if (miniPath == null || miniPath.isEmpty) return;
+
+    final availableWidth = pageFormat.width - 36;
+    final miniHeight = availableWidth / (1365 / 420);
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: pageFormat,
+        margin: pw.EdgeInsets.zero,
+        build: (_) => pw.Container(
+          color: PdfColors.white,
+          padding: const pw.EdgeInsets.all(18),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+            children: [
+              _buildImageBox(
+                miniPath,
+                height: miniHeight,
+                width: availableWidth,
+                radius: 12,
+              ),
+              if (pagePath != null && pagePath.isNotEmpty) ...[
+                pw.SizedBox(height: 12),
+                pw.Expanded(
+                  child: _buildImageBox(
+                    pagePath,
+                    height: pageFormat.height,
+                    width: availableWidth,
+                    radius: 18,
+                  ),
+                ),
+              ] else ...[
+                // If no editorial image, maybe show collection name centered?
+                pw.Spacer(),
+                pw.Center(
+                  child: pw.Text(
+                    collection.name.toUpperCase(),
+                    style: pw.TextStyle(
+                      fontSize: 24,
+                      color: _colorMuted,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                ),
+                pw.Spacer(),
+              ],
             ],
           ),
         ),

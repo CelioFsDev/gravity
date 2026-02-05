@@ -13,14 +13,14 @@ String _$catalogsRepositoryHash() =>
 @ProviderFor(catalogsRepository)
 final catalogsRepositoryProvider =
     Provider<CatalogsRepositoryContract>.internal(
-      catalogsRepository,
-      name: r'catalogsRepositoryProvider',
-      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-          ? null
-          : _$catalogsRepositoryHash,
-      dependencies: null,
-      allTransitiveDependencies: null,
-    );
+  catalogsRepository,
+  name: r'catalogsRepositoryProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$catalogsRepositoryHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
 
 typedef CatalogsRepositoryRef = ProviderRef<CatalogsRepositoryContract>;
 // ignore_for_file: type=lint

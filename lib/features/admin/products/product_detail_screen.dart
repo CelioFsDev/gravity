@@ -29,20 +29,6 @@ class ProductDetailScreen extends ConsumerWidget {
         product;
     final categories = productsState.value?.categories ?? [];
     final categoryById = {for (final c in categories) c.id: c};
-    final collectionNames = updatedProduct.categoryIds
-        .map((id) => categoryById[id])
-        .where((c) => c != null && c!.type == CategoryType.collection)
-        .map((c) => c!.name)
-        .toList();
-    final typeNames = updatedProduct.categoryIds
-        .map((id) => categoryById[id])
-        .where((c) => c != null && c!.type == CategoryType.productType)
-        .map((c) => c!.name)
-        .toList();
-    final collectionLabel = collectionNames.isNotEmpty
-        ? collectionNames.first
-        : '-';
-    final typeLabel = typeNames.isNotEmpty ? typeNames.join(', ') : '-';
 
     final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
 
@@ -142,8 +128,18 @@ class ProductDetailScreen extends ConsumerWidget {
               child: Column(
                 children: [
                   _buildDetailRow(context, 'SKU', updatedProduct.sku),
-                  _buildDetailRow(context, 'Coleção', collectionLabel),
-                  _buildDetailRow(context, 'Categorias', typeLabel),
+                  _buildDetailRow(
+                    context,
+                    'Categorias',
+                    updatedProduct.categoryIds
+                        .map((id) => categoryById[id])
+                        .where(
+                          (c) =>
+                              c != null && c!.type == CategoryType.productType,
+                        )
+                        .map((c) => c!.name)
+                        .join(', '),
+                  ),
                 ],
               ),
             ),

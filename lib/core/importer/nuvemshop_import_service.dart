@@ -205,6 +205,7 @@ class NuvemshopImportService {
       createdAt: now,
       updatedAt: now,
       type: type,
+      slug: Category.generateSlug(name),
     );
     await categoriesRepository.addCategory(category);
     cache[key] = category;

@@ -188,6 +188,11 @@ class CatalogShareHelper {
       productsState.categories,
     );
 
+    final collectionsMap = {
+      for (final c in productsState.categories)
+        if (c.type == CategoryType.collection) c.id: c,
+    };
+
     if (catalogProducts.isEmpty) {
       if (catalog.productIds.isEmpty) {
         throw Exception('Este catálogo não possui produtos selecionados.');
@@ -220,6 +225,7 @@ class CatalogShareHelper {
         collectionCover: fallbackCoverInfo.cover,
         collectionName: fallbackCoverInfo.name,
         includeCover: catalog.includeCover,
+        collectionsMap: collectionsMap,
       );
     }
 
@@ -233,6 +239,7 @@ class CatalogShareHelper {
       collectionCover: coverInfo.cover,
       collectionName: coverInfo.name,
       includeCover: catalog.includeCover,
+      collectionsMap: collectionsMap,
     );
   }
 

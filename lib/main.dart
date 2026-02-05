@@ -20,6 +20,7 @@ import 'package:gravity/features/admin/admin_shell_screen.dart';
 import 'package:gravity/features/admin/products/products_screen.dart';
 import 'package:gravity/features/admin/categories/categories_screen.dart';
 import 'package:gravity/features/admin/collections/collections_screen.dart';
+import 'package:gravity/features/admin/collections/collection_form_screen.dart';
 import 'package:gravity/features/admin/catalogs/catalogs_screen.dart';
 import 'package:gravity/features/admin/import/nuvemshop_import_screen.dart';
 import 'package:gravity/features/admin/settings/settings_screen.dart';
@@ -135,9 +136,22 @@ class MyApp extends ConsumerWidget {
                 GoRoute(
                   path: '/admin/collections',
                   builder: (context, state) => const CollectionsScreen(),
+                  routes: [
+                    GoRoute(
+                      path: 'new',
+                      builder: (context, state) => const CollectionFormScreen(),
+                    ),
+                    GoRoute(
+                      path: ':id/edit',
+                      builder: (context, state) => CollectionFormScreen(
+                        collectionId: state.pathParameters['id'],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
+
             StatefulShellBranch(
               routes: [
                 GoRoute(
@@ -157,16 +171,16 @@ class MyApp extends ConsumerWidget {
             StatefulShellBranch(
               routes: [
                 GoRoute(
-                  path: '/admin/settings',
-                  builder: (context, state) => const SettingsScreen(),
+                  path: '/admin/imports/nuvemshop',
+                  builder: (context, state) => const NuvemshopImportScreen(),
                 ),
               ],
             ),
             StatefulShellBranch(
               routes: [
                 GoRoute(
-                  path: '/admin/imports/nuvemshop',
-                  builder: (context, state) => const NuvemshopImportScreen(),
+                  path: '/admin/settings',
+                  builder: (context, state) => const SettingsScreen(),
                 ),
               ],
             ),

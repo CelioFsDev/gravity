@@ -73,7 +73,7 @@ class CatalogAdapter extends TypeAdapter<Catalog> {
       isPublic: fields[13] as bool,
       shareCode: fields[14] as String,
       ownerUid: fields[15] as String,
-      includeCover: (fields[16] as bool?) ?? true,
+      includeCover: fields[16] as bool,
     );
   }
 

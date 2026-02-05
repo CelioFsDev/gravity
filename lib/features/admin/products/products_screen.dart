@@ -58,9 +58,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     .read(productsViewModelProvider.notifier)
                     .setSearchQuery(value),
                 onClearFilters: () => _clearFilters(data),
-                onSelectCollection: (value) => ref
-                    .read(productsViewModelProvider.notifier)
-                    .setCollectionFilter(value),
+
                 onSelectCategory: (value) => ref
                     .read(productsViewModelProvider.notifier)
                     .setCategoryFilter(value),
@@ -166,7 +164,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     // ... logic remains same
     final notifier = ref.read(productsViewModelProvider.notifier);
     notifier.setSearchQuery('');
-    notifier.setCollectionFilter(null);
     notifier.setCategoryFilter(null);
     notifier.setStatusFilter(ProductStatusFilter.all);
     notifier.setSortOption(ProductSort.recent);
@@ -234,7 +231,7 @@ class _ProductsContent extends StatelessWidget {
   final TextEditingController searchController;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onClearFilters;
-  final ValueChanged<String?> onSelectCollection;
+
   final ValueChanged<String?> onSelectCategory;
   final ValueChanged<ProductStatusFilter> onSelectStatus;
   final ValueChanged<ProductSort> onSelectSort;
@@ -250,7 +247,7 @@ class _ProductsContent extends StatelessWidget {
     required this.searchController,
     required this.onSearchChanged,
     required this.onClearFilters,
-    required this.onSelectCollection,
+
     required this.onSelectCategory,
     required this.onSelectStatus,
     required this.onSelectSort,
@@ -266,7 +263,6 @@ class _ProductsContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasFilters =
         state.searchQuery.isNotEmpty ||
-        state.collectionFilterId != null ||
         state.productTypeFilterId != null ||
         state.statusFilter != ProductStatusFilter.all ||
         state.sortOption != ProductSort.recent;
@@ -289,7 +285,7 @@ class _ProductsContent extends StatelessWidget {
           controller: searchController,
           onSearchChanged: onSearchChanged,
           onClearFilters: hasFilters ? onClearFilters : null,
-          onSelectCollection: onSelectCollection,
+
           onSelectCategory: onSelectCategory,
           onSelectStatus: onSelectStatus,
           onSelectSort: onSelectSort,
@@ -370,7 +366,7 @@ class _SearchAndFiltersSection extends StatelessWidget {
   final TextEditingController controller;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback? onClearFilters;
-  final ValueChanged<String?> onSelectCollection;
+
   final ValueChanged<String?> onSelectCategory;
   final ValueChanged<ProductStatusFilter> onSelectStatus;
   final ValueChanged<ProductSort> onSelectSort;
@@ -380,7 +376,7 @@ class _SearchAndFiltersSection extends StatelessWidget {
     required this.controller,
     required this.onSearchChanged,
     required this.onClearFilters,
-    required this.onSelectCollection,
+
     required this.onSelectCategory,
     required this.onSelectStatus,
     required this.onSelectSort,
@@ -403,11 +399,6 @@ class _SearchAndFiltersSection extends StatelessWidget {
           physics: const BouncingScrollPhysics(),
           child: Row(
             children: [
-              _FilterChip(
-                label: _collectionLabel(state),
-                isActive: state.collectionFilterId != null,
-                onPressed: () => _selectCollection(context),
-              ),
               const SizedBox(width: 8),
               _FilterChip(
                 label: _categoryLabel(state),
@@ -440,15 +431,6 @@ class _SearchAndFiltersSection extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  String _collectionLabel(ProductsState state) {
-    if (state.collectionFilterId == null) return 'Coleção';
-    final collection = state.categories
-        .where((c) => c.id == state.collectionFilterId)
-        .map((c) => c.name)
-        .firstOrNull;
-    return collection ?? 'Coleção';
   }
 
   String _categoryLabel(ProductsState state) {
@@ -502,24 +484,6 @@ class _SearchAndFiltersSection extends StatelessWidget {
     );
     if (result != null || state.productTypeFilterId != null)
       onSelectCategory(result);
-  }
-
-  Future<void> _selectCollection(BuildContext context) async {
-    final collections = state.categories
-        .where((c) => c.type == CategoryType.collection)
-        .toList();
-    final options = <_SheetOption<String?>>[
-      const _SheetOption(value: null, label: 'Todas coleções'),
-      ...collections.map((c) => _SheetOption(value: c.id, label: c.name)),
-    ];
-    final result = await _showSelectionSheet<String?>(
-      context,
-      title: 'Coleção',
-      options: options,
-      selected: state.collectionFilterId,
-    );
-    if (result != null || state.collectionFilterId != null)
-      onSelectCollection(result);
   }
 
   Future<void> _selectStatus(BuildContext context) async {

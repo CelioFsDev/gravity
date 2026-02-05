@@ -15,6 +15,9 @@ import 'package:gravity/ui/theme/app_tokens.dart';
 import 'package:gravity/ui/widgets/app_scaffold.dart';
 import 'package:gravity/ui/widgets/section_card.dart';
 import 'package:gravity/ui/widgets/app_primary_button.dart';
+import 'package:gravity/models/category_type.dart';
+import 'package:gravity/features/admin/categories/widgets/category_create_modal.dart';
+import 'package:go_router/go_router.dart';
 
 class ProductFormScreen extends ConsumerStatefulWidget {
   final Product? product; // null for Create, non-null for Edit
@@ -51,8 +54,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   late TextEditingController _colorsController;
   late TextEditingController _discountController;
 
+  List<String> _selectedCategoryIds = [];
   String? _selectedCollectionId;
-  List<String> _selectedTypeIds = [];
   List<String> _initialCategoryIds = [];
   bool _categorySelectionInitialized = false;
   bool _isActive = true;
@@ -134,19 +137,21 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedTypeIds.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selecione ao menos uma categoria')),
-      );
+    if (_selectedCollectionId == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('A coleção é obrigatória')));
       return;
     }
 
     final photosForSave = _normalizePhotosForSave();
     final imagesForSave = _imagesFromPhotos(photosForSave);
     final mainImageIndex = _mainIndexFromPhotos(photosForSave);
+
+    // Combine Collection + Categories
     final categoryIds = <String>[
-      if (_selectedCollectionId != null) _selectedCollectionId!,
-      ..._selectedTypeIds,
+      _selectedCollectionId!,
+      ..._selectedCategoryIds,
     ];
     final product = Product(
       id: widget.product?.id ?? const Uuid().v4(),
@@ -508,22 +513,26 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     final categories = productsState.hasValue
         ? productsState.value!.categories
         : <Category>[];
-    final collections = categories
-        .where((c) => c.type == CategoryType.collection)
-        .toList();
+
     final productTypes = categories
         .where((c) => c.type == CategoryType.productType)
         .toList();
 
+    final collections = categories
+        .where((c) => c.type == CategoryType.collection)
+        .toList(); // Added collections list
+
     if (!_categorySelectionInitialized && categories.isNotEmpty) {
-      final collectionMatches = collections
-          .where((c) => _initialCategoryIds.contains(c.id))
-          .map((c) => c.id)
-          .toList();
-      _selectedCollectionId = collectionMatches.isNotEmpty
-          ? collectionMatches.first
-          : null;
-      _selectedTypeIds = productTypes
+      // Find collection
+      final foundCol = collections.where(
+        (c) => _initialCategoryIds.contains(c.id),
+      );
+      if (foundCol.isNotEmpty) {
+        _selectedCollectionId = foundCol.first.id;
+      }
+
+      // Find categories
+      _selectedCategoryIds = productTypes
           .where((c) => _initialCategoryIds.contains(c.id))
           .map((c) => c.id)
           .toList();
@@ -588,14 +597,17 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                           ],
                         ),
                         const SizedBox(height: AppTokens.space16),
-                        _buildCollectionDropdown(collections),
                       ],
                     ),
                   ),
                   const SizedBox(height: AppTokens.space24),
                   SectionCard(
-                    title: 'Categorias',
-                    child: _buildCategoryMultiSelect(context, productTypes),
+                    title: 'Organização',
+                    child: _buildOrganizationSection(
+                      context,
+                      collections,
+                      productTypes,
+                    ),
                   ),
                   const SizedBox(height: AppTokens.space24),
                   SectionCard(
@@ -772,51 +784,6 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           icon: Icons.check_circle_outline,
         ),
       ),
-    );
-  }
-
-  Widget _buildCollectionDropdown(List<Category> collections) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Coleção',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          value: collections.any((c) => c.id == _selectedCollectionId)
-              ? _selectedCollectionId
-              : null,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Theme.of(context).dividerColor),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Theme.of(context).dividerColor),
-            ),
-          ),
-          items: [
-            const DropdownMenuItem(value: null, child: Text('Nenhuma coleção')),
-            ...collections.map(
-              (c) => DropdownMenuItem(value: c.id, child: Text(c.name)),
-            ),
-          ],
-          onChanged: (val) => setState(() => _selectedCollectionId = val),
-        ),
-      ],
     );
   }
 
@@ -1054,43 +1021,106 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     );
   }
 
-  Widget _buildCategoryMultiSelect(
+  Widget _buildOrganizationSection(
     BuildContext context,
-    List<Category> productTypes,
+    List<Category> collections,
+    List<Category> categories,
   ) {
-    if (productTypes.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 8),
-        child: Text('Nenhuma categoria cadastrada. Crie categorias primeiro.'),
-      );
-    }
-    return Wrap(
-      spacing: 8,
-      runSpacing: 4,
-      children: productTypes.map((cat) {
-        final isSelected = _selectedTypeIds.contains(cat.id);
-        return FilterChip(
-          label: Text(cat.name),
-          selected: isSelected,
-          onSelected: (val) {
-            setState(() {
-              if (val) {
-                _selectedTypeIds.add(cat.id);
-              } else {
-                _selectedTypeIds.remove(cat.id);
-              }
-            });
-          },
-          selectedColor: AppTokens.accentBlue.withOpacity(0.1),
-          checkmarkColor: AppTokens.accentBlue,
-          labelStyle: TextStyle(
-            color: isSelected
-                ? AppTokens.accentBlue
-                : Theme.of(context).colorScheme.onSurfaceVariant,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // --- COLLECTIONS ---
+        Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                value: _selectedCollectionId,
+                decoration: const InputDecoration(
+                  labelText: 'Coleção (Obrigatório)',
+                  filled: true,
+                ),
+                items: collections
+                    .map(
+                      (c) => DropdownMenuItem(value: c.id, child: Text(c.name)),
+                    )
+                    .toList(),
+                onChanged: (val) => setState(() => _selectedCollectionId = val),
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton.filledTonal(
+              onPressed: () async {
+                // Push CollectionFormScreen as a "modal" (full screen but returns value)
+                final newId = await context.push<String>(
+                  '/admin/collections/new',
+                );
+                if (newId != null && mounted) {
+                  setState(() => _selectedCollectionId = newId);
+                  // Refresh categories/collections handled by ViewModel?
+                  // The collections list comes from ref.watch, so it should update if VM updates.
+                }
+              },
+              icon: const Icon(Icons.add),
+              tooltip: 'Nova Coleção',
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // --- CATEGORIES ---
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Categorias', style: Theme.of(context).textTheme.titleSmall),
+            TextButton.icon(
+              onPressed: () async {
+                // Open CategoryCreateModal
+                final newId = await showDialog<String>(
+                  context: context,
+                  builder: (context) => const CategoryCreateModal(),
+                );
+                if (newId != null && mounted) {
+                  setState(() {
+                    if (!_selectedCategoryIds.contains(newId)) {
+                      _selectedCategoryIds.add(newId);
+                    }
+                  });
+                }
+              },
+              icon: const Icon(Icons.add_circle_outline, size: 16),
+              label: const Text('Criar Categoria'),
+            ),
+          ],
+        ),
+        if (categories.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'Nenhuma categoria disponível.',
+              style: TextStyle(color: Colors.grey),
+            ),
           ),
-        );
-      }).toList(),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: categories.map((cat) {
+            final isSelected = _selectedCategoryIds.contains(cat.id);
+            return FilterChip(
+              label: Text(cat.name),
+              selected: isSelected,
+              onSelected: (val) {
+                setState(() {
+                  if (val) {
+                    _selectedCategoryIds.add(cat.id);
+                  } else {
+                    _selectedCategoryIds.remove(cat.id);
+                  }
+                });
+              },
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 }

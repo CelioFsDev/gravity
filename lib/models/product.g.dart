@@ -56,11 +56,6 @@ class ProductAdapter extends TypeAdapter<Product> {
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
-    final legacyImages = (fields[10] as List?)?.cast<String>() ?? <String>[];
-    final legacyMainIndex = fields[11] as int? ?? 0;
-    final photos =
-        (fields[24] as List?)?.cast<ProductPhoto>() ??
-        Product._photosFromLegacy(legacyImages, legacyMainIndex);
     return Product(
       id: fields[0] as String,
       name: fields[1] as String,
@@ -72,12 +67,13 @@ class ProductAdapter extends TypeAdapter<Product> {
       minWholesaleQty: fields[7] as int,
       sizes: (fields[8] as List).cast<String>(),
       colors: (fields[9] as List).cast<String>(),
-      images: legacyImages,
-      mainImageIndex: legacyMainIndex,
+      images: (fields[10] as List).cast<String>(),
+      mainImageIndex: fields[11] as int,
       isActive: fields[12] as bool,
       isOutOfStock: fields[13] as bool,
       promoEnabled: fields[14] as bool,
       createdAt: fields[15] as DateTime,
+      photos: (fields[24] as List).cast<ProductPhoto>(),
       promoPercent: fields[16] as double,
       slug: fields[18] as String,
       description: fields[19] as String?,
@@ -85,7 +81,6 @@ class ProductAdapter extends TypeAdapter<Product> {
       remoteImages: (fields[21] as List).cast<String>(),
       variants: (fields[22] as List).cast<ProductVariant>(),
       updatedAt: fields[23] as DateTime?,
-      photos: photos,
     );
   }
 

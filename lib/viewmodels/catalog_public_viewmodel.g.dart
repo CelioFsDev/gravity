@@ -39,15 +39,21 @@ class CatalogPublicFamily extends Family<AsyncValue<PublicCatalogData?>> {
   const CatalogPublicFamily();
 
   /// See also [catalogPublic].
-  CatalogPublicProvider call(String shareCode) {
-    return CatalogPublicProvider(shareCode);
+  CatalogPublicProvider call(
+    String shareCode,
+  ) {
+    return CatalogPublicProvider(
+      shareCode,
+    );
   }
 
   @override
   CatalogPublicProvider getProviderOverride(
     covariant CatalogPublicProvider provider,
   ) {
-    return call(provider.shareCode);
+    return call(
+      provider.shareCode,
+    );
   }
 
   static const Iterable<ProviderOrFamily>? _dependencies = null;
@@ -69,19 +75,24 @@ class CatalogPublicFamily extends Family<AsyncValue<PublicCatalogData?>> {
 class CatalogPublicProvider
     extends AutoDisposeFutureProvider<PublicCatalogData?> {
   /// See also [catalogPublic].
-  CatalogPublicProvider(String shareCode)
-    : this._internal(
-        (ref) => catalogPublic(ref as CatalogPublicRef, shareCode),
-        from: catalogPublicProvider,
-        name: r'catalogPublicProvider',
-        debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-            ? null
-            : _$catalogPublicHash,
-        dependencies: CatalogPublicFamily._dependencies,
-        allTransitiveDependencies:
-            CatalogPublicFamily._allTransitiveDependencies,
-        shareCode: shareCode,
-      );
+  CatalogPublicProvider(
+    String shareCode,
+  ) : this._internal(
+          (ref) => catalogPublic(
+            ref as CatalogPublicRef,
+            shareCode,
+          ),
+          from: catalogPublicProvider,
+          name: r'catalogPublicProvider',
+          debugGetCreateSourceHash:
+              const bool.fromEnvironment('dart.vm.product')
+                  ? null
+                  : _$catalogPublicHash,
+          dependencies: CatalogPublicFamily._dependencies,
+          allTransitiveDependencies:
+              CatalogPublicFamily._allTransitiveDependencies,
+          shareCode: shareCode,
+        );
 
   CatalogPublicProvider._internal(
     super._createNotifier, {
@@ -145,6 +156,5 @@ class _CatalogPublicProviderElement
   @override
   String get shareCode => (origin as CatalogPublicProvider).shareCode;
 }
-
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member

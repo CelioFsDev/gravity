@@ -6,45 +6,6 @@ part of 'category.dart';
 // TypeAdapterGenerator
 // **************************************************************************
 
-class CollectionCoverModeAdapter extends TypeAdapter<CollectionCoverMode> {
-  @override
-  final int typeId = 9;
-
-  @override
-  CollectionCoverMode read(BinaryReader reader) {
-    switch (reader.readByte()) {
-      case 0:
-        return CollectionCoverMode.image;
-      case 1:
-        return CollectionCoverMode.template;
-      default:
-        return CollectionCoverMode.template;
-    }
-  }
-
-  @override
-  void write(BinaryWriter writer, CollectionCoverMode obj) {
-    switch (obj) {
-      case CollectionCoverMode.image:
-        writer.writeByte(0);
-        break;
-      case CollectionCoverMode.template:
-        writer.writeByte(1);
-        break;
-    }
-  }
-
-  @override
-  int get hashCode => typeId.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is CollectionCoverModeAdapter &&
-          runtimeType == other.runtimeType &&
-          typeId == other.typeId;
-}
-
 class CollectionCoverAdapter extends TypeAdapter<CollectionCover> {
   @override
   final int typeId = 10;
@@ -67,13 +28,15 @@ class CollectionCoverAdapter extends TypeAdapter<CollectionCover> {
       heroImagePath: fields[8] as String?,
       coverHeaderImagePath: fields[9] as String?,
       coverMainImagePath: fields[10] as String?,
+      coverMiniPath: fields[11] as String?,
+      coverPagePath: fields[12] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, CollectionCover obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(13)
       ..writeByte(0)
       ..write(obj.mode)
       ..writeByte(1)
@@ -95,7 +58,11 @@ class CollectionCoverAdapter extends TypeAdapter<CollectionCover> {
       ..writeByte(9)
       ..write(obj.coverHeaderImagePath)
       ..writeByte(10)
-      ..write(obj.coverMainImagePath);
+      ..write(obj.coverMainImagePath)
+      ..writeByte(11)
+      ..write(obj.coverMiniPath)
+      ..writeByte(12)
+      ..write(obj.coverPagePath);
   }
 
   @override
@@ -127,13 +94,15 @@ class CategoryAdapter extends TypeAdapter<Category> {
       updatedAt: fields[4] as DateTime,
       type: fields[5] as CategoryType,
       cover: fields[6] as CollectionCover?,
+      slug: fields[7] as String,
+      isActive: fields[8] as bool,
     );
   }
 
   @override
   void write(BinaryWriter writer, Category obj) {
     writer
-      ..writeByte(7)
+      ..writeByte(9)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -147,7 +116,11 @@ class CategoryAdapter extends TypeAdapter<Category> {
       ..writeByte(5)
       ..write(obj.type)
       ..writeByte(6)
-      ..write(obj.cover);
+      ..write(obj.cover)
+      ..writeByte(7)
+      ..write(obj.slug)
+      ..writeByte(8)
+      ..write(obj.isActive);
   }
 
   @override
@@ -157,6 +130,45 @@ class CategoryAdapter extends TypeAdapter<Category> {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is CategoryAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class CollectionCoverModeAdapter extends TypeAdapter<CollectionCoverMode> {
+  @override
+  final int typeId = 9;
+
+  @override
+  CollectionCoverMode read(BinaryReader reader) {
+    switch (reader.readByte()) {
+      case 0:
+        return CollectionCoverMode.image;
+      case 1:
+        return CollectionCoverMode.template;
+      default:
+        return CollectionCoverMode.image;
+    }
+  }
+
+  @override
+  void write(BinaryWriter writer, CollectionCoverMode obj) {
+    switch (obj) {
+      case CollectionCoverMode.image:
+        writer.writeByte(0);
+        break;
+      case CollectionCoverMode.template:
+        writer.writeByte(1);
+        break;
+    }
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CollectionCoverModeAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }
