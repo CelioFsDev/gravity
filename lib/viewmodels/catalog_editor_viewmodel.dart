@@ -141,7 +141,13 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
   }
 
   void setIncludeCover(bool value) {
-    state = state.copyWith(catalog: state.catalog.copyWith(includeCover: value));
+    state = state.copyWith(
+      catalog: state.catalog.copyWith(includeCover: value),
+    );
+  }
+
+  void setCoverType(String? value) {
+    state = state.copyWith(catalog: state.catalog.copyWith(coverType: value));
   }
 
   void regenerateShareCode() {
@@ -219,5 +225,3 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
   String _generateShareCode() =>
       const Uuid().v4().split('-').first.toLowerCase();
 }
-
-

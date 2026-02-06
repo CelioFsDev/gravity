@@ -76,6 +76,9 @@ class Catalog {
   @HiveField(16)
   final bool includeCover;
 
+  @HiveField(17)
+  final String? coverType; // "standard", "collection", "none" (maps to legacy includeCover=false)
+
   Catalog({
     required this.id,
     required this.name,
@@ -94,6 +97,7 @@ class Catalog {
     this.shareCode = '',
     this.ownerUid = '',
     this.includeCover = true,
+    this.coverType,
   });
 
   Catalog copyWith({
@@ -114,6 +118,7 @@ class Catalog {
     String? shareCode,
     String? ownerUid,
     bool? includeCover,
+    String? coverType,
   }) {
     return Catalog(
       id: id ?? this.id,
@@ -133,7 +138,7 @@ class Catalog {
       shareCode: shareCode ?? this.shareCode,
       ownerUid: ownerUid ?? this.ownerUid,
       includeCover: includeCover ?? this.includeCover,
+      coverType: coverType ?? this.coverType,
     );
   }
 }
-

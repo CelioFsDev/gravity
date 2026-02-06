@@ -4,12 +4,12 @@ import 'dart:io';
 import 'package:gravity/core/services/dto/gravity_export_dtos.dart';
 import 'package:gravity/data/repositories/contracts/categories_repository_contract.dart';
 import 'package:gravity/data/repositories/contracts/products_repository_contract.dart';
+import 'package:gravity/data/repositories/products_repository.dart';
+import 'package:gravity/data/repositories/categories_repository.dart';
 import 'package:gravity/data/repositories/settings_repository.dart';
 import 'package:gravity/models/category.dart';
-import 'package:gravity/models/product.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:uuid/uuid.dart';
 
 part 'export_import_service.g.dart';
 
@@ -91,7 +91,7 @@ class ExportImportService {
       exportedAt: DateTime.now().toIso8601String(),
       store: StoreInfoDTO(
         name: settings.storeName,
-        phone: settings.whatsappPhone,
+        phone: settings.whatsappNumber,
       ),
       categories: categories,
       collections: collections,

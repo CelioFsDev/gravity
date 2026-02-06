@@ -64,9 +64,17 @@ void main() async {
   await Hive.openBox<AppSettings>('settings');
 
   try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
+  } on FirebaseException catch (e) {
+    if (e.code == 'duplicate-app') {
+      debugPrint('Firebase initialized (recovered from duplicate-app error)');
+    } else {
+      debugPrint('Firebase init failed (Offline Mode Active): $e');
+    }
   } catch (e) {
     debugPrint('Firebase init failed (Offline Mode Active): $e');
   }

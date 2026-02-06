@@ -184,10 +184,22 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                   },
                   onChanged: (v) => notifier.setPhotoLayout(v!),
                 ),
-                _buildSwitchTile(
-                  title: 'Incluir Capas no PDF',
-                  value: state.catalog.includeCover,
-                  onChanged: notifier.setIncludeCover,
+                const SizedBox(height: 12),
+                _buildDropdown(
+                  label: 'Capa do PDF',
+                  value:
+                      state.catalog.coverType ??
+                      (state.catalog.includeCover ? 'collection' : 'none'),
+                  items: const {
+                    'collection': 'Automática (Baseada na coleção)',
+                    'standard': 'Padrão (Personalização apenas de texto)',
+                    'none': 'Sem capa principal',
+                  },
+                  onChanged: (v) {
+                    notifier.setCoverType(v);
+                    // Legacy compatibility sync
+                    notifier.setIncludeCover(v != 'none');
+                  },
                 ),
               ],
             ),

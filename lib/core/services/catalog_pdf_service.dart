@@ -28,6 +28,7 @@ class CatalogPdfService {
     String defaultSubtitle = 'SELE\u00c7\u00c3O DE PRODUTOS',
     bool includeCover = true,
     Map<String, Category>? collectionsMap,
+    String? mainCoverCollectionId,
   }) async {
     // Parameters kept for API compatibility.
     final _ = catalogName;
@@ -63,8 +64,16 @@ class CatalogPdfService {
 
         if (prodCollectionId != null &&
             prodCollectionId != currentCollectionId) {
-          final collection = collectionsMap[prodCollectionId]!;
-          _addCollectionOpeningPage(pdf, pageFormat, collection);
+          final isDuplicateCover =
+              includeCover &&
+              mainCoverCollectionId != null &&
+              prodCollectionId == mainCoverCollectionId &&
+              currentCollectionId == null;
+
+          if (!isDuplicateCover) {
+            final collection = collectionsMap[prodCollectionId]!;
+            _addCollectionOpeningPage(pdf, pageFormat, collection);
+          }
           currentCollectionId = prodCollectionId;
         }
       }

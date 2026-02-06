@@ -188,6 +188,35 @@ class CatalogShareHelper {
       productsState.categories,
     );
 
+    // Resolve which cover to show based on settings
+    bool resolvedIncludeCover;
+    CollectionCover? resolvedCollectionCover;
+    String? mainCoverCollectionId;
+
+    if (catalog.coverType != null) {
+      // New logic
+      if (catalog.coverType == 'none') {
+        resolvedIncludeCover = false;
+        resolvedCollectionCover = null;
+      } else if (catalog.coverType == 'standard') {
+        resolvedIncludeCover = true;
+        resolvedCollectionCover = null; // Forces text standard cover
+      } else {
+        // 'collection' or default
+        resolvedIncludeCover = true;
+        resolvedCollectionCover = coverInfo.cover;
+        mainCoverCollectionId = coverInfo.collectionId;
+      }
+    } else {
+      // Legacy fallback
+      resolvedIncludeCover = catalog.includeCover;
+      resolvedCollectionCover = coverInfo.cover;
+      // If legacy true, we still want to avoid dup, so track ID if we have a cover
+      if (resolvedIncludeCover && resolvedCollectionCover != null) {
+        mainCoverCollectionId = coverInfo.collectionId;
+      }
+    }
+
     final collectionsMap = {
       for (final c in productsState.categories)
         if (c.type == CategoryType.collection) c.id: c,
@@ -216,16 +245,30 @@ class CatalogShareHelper {
         productsState.categories,
       );
       final catalogName = catalog.name.isEmpty ? 'Meu Catálogo' : catalog.name;
+
+      // Re-resolve for fallback (simplified)
+      CollectionCover? fbCover;
+      String? fbId;
+      if (resolvedIncludeCover) {
+        if (catalog.coverType == 'standard') {
+          fbCover = null;
+        } else {
+          fbCover = fallbackCoverInfo.cover;
+          fbId = fallbackCoverInfo.collectionId;
+        }
+      }
+
       return CatalogPdfService.generateCatalogPdf(
         catalogName: catalogName,
         products: fallbackProducts,
         columnsCount: columnsCount,
         mode: mode,
         bannerImagePath: bannerImagePath,
-        collectionCover: fallbackCoverInfo.cover,
+        collectionCover: fbCover,
         collectionName: fallbackCoverInfo.name,
-        includeCover: catalog.includeCover,
+        includeCover: resolvedIncludeCover,
         collectionsMap: collectionsMap,
+        mainCoverCollectionId: fbId,
       );
     }
 
@@ -236,10 +279,11 @@ class CatalogShareHelper {
       columnsCount: columnsCount,
       mode: mode,
       bannerImagePath: bannerImagePath,
-      collectionCover: coverInfo.cover,
+      collectionCover: resolvedCollectionCover,
       collectionName: coverInfo.name,
-      includeCover: catalog.includeCover,
+      includeCover: resolvedIncludeCover,
       collectionsMap: collectionsMap,
+      mainCoverCollectionId: mainCoverCollectionId,
     );
   }
 
@@ -300,8 +344,9 @@ class CatalogShareHelper {
 class _CollectionCoverResult {
   final CollectionCover? cover;
   final String? name;
+  final String? collectionId;
 
-  const _CollectionCoverResult(this.cover, this.name);
+  const _CollectionCoverResult(this.cover, this.name, this.collectionId);
 }
 
 _CollectionCoverResult _resolveCollectionCover(
@@ -309,7 +354,7 @@ _CollectionCoverResult _resolveCollectionCover(
   List<Category> categories,
 ) {
   if (products.isEmpty || categories.isEmpty) {
-    return const _CollectionCoverResult(null, null);
+    return const _CollectionCoverResult(null, null, null);
   }
 
   final collections = {
@@ -317,7 +362,8 @@ _CollectionCoverResult _resolveCollectionCover(
       if (category.type == CategoryType.collection) category.id: category,
   };
 
-  if (collections.isEmpty) return const _CollectionCoverResult(null, null);
+  if (collections.isEmpty)
+    return const _CollectionCoverResult(null, null, null);
 
   final matchedIds = <String>{};
   for (final product in products) {
@@ -329,12 +375,17 @@ _CollectionCoverResult _resolveCollectionCover(
   }
 
   if (matchedIds.isEmpty) {
-    return const _CollectionCoverResult(null, null);
+    return const _CollectionCoverResult(null, null, null);
   }
 
   // Use the first matched collection cover
-  final collection = collections[matchedIds.first];
-  if (collection == null) return const _CollectionCoverResult(null, null);
+  final collectionId = matchedIds.first;
+  final collection = collections[collectionId];
+  if (collection == null) return const _CollectionCoverResult(null, null, null);
 
-  return _CollectionCoverResult(collection.cover, collection.name);
+  return _CollectionCoverResult(
+    collection.cover,
+    collection.name,
+    collectionId,
+  );
 }
