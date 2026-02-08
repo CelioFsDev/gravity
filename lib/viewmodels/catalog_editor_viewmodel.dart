@@ -157,69 +157,76 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
   }
 
   Future<bool> save() async {
-    state = state.copyWith(isSaving: true, clearSlugError: true);
+    try {
+      state = state.copyWith(isSaving: true, clearSlugError: true);
 
-    if (state.catalog.name.isEmpty) {
-      state = state.copyWith(isSaving: false);
-      return false;
-    }
+      if (state.catalog.name.isEmpty) {
+        state = state.copyWith(isSaving: false);
+        return false;
+      }
 
-    if (state.catalog.slug.isEmpty || state.catalog.slug.length < 3) {
-      state = state.copyWith(isSaving: false, slugError: 'Slug muito curto');
-      return false;
-    }
+      if (state.catalog.slug.isEmpty || state.catalog.slug.length < 3) {
+        state = state.copyWith(isSaving: false, slugError: 'Slug muito curto');
+        return false;
+      }
 
-    final repository = ref.read(catalogsRepositoryProvider);
-    final isTaken = await repository.isSlugTaken(
-      state.catalog.slug,
-      excludeId: state.catalog.id,
-    );
-
-    if (isTaken) {
-      state = state.copyWith(
-        isSaving: false,
-        slugError: 'Esta URL já está em uso.',
+      final repository = ref.read(catalogsRepositoryProvider);
+      final isTaken = await repository.isSlugTaken(
+        state.catalog.slug,
+        excludeId: state.catalog.id,
       );
-      return false;
-    }
 
-    final user = ref.read(currentUserProvider);
-    var toSave = state.catalog;
-    if (!isLoggedIn(user)) {
-      state = state.copyWith(
-        isSaving: false,
-        slugError: 'Usuário não autenticado.',
+      if (isTaken) {
+        state = state.copyWith(
+          isSaving: false,
+          slugError: 'Esta URL já está em uso.',
+        );
+        return false;
+      }
+
+      final user = ref.read(currentUserProvider);
+      var toSave = state.catalog;
+      if (!isLoggedIn(user)) {
+        state = state.copyWith(
+          isSaving: false,
+          slugError: 'Usuário não autenticado.',
+        );
+        return false;
+      }
+      if (user != null &&
+          toSave.ownerUid.isNotEmpty &&
+          toSave.ownerUid != user.uid) {
+        state = state.copyWith(
+          isSaving: false,
+          slugError: 'Sem permissão para editar este catálogo.',
+        );
+        return false;
+      }
+      if (toSave.shareCode.isEmpty) {
+        toSave = toSave.copyWith(shareCode: _generateShareCode());
+      }
+      toSave = toSave.copyWith(
+        updatedAt: DateTime.now(),
+        ownerUid: toSave.ownerUid.isEmpty && user != null
+            ? user.uid
+            : toSave.ownerUid,
       );
+
+      await repository.addCatalog(toSave);
+
+      ref.invalidate(catalogsViewModelProvider);
+      if (toSave.shareCode.isNotEmpty) {
+        ref.invalidate(catalogPublicProvider(toSave.shareCode));
+      }
+
+      state = state.copyWith(catalog: toSave, isSaving: false);
+      return true;
+    } catch (e, s) {
+      // ignore: avoid_print
+      print('Error saving catalog: $e\n$s');
+      state = state.copyWith(isSaving: false, slugError: 'Erro ao salvar: $e');
       return false;
     }
-    if (user != null &&
-        toSave.ownerUid.isNotEmpty &&
-        toSave.ownerUid != user.uid) {
-      state = state.copyWith(
-        isSaving: false,
-        slugError: 'Sem permissão para editar este catálogo.',
-      );
-      return false;
-    }
-    if (toSave.shareCode.isEmpty) {
-      toSave = toSave.copyWith(shareCode: _generateShareCode());
-    }
-    toSave = toSave.copyWith(
-      updatedAt: DateTime.now(),
-      ownerUid: toSave.ownerUid.isEmpty && user != null
-          ? user.uid
-          : toSave.ownerUid,
-    );
-
-    await repository.addCatalog(toSave);
-
-    ref.invalidate(catalogsViewModelProvider);
-    if (toSave.shareCode.isNotEmpty) {
-      ref.invalidate(catalogPublicProvider(toSave.shareCode));
-    }
-
-    state = state.copyWith(catalog: toSave, isSaving: false);
-    return true;
   }
 
   String _generateShareCode() =>

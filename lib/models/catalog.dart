@@ -16,7 +16,13 @@ class CatalogBanner {
   CatalogBanner({required this.id, required this.imagePath, this.title});
 }
 
-enum CatalogMode { varejo, atacado }
+@HiveType(typeId: 21)
+enum CatalogMode {
+  @HiveField(0)
+  varejo,
+  @HiveField(1)
+  atacado,
+}
 
 extension CatalogModeExtension on CatalogMode {
   String get label =>

@@ -130,3 +130,42 @@ class CatalogAdapter extends TypeAdapter<Catalog> {
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }
+
+class CatalogModeAdapter extends TypeAdapter<CatalogMode> {
+  @override
+  final int typeId = 21;
+
+  @override
+  CatalogMode read(BinaryReader reader) {
+    switch (reader.readByte()) {
+      case 0:
+        return CatalogMode.varejo;
+      case 1:
+        return CatalogMode.atacado;
+      default:
+        return CatalogMode.varejo;
+    }
+  }
+
+  @override
+  void write(BinaryWriter writer, CatalogMode obj) {
+    switch (obj) {
+      case CatalogMode.varejo:
+        writer.writeByte(0);
+        break;
+      case CatalogMode.atacado:
+        writer.writeByte(1);
+        break;
+    }
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CatalogModeAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}

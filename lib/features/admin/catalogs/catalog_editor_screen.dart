@@ -295,6 +295,7 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
     return DropdownButtonFormField<String>(
       value: value,
       onChanged: onChanged,
+      isExpanded: true,
       decoration: InputDecoration(
         labelText: label,
         filled: true,
@@ -305,7 +306,16 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
         ),
       ),
       items: items.entries
-          .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
+          .map(
+            (e) => DropdownMenuItem(
+              value: e.key,
+              child: Text(
+                e.value,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ),
+          )
           .toList(),
     );
   }

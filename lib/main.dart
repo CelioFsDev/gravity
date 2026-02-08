@@ -47,6 +47,7 @@ void main() async {
   Hive.registerAdapter(AppSettingsAdapter());
   Hive.registerAdapter(ProductAdapter());
   Hive.registerAdapter(CatalogBannerAdapter());
+  Hive.registerAdapter(CatalogModeAdapter());
   Hive.registerAdapter(CatalogAdapter());
 
   // Open Boxes
