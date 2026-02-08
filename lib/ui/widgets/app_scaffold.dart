@@ -63,12 +63,14 @@ class AppScaffold extends StatelessWidget {
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
                                 title!,
                                 style: Theme.of(
                                   context,
                                 ).textTheme.headlineSmall,
+                                overflow: TextOverflow.visible,
                               ),
                               if (subtitle != null) ...[
                                 const SizedBox(height: 4),
@@ -80,7 +82,7 @@ class AppScaffold extends StatelessWidget {
                             ],
                           ),
                         ),
-                        if (actions != null) ...[
+                        if (actions != null && actions!.isNotEmpty) ...[
                           const SizedBox(width: AppTokens.space16),
                           Row(
                             mainAxisSize: MainAxisSize.min,

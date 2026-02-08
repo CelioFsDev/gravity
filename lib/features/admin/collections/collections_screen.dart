@@ -189,10 +189,14 @@ class _CollectionCard extends StatelessWidget {
                       children: [
                         Row(
                           children: [
-                            Text(
-                              collection.safeName,
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            Expanded(
+                              child: Text(
+                                collection.safeName,
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.bold),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                             const SizedBox(width: 8),
                             if (!collection.isActive)
