@@ -14,6 +14,8 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:csv/csv.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:archive/archive.dart';
+import 'package:gravity/core/services/gravity_package_service.dart';
+import 'package:gravity/core/services/image_cache_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
@@ -103,6 +105,32 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         final ParsedImport parsed;
 
         if (ext == '.zip') {
+          // Check for Gravity Package (manifest.json)
+          final isGravity = await _isGravityPackage(file);
+          if (isGravity) {
+            try {
+              if (file.path == null) {
+                throw Exception(
+                  'File path is null for Gravity Package on this platform.',
+                );
+              }
+              final report = await ref
+                  .read(gravityPackageServiceProvider)
+                  .importPackage(File(file.path!));
+              state = state.copyWith(
+                isLoading: false,
+                isDone: true,
+                parsedProducts: report.importedProducts ?? [],
+              );
+              return;
+            } catch (e) {
+              state = state.copyWith(
+                isLoading: false,
+                errorMessage: "Erro ao importar pacote: $e",
+              );
+              return;
+            }
+          }
           parsed = await _parseZipPackage(file);
         } else {
           parsed = await _parseCsvFile(file);
@@ -186,6 +214,21 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     return _parseCsvContent(input);
   }
 
+  Future<bool> _isGravityPackage(PlatformFile file) async {
+    try {
+      final bytes = await _readFileBytes(file);
+      final archive = ZipDecoder().decodeBytes(bytes);
+      for (final entry in archive.files) {
+        if (entry.name.toLowerCase() == 'manifest.json') {
+          return true;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error checking for manifest.json: $e');
+    }
+    return false;
+  }
+
   Future<ParsedImport> _parseZipPackage(PlatformFile file) async {
     final bytes = await _readFileBytes(file);
     final archive = ZipDecoder().decodeBytes(bytes);
@@ -214,13 +257,33 @@ class ProductImportViewModel extends _$ProductImportViewModel {
 
     final headerMap = _buildHeaderMap(rows.first);
     final skuIndex = _indexFor(headerMap, ['sku'], 0);
+    final imageFilesIndex = _indexFor(headerMap, ['imagefiles'], -1);
     final skus = rows
         .skip(1)
         .map((row) => _cellValue(row, skuIndex).trim())
         .where((sku) => sku.isNotEmpty)
         .toList();
 
-    final imagesBySku = await _extractImagesFromArchive(archive, skus);
+    final imageFilesBySku = <String, List<String>>{};
+    if (imageFilesIndex >= 0) {
+      for (final row in rows.skip(1)) {
+        final sku = _normalizeSku(_cellValue(row, skuIndex));
+        if (sku.isEmpty) continue;
+        final listedFiles = _splitList(_cellValue(row, imageFilesIndex))
+            .map((name) => p.basename(name).toLowerCase().trim())
+            .where((name) => name.isNotEmpty)
+            .toList();
+        if (listedFiles.isNotEmpty) {
+          imageFilesBySku[sku] = listedFiles;
+        }
+      }
+    }
+
+    final imagesBySku = await _extractImagesFromArchive(
+      archive,
+      skus,
+      imageFilesBySku: imageFilesBySku,
+    );
     final parsed = await _parseRowsToProducts(rows, imagesBySku: imagesBySku);
     return ParsedImport(
       csvData: rows,
@@ -281,7 +344,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         categoriesRepo,
       );
 
-      final ref = _cellByKeys(row, headerMap, ['ref', 'reference'], 2);
+      final reference = _cellByKeys(row, headerMap, ['ref', 'reference'], 2);
       final sizes = _splitList(_cellByKeys(row, headerMap, ['sizes'], 7));
       final colors = _splitList(_cellByKeys(row, headerMap, ['colors'], 8));
 
@@ -295,17 +358,49 @@ class ProductImportViewModel extends _$ProductImportViewModel {
           existing?.createdAt ??
           DateTime.now();
 
-      final images = imagesBySku?[skuKey] ?? existing?.images ?? <String>[];
+      // Image URL Logic
+      final remoteImagesRaw = _cellByKeys(row, headerMap, [
+        'image urls',
+        'image url',
+        'url da imagem',
+        'urls de imagem',
+        'image',
+        'images',
+        'imagens',
+      ], -1);
+
+      final remoteImages = _splitList(
+        remoteImagesRaw,
+      ).where((u) => u.startsWith('http')).toList();
+      var localImages = imagesBySku?[skuKey] ?? existing?.images ?? <String>[];
+
+      // If we have remote images but no local images, try to download valid ones
+      if (remoteImages.isNotEmpty && localImages.isEmpty) {
+        final downloadedPaths = <String>[];
+        final cacheService = ref.read(imageCacheServiceProvider);
+
+        for (final url in remoteImages) {
+          final path = await cacheService.downloadAndCacheImage(url);
+          if (path != null) {
+            downloadedPaths.add(path);
+            imagesMatched++; // We count downloads as matches for progress
+          }
+        }
+        if (downloadedPaths.isNotEmpty) {
+          localImages = downloadedPaths;
+        }
+      }
+
       final mainImageIndexRaw =
           int.tryParse(_cellByKeys(row, headerMap, ['mainimageindex'], 13)) ??
           existing?.mainImageIndex ??
           0;
-      final mainImageIndex = images.isEmpty
+      final mainImageIndex = localImages.isEmpty
           ? 0
-          : mainImageIndexRaw.clamp(0, images.length - 1);
+          : mainImageIndexRaw.clamp(0, localImages.length - 1);
 
       if (imagesBySku != null) {
-        imagesMatched += images.length;
+        imagesMatched += localImages.length;
       }
 
       final priceRetail = _parsePrice(
@@ -355,7 +450,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         Product(
           id: existing?.id ?? const Uuid().v4(),
           name: name,
-          ref: ref,
+          ref: reference,
           sku: sku,
           categoryIds: categoryId.isNotEmpty ? [categoryId] : <String>[],
           priceRetail: priceRetail,
@@ -364,7 +459,8 @@ class ProductImportViewModel extends _$ProductImportViewModel {
               int.tryParse(_cellByKeys(row, headerMap, ['minqty'], 6)) ?? 1,
           sizes: sizes,
           colors: colors,
-          images: images,
+          images: localImages,
+          remoteImages: remoteImages,
           mainImageIndex: mainImageIndex,
           isActive: isActive,
           isOutOfStock: isOutOfStock,
@@ -387,23 +483,52 @@ class ProductImportViewModel extends _$ProductImportViewModel {
 
   Future<Map<String, List<String>>> _extractImagesFromArchive(
     Archive archive,
-    List<String> skus,
-  ) async {
+    List<String> skus, {
+    Map<String, List<String>> imageFilesBySku = const {},
+  }) async {
     final result = <String, List<String>>{};
     final normalizedSkus = skus
         .map(_normalizeSku)
         .where((sku) => sku.isNotEmpty)
         .toList();
+    final archiveImagesByBaseName = <String, ArchiveFile>{};
 
     for (final entry in archive.files) {
       if (!entry.isFile) continue;
       final ext = p.extension(entry.name).toLowerCase();
       if (!['.jpg', '.jpeg', '.png', '.webp'].contains(ext)) continue;
       final baseName = p.basename(entry.name).toLowerCase();
+      archiveImagesByBaseName[baseName] = entry;
+    }
 
+    for (final sku in normalizedSkus) {
+      final declaredFiles = imageFilesBySku[sku] ?? const <String>[];
+      for (final declared in declaredFiles) {
+        final entry = archiveImagesByBaseName[declared];
+        if (entry == null) continue;
+        final bytes = _archiveFileBytes(entry);
+        final savedPath = await _writeImageBytesToPersistentStorage(
+          bytes,
+          declared,
+        );
+        if (savedPath != null) {
+          result.putIfAbsent(sku, () => []).add(savedPath);
+          archiveImagesByBaseName.remove(declared);
+        }
+      }
+    }
+
+    for (final archiveEntry in archiveImagesByBaseName.entries) {
+      final baseName = archiveEntry.key;
+      final normalizedBaseName = _normalizeForImageMatch(
+        p.basenameWithoutExtension(baseName),
+      );
       for (final sku in normalizedSkus) {
         if (sku.isEmpty) continue;
-        if (!baseName.startsWith(sku.toLowerCase())) continue;
+        final skuForMatch = _normalizeForImageMatch(sku);
+        if (skuForMatch.isEmpty) continue;
+        if (!normalizedBaseName.startsWith(skuForMatch)) continue;
+        final entry = archiveEntry.value;
         final bytes = _archiveFileBytes(entry);
         final savedPath = await _writeImageBytesToPersistentStorage(
           bytes,
@@ -525,14 +650,24 @@ class ProductImportViewModel extends _$ProductImportViewModel {
 
   Product? _findProductBySkuPrefix(String fileName, List<Product> products) {
     final lower = fileName.toLowerCase();
+    final normalizedFile = _normalizeForImageMatch(
+      p.basenameWithoutExtension(lower),
+    );
     for (final product in products) {
       final sku = product.sku.trim();
       if (sku.isEmpty) continue;
-      if (lower.startsWith(sku.toLowerCase())) {
+      final normalizedSku = _normalizeForImageMatch(sku);
+      if (lower.startsWith(sku.toLowerCase()) ||
+          (normalizedSku.isNotEmpty &&
+              normalizedFile.startsWith(normalizedSku))) {
         return product;
       }
     }
     return null;
+  }
+
+  String _normalizeForImageMatch(String input) {
+    return input.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
   }
 
   DateTime? _parseDateTime(String value) {

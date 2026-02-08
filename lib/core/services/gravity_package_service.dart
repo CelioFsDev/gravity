@@ -1,0 +1,278 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:archive/archive_io.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gravity/core/services/dto/gravity_export_dtos.dart';
+import 'package:gravity/core/services/export_import_service.dart';
+import 'package:gravity/models/product.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+
+part 'gravity_package_service.g.dart';
+
+class GravityPackageService {
+  final ExportImportService _exportImportService;
+
+  GravityPackageService(this._exportImportService);
+
+  Future<File> exportPackage() async {
+    final tempDir = await getTemporaryDirectory();
+    final packageDir = Directory(
+      p.join(
+        tempDir.path,
+        'gravity_export_${DateTime.now().millisecondsSinceEpoch}',
+      ),
+    );
+    await packageDir.create(recursive: true);
+
+    // 1. Get base payload
+    final jsonFile = await _exportImportService.exportToJsonFile();
+    final payload = await _exportImportService.parsePayload(jsonFile);
+
+    // 2. Process images and update payload
+    final imagesDir = Directory(p.join(packageDir.path, 'images'));
+    if (!await imagesDir.exists()) {
+      await imagesDir.create();
+    }
+
+    final updatedProducts = <ProductDTO>[];
+    int imageCount = 0;
+
+    for (final product in payload.products) {
+      final newImages = <String>[];
+
+      // Create product subdir for images
+      final productImagesDir = Directory(p.join(imagesDir.path, product.id));
+
+      for (int i = 0; i < product.images.length; i++) {
+        final imagePath = product.images[i];
+        final file = File(imagePath);
+
+        if (await file.exists()) {
+          if (!await productImagesDir.exists()) {
+            await productImagesDir.create();
+          }
+
+          final ext = p.extension(imagePath);
+          final relativeName = '${i.toString().padLeft(2, '0')}$ext';
+          final targetPath = p.join(productImagesDir.path, relativeName);
+
+          await file.copy(targetPath);
+          newImages.add('images/${product.id}/$relativeName');
+          imageCount++;
+        }
+      }
+
+      // Reconstruct product with relative paths
+      // Note: remoteImages and others are preserved from original payload
+      updatedProducts.add(
+        ProductDTO(
+          id: product.id,
+          name: product.name,
+          ref: product.ref,
+          sku: product.sku,
+          priceRetail: product.priceRetail,
+          priceWholesale: product.priceWholesale,
+          isActive: product.isActive,
+          isOutOfStock: product.isOutOfStock,
+          promoEnabled: product.promoEnabled,
+          promoPercent: product.promoPercent,
+          images: newImages,
+          remoteImages: product.remoteImages,
+          mainImageIndex: product.mainImageIndex,
+          categoryIds: product.categoryIds,
+          sizes: product.sizes,
+          colors: product.colors,
+          createdAt: product.createdAt,
+          updatedAt: product.updatedAt,
+        ),
+      );
+    }
+
+    // 3. Create Update Payload
+    final newPayload = GravityExportPayload(
+      app: payload.app,
+      version: payload.version,
+      exportedAt: payload.exportedAt,
+      store: payload.store,
+      categories: payload.categories,
+      collections: payload.collections,
+      products: updatedProducts,
+    );
+
+    // 4. Save products.json
+    final productsJsonFile = File(p.join(packageDir.path, 'products.json'));
+    await productsJsonFile.writeAsString(jsonEncode(newPayload.toJson()));
+
+    // 5. Create Manifest
+    final manifest = {
+      "format": "gravity-package",
+      "version": 1,
+      "exportedAt": DateTime.now().toIso8601String(),
+      "productsFile": "products.json",
+      "imagesRoot": "images/",
+      "counts": {"products": updatedProducts.length, "images": imageCount},
+    };
+    final manifestFile = File(p.join(packageDir.path, 'manifest.json'));
+    await manifestFile.writeAsString(jsonEncode(manifest));
+
+    // 6. Zip it
+    final zipFile = File(
+      p.join(
+        tempDir.path,
+        'gravity_export_${DateTime.now().millisecondsSinceEpoch}.zip',
+      ),
+    );
+    final encoder = ZipFileEncoder();
+    encoder.create(zipFile.path);
+    encoder.addDirectory(packageDir);
+    encoder.close();
+
+    // Cleanup temp dir
+    // await packageDir.delete(recursive: true); // Optional, system cleans temp
+
+    return zipFile;
+  }
+
+  Future<ImportReport> importPackage(File zipFile) async {
+    final tempDir = await getTemporaryDirectory();
+    final extractDir = Directory(
+      p.join(
+        tempDir.path,
+        'gravity_import_${DateTime.now().millisecondsSinceEpoch}',
+      ),
+    );
+    await extractDir.create(recursive: true);
+
+    // 1. Unzip
+    final bytes = await zipFile.readAsBytes();
+    final archive = ZipDecoder().decodeBytes(bytes);
+
+    for (final file in archive) {
+      final filename = file.name;
+      if (file.isFile) {
+        final data = file.content as List<int>;
+        File(p.join(extractDir.path, filename))
+          ..createSync(recursive: true)
+          ..writeAsBytesSync(data);
+      } else {
+        Directory(
+          p.join(extractDir.path, filename),
+        ).createSync(recursive: true);
+      }
+    }
+
+    // 2. Validate Manifest
+    final manifestFile = File(p.join(extractDir.path, 'manifest.json'));
+    if (!await manifestFile.exists()) {
+      throw Exception('Invalid package: manifest.json missing');
+    }
+    // We could parse checks here
+
+    // 3. Read Products
+    final productsFile = File(p.join(extractDir.path, 'products.json'));
+    if (!await productsFile.exists()) {
+      throw Exception('Invalid package: products.json missing');
+    }
+
+    final payload = await _exportImportService.parsePayload(productsFile);
+
+    // 4. Restore Images
+    final appDocDir = await getApplicationDocumentsDirectory();
+    final appImagesDir = Directory(p.join(appDocDir.path, 'product_images'));
+    if (!await appImagesDir.exists()) {
+      await appImagesDir.create(recursive: true);
+    }
+
+    final restoredProducts = <ProductDTO>[];
+
+    for (final product in payload.products) {
+      final absoluteImages = <String>[];
+
+      for (final relativePath in product.images) {
+        final sourceFile = File(p.join(extractDir.path, relativePath));
+        if (await sourceFile.exists()) {
+          // Flatten structure: "images/uuid/01.jpg" -> "product_images/uuid_01.jpg" or keep naming
+          // To be safe and avoid collisions, we can generate new UUID or use the unique relative path as base
+          final newName = '${product.id}_${p.basename(sourceFile.path)}';
+          final targetFile = File(p.join(appImagesDir.path, newName));
+
+          await sourceFile.copy(targetFile.path);
+          absoluteImages.add(targetFile.path);
+        }
+      }
+
+      restoredProducts.add(
+        ProductDTO(
+          id: product.id,
+          name: product.name,
+          ref: product.ref,
+          sku: product.sku,
+          priceRetail: product.priceRetail,
+          priceWholesale: product.priceWholesale,
+          isActive: product.isActive,
+          isOutOfStock: product.isOutOfStock,
+          promoEnabled: product.promoEnabled,
+          promoPercent: product.promoPercent,
+          images: absoluteImages,
+          remoteImages: product.remoteImages,
+          mainImageIndex: product.mainImageIndex,
+          categoryIds: product.categoryIds,
+          sizes: product.sizes,
+          colors: product.colors,
+          createdAt: product.createdAt,
+          updatedAt: product.updatedAt,
+        ),
+      );
+    }
+
+    // 5. Execute Import
+    final importPayload = GravityExportPayload(
+      app: payload.app,
+      version: payload.version,
+      exportedAt: payload.exportedAt,
+      store: payload.store,
+      categories: payload.categories,
+      collections: payload.collections,
+      products: restoredProducts,
+    );
+
+    final result = await _exportImportService.executeImport(
+      importPayload,
+      ImportMode.merge,
+    );
+
+    return ImportReport(
+      createdCount: result.successCount,
+      updatedCount: 0,
+      variantsCount: 0,
+      createdCategoriesCount: 0,
+      warnings: result.errors,
+      importedProducts: restoredProducts.map((e) => e.toModel()).toList(),
+    );
+  }
+}
+
+class ImportReport {
+  final int createdCount;
+  final int updatedCount;
+  final int variantsCount;
+  final int createdCategoriesCount;
+  final List<String> warnings;
+  final List<Product>? importedProducts;
+
+  ImportReport({
+    required this.createdCount,
+    required this.updatedCount,
+    required this.variantsCount,
+    required this.createdCategoriesCount,
+    required this.warnings,
+    this.importedProducts,
+  });
+}
+
+@Riverpod(keepAlive: true)
+GravityPackageService gravityPackageService(GravityPackageServiceRef ref) {
+  return GravityPackageService(ref.read(exportImportServiceProvider));
+}

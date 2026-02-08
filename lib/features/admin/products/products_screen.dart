@@ -9,6 +9,7 @@ import 'package:gravity/features/admin/products/product_import_screen.dart';
 import 'package:gravity/features/admin/products/product_detail_screen.dart';
 import 'package:gravity/core/services/product_transfer_service.dart';
 import 'package:gravity/features/admin/import/gravity_import_screen.dart';
+import 'package:gravity/viewmodels/product_export_viewmodel.dart';
 import 'package:gravity/ui/theme/app_tokens.dart';
 import 'package:gravity/ui/widgets/app_scaffold.dart';
 import 'package:gravity/ui/widgets/app_kpi_card.dart';
@@ -246,7 +247,28 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               ),
               onTap: () {
                 Navigator.pop(context);
-                ProductTransferService.shareProductsPackage(context, ref);
+                final viewModel = ref.read(
+                  productExportViewModelProvider.notifier,
+                );
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (_) =>
+                      const Center(child: CircularProgressIndicator()),
+                );
+                viewModel
+                    .exportPackage()
+                    .then((_) {
+                      if (context.mounted) Navigator.pop(context);
+                    })
+                    .catchError((e) {
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text('Erro: $e')));
+                      }
+                    });
               },
             ),
             ListTile(

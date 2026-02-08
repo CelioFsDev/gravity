@@ -252,6 +252,8 @@ class ProductDTO {
   final String? createdAt;
   final String? updatedAt;
 
+  final List<String> remoteImages;
+
   ProductDTO({
     required this.id,
     required this.name,
@@ -264,6 +266,7 @@ class ProductDTO {
     this.promoEnabled = false,
     this.promoPercent = 0,
     this.images = const [],
+    this.remoteImages = const [],
     this.mainImageIndex = 0,
     this.categoryIds,
     this.sizes = const [],
@@ -285,6 +288,7 @@ class ProductDTO {
       promoEnabled: product.promoEnabled,
       promoPercent: product.promoPercent,
       images: product.images,
+      remoteImages: product.remoteImages,
       mainImageIndex: product.mainImageIndex,
       categoryIds: product.categoryIds,
       sizes: product.sizes,
@@ -307,6 +311,7 @@ class ProductDTO {
       sizes: sizes,
       colors: colors,
       images: images,
+      remoteImages: remoteImages,
       mainImageIndex: mainImageIndex,
       isActive: isActive,
       isOutOfStock: isOutOfStock,
@@ -330,6 +335,7 @@ class ProductDTO {
       'promoEnabled': promoEnabled,
       'promoPercent': promoPercent,
       'images': images,
+      'remoteImages': remoteImages,
       'mainImageIndex': mainImageIndex,
       'categoryIds': categoryIds,
       'sizes': sizes,
@@ -353,6 +359,11 @@ class ProductDTO {
       promoPercent: (json['promoPercent'] as num?)?.toDouble() ?? 0.0,
       images:
           (json['images'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      remoteImages:
+          (json['remoteImages'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           [],
