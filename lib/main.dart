@@ -249,8 +249,9 @@ String? _authRedirect(AuthUser? user, GoRouterState state) {
     if (path == '/login' ||
         path == '/register' ||
         path.startsWith('/c/') ||
-        path == '/')
+        path == '/') {
       return null;
+    }
     return '/login';
   }
   if (path == '/login' || path == '/register') {

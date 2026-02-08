@@ -293,7 +293,7 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
     required ValueChanged<String?> onChanged,
   }) {
     return DropdownButtonFormField<String>(
-      value: value,
+      initialValue: value,
       onChanged: onChanged,
       isExpanded: true,
       decoration: InputDecoration(

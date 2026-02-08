@@ -70,7 +70,7 @@ class ExportImportService {
   Future<File> exportToJsonFile() async {
     final products = await _productsRepo.getProducts();
     final allCategories = await _categoriesRepo.getCategories();
-    final settings = await _settingsRepo.getSettings();
+    final settings = _settingsRepo.getSettings();
 
     // Split categories and collections
     final categories = allCategories

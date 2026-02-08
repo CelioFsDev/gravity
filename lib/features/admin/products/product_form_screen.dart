@@ -262,7 +262,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String>(
-                value: selected,
+                initialValue: selected,
                 decoration: const InputDecoration(labelText: 'Cor'),
                 items: [
                   const DropdownMenuItem(
@@ -572,8 +572,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                                 _refController,
                                 'REF (Código)',
                                 validator: (v) {
-                                  if (v == null || v.isEmpty)
+                                  if (v == null || v.isEmpty) {
                                     return 'Obrigatório';
+                                  }
                                   final state = ref
                                       .read(productsViewModelProvider)
                                       .value;
@@ -694,8 +695,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                             'Porcentagem de Desconto (%)',
                             isNumber: true,
                             validator: (v) {
-                              if (_isOnSale && (v == null || v.isEmpty))
+                              if (_isOnSale && (v == null || v.isEmpty)) {
                                 return 'Informe o desconto';
+                              }
                               final val = int.tryParse(v ?? '0') ?? 0;
                               if (val < 0 || val > 100) return '0 a 100%';
                               return null;
@@ -1034,7 +1036,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           children: [
             Expanded(
               child: DropdownButtonFormField<String>(
-                value: _selectedCollectionId,
+                initialValue: _selectedCollectionId,
                 decoration: const InputDecoration(
                   labelText: 'Coleção (Obrigatório)',
                   filled: true,

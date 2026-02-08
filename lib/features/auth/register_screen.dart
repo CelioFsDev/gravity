@@ -78,8 +78,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     decoration: const InputDecoration(labelText: 'E-mail'),
                     keyboardType: TextInputType.emailAddress,
                     validator: (value) {
-                      if ((value ?? '').trim().isEmpty)
+                      if ((value ?? '').trim().isEmpty) {
                         return 'Informe o e-mail';
+                      }
                       if (!(value!.contains('@'))) return 'E-mail inválido';
                       return null;
                     },
@@ -91,8 +92,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     obscureText: true,
                     validator: (value) {
                       if ((value ?? '').isEmpty) return 'Informe a senha';
-                      if ((value ?? '').length < 6)
+                      if ((value ?? '').length < 6) {
                         return 'Mínimo 6 caracteres';
+                      }
                       return null;
                     },
                   ),

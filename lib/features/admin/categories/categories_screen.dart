@@ -382,7 +382,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
 
                 if (isEdit) {
                   notifier.updateCategory(
-                    category!.id,
+                    category.id,
                     _categoryNameController.text.trim(),
                   );
                 } else {

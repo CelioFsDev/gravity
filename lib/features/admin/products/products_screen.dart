@@ -240,10 +240,10 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.picture_as_pdf),
-              title: const Text('Exportar Catálogo (PDF/Link)'),
+              leading: const Icon(Icons.archive_outlined),
+              title: const Text('Backup Completo (com Fotos)'),
               subtitle: const Text(
-                'Para compartilhar com clientes via WhatsApp.',
+                'Gera um arquivo .zip com todos os dados e imagens para migração.',
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -272,12 +272,24 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.save_alt),
-              title: const Text('Backup Completo (JSON)'),
-              subtitle: const Text('Para migração ou segurança dos dados.'),
+              leading: const Icon(Icons.code),
+              title: const Text('Backup Simples (Apenas Dados)'),
+              subtitle: const Text('Arquivo JSON leve sem imagens.'),
               onTap: () {
                 Navigator.pop(context);
                 ProductTransferService.shareGravityBackup(context, ref);
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.file_present_outlined),
+              title: const Text('Planilha para Edição (CSV)'),
+              subtitle: const Text(
+                'Exporta produtos e fotos em formato CSV/ZIP.',
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                ProductTransferService.shareProductsPackage(context, ref);
               },
             ),
             const SizedBox(height: 12),
@@ -583,8 +595,9 @@ class _SearchAndFiltersSection extends StatelessWidget {
       options: options,
       selected: state.productTypeFilterId,
     );
-    if (result != null || state.productTypeFilterId != null)
+    if (result != null || state.productTypeFilterId != null) {
       onSelectCategory(result);
+    }
   }
 
   Future<void> _selectStatus(BuildContext context) async {

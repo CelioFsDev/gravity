@@ -40,10 +40,12 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
           const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, s) => Scaffold(body: Center(child: Text('Erro: $e'))),
       data: (data) {
-        if (data == null)
+        if (data == null) {
           return const Scaffold(body: Center(child: Text('Não encontrado')));
-        if (!data.catalog.active)
+        }
+        if (!data.catalog.active) {
           return const Scaffold(body: Center(child: Text('Indisponível')));
+        }
 
         final filteredProducts = _getFilteredProducts(data.products);
 

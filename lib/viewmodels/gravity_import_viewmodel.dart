@@ -1,8 +1,13 @@
 import 'dart:io';
+import 'package:gravity/core/services/gravity_package_service.dart';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:gravity/core/services/dto/gravity_export_dtos.dart';
 import 'package:gravity/core/services/export_import_service.dart';
+import 'package:gravity/viewmodels/products_viewmodel.dart';
+import 'package:gravity/viewmodels/categories_viewmodel.dart';
+import 'package:gravity/viewmodels/catalogs_viewmodel.dart';
+import 'package:gravity/viewmodels/catalog_public_viewmodel.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'gravity_import_viewmodel.g.dart';
@@ -15,6 +20,7 @@ class GravityImportState {
   final ImportPreview? preview;
   final ImportMode selectedMode;
   final ImportResult? result;
+  final String? extractDirPath; // Path to temp dir for ZIP imports
 
   GravityImportState({
     this.step = 0,
@@ -24,6 +30,7 @@ class GravityImportState {
     this.preview,
     this.selectedMode = ImportMode.merge,
     this.result,
+    this.extractDirPath,
   });
 
   GravityImportState copyWith({
@@ -34,6 +41,7 @@ class GravityImportState {
     ImportPreview? preview,
     ImportMode? selectedMode,
     ImportResult? result,
+    String? extractDirPath,
   }) {
     return GravityImportState(
       step: step ?? this.step,
@@ -43,6 +51,7 @@ class GravityImportState {
       preview: preview ?? this.preview,
       selectedMode: selectedMode ?? this.selectedMode,
       result: result ?? this.result,
+      extractDirPath: extractDirPath ?? this.extractDirPath,
     );
   }
 }
@@ -63,19 +72,32 @@ class GravityImportViewModel extends _$GravityImportViewModel {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['json'],
+        allowedExtensions: ['json', 'zip'],
       );
 
       if (result != null && result.files.single.path != null) {
-        final file = File(result.files.single.path!);
-        final service = ref.read(exportImportServiceProvider);
+        final filePath = result.files.single.path!;
+        final isZip = filePath.toLowerCase().endsWith('.zip');
 
-        final payload = await service.parsePayload(file);
-        final preview = await service.previewImport(payload);
+        final exportService = ref.read(exportImportServiceProvider);
+        GravityExportPayload payload;
+        String? extractDir;
+
+        if (isZip) {
+          final packageService = ref.read(gravityPackageServiceProvider);
+          final (p, dir) = await packageService.preparePackage(File(filePath));
+          payload = p;
+          extractDir = dir.path;
+        } else {
+          payload = await exportService.parsePayload(File(filePath));
+        }
+
+        final preview = await exportService.previewImport(payload);
 
         state = state.copyWith(
           payload: payload,
           preview: preview,
+          extractDirPath: extractDir,
           step: 1, // Move to Preview
           isLoading: false,
         );
@@ -95,17 +117,39 @@ class GravityImportViewModel extends _$GravityImportViewModel {
 
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
-      final service = ref.read(exportImportServiceProvider);
-      final result = await service.executeImport(
-        state.payload!,
-        state.selectedMode,
-      );
+      ImportResult result;
+
+      if (state.extractDirPath != null) {
+        // ZIP IMPORT
+        final packageService = ref.read(gravityPackageServiceProvider);
+        final report = await packageService.importPackageFromDir(
+          payload: state.payload!,
+          extractDir: Directory(state.extractDirPath!),
+          mode: state.selectedMode,
+        );
+        result = ImportResult(
+          successCount: report.createdCount,
+          skipCount: 0,
+          errorCount: report.warnings.length,
+          errors: report.warnings,
+        );
+      } else {
+        // JSON IMPORT
+        final service = ref.read(exportImportServiceProvider);
+        result = await service.executeImport(
+          state.payload!,
+          state.selectedMode,
+        );
+      }
 
       state = state.copyWith(
         result: result,
         step: 2, // Move to Result
         isLoading: false,
       );
+
+      // Refresh relevant data providers
+      _notifyChanges();
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -115,6 +159,19 @@ class GravityImportViewModel extends _$GravityImportViewModel {
   }
 
   void reset() {
+    if (state.extractDirPath != null) {
+      final dir = Directory(state.extractDirPath!);
+      if (dir.existsSync()) {
+        dir.deleteSync(recursive: true);
+      }
+    }
     state = GravityImportState();
+  }
+
+  void _notifyChanges() {
+    ref.invalidate(productsViewModelProvider);
+    ref.invalidate(categoriesViewModelProvider);
+    ref.invalidate(catalogsViewModelProvider);
+    ref.invalidate(catalogPublicProvider);
   }
 }

@@ -452,7 +452,7 @@ class CatalogShareHelper {
                           bottom: 8,
                         ),
                         child: DropdownButtonFormField<String>(
-                          value: selectedCollectionId,
+                          initialValue: selectedCollectionId,
                           isExpanded: true,
                           decoration: const InputDecoration(
                             labelText: 'Selecione a Coleção',
@@ -572,8 +572,9 @@ _CollectionCoverResult _resolveCollectionCover(
       if (category.type == CategoryType.collection) category.id: category,
   };
 
-  if (collections.isEmpty)
+  if (collections.isEmpty) {
     return const _CollectionCoverResult(null, null, null);
+  }
 
   final matchedIds = <String>{};
   for (final product in products) {

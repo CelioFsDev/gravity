@@ -99,7 +99,7 @@ class GravityImportScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             const Text(
-              'O arquivo deve ser um JSON gerado previamente (gravity_export.json).',
+              'O arquivo deve ser um ZIP (backup completo com fotos) ou JSON (apenas dados).',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey),
             ),
@@ -196,7 +196,7 @@ class GravityImportScreen extends ConsumerWidget {
             mode: ImportMode.merge,
             title: 'Mesclar (Padrão)',
             description:
-                'Atualiza produtos existentes (pelo REF) e cria novos. Mantém IDs locais.',
+                'Atualiza produtos existentes (pelo REF) e cria novos. Mantém IDs locais e restaura fotos se disponíveis.',
             groupValue: state.selectedMode,
             onChanged: (v) => viewModel.setMode(v!),
           ),

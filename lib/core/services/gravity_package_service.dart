@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:archive/archive_io.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/core/services/dto/gravity_export_dtos.dart';
 import 'package:gravity/core/services/export_import_service.dart';
 import 'package:gravity/models/product.dart';
@@ -39,6 +38,8 @@ class GravityPackageService {
     final updatedProducts = <ProductDTO>[];
     int imageCount = 0;
 
+    final appDocDir = await getApplicationDocumentsDirectory();
+
     for (final product in payload.products) {
       final newImages = <String>[];
 
@@ -47,9 +48,21 @@ class GravityPackageService {
 
       for (int i = 0; i < product.images.length; i++) {
         final imagePath = product.images[i];
-        final file = File(imagePath);
 
-        if (await file.exists()) {
+        // Try absolute path first, then relative to app doc dir
+        File file = File(imagePath);
+        if (!file.existsSync()) {
+          file = File(p.join(appDocDir.path, p.basename(imagePath)));
+        }
+
+        // Final fallback: try to find if it's already in product_images subdir
+        if (!file.existsSync()) {
+          file = File(
+            p.join(appDocDir.path, 'product_images', p.basename(imagePath)),
+          );
+        }
+
+        if (file.existsSync()) {
           if (!await productImagesDir.exists()) {
             await productImagesDir.create();
           }
@@ -117,17 +130,40 @@ class GravityPackageService {
     final manifestFile = File(p.join(packageDir.path, 'manifest.json'));
     await manifestFile.writeAsString(jsonEncode(manifest));
 
-    // 6. Zip it
+    // 6. Zip it (Add files manually to ensure relative paths)
     final zipFile = File(
       p.join(
         tempDir.path,
         'gravity_export_${DateTime.now().millisecondsSinceEpoch}.zip',
       ),
     );
-    final encoder = ZipFileEncoder();
-    encoder.create(zipFile.path);
-    encoder.addDirectory(packageDir);
-    encoder.close();
+
+    final archive = Archive();
+
+    // Add products.json
+    final productsBytes = await productsJsonFile.readAsBytes();
+    archive.addFile(
+      ArchiveFile('products.json', productsBytes.length, productsBytes),
+    );
+
+    // Add manifest.json
+    final manifestBytes = await manifestFile.readAsBytes();
+    archive.addFile(
+      ArchiveFile('manifest.json', manifestBytes.length, manifestBytes),
+    );
+
+    // Add images recursively
+    final entities = imagesDir.listSync(recursive: true);
+    for (final entity in entities) {
+      if (entity is File) {
+        final relativePath = p.relative(entity.path, from: packageDir.path);
+        final bytes = await entity.readAsBytes();
+        archive.addFile(ArchiveFile(relativePath, bytes.length, bytes));
+      }
+    }
+
+    final zipBytes = ZipEncoder().encode(archive);
+    await zipFile.writeAsBytes(zipBytes);
 
     // Cleanup temp dir
     // await packageDir.delete(recursive: true); // Optional, system cleans temp
@@ -135,12 +171,13 @@ class GravityPackageService {
     return zipFile;
   }
 
-  Future<ImportReport> importPackage(File zipFile) async {
+  /// Extracts the ZIP package and returns the payload and the extraction directory.
+  Future<(GravityExportPayload, Directory)> preparePackage(File zipFile) async {
     final tempDir = await getTemporaryDirectory();
     final extractDir = Directory(
       p.join(
         tempDir.path,
-        'gravity_import_${DateTime.now().millisecondsSinceEpoch}',
+        'gravity_import_prepare_${DateTime.now().millisecondsSinceEpoch}',
       ),
     );
     await extractDir.create(recursive: true);
@@ -168,7 +205,6 @@ class GravityPackageService {
     if (!await manifestFile.exists()) {
       throw Exception('Invalid package: manifest.json missing');
     }
-    // We could parse checks here
 
     // 3. Read Products
     final productsFile = File(p.join(extractDir.path, 'products.json'));
@@ -177,7 +213,15 @@ class GravityPackageService {
     }
 
     final payload = await _exportImportService.parsePayload(productsFile);
+    return (payload, extractDir);
+  }
 
+  /// Finalizes the import by restoring images and executing the database import.
+  Future<ImportReport> importPackageFromDir({
+    required GravityExportPayload payload,
+    required Directory extractDir,
+    required ImportMode mode,
+  }) async {
     // 4. Restore Images
     final appDocDir = await getApplicationDocumentsDirectory();
     final appImagesDir = Directory(p.join(appDocDir.path, 'product_images'));
@@ -193,8 +237,6 @@ class GravityPackageService {
       for (final relativePath in product.images) {
         final sourceFile = File(p.join(extractDir.path, relativePath));
         if (await sourceFile.exists()) {
-          // Flatten structure: "images/uuid/01.jpg" -> "product_images/uuid_01.jpg" or keep naming
-          // To be safe and avoid collisions, we can generate new UUID or use the unique relative path as base
           final newName = '${product.id}_${p.basename(sourceFile.path)}';
           final targetFile = File(p.join(appImagesDir.path, newName));
 
@@ -240,7 +282,7 @@ class GravityPackageService {
 
     final result = await _exportImportService.executeImport(
       importPayload,
-      ImportMode.merge,
+      mode,
     );
 
     return ImportReport(
@@ -250,6 +292,16 @@ class GravityPackageService {
       createdCategoriesCount: 0,
       warnings: result.errors,
       importedProducts: restoredProducts.map((e) => e.toModel()).toList(),
+    );
+  }
+
+  @Deprecated('Use preparePackage and importPackageFromDir instead')
+  Future<ImportReport> importPackage(File zipFile) async {
+    final (payload, dir) = await preparePackage(zipFile);
+    return importPackageFromDir(
+      payload: payload,
+      extractDir: dir,
+      mode: ImportMode.merge,
     );
   }
 }

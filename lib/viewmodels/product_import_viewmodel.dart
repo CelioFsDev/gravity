@@ -571,8 +571,8 @@ class ProductImportViewModel extends _$ProductImportViewModel {
 
   Uint8List _archiveFileBytes(ArchiveFile entry) {
     final content = entry.content;
-    if (content is Uint8List) return content;
-    if (content is List<int>) return Uint8List.fromList(content);
+    return content;
+    return Uint8List.fromList(content);
     return Uint8List.fromList(const []);
   }
 

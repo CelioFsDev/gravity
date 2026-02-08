@@ -135,7 +135,7 @@ class ProductDetailScreen extends ConsumerWidget {
                         .map((id) => categoryById[id])
                         .where(
                           (c) =>
-                              c != null && c!.type == CategoryType.productType,
+                              c != null && c.type == CategoryType.productType,
                         )
                         .map((c) => c!.name)
                         .join(', '),
