@@ -66,8 +66,15 @@ class CatalogShareHelper {
     Catalog catalog,
   ) async {
     try {
-      final selectedMode = await _selectPriceMode(context);
-      if (selectedMode == null) return;
+      // 1. Fetch relevant collections for the catalog
+      final availableCollections = await _getRelevantCollections(ref, catalog);
+
+      final options = await _selectExportOptions(
+        context,
+        catalog,
+        availableCollections,
+      );
+      if (options == null) return;
 
       final width = MediaQuery.of(context).size.width;
       final columnsCount = width < 600 ? 1 : 2;
@@ -78,7 +85,9 @@ class CatalogShareHelper {
           ref,
           catalog,
           columnsCount: columnsCount,
-          mode: selectedMode,
+          mode: options.mode,
+          coverTypeOverride: options.coverType,
+          collectionIdOverride: options.collectionId,
         ),
       );
 
@@ -128,8 +137,15 @@ class CatalogShareHelper {
     Catalog catalog,
   ) async {
     try {
-      final selectedMode = await _selectPriceMode(context);
-      if (selectedMode == null) return;
+      // 1. Fetch relevant collections for the catalog
+      final availableCollections = await _getRelevantCollections(ref, catalog);
+
+      final options = await _selectExportOptions(
+        context,
+        catalog,
+        availableCollections,
+      );
+      if (options == null) return;
 
       final width = MediaQuery.of(context).size.width;
       final columnsCount = width < 600 ? 1 : 2;
@@ -140,7 +156,9 @@ class CatalogShareHelper {
           ref,
           catalog,
           columnsCount: columnsCount,
-          mode: selectedMode,
+          mode: options.mode,
+          coverTypeOverride: options.coverType,
+          collectionIdOverride: options.collectionId,
         ),
       );
       final documentsDirectory =
@@ -172,6 +190,8 @@ class CatalogShareHelper {
     Catalog catalog, {
     int columnsCount = 1,
     required CatalogMode mode,
+    String? coverTypeOverride,
+    String? collectionIdOverride,
   }) async {
     // Wait for products to load if they haven't yet
     final productsState = await ref.read(productsViewModelProvider.future);
@@ -188,24 +208,57 @@ class CatalogShareHelper {
       productsState.categories,
     );
 
-    // Resolve which cover to show based on settings
+    // Resolve which cover to show based on settings or override
     bool resolvedIncludeCover;
     CollectionCover? resolvedCollectionCover;
     String? mainCoverCollectionId;
 
-    if (catalog.coverType != null) {
-      // New logic
-      if (catalog.coverType == 'none') {
+    // Use override if provided, otherwise fallback to catalog settings
+    final effectiveCoverType = coverTypeOverride ?? catalog.coverType;
+
+    if (effectiveCoverType != null) {
+      if (effectiveCoverType == 'none') {
         resolvedIncludeCover = false;
         resolvedCollectionCover = null;
-      } else if (catalog.coverType == 'standard') {
+      } else if (effectiveCoverType == 'standard') {
         resolvedIncludeCover = true;
         resolvedCollectionCover = null; // Forces text standard cover
       } else {
         // 'collection' or default
         resolvedIncludeCover = true;
-        resolvedCollectionCover = coverInfo.cover;
-        mainCoverCollectionId = coverInfo.collectionId;
+        var cover = coverInfo.cover; // Default cover (first match)
+        var usedCollectionId = coverInfo.collectionId;
+
+        // NEW: If user selected a specific collection, try to find it
+        if (collectionIdOverride != null) {
+          final requestedCollection = productsState.categories.firstWhere(
+            (c) => c.id == collectionIdOverride,
+            orElse: () => productsState.categories.firstWhere(
+              (c) => c.type == CategoryType.collection,
+              orElse: () => productsState.categories.first,
+            ), // fallback
+          );
+          if (requestedCollection.type == CategoryType.collection &&
+              requestedCollection.cover != null) {
+            cover = requestedCollection.cover;
+            usedCollectionId = requestedCollection.id;
+          }
+        }
+
+        // Fix: If user selected 'collection', ensure we try to show the image
+        // even if the saved mode is 'template', provided an image exists.
+        if (effectiveCoverType == 'collection' && cover != null) {
+          final hasImage =
+              (cover.coverImagePath?.isNotEmpty ?? false) ||
+              (cover.coverMiniPath?.isNotEmpty ?? false) ||
+              (cover.coverPagePath?.isNotEmpty ?? false);
+          if (hasImage && cover.mode != CollectionCoverMode.image) {
+            cover = cover.copyWith(mode: CollectionCoverMode.image);
+          }
+        }
+
+        resolvedCollectionCover = cover;
+        mainCoverCollectionId = usedCollectionId;
       }
     } else {
       // Legacy fallback
@@ -249,8 +302,12 @@ class CatalogShareHelper {
       // Re-resolve for fallback (simplified)
       CollectionCover? fbCover;
       String? fbId;
+
+      // Use override logic for fallback too
+      final effectiveFallbackCoverType = coverTypeOverride ?? catalog.coverType;
+
       if (resolvedIncludeCover) {
-        if (catalog.coverType == 'standard') {
+        if (effectiveFallbackCoverType == 'standard') {
           fbCover = null;
         } else {
           fbCover = fallbackCoverInfo.cover;
@@ -311,34 +368,187 @@ class CatalogShareHelper {
     }
   }
 
-  static Future<CatalogMode?> _selectPriceMode(BuildContext context) async {
-    return showDialog<CatalogMode>(
+  static Future<CatalogExportOptions?> _selectExportOptions(
+    BuildContext context,
+    Catalog catalog,
+    List<Category> availableCollections,
+  ) async {
+    CatalogMode selectedMode = CatalogMode.varejo;
+    String selectedCoverType =
+        'collection'; // Default to collection/custom if available
+    String? selectedCollectionId = availableCollections.isNotEmpty
+        ? availableCollections.first.id
+        : null;
+
+    return showDialog<CatalogExportOptions>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Escolha o preço do catálogo'),
-          content: const Text(
-            'Deseja exportar com preço de varejo ou atacado?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancelar'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, CatalogMode.varejo),
-              child: const Text('Varejo'),
-            ),
-            ElevatedButton(
-              onPressed: () =>
-                  Navigator.pop(dialogContext, CatalogMode.atacado),
-              child: const Text('Atacado'),
-            ),
-          ],
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Opções de Exportação'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Preço',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: RadioListTile<CatalogMode>(
+                            title: const Text(
+                              'Varejo',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                            value: CatalogMode.varejo,
+                            groupValue: selectedMode,
+                            contentPadding: EdgeInsets.zero,
+                            onChanged: (v) => setState(() => selectedMode = v!),
+                          ),
+                        ),
+                        Expanded(
+                          child: RadioListTile<CatalogMode>(
+                            title: const Text(
+                              'Atacado',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                            value: CatalogMode.atacado,
+                            groupValue: selectedMode,
+                            contentPadding: EdgeInsets.zero,
+                            onChanged: (v) => setState(() => selectedMode = v!),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(),
+                    const Text(
+                      'Capa',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    RadioListTile<String>(
+                      title: const Text('Capa da Coleção (Com Foto)'),
+                      subtitle: const Text('Usa a imagem da coleção'),
+                      value: 'collection',
+                      groupValue: selectedCoverType,
+                      onChanged: (v) => setState(() => selectedCoverType = v!),
+                    ),
+                    if (selectedCoverType == 'collection' &&
+                        availableCollections.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(
+                          left: 16,
+                          right: 16,
+                          bottom: 8,
+                        ),
+                        child: DropdownButtonFormField<String>(
+                          value: selectedCollectionId,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Selecione a Coleção',
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            border: OutlineInputBorder(),
+                          ),
+                          items: availableCollections.map((c) {
+                            return DropdownMenuItem(
+                              value: c.id,
+                              child: Text(
+                                c.name ?? 'Sem Nome',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (v) {
+                            if (v != null) {
+                              setState(() => selectedCollectionId = v);
+                            }
+                          },
+                        ),
+                      ),
+                    RadioListTile<String>(
+                      title: const Text('Capa Padrão (Texto)'),
+                      subtitle: const Text('Apenas logo e título'),
+                      value: 'standard',
+                      groupValue: selectedCoverType,
+                      onChanged: (v) => setState(() => selectedCoverType = v!),
+                    ),
+                    RadioListTile<String>(
+                      title: const Text('Sem Capa'),
+                      value: 'none',
+                      groupValue: selectedCoverType,
+                      onChanged: (v) => setState(() => selectedCoverType = v!),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(
+                    dialogContext,
+                    CatalogExportOptions(
+                      selectedMode,
+                      selectedCoverType,
+                      selectedCollectionId,
+                    ),
+                  ),
+                  child: const Text('Gerar PDF'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
   }
+
+  /// Fetches and filters collections that have products in the given [catalog].
+  static Future<List<Category>> _getRelevantCollections(
+    WidgetRef ref,
+    Catalog catalog,
+  ) async {
+    final productsState = await ref.read(productsViewModelProvider.future);
+    final allProducts = productsState.allProducts;
+    final catalogProducts = allProducts
+        .where((p) => catalog.productIds.contains(p.id))
+        .toList();
+
+    // Filter collections that have products in this catalog
+    final catalogCollectionIds = catalogProducts
+        .expand((p) => p.categoryIds)
+        .toSet();
+
+    return productsState.categories
+        .where(
+          (c) =>
+              c.type == CategoryType.collection &&
+              catalogCollectionIds.contains(c.id),
+        )
+        .toList();
+  }
+}
+
+class CatalogExportOptions {
+  final CatalogMode mode;
+  final String coverType;
+  final String? collectionId;
+  CatalogExportOptions(this.mode, this.coverType, this.collectionId);
 }
 
 class _CollectionCoverResult {
