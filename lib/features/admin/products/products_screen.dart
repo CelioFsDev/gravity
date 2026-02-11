@@ -5,12 +5,13 @@ import 'package:gravity/models/category.dart';
 import 'package:gravity/models/product.dart';
 import 'package:gravity/viewmodels/products_viewmodel.dart';
 import 'package:gravity/features/admin/products/product_form_screen.dart';
-import 'package:gravity/features/admin/products/product_import_screen.dart';
 import 'package:gravity/features/admin/products/product_detail_screen.dart';
 import 'package:gravity/core/services/product_transfer_service.dart';
 import 'package:gravity/features/admin/import/gravity_import_screen.dart';
+import 'package:gravity/features/admin/import/nuvemshop_import_screen.dart';
 import 'package:gravity/viewmodels/product_export_viewmodel.dart';
 import 'package:gravity/ui/theme/app_tokens.dart';
+import 'package:gravity/viewmodels/product_import_viewmodel.dart';
 import 'package:gravity/ui/widgets/app_scaffold.dart';
 import 'package:gravity/ui/widgets/app_kpi_card.dart';
 import 'package:gravity/ui/widgets/app_search_field.dart';
@@ -206,16 +207,62 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.shopping_bag_outlined),
-              title: const Text('Importar de Nuvemshop'),
+              leading: const Icon(Icons.add_a_photo_outlined),
+              title: const Text('Vincular Fotos p/ Referência'),
               subtitle: const Text(
-                'Importa produtos de uma planilha CSV da Nuvemshop.',
+                'Associa fotos automaticamente aos produtos puxando de uma pasta pela Referência.',
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                ref
+                    .read(productImportViewModelProvider.notifier)
+                    .pickAndMatchImagesToExistingProducts()
+                    .then((_) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Vinculação concluída com sucesso!'),
+                          ),
+                        );
+                      }
+                    });
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.cloud_sync_outlined),
+              title: const Text('Sincronizar Fotos da Nuvem'),
+              subtitle: const Text(
+                'Baixa fotos automaticamente usando a URL Base configurada em Ajustes.',
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                ref
+                    .read(productImportViewModelProvider.notifier)
+                    .syncRemoteImagesFromUrl()
+                    .then((_) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Sincronização concluída com sucesso!',
+                            ),
+                          ),
+                        );
+                      }
+                    });
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.shopping_bag_outlined),
+              title: const Text('Sincronizar Planilha Nuvemshop'),
+              subtitle: const Text(
+                'Importa produtos e baixa fotos automaticamente do CSV Nuvemshop.',
               ),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => const ProductImportScreen(),
+                    builder: (_) => const NuvemshopImportScreen(),
                   ),
                 );
               },

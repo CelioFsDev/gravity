@@ -16,6 +16,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late final TextEditingController _storeNameController;
   late final TextEditingController _whatsappController;
   late final TextEditingController _baseUrlController;
+  late final TextEditingController _remotePhotoUrlController;
 
   @override
   void initState() {
@@ -24,6 +25,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _storeNameController = TextEditingController(text: settings.storeName);
     _whatsappController = TextEditingController(text: settings.whatsappNumber);
     _baseUrlController = TextEditingController(text: settings.publicBaseUrl);
+    _remotePhotoUrlController = TextEditingController(
+      text: settings.remoteImageBaseUrl,
+    );
   }
 
   @override
@@ -31,6 +35,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _storeNameController.dispose();
     _whatsappController.dispose();
     _baseUrlController.dispose();
+    _remotePhotoUrlController.dispose();
     super.dispose();
   }
 
@@ -41,6 +46,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           storeName: _storeNameController.text,
           whatsappNumber: _whatsappController.text,
           publicBaseUrl: _baseUrlController.text,
+          remoteImageBaseUrl: _remotePhotoUrlController.text,
         );
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -92,6 +98,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     hint: 'https://seusite.com',
                     icon: Icons.language_outlined,
                     helper: 'Usado para gerar links de compartilhamento',
+                  ),
+                  const SizedBox(height: 16),
+                  _buildField(
+                    controller: _remotePhotoUrlController,
+                    label: 'URL Base para Fotos (Nuvem)',
+                    hint: 'https://seusite.com/fotos',
+                    icon: Icons.cloud_download_outlined,
+                    helper: 'As fotos devem seguir o padrão REFERENCIA.jpg',
                   ),
                 ],
               ),

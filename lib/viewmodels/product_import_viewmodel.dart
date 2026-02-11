@@ -7,6 +7,7 @@ import 'package:gravity/core/auth/auth_controller.dart';
 import 'package:gravity/core/auth/auth_guards.dart';
 import 'package:gravity/data/repositories/contracts/categories_repository_contract.dart';
 import 'package:gravity/data/repositories/categories_repository.dart';
+import 'package:gravity/data/repositories/settings_repository.dart';
 import 'package:gravity/data/repositories/products_repository.dart';
 import 'package:gravity/models/category.dart';
 import 'package:gravity/models/product.dart';
@@ -171,7 +172,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
 
         for (var file in result.files) {
           if (!kIsWeb && file.path == null) continue;
-          final matchedProduct = _findProductBySkuPrefix(
+          final matchedProduct = _findProductByKey(
             file.name,
             state.parsedProducts,
           );
@@ -187,6 +188,8 @@ class ProductImportViewModel extends _$ProductImportViewModel {
 
         final updatedProducts = state.parsedProducts.map((p) {
           if (productImages.containsKey(p.id)) {
+            // Merge with existing if any, or replace?
+            // For import flow, we usually replace since it's a fresh batch
             return p.copyWith(images: productImages[p.id]!);
           }
           return p;
@@ -205,6 +208,122 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       state = state.copyWith(
         isLoading: false,
         errorMessage: "Erro ao processar imagens: $e",
+      );
+    }
+  }
+
+  /// New method to match images against products already in the database
+  Future<void> pickAndMatchImagesToExistingProducts() async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      final productsRepo = ref.read(productsRepositoryProvider);
+      final existingProducts = await productsRepo.getProducts();
+
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
+        withData: kIsWeb,
+      );
+
+      if (result == null) {
+        state = state.copyWith(isLoading: false);
+        return;
+      }
+
+      int matchedCount = 0;
+      final productsToUpdate = <String, List<String>>{};
+
+      for (var file in result.files) {
+        if (!kIsWeb && file.path == null) continue;
+        final product = _findProductByKey(file.name, existingProducts);
+
+        if (product != null) {
+          final savedPath = await _resolveImageForPlatform(file);
+          if (savedPath != null) {
+            productsToUpdate.putIfAbsent(product.id, () => []).add(savedPath);
+            matchedCount++;
+          }
+        }
+      }
+
+      // Update database
+      for (final entry in productsToUpdate.entries) {
+        final productId = entry.key;
+        final newImages = entry.value;
+        final p = existingProducts.firstWhere((p) => p.id == productId);
+
+        // Add to existing images
+        final updatedImages = List<String>.from(p.images)..addAll(newImages);
+        await productsRepo.updateProduct(p.copyWith(images: updatedImages));
+      }
+
+      state = state.copyWith(
+        isLoading: false,
+        isDone: true,
+        imagesMatchedCount: matchedCount,
+        imagesTotalCount: result.files.length,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: "Erro ao vincular fotos: $e",
+      );
+    }
+  }
+
+  /// Syncs images from a remote URL pattern based on product reference
+  Future<void> syncRemoteImagesFromUrl() async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      final settings = ref.read(settingsRepositoryProvider).getSettings();
+      final baseUrl = settings.remoteImageBaseUrl.trim();
+
+      if (baseUrl.isEmpty) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage:
+              "URL Base não configurada. Vá em Ajustes para configurar.",
+        );
+        return;
+      }
+
+      final productsRepo = ref.read(productsRepositoryProvider);
+      final products = await productsRepo.getProducts();
+      final imageCache = ref.read(imageCacheServiceProvider);
+
+      int syncedCount = 0;
+      int totalToTry = 0;
+
+      // Filter products that need images (optional: or all)
+      final targets = products.where((p) => p.ref.isNotEmpty).toList();
+      totalToTry = targets.length;
+
+      for (final p in targets) {
+        // Construct URL: baseUrl + ref + .jpg
+        // Ensure baseUrl ends with /
+        final separator = baseUrl.endsWith('/') ? '' : '/';
+        final imageUrl = "$baseUrl$separator${p.ref.trim()}.jpg";
+
+        final localPath = await imageCache.downloadAndCacheImage(imageUrl);
+        if (localPath != null) {
+          // Add to existing images
+          final updatedImages = List<String>.from(p.images)..add(localPath);
+          await productsRepo.updateProduct(p.copyWith(images: updatedImages));
+          syncedCount++;
+        }
+      }
+
+      state = state.copyWith(
+        isLoading: false,
+        isDone: true,
+        imagesMatchedCount: syncedCount,
+        imagesTotalCount: totalToTry,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: "Erro na sincronização remota: $e",
       );
     }
   }
@@ -648,19 +767,29 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     return sku.trim().toLowerCase();
   }
 
-  Product? _findProductBySkuPrefix(String fileName, List<Product> products) {
+  Product? _findProductByKey(String fileName, List<Product> products) {
     final lower = fileName.toLowerCase();
     final normalizedFile = _normalizeForImageMatch(
       p.basenameWithoutExtension(lower),
     );
+
     for (final product in products) {
-      final sku = product.sku.trim();
-      if (sku.isEmpty) continue;
-      final normalizedSku = _normalizeForImageMatch(sku);
-      if (lower.startsWith(sku.toLowerCase()) ||
-          (normalizedSku.isNotEmpty &&
-              normalizedFile.startsWith(normalizedSku))) {
-        return product;
+      // 1. Try SKU (legacy/standard)
+      final sku = product.sku.trim().toLowerCase();
+      if (sku.isNotEmpty) {
+        final normalizedSku = _normalizeForImageMatch(sku);
+        if (normalizedFile.startsWith(normalizedSku)) {
+          return product;
+        }
+      }
+
+      // 2. Try Reference (User request)
+      final ref = product.ref.trim().toLowerCase();
+      if (ref.isNotEmpty) {
+        final normalizedRef = _normalizeForImageMatch(ref);
+        if (normalizedFile.startsWith(normalizedRef)) {
+          return product;
+        }
       }
     }
     return null;

@@ -1,9 +1,11 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:gravity/core/importer/nuvemshop_api_client.dart';
 import 'package:gravity/core/importer/nuvemshop_csv_reader.dart';
 import 'package:gravity/core/importer/nuvemshop_forward_fill.dart';
 import 'package:gravity/core/importer/nuvemshop_import_service.dart';
+import 'package:gravity/core/services/image_cache_service.dart';
 import 'package:gravity/data/repositories/categories_repository.dart';
 import 'package:gravity/data/repositories/products_repository.dart';
 import 'package:gravity/ui/theme/app_tokens.dart';
@@ -24,7 +26,10 @@ class _NuvemshopImportScreenState extends ConsumerState<NuvemshopImportScreen> {
   ImportTable? _preview;
   bool _loading = false;
   double _progress = 0.0;
+  String _statusText = '';
   ImportReport? _report;
+  final _storeIdController = TextEditingController();
+  final _tokenController = TextEditingController();
 
   Future<void> _pickFile() async {
     setState(() {
@@ -41,7 +46,6 @@ class _NuvemshopImportScreenState extends ConsumerState<NuvemshopImportScreen> {
     final file = result.files.first;
     final table = await NuvemshopCsvReader.readFromPlatformFile(file);
     final filled = forwardFill(table.rows, const [
-      'Identificador URL',
       'Nome',
       'Categorias',
       'Preço',
@@ -61,32 +65,59 @@ class _NuvemshopImportScreenState extends ConsumerState<NuvemshopImportScreen> {
     setState(() {
       _loading = true;
       _progress = 0.0;
+      _statusText = 'Preparando importação...';
     });
 
+    final storeId = _storeIdController.text.trim();
+    final token = _tokenController.text.trim();
     final service = NuvemshopImportService(
       productsRepository: ref.read(productsRepositoryProvider),
       categoriesRepository: ref.read(categoriesRepositoryProvider),
+      imageCacheService: ref.read(imageCacheServiceProvider),
+      nuvemshopApiClient: (storeId.isNotEmpty && token.isNotEmpty)
+          ? NuvemshopApiClient(storeId: storeId, accessToken: token)
+          : null,
     );
 
     try {
+      debugPrint('Iniciando _import no Screen');
       final report = await service.importCsvFile(
         file,
         onProgress: (p) => setState(() => _progress = p),
+        onStatus: (status) => setState(() => _statusText = status),
+      );
+      debugPrint(
+        'Importação concluída: ${report.createdCount} criados, ${report.updatedCount} atualizados',
       );
       setState(() {
         _report = report;
+        _statusText = report.warnings.isNotEmpty
+            ? 'Importação concluída com avisos.'
+            : 'Importação concluída.';
       });
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('Erro na importação: $e\n$stack');
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Erro: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro na importação: $e'),
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(label: 'OK', onPressed: () {}),
+          ),
+        );
       }
     } finally {
       if (mounted) {
         setState(() => _loading = false);
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _storeIdController.dispose();
+    _tokenController.dispose();
+    super.dispose();
   }
 
   @override
@@ -103,6 +134,8 @@ class _NuvemshopImportScreenState extends ConsumerState<NuvemshopImportScreen> {
             _buildInstructions(),
             const SizedBox(height: 24),
             _buildFileSelection(),
+            const SizedBox(height: 24),
+            _buildApiConfig(),
             if (previewRows.isNotEmpty) ...[
               const SizedBox(height: 24),
               _buildPreview(previewRows),
@@ -124,6 +157,13 @@ class _NuvemshopImportScreenState extends ConsumerState<NuvemshopImportScreen> {
                   minHeight: 8,
                 ),
               ),
+              const SizedBox(height: 16),
+              if (_statusText.isNotEmpty)
+                Text(
+                  _statusText,
+                  style: Theme.of(context).textTheme.bodySmall,
+                  textAlign: TextAlign.center,
+                ),
               const SizedBox(height: 16),
             ],
             SizedBox(
@@ -223,6 +263,43 @@ class _NuvemshopImportScreenState extends ConsumerState<NuvemshopImportScreen> {
     );
   }
 
+  Widget _buildApiConfig() {
+    return SectionCard(
+      title: 'API Nuvemshop (Opcional)',
+      child: Column(
+        children: [
+          TextField(
+            controller: _storeIdController,
+            enabled: !_loading,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Store ID',
+              hintText: 'Ex: 123456',
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _tokenController,
+            enabled: !_loading,
+            obscureText: true,
+            decoration: const InputDecoration(
+              labelText: 'Access Token',
+              hintText: 'Token da API Nuvemshop',
+            ),
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Se preencher, o importador busca imagens pela API quando o CSV não tiver URL da imagem.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPreview(List<Map<String, String>> previewRows) {
     return SectionCard(
       title: 'Prévia dos Dados',
@@ -254,24 +331,40 @@ class _NuvemshopImportScreenState extends ConsumerState<NuvemshopImportScreen> {
   Widget _buildReport() {
     return SectionCard(
       title: 'Relatório de Importação',
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+      child: Column(
         children: [
-          _buildReportStat(
-            'Criados',
-            _report!.createdCount,
-            AppTokens.accentGreen,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildReportStat(
+                'Criados',
+                _report!.createdCount,
+                AppTokens.accentGreen,
+              ),
+              _buildReportStat(
+                'Atualizados',
+                _report!.updatedCount,
+                AppTokens.accentBlue,
+              ),
+              _buildReportStat(
+                'Variações',
+                _report!.variantsCount,
+                AppTokens.accentPurple,
+              ),
+            ],
           ),
-          _buildReportStat(
-            'Atualizados',
-            _report!.updatedCount,
-            AppTokens.accentBlue,
-          ),
-          _buildReportStat(
-            'Variações',
-            _report!.variantsCount,
-            AppTokens.accentPurple,
-          ),
+          if (_report!.warnings.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                _report!.warnings.take(3).join('\n'),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.orange.shade800,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

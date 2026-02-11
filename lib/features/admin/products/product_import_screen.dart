@@ -187,7 +187,7 @@ class ProductImportScreen extends ConsumerWidget {
                   'Selecione todas as imagens dos produtos de uma vez.',
                 ),
                 const Text(
-                  'O sistema vinculará automaticamente se o nome do arquivo começar com o SKU do produto.',
+                  'O sistema vinculará automaticamente se o nome do arquivo começar com o SKU ou a Referência do produto.',
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
@@ -217,4 +217,3 @@ class ProductImportScreen extends ConsumerWidget {
     );
   }
 }
-

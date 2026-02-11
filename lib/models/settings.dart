@@ -17,13 +17,14 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       whatsappNumber: fields[1] as String,
       publicBaseUrl: fields[2] as String,
       updatedAt: fields[3] as DateTime,
+      remoteImageBaseUrl: (fields[4] as String?) ?? '',
     );
   }
 
   @override
   void write(BinaryWriter writer, AppSettings obj) {
     writer
-      ..writeByte(4)
+      ..writeByte(5)
       ..writeByte(0)
       ..write(obj.storeName)
       ..writeByte(1)
@@ -31,7 +32,9 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       ..writeByte(2)
       ..write(obj.publicBaseUrl)
       ..writeByte(3)
-      ..write(obj.updatedAt);
+      ..write(obj.updatedAt)
+      ..writeByte(4)
+      ..write(obj.remoteImageBaseUrl);
   }
 }
 
@@ -49,11 +52,15 @@ class AppSettings {
   @HiveField(3)
   final DateTime updatedAt;
 
+  @HiveField(4)
+  final String remoteImageBaseUrl;
+
   AppSettings({
     required this.storeName,
     required this.whatsappNumber,
     required this.publicBaseUrl,
     required this.updatedAt,
+    this.remoteImageBaseUrl = '',
   });
 
   AppSettings copyWith({
@@ -61,12 +68,14 @@ class AppSettings {
     String? whatsappNumber,
     String? publicBaseUrl,
     DateTime? updatedAt,
+    String? remoteImageBaseUrl,
   }) {
     return AppSettings(
       storeName: storeName ?? this.storeName,
       whatsappNumber: whatsappNumber ?? this.whatsappNumber,
       publicBaseUrl: publicBaseUrl ?? this.publicBaseUrl,
       updatedAt: updatedAt ?? this.updatedAt,
+      remoteImageBaseUrl: remoteImageBaseUrl ?? this.remoteImageBaseUrl,
     );
   }
 
@@ -76,6 +85,7 @@ class AppSettings {
       whatsappNumber: '',
       publicBaseUrl: 'https://gravity.app',
       updatedAt: DateTime.now(),
+      remoteImageBaseUrl: '',
     );
   }
 }
