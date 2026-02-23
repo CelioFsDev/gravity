@@ -1,26 +1,27 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'products_viewmodel.dart';
+part of 'image_optimizer_service.dart';
 
 // **************************************************************************
 // RiverpodGenerator
 // **************************************************************************
 
-String _$productsViewModelHash() => r'100401de828cc42d1a063646bb0fad73247b1dc8';
+String _$imageOptimizerServiceHash() =>
+    r'9d988931ebb11a58e2c03df1f4b93de0f6b8344d';
 
-/// See also [ProductsViewModel].
-@ProviderFor(ProductsViewModel)
-final productsViewModelProvider =
-    AutoDisposeAsyncNotifierProvider<ProductsViewModel, ProductsState>.internal(
-  ProductsViewModel.new,
-  name: r'productsViewModelProvider',
+/// See also [ImageOptimizerService].
+@ProviderFor(ImageOptimizerService)
+final imageOptimizerServiceProvider =
+    AutoDisposeNotifierProvider<ImageOptimizerService, void>.internal(
+  ImageOptimizerService.new,
+  name: r'imageOptimizerServiceProvider',
   debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
       ? null
-      : _$productsViewModelHash,
+      : _$imageOptimizerServiceHash,
   dependencies: null,
   allTransitiveDependencies: null,
 );
 
-typedef _$ProductsViewModel = AutoDisposeAsyncNotifier<ProductsState>;
+typedef _$ImageOptimizerService = AutoDisposeNotifier<void>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member

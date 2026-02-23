@@ -7,7 +7,7 @@ part of 'gravity_import_viewmodel.dart';
 // **************************************************************************
 
 String _$gravityImportViewModelHash() =>
-    r'e91f0c776e32de3054b1445747b88ef36d8b7ec9';
+    r'd4aa2b11b1924356720887cc6537ea59163d4f51';
 
 /// See also [GravityImportViewModel].
 @ProviderFor(GravityImportViewModel)

@@ -1,7 +1,5 @@
 import 'package:hive/hive.dart';
 
-// part 'settings.g.dart';
-
 class AppSettingsAdapter extends TypeAdapter<AppSettings> {
   @override
   final int typeId = 20;
@@ -18,13 +16,14 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       publicBaseUrl: fields[2] as String,
       updatedAt: fields[3] as DateTime,
       remoteImageBaseUrl: (fields[4] as String?) ?? '',
+      geminiApiKey: (fields[5] as String?) ?? '',
     );
   }
 
   @override
   void write(BinaryWriter writer, AppSettings obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.storeName)
       ..writeByte(1)
@@ -34,7 +33,9 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       ..writeByte(3)
       ..write(obj.updatedAt)
       ..writeByte(4)
-      ..write(obj.remoteImageBaseUrl);
+      ..write(obj.remoteImageBaseUrl)
+      ..writeByte(5)
+      ..write(obj.geminiApiKey);
   }
 }
 
@@ -55,12 +56,16 @@ class AppSettings {
   @HiveField(4)
   final String remoteImageBaseUrl;
 
+  @HiveField(5)
+  final String geminiApiKey;
+
   AppSettings({
     required this.storeName,
     required this.whatsappNumber,
     required this.publicBaseUrl,
     required this.updatedAt,
     this.remoteImageBaseUrl = '',
+    this.geminiApiKey = '',
   });
 
   AppSettings copyWith({
@@ -69,6 +74,7 @@ class AppSettings {
     String? publicBaseUrl,
     DateTime? updatedAt,
     String? remoteImageBaseUrl,
+    String? geminiApiKey,
   }) {
     return AppSettings(
       storeName: storeName ?? this.storeName,
@@ -76,6 +82,7 @@ class AppSettings {
       publicBaseUrl: publicBaseUrl ?? this.publicBaseUrl,
       updatedAt: updatedAt ?? this.updatedAt,
       remoteImageBaseUrl: remoteImageBaseUrl ?? this.remoteImageBaseUrl,
+      geminiApiKey: geminiApiKey ?? this.geminiApiKey,
     );
   }
 
@@ -86,6 +93,7 @@ class AppSettings {
       publicBaseUrl: 'https://gravity.app',
       updatedAt: DateTime.now(),
       remoteImageBaseUrl: '',
+      geminiApiKey: '',
     );
   }
 }

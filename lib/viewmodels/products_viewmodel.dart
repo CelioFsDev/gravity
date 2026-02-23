@@ -18,6 +18,9 @@ enum ProductStatusFilter {
   active,
   outOfStock,
   inactive,
+  noPhotos,
+  zeroPrice,
+  createdToday,
 } // Inactive not in logic yet but part of UI req
 
 class ProductsState {
@@ -30,6 +33,7 @@ class ProductsState {
   final String? productTypeFilterId; // null = all
   final ProductStatusFilter statusFilter;
   final ProductSort sortOption;
+  final Set<String> selectedProductIds;
 
   // KPIs
   final int totalCount;
@@ -46,6 +50,7 @@ class ProductsState {
     this.productTypeFilterId,
     this.statusFilter = ProductStatusFilter.all,
     this.sortOption = ProductSort.recent,
+    this.selectedProductIds = const {},
     required this.totalCount,
     required this.activeCount,
     required this.outOfStockCount,
@@ -73,6 +78,7 @@ class ProductsState {
     String? productTypeFilterId,
     ProductStatusFilter? statusFilter,
     ProductSort? sortOption,
+    Set<String>? selectedProductIds,
     int? totalCount,
     int? activeCount,
     int? outOfStockCount,
@@ -93,6 +99,7 @@ class ProductsState {
           : (productTypeFilterId ?? this.productTypeFilterId),
       statusFilter: statusFilter ?? this.statusFilter,
       sortOption: sortOption ?? this.sortOption,
+      selectedProductIds: selectedProductIds ?? this.selectedProductIds,
       totalCount: totalCount ?? this.totalCount,
       activeCount: activeCount ?? this.activeCount,
       outOfStockCount: outOfStockCount ?? this.outOfStockCount,
@@ -159,6 +166,73 @@ class ProductsViewModel extends _$ProductsViewModel {
   void setSortOption(ProductSort sort) {
     if (state.value == null) return;
     state = AsyncData(_applyFilters(state.value!.copyWith(sortOption: sort)));
+  }
+
+  // Multi-selection Actions
+  void toggleSelection(String productId) {
+    if (state.value == null) return;
+    final current = state.value!.selectedProductIds;
+    final updated = Set<String>.from(current);
+    if (updated.contains(productId)) {
+      updated.remove(productId);
+    } else {
+      updated.add(productId);
+    }
+    state = AsyncData(state.value!.copyWith(selectedProductIds: updated));
+  }
+
+  void selectAll() {
+    if (state.value == null) return;
+    final allIds = state.value!.filteredProducts.map((p) => p.id).toSet();
+    state = AsyncData(state.value!.copyWith(selectedProductIds: allIds));
+  }
+
+  void clearSelection() {
+    if (state.value == null) return;
+    state = AsyncData(state.value!.copyWith(selectedProductIds: {}));
+  }
+
+  Future<void> deleteSelected() async {
+    if (state.value == null || state.value!.selectedProductIds.isEmpty) return;
+    _requireAdmin();
+    final repository = ref.read(productsRepositoryProvider);
+    for (final id in state.value!.selectedProductIds) {
+      await repository.deleteProduct(id);
+    }
+    await refresh();
+    _notifyChanges();
+  }
+
+  Future<void> updateStatusSelected(bool active) async {
+    if (state.value == null || state.value!.selectedProductIds.isEmpty) return;
+    _requireAdmin();
+    final repository = ref.read(productsRepositoryProvider);
+    for (final id in state.value!.selectedProductIds) {
+      final product = state.value!.allProducts.firstWhere((p) => p.id == id);
+      await repository.updateProduct(product.copyWith(isActive: active));
+    }
+    await refresh();
+    _notifyChanges();
+  }
+
+  Future<void> updateCategorySelected(String categoryId) async {
+    if (state.value == null || state.value!.selectedProductIds.isEmpty) return;
+    _requireAdmin();
+    final repository = ref.read(productsRepositoryProvider);
+    for (final id in state.value!.selectedProductIds) {
+      final product = state.value!.allProducts.firstWhere((p) => p.id == id);
+      // Logic: replace or toggle? Let's say we replace/add it.
+      // If product already has this category, do nothing. Else add.
+      if (!product.categoryIds.contains(categoryId)) {
+        final updatedIds = List<String>.from(product.categoryIds)
+          ..add(categoryId);
+        await repository.updateProduct(
+          product.copyWith(categoryIds: updatedIds),
+        );
+      }
+    }
+    await refresh();
+    _notifyChanges();
   }
 
   Future<void> deleteProduct(String id) async {
@@ -248,6 +322,20 @@ class ProductsViewModel extends _$ProductsViewModel {
       case ProductStatusFilter.inactive:
         filtered = filtered.where((p) => !p.isActive).toList();
         break;
+      case ProductStatusFilter.noPhotos:
+        filtered = filtered.where((p) => p.images.isEmpty).toList();
+        break;
+      case ProductStatusFilter.zeroPrice:
+        filtered = filtered.where((p) => p.retailPrice <= 0).toList();
+        break;
+      case ProductStatusFilter.createdToday:
+        final now = DateTime.now();
+        filtered = filtered.where((p) {
+          return p.createdAt.year == now.year &&
+              p.createdAt.month == now.month &&
+              p.createdAt.day == now.day;
+        }).toList();
+        break;
       case ProductStatusFilter.all:
         break;
     }
@@ -290,4 +378,3 @@ class ProductsViewModel extends _$ProductsViewModel {
     }
   }
 }
-

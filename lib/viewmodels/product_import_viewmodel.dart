@@ -9,6 +9,7 @@ import 'package:gravity/data/repositories/contracts/categories_repository_contra
 import 'package:gravity/data/repositories/categories_repository.dart';
 import 'package:gravity/data/repositories/settings_repository.dart';
 import 'package:gravity/data/repositories/products_repository.dart';
+import 'package:gravity/core/services/image_optimizer_service.dart';
 import 'package:gravity/models/category.dart';
 import 'package:gravity/models/product.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -789,19 +790,16 @@ class ProductImportViewModel extends _$ProductImportViewModel {
           : '.jpg';
       final fileName = '${const Uuid().v4()}$ext';
       final targetPath = p.join(imagesDir.path, fileName);
-      await File(targetPath).writeAsBytes(bytes);
+      final optimizer = ref.read(imageOptimizerServiceProvider.notifier);
+      final optimized = await optimizer.compressBytes(bytes) ?? bytes;
+      await File(targetPath).writeAsBytes(optimized);
       return targetPath;
     } on MissingPluginException {
       return null;
     }
   }
 
-  Uint8List _archiveFileBytes(ArchiveFile entry) {
-    final content = entry.content;
-    return content;
-    return Uint8List.fromList(content);
-    return Uint8List.fromList(const []);
-  }
+  Uint8List _archiveFileBytes(ArchiveFile entry) => entry.content;
 
   Future<Uint8List> _readFileBytes(PlatformFile file) async {
     if (kIsWeb) {
@@ -1061,24 +1059,34 @@ class ProductImportViewModel extends _$ProductImportViewModel {
           : '.jpg';
       final fileName = '${const Uuid().v4()}$ext';
       final targetPath = p.join(imagesDir.path, fileName);
+      final optimizer = ref.read(imageOptimizerServiceProvider.notifier);
 
       if (kIsWeb) {
         if (file.bytes == null) return null;
-        await File(targetPath).writeAsBytes(file.bytes!);
+        final optimized =
+            await optimizer.compressBytes(file.bytes!) ?? file.bytes!;
+        await File(targetPath).writeAsBytes(optimized);
         return targetPath;
       } else {
         // 1. Try local path first (faster)
         if (file.path != null) {
           final sourceFile = File(file.path!);
           if (await sourceFile.exists()) {
-            await sourceFile.copy(targetPath);
-            return targetPath;
+            final optimizedFile = await optimizer.compressImage(sourceFile);
+            if (optimizedFile != null) {
+              await optimizedFile.copy(targetPath);
+              return targetPath;
+            } else {
+              await sourceFile.copy(targetPath);
+              return targetPath;
+            }
           }
         }
-        // 2. Fallback for cloud files (Drive) where path is null but bytes are available
-        // FilePicker automatically downloads small files or if configured with withData: true
+        // 2. Fallback for cloud files (Drive)
         if (file.bytes != null) {
-          await File(targetPath).writeAsBytes(file.bytes!);
+          final optimized =
+              await optimizer.compressBytes(file.bytes!) ?? file.bytes!;
+          await File(targetPath).writeAsBytes(optimized);
           return targetPath;
         }
       }

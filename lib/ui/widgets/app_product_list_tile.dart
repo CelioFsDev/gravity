@@ -15,6 +15,8 @@ class AppProductListTile extends StatelessWidget {
   final VoidCallback? onDuplicate;
   final VoidCallback? onTogglePromo;
   final Widget? trailing;
+  final bool isSelected;
+  final VoidCallback? onLongPress;
 
   const AppProductListTile({
     super.key,
@@ -25,6 +27,8 @@ class AppProductListTile extends StatelessWidget {
     this.onDuplicate,
     this.onTogglePromo,
     this.trailing,
+    this.isSelected = false,
+    this.onLongPress,
   });
 
   @override
@@ -36,8 +40,29 @@ class AppProductListTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: AppTokens.space12),
       padding: const EdgeInsets.all(AppTokens.space12),
       onTap: onTap,
+      onLongPress: onLongPress,
+      decoration: isSelected
+          ? BoxDecoration(
+              color: Theme.of(
+                context,
+              ).colorScheme.primaryContainer.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.primary,
+                width: 2,
+              ),
+            )
+          : null,
       child: Row(
         children: [
+          if (isSelected || onLongPress != null) ...[
+            Checkbox(
+              value: isSelected,
+              onChanged: (_) => onTap(),
+              shape: const CircleBorder(),
+            ),
+            const SizedBox(width: 8),
+          ],
           // Thumbnail
           Container(
             width: 64,
@@ -100,7 +125,7 @@ class AppProductListTile extends StatelessWidget {
             ),
           ),
 
-          ?trailing,
+          if (trailing != null) trailing!,
           if (trailing == null && (onEdit != null || onDelete != null))
             _buildAdminMenu(context),
           if (trailing == null && onEdit == null && onDelete == null)

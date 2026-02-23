@@ -17,6 +17,8 @@ import 'package:gravity/ui/widgets/section_card.dart';
 import 'package:gravity/ui/widgets/app_primary_button.dart';
 import 'package:gravity/features/admin/categories/widgets/category_create_modal.dart';
 import 'package:go_router/go_router.dart';
+import 'package:gravity/core/services/ai_description_service.dart';
+import 'package:gravity/data/repositories/settings_repository.dart';
 
 class ProductFormScreen extends ConsumerStatefulWidget {
   final Product? product; // null for Create, non-null for Edit
@@ -52,6 +54,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   late TextEditingController _sizesController;
   late TextEditingController _colorsController;
   late TextEditingController _discountController;
+  late TextEditingController _descriptionController;
 
   List<String> _selectedCategoryIds = [];
   String? _selectedCollectionId;
@@ -86,6 +89,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     _discountController = TextEditingController(
       text: pr?.saleDiscountPercent.toString() ?? '0',
     );
+    _descriptionController = TextEditingController(text: pr?.description ?? '');
 
     _initialCategoryIds = pr?.categoryIds ?? [];
     _isActive = pr?.isActive ?? true;
@@ -116,6 +120,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     _sizesController.dispose();
     _colorsController.dispose();
     _discountController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
 
@@ -182,6 +187,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       promoPercent: _isOnSale
           ? (int.tryParse(_discountController.text) ?? 0).toDouble()
           : 0.0,
+      description: _descriptionController.text,
     );
 
     try {
@@ -702,6 +708,31 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                     ),
                   ),
                   const SizedBox(height: AppTokens.space24),
+                  const SizedBox(height: AppTokens.space24),
+                  SectionCard(
+                    title: 'Descrição do Produto',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildTextField(
+                          _descriptionController,
+                          'Descrição Detalhada',
+                          maxLines: 5,
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: _generateAiDescription,
+                          icon: const Icon(Icons.auto_awesome),
+                          label: const Text('Gerar Descrição com IA'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.purple,
+                            side: const BorderSide(color: Colors.purple),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppTokens.space24),
                   SectionCard(
                     title: 'Disponibilidade e Promoção',
                     child: Column(
@@ -781,6 +812,57 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _generateAiDescription() async {
+    final name = _nameController.text;
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Informe o nome do produto primeiro')),
+      );
+      return;
+    }
+
+    final category = _selectedCollectionId != null
+        ? ref
+                  .read(productsViewModelProvider)
+                  .value
+                  ?.categories
+                  .firstWhere((c) => c.id == _selectedCollectionId)
+                  .name ??
+              ''
+        : '';
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final desc = await ref
+          .read(aiDescriptionServiceProvider.notifier)
+          .generateDescription(
+            productName: name,
+            category: category,
+            details:
+                'Cores: ${_colorsController.text}, Tamanhos: ${_sizesController.text}',
+          );
+
+      if (mounted) {
+        Navigator.pop(context); // Close loading
+        if (desc != null) {
+          setState(() => _descriptionController.text = desc);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loading
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro IA: $e')));
+      }
+    }
   }
 
   Widget _buildImagesSection() {
@@ -921,28 +1003,22 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     String? Function(String?)? validator,
     bool isPrice = false,
     bool isNumber = false,
+    int maxLines = 1,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
         ),
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
+          maxLines: maxLines,
           decoration: InputDecoration(
-            hintText: 'Digite aqui...',
-            prefixText: isPrice ? 'R\$ ' : null,
-            prefixStyle: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface,
-              fontWeight: FontWeight.bold,
-            ),
+            labelText: label,
+            floatingLabelBehavior: FloatingLabelBehavior.never,
             filled: true,
             fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
             contentPadding: const EdgeInsets.symmetric(

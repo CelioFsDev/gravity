@@ -11,6 +11,7 @@ import 'package:gravity/features/admin/import/nuvemshop_import_screen.dart';
 import 'package:gravity/viewmodels/product_export_viewmodel.dart';
 import 'package:gravity/ui/theme/app_tokens.dart';
 import 'package:gravity/viewmodels/product_import_viewmodel.dart';
+import 'package:gravity/features/admin/products/product_bulk_edit_screen.dart';
 import 'package:gravity/ui/widgets/app_scaffold.dart';
 import 'package:gravity/ui/widgets/app_kpi_card.dart';
 import 'package:gravity/ui/widgets/app_search_field.dart';
@@ -51,6 +52,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       actions: [_buildMoreActions(context)],
       body: Column(
         children: [
+          _buildBulkActionsBar(context),
           Expanded(
             child: state.when(
               data: (data) => _ProductsContent(
@@ -78,6 +80,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 onTogglePromo: (product) => _togglePromo(product),
                 onRefresh: () async =>
                     ref.read(productsViewModelProvider.notifier).refresh(),
+                onToggleSelection: (id) => ref
+                    .read(productsViewModelProvider.notifier)
+                    .toggleSelection(id),
               ),
               error: (e, s) => AppEmptyState(
                 icon: Icons.error_outline,
@@ -95,6 +100,112 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
             orElse: () => const SizedBox.shrink(),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildBulkActionsBar(BuildContext context) {
+    final state = ref.watch(productsViewModelProvider).value;
+    if (state == null || state.selectedProductIds.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final count = state.selectedProductIds.length;
+    final notifier = ref.read(productsViewModelProvider.notifier);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: Theme.of(context).colorScheme.primaryContainer,
+      child: Row(
+        children: [
+          Text(
+            '$count selecionados',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            onPressed: () => _confirmBulkDelete(context),
+            tooltip: 'Excluir selecionados',
+          ),
+          IconButton(
+            icon: const Icon(Icons.category_outlined),
+            onPressed: () => _showBulkCategoryDialog(context),
+            tooltip: 'Alterar categoria',
+          ),
+          IconButton(
+            icon: const Icon(Icons.visibility_outlined),
+            onPressed: () => notifier.updateStatusSelected(true),
+            tooltip: 'Ativar todos',
+          ),
+          IconButton(
+            icon: const Icon(Icons.visibility_off_outlined),
+            onPressed: () => notifier.updateStatusSelected(false),
+            tooltip: 'Desativar todos',
+          ),
+          IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () => notifier.clearSelection(),
+            tooltip: 'Limpar seleção',
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmBulkDelete(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Excluir Selecionados'),
+        content: const Text(
+          'Deseja realmente excluir todos os itens selecionados? Esta ação não pode ser desfeita.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () {
+              ref.read(productsViewModelProvider.notifier).deleteSelected();
+              Navigator.pop(context);
+            },
+            child: const Text('Excluir', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBulkCategoryDialog(BuildContext context) {
+    final state = ref.read(productsViewModelProvider).value;
+    if (state == null) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Alterar Categoria'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: state.categories.length,
+            itemBuilder: (context, index) {
+              final cat = state.categories[index];
+              return ListTile(
+                title: Text(cat.safeName),
+                onTap: () {
+                  final catId = cat.id;
+                  ref
+                      .read(productsViewModelProvider.notifier)
+                      .updateCategorySelected(catId);
+                  Navigator.pop(context);
+                },
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -148,8 +259,23 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       icon: const Icon(Icons.more_vert_rounded),
       onSelected: (value) {
         if (value == 'export') _showExportOptions(context);
+        if (value == 'bulk_edit') {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const ProductBulkEditScreen()),
+          );
+        }
       },
       itemBuilder: (context) => const [
+        PopupMenuItem(
+          value: 'bulk_edit',
+          child: Row(
+            children: [
+              Icon(Icons.edit_note_outlined, size: 18),
+              SizedBox(width: 8),
+              Text('Edição Rápida (Preços)'),
+            ],
+          ),
+        ),
         PopupMenuItem(
           value: 'export',
           child: Row(
@@ -559,6 +685,7 @@ class _ProductsContent extends StatelessWidget {
   final ValueChanged<Product> onDuplicateProduct;
   final ValueChanged<Product> onTogglePromo;
   final RefreshCallback onRefresh;
+  final ValueChanged<String> onToggleSelection;
 
   const _ProductsContent({
     required this.state,
@@ -576,6 +703,7 @@ class _ProductsContent extends StatelessWidget {
     required this.onDuplicateProduct,
     required this.onTogglePromo,
     required this.onRefresh,
+    required this.onToggleSelection,
   });
 
   @override
@@ -625,6 +753,8 @@ class _ProductsContent extends StatelessWidget {
             onDeleteProduct: onDeleteProduct,
             onDuplicateProduct: onDuplicateProduct,
             onTogglePromo: onTogglePromo,
+            selectedIds: state.selectedProductIds,
+            onToggleSelection: onToggleSelection,
           ),
           const SizedBox(height: AppTokens.space48),
         ],
@@ -775,9 +905,15 @@ class _SearchAndFiltersSection extends StatelessWidget {
       case ProductStatusFilter.outOfStock:
         return 'Esgotado';
       case ProductStatusFilter.inactive:
-        return 'Inativo';
+        return 'Inativos';
+      case ProductStatusFilter.noPhotos:
+        return 'Sem Fotos';
+      case ProductStatusFilter.zeroPrice:
+        return 'Preço Zero';
+      case ProductStatusFilter.createdToday:
+        return 'Criados Hoje';
       case ProductStatusFilter.all:
-        return 'Status';
+        return 'Todos os Status';
     }
   }
 
@@ -979,6 +1115,8 @@ class _ProductsListSection extends StatelessWidget {
   final ValueChanged<Product> onDeleteProduct;
   final ValueChanged<Product> onDuplicateProduct;
   final ValueChanged<Product> onTogglePromo;
+  final Set<String> selectedIds;
+  final ValueChanged<String> onToggleSelection;
 
   const _ProductsListSection({
     required this.state,
@@ -989,6 +1127,8 @@ class _ProductsListSection extends StatelessWidget {
     required this.onDeleteProduct,
     required this.onDuplicateProduct,
     required this.onTogglePromo,
+    required this.selectedIds,
+    required this.onToggleSelection,
   });
 
   @override
@@ -1012,7 +1152,15 @@ class _ProductsListSection extends StatelessWidget {
         final product = state.filteredProducts[index];
         return AppProductListTile(
           product: product,
-          onTap: () => onViewProduct(product),
+          isSelected: selectedIds.contains(product.id),
+          onLongPress: () => onToggleSelection(product.id),
+          onTap: () {
+            if (selectedIds.isNotEmpty) {
+              onToggleSelection(product.id);
+            } else {
+              onViewProduct(product);
+            }
+          },
           onEdit: () => onEditProduct(product),
           onDelete: () => onDeleteProduct(product),
           onDuplicate: () => onDuplicateProduct(product),
