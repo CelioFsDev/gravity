@@ -92,7 +92,9 @@ class AppProductListTile extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   'Varejo: ${currency.format(product.effectivePriceRetail)} • Atacado: ${currency.format(product.effectivePriceWholesale)}',
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),

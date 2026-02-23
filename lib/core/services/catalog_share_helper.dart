@@ -2,6 +2,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:gravity/ui/theme/app_tokens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/core/services/catalog_pdf_service.dart';
 import 'package:gravity/viewmodels/settings_viewmodel.dart';
@@ -386,164 +387,325 @@ class CatalogShareHelper {
         ? availableCollections.first.id
         : null;
 
-    return showDialog<CatalogExportOptions>(
+    return showModalBottomSheet<CatalogExportOptions>(
       context: context,
-      builder: (dialogContext) {
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('Opções de Exportação'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Preço',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: RadioListTile<CatalogMode>(
-                            title: const Text(
-                              'Varejo',
-                              style: TextStyle(fontSize: 13),
-                            ),
-                            value: CatalogMode.varejo,
-                            groupValue: showPrice ? selectedMode : null,
-                            contentPadding: EdgeInsets.zero,
-                            onChanged: (v) {
-                              setState(() {
-                                showPrice = true;
-                                if (v != null) selectedMode = v;
-                              });
-                            },
-                          ),
-                        ),
-                        Expanded(
-                          child: RadioListTile<CatalogMode>(
-                            title: const Text(
-                              'Atacado',
-                              style: TextStyle(fontSize: 13),
-                            ),
-                            value: CatalogMode.atacado,
-                            groupValue: showPrice ? selectedMode : null,
-                            contentPadding: EdgeInsets.zero,
-                            onChanged: (v) {
-                              setState(() {
-                                showPrice = true;
-                                if (v != null) selectedMode = v;
-                              });
-                            },
-                          ),
-                        ),
-                        Expanded(
-                          child: RadioListTile<bool>(
-                            title: const Text(
-                              'Off',
-                              style: TextStyle(fontSize: 13),
-                            ),
-                            value: false,
-                            groupValue: showPrice,
-                            contentPadding: EdgeInsets.zero,
-                            onChanged: (v) => setState(() => showPrice = false),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Divider(),
-                    const Text(
-                      'Capa',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    RadioListTile<String>(
-                      title: const Text('Capa da Coleção (Com Foto)'),
-                      subtitle: const Text('Usa a imagem da coleção'),
-                      value: 'collection',
-                      groupValue: selectedCoverType,
-                      onChanged: (v) => setState(() => selectedCoverType = v!),
-                    ),
-                    if (selectedCoverType == 'collection' &&
-                        availableCollections.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(
-                          left: 16,
-                          right: 16,
-                          bottom: 8,
-                        ),
-                        child: DropdownButtonFormField<String>(
-                          initialValue: selectedCollectionId,
-                          isExpanded: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Selecione a Coleção',
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            border: OutlineInputBorder(),
-                          ),
-                          items: availableCollections.map((c) {
-                            return DropdownMenuItem(
-                              value: c.id,
-                              child: Text(
-                                c.name ?? 'Sem Nome',
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (v) {
-                            if (v != null) {
-                              setState(() => selectedCollectionId = v);
-                            }
-                          },
-                        ),
-                      ),
-                    RadioListTile<String>(
-                      title: const Text('Capa Padrão (Texto)'),
-                      subtitle: const Text('Apenas logo e título'),
-                      value: 'standard',
-                      groupValue: selectedCoverType,
-                      onChanged: (v) => setState(() => selectedCoverType = v!),
-                    ),
-                    RadioListTile<String>(
-                      title: const Text('Sem Capa'),
-                      value: 'none',
-                      groupValue: selectedCoverType,
-                      onChanged: (v) => setState(() => selectedCoverType = v!),
-                    ),
-                  ],
+            final theme = Theme.of(context);
+
+            return Container(
+              decoration: BoxDecoration(
+                color: theme.scaffoldBackgroundColor,
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(AppTokens.radiusLg),
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('Cancelar'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.pop(
-                    dialogContext,
-                    CatalogExportOptions(
-                      selectedMode,
-                      selectedCoverType,
-                      selectedCollectionId,
-                      showPrice,
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+                top: 8,
+                left: 24,
+                right: 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Handle
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 20),
+                      decoration: BoxDecoration(
+                        color: theme.dividerColor,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
-                  child: const Text('Gerar PDF'),
-                ),
-              ],
+                  Text(
+                    'Opções de Exportação',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+
+                  // PRICE SECTION
+                  _buildSubHeader(context, 'Preço no PDF'),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      _buildOptionCard(
+                        context,
+                        label: 'Varejo',
+                        isSelected:
+                            showPrice && selectedMode == CatalogMode.varejo,
+                        onTap: () => setState(() {
+                          showPrice = true;
+                          selectedMode = CatalogMode.varejo;
+                        }),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildOptionCard(
+                        context,
+                        label: 'Atacado',
+                        isSelected:
+                            showPrice && selectedMode == CatalogMode.atacado,
+                        onTap: () => setState(() {
+                          showPrice = true;
+                          selectedMode = CatalogMode.atacado;
+                        }),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildOptionCard(
+                        context,
+                        label: 'Off',
+                        isSelected: !showPrice,
+                        onTap: () => setState(() => showPrice = false),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  // COVER SECTION
+                  _buildSubHeader(context, 'Capa do Catálogo'),
+                  const SizedBox(height: 12),
+                  _buildCoverTypeTile(
+                    context,
+                    title: 'Capa da Coleção (Com Foto)',
+                    subtitle: 'Usa a imagem principal da coleção',
+                    isSelected: selectedCoverType == 'collection',
+                    icon: Icons.image_outlined,
+                    onTap: () =>
+                        setState(() => selectedCoverType = 'collection'),
+                  ),
+                  if (selectedCoverType == 'collection' &&
+                      availableCollections.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(
+                        top: 8,
+                        left: 12,
+                        right: 12,
+                      ),
+                      child: DropdownButtonFormField<String>(
+                        value: selectedCollectionId,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          labelText: 'Selecione a Coleção',
+                          filled: true,
+                          fillColor: theme.colorScheme.surfaceContainerHighest,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                          ),
+                        ),
+                        items: availableCollections.map((c) {
+                          return DropdownMenuItem(
+                            value: c.id,
+                            child: Text(c.name ?? 'Coleção sem nome'),
+                          );
+                        }).toList(),
+                        onChanged: (v) =>
+                            setState(() => selectedCollectionId = v),
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+                  _buildCoverTypeTile(
+                    context,
+                    title: 'Capa Padrão (Texto)',
+                    subtitle: 'Apenas logo e título centralizado',
+                    isSelected: selectedCoverType == 'standard',
+                    icon: Icons.text_fields,
+                    onTap: () => setState(() => selectedCoverType = 'standard'),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildCoverTypeTile(
+                    context,
+                    title: 'Sem Capa',
+                    subtitle: 'Inicia direto na lista de produtos',
+                    isSelected: selectedCoverType == 'none',
+                    icon: Icons.block,
+                    onTap: () => setState(() => selectedCoverType = 'none'),
+                  ),
+
+                  const SizedBox(height: 32),
+
+                  // ACTIONS
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(sheetContext),
+                          child: const Text('Cancelar'),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.colorScheme.primary,
+                            foregroundColor: theme.colorScheme.onPrimary,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          onPressed: () => Navigator.pop(
+                            sheetContext,
+                            CatalogExportOptions(
+                              selectedMode,
+                              selectedCoverType,
+                              selectedCollectionId,
+                              showPrice,
+                            ),
+                          ),
+                          child: const Text(
+                            'Gerar PDF',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             );
           },
         );
       },
+    );
+  }
+
+  static Widget _buildSubHeader(BuildContext context, String title) {
+    return Text(
+      title.toUpperCase(),
+      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+        letterSpacing: 1.2,
+        fontWeight: FontWeight.w800,
+        color: Theme.of(context).colorScheme.primary.withOpacity(0.8),
+      ),
+    );
+  }
+
+  static Widget _buildOptionCard(
+    BuildContext context, {
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? theme.colorScheme.primary
+                : theme.colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected
+                  ? theme.colorScheme.primary
+                  : theme.dividerColor,
+            ),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: isSelected
+                  ? theme.colorScheme.onPrimary
+                  : theme.colorScheme.onSurface,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  static Widget _buildCoverTypeTile(
+    BuildContext context, {
+    required String title,
+    required String subtitle,
+    required bool isSelected,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? theme.colorScheme.primary : theme.dividerColor,
+            width: isSelected ? 2 : 1,
+          ),
+          color: isSelected
+              ? theme.colorScheme.primary.withOpacity(0.05)
+              : null,
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                size: 20,
+                color: isSelected
+                    ? theme.colorScheme.onPrimary
+                    : theme.colorScheme.primary,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: isSelected ? theme.colorScheme.primary : null,
+                    ),
+                  ),
+                  Text(subtitle, style: theme.textTheme.bodySmall),
+                ],
+              ),
+            ),
+            if (isSelected)
+              Icon(
+                Icons.check_circle,
+                color: theme.colorScheme.primary,
+                size: 20,
+              ),
+          ],
+        ),
+      ),
     );
   }
 

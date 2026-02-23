@@ -203,10 +203,12 @@ class _ProductSelectTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: isSelected
             ? AppTokens.accentBlue.withOpacity(0.05)
-            : AppTokens.card,
+            : Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(AppTokens.radiusMd),
         border: Border.all(
-          color: isSelected ? AppTokens.accentBlue : AppTokens.border,
+          color: isSelected
+              ? AppTokens.accentBlue
+              : Theme.of(context).dividerColor,
           width: isSelected ? 1.5 : 1,
         ),
       ),
@@ -223,7 +225,10 @@ class _ProductSelectTile extends StatelessWidget {
           padding: const EdgeInsets.only(top: 4),
           child: Text(
             'REF ${product.reference} • ${currency.format(product.retailPrice)}',
-            style: const TextStyle(color: AppTokens.textMuted, fontSize: 13),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 13,
+            ),
           ),
         ),
         trailing: Checkbox.adaptive(
@@ -249,19 +254,24 @@ class _ProductThumb extends StatelessWidget {
       child: Container(
         width: 56,
         height: 56,
-        color: Colors.grey.shade200,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         child: (imagePath != null && !kIsWeb)
             ? Image.file(
                 File(imagePath!),
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => _placeholder(),
+                errorBuilder: (_, _, _) => _placeholder(context),
               )
-            : _placeholder(),
+            : _placeholder(context),
       ),
     );
   }
 
-  Widget _placeholder() {
-    return const Center(child: Icon(Icons.image_outlined, color: Colors.grey));
+  Widget _placeholder(BuildContext context) {
+    return Center(
+      child: Icon(
+        Icons.image_outlined,
+        color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5),
+      ),
+    );
   }
 }
