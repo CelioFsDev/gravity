@@ -10,12 +10,14 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'gravity_package_service.g.dart';
 
+typedef ProgressCallback = void Function(double progress, String message);
+
 class GravityPackageService {
   final ExportImportService _exportImportService;
 
   GravityPackageService(this._exportImportService);
 
-  Future<File> exportPackage() async {
+  Future<File> exportPackage({ProgressCallback? onProgress}) async {
     final tempDir = await getTemporaryDirectory();
     final packageDir = Directory(
       p.join(
@@ -26,8 +28,11 @@ class GravityPackageService {
     await packageDir.create(recursive: true);
 
     // 1. Get base payload
+    onProgress?.call(0.05, 'Analisando banco de dados...');
     final jsonFile = await _exportImportService.exportToJsonFile();
+    onProgress?.call(0.10, 'Lendo dados do catálogo...');
     final payload = await _exportImportService.parsePayload(jsonFile);
+    await Future.delayed(const Duration(milliseconds: 10));
 
     // 2. Process images and update payload
     final imagesDir = Directory(p.join(packageDir.path, 'images'));
@@ -39,8 +44,18 @@ class GravityPackageService {
     int imageCount = 0;
 
     final appDocDir = await getApplicationDocumentsDirectory();
+    final totalProducts = payload.products.length;
+    int currentProduct = 0;
 
     for (final product in payload.products) {
+      currentProduct++;
+      onProgress?.call(
+        0.10 + (0.55 * (currentProduct / totalProducts)),
+        'Processando produto $currentProduct de $totalProducts...',
+      );
+      if (currentProduct % 10 == 0) {
+        await Future.delayed(const Duration(milliseconds: 5));
+      }
       final newImages = <String>[];
 
       // Create product subdir for images
@@ -105,7 +120,15 @@ class GravityPackageService {
 
     // 2.2 Process Collection Cover Images
     final updatedCollections = <CategoryDTO>[];
+    final totalCollections = payload.collections.length;
+    int currentCol = 0;
+
     for (final collection in payload.collections) {
+      currentCol++;
+      onProgress?.call(
+        0.65 + (0.15 * (currentCol / totalCollections)),
+        'Processando coleção $currentCol de $totalCollections...',
+      );
       String? newMiniPath = collection.cover?.coverMiniPath;
       String? newPagePath = collection.cover?.coverPagePath;
 
@@ -205,6 +228,8 @@ class GravityPackageService {
 
     final archive = Archive();
 
+    onProgress?.call(0.85, 'Criando arquivo compactado...');
+
     // Add products.json
     final productsBytes = await productsJsonFile.readAsBytes();
     archive.addFile(
@@ -227,6 +252,7 @@ class GravityPackageService {
       }
     }
 
+    onProgress?.call(0.95, 'Finalizando arquivo...');
     final zipBytes = ZipEncoder().encode(archive);
     await zipFile.writeAsBytes(zipBytes);
 

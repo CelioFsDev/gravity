@@ -1,4 +1,3 @@
-
 import 'package:gravity/core/services/gravity_package_service.dart';
 import 'package:gravity/core/services/whatsapp_share_service.dart';
 import 'package:path/path.dart' as p;
@@ -8,22 +7,30 @@ part 'product_export_viewmodel.g.dart';
 
 class ProductExportState {
   final bool isLoading;
+  final double progress;
+  final String? message;
   final String? errorMessage;
   final String? successMessage;
 
   ProductExportState({
     this.isLoading = false,
+    this.progress = 0,
+    this.message,
     this.errorMessage,
     this.successMessage,
   });
 
   ProductExportState copyWith({
     bool? isLoading,
+    double? progress,
+    String? message,
     String? errorMessage,
     String? successMessage,
   }) {
     return ProductExportState(
       isLoading: isLoading ?? this.isLoading,
+      progress: progress ?? this.progress,
+      message: message ?? this.message,
       errorMessage: errorMessage ?? this.errorMessage,
       successMessage: successMessage ?? this.successMessage,
     );
@@ -40,13 +47,19 @@ class ProductExportViewModel extends _$ProductExportViewModel {
   Future<void> exportPackage() async {
     state = state.copyWith(
       isLoading: true,
+      progress: 0.01,
+      message: 'Preparando arquivos...',
       errorMessage: null,
       successMessage: null,
     );
 
     try {
       final gravityService = ref.read(gravityPackageServiceProvider);
-      final zipFile = await gravityService.exportPackage();
+      final zipFile = await gravityService.exportPackage(
+        onProgress: (progress, message) {
+          state = state.copyWith(progress: progress, message: message);
+        },
+      );
 
       await WhatsAppShareService.shareFile(
         bytes: await zipFile.readAsBytes(),

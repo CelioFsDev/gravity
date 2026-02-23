@@ -296,12 +296,8 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 final viewModel = ref.read(
                   productExportViewModelProvider.notifier,
                 );
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (_) =>
-                      const Center(child: CircularProgressIndicator()),
-                );
+                _showExportProgressDialog(context);
+
                 viewModel
                     .exportPackage()
                     .then((_) {
@@ -342,6 +338,56 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  void _showExportProgressDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return Consumer(
+          builder: (context, ref, _) {
+            final exportState = ref.watch(productExportViewModelProvider);
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+              ),
+              title: const Text('Preparando Backup'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 8),
+                  LinearProgressIndicator(
+                    value: exportState.progress,
+                    backgroundColor: AppTokens.accentBlue.withOpacity(0.1),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      AppTokens.accentBlue,
+                    ),
+                    minHeight: 8,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    exportState.message ?? 'Iniciando...',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${(exportState.progress * 100).toInt()}%',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
