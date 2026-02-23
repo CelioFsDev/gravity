@@ -103,6 +103,71 @@ class GravityPackageService {
       );
     }
 
+    // 2.2 Process Collection Cover Images
+    final updatedCollections = <CategoryDTO>[];
+    for (final collection in payload.collections) {
+      String? newMiniPath = collection.cover?.coverMiniPath;
+      String? newPagePath = collection.cover?.coverPagePath;
+
+      if (collection.cover != null) {
+        final collectionImagesDir = Directory(
+          p.join(imagesDir.path, 'collections', collection.id),
+        );
+
+        // Process Mini Cover
+        if (collection.cover!.coverMiniPath != null) {
+          final file = File(collection.cover!.coverMiniPath!);
+          if (file.existsSync()) {
+            if (!await collectionImagesDir.exists())
+              await collectionImagesDir.create(recursive: true);
+            final ext = p.extension(file.path);
+            final targetName = 'mini$ext';
+            await file.copy(p.join(collectionImagesDir.path, targetName));
+            newMiniPath = 'images/collections/${collection.id}/$targetName';
+            imageCount++;
+          }
+        }
+
+        // Process Page Cover
+        if (collection.cover!.coverPagePath != null) {
+          final file = File(collection.cover!.coverPagePath!);
+          if (file.existsSync()) {
+            if (!await collectionImagesDir.exists())
+              await collectionImagesDir.create(recursive: true);
+            final ext = p.extension(file.path);
+            final targetName = 'page$ext';
+            await file.copy(p.join(collectionImagesDir.path, targetName));
+            newPagePath = 'images/collections/${collection.id}/$targetName';
+            imageCount++;
+          }
+        }
+      }
+
+      updatedCollections.add(
+        CategoryDTO(
+          id: collection.id,
+          name: collection.name,
+          slug: collection.slug,
+          isActive: collection.isActive,
+          order: collection.order,
+          type: collection.type,
+          cover: collection.cover != null
+              ? CollectionCoverDTO(
+                  title: collection.cover!.title,
+                  mode: collection.cover!.mode,
+                  coverImagePath: collection
+                      .cover!
+                      .coverImagePath, // preserve original or placeholder
+                  coverMiniPath: newMiniPath,
+                  coverPagePath: newPagePath,
+                )
+              : null,
+          createdAt: collection.createdAt,
+          updatedAt: collection.updatedAt,
+        ),
+      );
+    }
+
     // 3. Create Update Payload
     final newPayload = GravityExportPayload(
       app: payload.app,
@@ -110,7 +175,7 @@ class GravityPackageService {
       exportedAt: payload.exportedAt,
       store: payload.store,
       categories: payload.categories,
-      collections: payload.collections,
+      collections: updatedCollections,
       products: updatedProducts,
     );
 
@@ -269,6 +334,64 @@ class GravityPackageService {
       );
     }
 
+    // 4.2 Restore Collection Images
+    final restoredCollections = <CategoryDTO>[];
+    for (final collection in payload.collections) {
+      String? absMiniPath = collection.cover?.coverMiniPath;
+      String? absPagePath = collection.cover?.coverPagePath;
+
+      if (collection.cover != null) {
+        // Mini
+        if (collection.cover!.coverMiniPath != null) {
+          final sourceFile = File(
+            p.join(extractDir.path, collection.cover!.coverMiniPath!),
+          );
+          if (await sourceFile.exists()) {
+            final newName =
+                'coll_${collection.id}_mini${p.extension(sourceFile.path)}';
+            final targetFile = File(p.join(appImagesDir.path, newName));
+            await sourceFile.copy(targetFile.path);
+            absMiniPath = targetFile.path;
+          }
+        }
+        // Page
+        if (collection.cover!.coverPagePath != null) {
+          final sourceFile = File(
+            p.join(extractDir.path, collection.cover!.coverPagePath!),
+          );
+          if (await sourceFile.exists()) {
+            final newName =
+                'coll_${collection.id}_page${p.extension(sourceFile.path)}';
+            final targetFile = File(p.join(appImagesDir.path, newName));
+            await sourceFile.copy(targetFile.path);
+            absPagePath = targetFile.path;
+          }
+        }
+      }
+
+      restoredCollections.add(
+        CategoryDTO(
+          id: collection.id,
+          name: collection.name,
+          slug: collection.slug,
+          isActive: collection.isActive,
+          order: collection.order,
+          type: collection.type,
+          cover: collection.cover != null
+              ? CollectionCoverDTO(
+                  title: collection.cover!.title,
+                  mode: collection.cover!.mode,
+                  coverImagePath: collection.cover!.coverImagePath,
+                  coverMiniPath: absMiniPath,
+                  coverPagePath: absPagePath,
+                )
+              : null,
+          createdAt: collection.createdAt,
+          updatedAt: collection.updatedAt,
+        ),
+      );
+    }
+
     // 5. Execute Import
     final importPayload = GravityExportPayload(
       app: payload.app,
@@ -276,7 +399,7 @@ class GravityPackageService {
       exportedAt: payload.exportedAt,
       store: payload.store,
       categories: payload.categories,
-      collections: payload.collections,
+      collections: restoredCollections,
       products: restoredProducts,
     );
 

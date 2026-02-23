@@ -321,7 +321,7 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
     required double height,
   }) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -378,10 +378,11 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
               ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         if (path != null)
           Container(
             height: height,
+            width: double.infinity,
             decoration: BoxDecoration(
               border: Border.all(color: Theme.of(context).dividerColor),
               borderRadius: BorderRadius.circular(8),
@@ -405,7 +406,7 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
           GestureDetector(
             onTap: onPick,
             child: Container(
-              height: height / 2, // Smaller placeholder
+              height: height / 2.5,
               width: double.infinity,
               decoration: BoxDecoration(
                 color: Theme.of(
