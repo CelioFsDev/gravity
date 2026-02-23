@@ -139,7 +139,7 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
         itemCount: categories.length + 1,
-        separatorBuilder: (_, __) => const SizedBox(width: AppTokens.space8),
+        separatorBuilder: (_, _) => const SizedBox(width: AppTokens.space8),
         itemBuilder: (context, index) {
           final isAll = index == 0;
           final cat = isAll ? null : categories[index - 1];

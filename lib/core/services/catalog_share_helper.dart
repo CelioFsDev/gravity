@@ -86,6 +86,7 @@ class CatalogShareHelper {
           catalog,
           columnsCount: columnsCount,
           mode: options.mode,
+          showPrice: options.showPrice,
           coverTypeOverride: options.coverType,
           collectionIdOverride: options.collectionId,
         ),
@@ -157,6 +158,7 @@ class CatalogShareHelper {
           catalog,
           columnsCount: columnsCount,
           mode: options.mode,
+          showPrice: options.showPrice,
           coverTypeOverride: options.coverType,
           collectionIdOverride: options.collectionId,
         ),
@@ -190,6 +192,7 @@ class CatalogShareHelper {
     Catalog catalog, {
     int columnsCount = 1,
     required CatalogMode mode,
+    bool showPrice = true,
     String? coverTypeOverride,
     String? collectionIdOverride,
   }) async {
@@ -320,6 +323,7 @@ class CatalogShareHelper {
         products: fallbackProducts,
         columnsCount: columnsCount,
         mode: mode,
+        showPrice: showPrice,
         bannerImagePath: bannerImagePath,
         collectionCover: fbCover,
         collectionName: fallbackCoverInfo.name,
@@ -335,6 +339,7 @@ class CatalogShareHelper {
       products: catalogProducts,
       columnsCount: columnsCount,
       mode: mode,
+      showPrice: showPrice,
       bannerImagePath: bannerImagePath,
       collectionCover: resolvedCollectionCover,
       collectionName: coverInfo.name,
@@ -374,6 +379,7 @@ class CatalogShareHelper {
     List<Category> availableCollections,
   ) async {
     CatalogMode selectedMode = CatalogMode.varejo;
+    bool showPrice = true;
     String selectedCoverType =
         'collection'; // Default to collection/custom if available
     String? selectedCollectionId = availableCollections.isNotEmpty
@@ -406,24 +412,46 @@ class CatalogShareHelper {
                           child: RadioListTile<CatalogMode>(
                             title: const Text(
                               'Varejo',
-                              style: TextStyle(fontSize: 14),
+                              style: TextStyle(fontSize: 13),
                             ),
                             value: CatalogMode.varejo,
-                            groupValue: selectedMode,
+                            groupValue: showPrice ? selectedMode : null,
                             contentPadding: EdgeInsets.zero,
-                            onChanged: (v) => setState(() => selectedMode = v!),
+                            onChanged: (v) {
+                              setState(() {
+                                showPrice = true;
+                                if (v != null) selectedMode = v;
+                              });
+                            },
                           ),
                         ),
                         Expanded(
                           child: RadioListTile<CatalogMode>(
                             title: const Text(
                               'Atacado',
-                              style: TextStyle(fontSize: 14),
+                              style: TextStyle(fontSize: 13),
                             ),
                             value: CatalogMode.atacado,
-                            groupValue: selectedMode,
+                            groupValue: showPrice ? selectedMode : null,
                             contentPadding: EdgeInsets.zero,
-                            onChanged: (v) => setState(() => selectedMode = v!),
+                            onChanged: (v) {
+                              setState(() {
+                                showPrice = true;
+                                if (v != null) selectedMode = v;
+                              });
+                            },
+                          ),
+                        ),
+                        Expanded(
+                          child: RadioListTile<bool>(
+                            title: const Text(
+                              'Off',
+                              style: TextStyle(fontSize: 13),
+                            ),
+                            value: false,
+                            groupValue: showPrice,
+                            contentPadding: EdgeInsets.zero,
+                            onChanged: (v) => setState(() => showPrice = false),
                           ),
                         ),
                       ],
@@ -506,6 +534,7 @@ class CatalogShareHelper {
                       selectedMode,
                       selectedCoverType,
                       selectedCollectionId,
+                      showPrice,
                     ),
                   ),
                   child: const Text('Gerar PDF'),
@@ -548,7 +577,13 @@ class CatalogExportOptions {
   final CatalogMode mode;
   final String coverType;
   final String? collectionId;
-  CatalogExportOptions(this.mode, this.coverType, this.collectionId);
+  final bool showPrice;
+  CatalogExportOptions(
+    this.mode,
+    this.coverType,
+    this.collectionId,
+    this.showPrice,
+  );
 }
 
 class _CollectionCoverResult {

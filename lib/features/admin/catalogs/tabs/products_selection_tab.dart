@@ -119,7 +119,7 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
                     vertical: AppTokens.space16,
                   ),
                   itemCount: filtered.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  separatorBuilder: (_, _) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final product = filtered[index];
                     final isSelected = widget.selectedIds.contains(product.id);
@@ -254,7 +254,7 @@ class _ProductThumb extends StatelessWidget {
             ? Image.file(
                 File(imagePath!),
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _placeholder(),
+                errorBuilder: (_, _, _) => _placeholder(),
               )
             : _placeholder(),
       ),

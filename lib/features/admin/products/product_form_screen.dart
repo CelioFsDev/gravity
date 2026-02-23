@@ -15,7 +15,6 @@ import 'package:gravity/ui/theme/app_tokens.dart';
 import 'package:gravity/ui/widgets/app_scaffold.dart';
 import 'package:gravity/ui/widgets/section_card.dart';
 import 'package:gravity/ui/widgets/app_primary_button.dart';
-import 'package:gravity/models/category_type.dart';
 import 'package:gravity/features/admin/categories/widgets/category_create_modal.dart';
 import 'package:go_router/go_router.dart';
 

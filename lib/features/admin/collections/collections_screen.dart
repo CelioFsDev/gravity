@@ -92,7 +92,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                     AppTokens.space48,
                   ),
                   itemCount: collections.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 16),
+                  separatorBuilder: (_, _) => const SizedBox(height: 16),
                   itemBuilder: (context, index) {
                     final collection = collections[index];
                     return _CollectionCard(
@@ -175,7 +175,7 @@ class _CollectionCard extends StatelessWidget {
                   ? Image.file(
                       File(coverPath),
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _buildPlaceholder(context),
+                      errorBuilder: (_, _, _) => _buildPlaceholder(context),
                     )
                   : _buildPlaceholder(context),
             ),

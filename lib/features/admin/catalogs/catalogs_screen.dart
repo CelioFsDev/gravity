@@ -39,7 +39,7 @@ class CatalogsScreen extends ConsumerWidget {
           onEdit: (catalog) => _openEdit(context, catalog),
           onDelete: (catalog) => notifier.deleteCatalog(catalog.id),
         ),
-        error: (e, __) => Center(child: Text('Erro: $e')),
+        error: (e, _) => Center(child: Text('Erro: $e')),
         loading: () => const Center(child: CircularProgressIndicator()),
       ),
     );
@@ -94,7 +94,7 @@ class _CatalogsContent extends StatelessWidget {
         vertical: AppTokens.space12,
       ),
       itemCount: catalogs.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 16),
+      separatorBuilder: (_, _) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
         final catalog = catalogs[index];
         return CatalogCard(

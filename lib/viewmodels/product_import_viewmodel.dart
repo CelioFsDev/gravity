@@ -212,6 +212,10 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     }
   }
 
+  void reset() {
+    state = ProductImportState();
+  }
+
   /// New method to match images against products already in the database
   Future<void> pickAndMatchImagesToExistingProducts() async {
     state = state.copyWith(isLoading: true, errorMessage: null);

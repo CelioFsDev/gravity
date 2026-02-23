@@ -29,11 +29,12 @@ class CatalogPdfService {
     bool includeCover = true,
     Map<String, Category>? collectionsMap,
     String? mainCoverCollectionId,
+    bool showPrice = true,
   }) async {
     // Parameters kept for API compatibility.
     final _ = catalogName;
-    final __ = columnsCount;
-    final ___ = bannerImagePath;
+    final _ = columnsCount;
+    final _ = bannerImagePath;
 
     final pdf = pw.Document();
     final currencyFormat = NumberFormat.simpleCurrency(locale: 'pt_BR');
@@ -92,6 +93,7 @@ class CatalogPdfService {
             // Or pass the current collection name?
             // For now keeping original behavior or passing current name if available
             defaultSubtitle: defaultSubtitle,
+            showPrice: showPrice,
           ),
         ),
       );
@@ -107,204 +109,153 @@ class CatalogPdfService {
     PdfPageFormat pageFormat, {
     String? collectionName,
     String defaultSubtitle = 'SELEÇÃO DE PRODUTOS',
+    bool showPrice = true,
   }) {
     final displayPrice = product.priceForMode(mode.name);
     final primaryPhoto = _selectPrimaryPhoto(product.photos);
     final heroPath = primaryPhoto?.path;
-    final activeColor = _selectActiveColor(product.photos, primaryPhoto);
-    final miniPhotos = _selectMiniPhotos(
-      product.photos,
-      activeColor,
-      primaryPhoto,
-    );
 
-    final colors = _extractColorNames(product);
+    // Filter unique photos per color for the variants section
+    final colorVariants = <String, String>{};
+    for (final photo in product.photos) {
+      final color = photo.colorKey?.trim();
+      if (color != null &&
+          color.isNotEmpty &&
+          !colorVariants.containsKey(color)) {
+        if (photo.path != heroPath) {
+          colorVariants[color] = photo.path;
+        }
+      }
+    }
+
+    final hasVariants = colorVariants.isNotEmpty;
     final sizesText = _extractSizesText(product);
-    final footerText =
+    final topHeaderText =
         (collectionName != null && collectionName.trim().isNotEmpty)
         ? collectionName.trim()
         : defaultSubtitle;
-    final availableWidth = pageFormat.width - 36;
-    final mainPhotoHeight = _calcMainPhotoHeight(
-      availableWidth,
-      pageFormat.height,
-    );
-    final refStyle = pw.TextStyle(
-      fontSize: 12,
-      color: _colorMuted,
-      fontWeight: pw.FontWeight.normal,
-    );
 
-    final formattedPrice = currencyFormat.format(displayPrice);
-    final originalPrice = (product.promoEnabled && product.promoPercent > 0)
-        ? (mode == CatalogMode.atacado
-              ? product.priceWholesale
-              : product.priceRetail)
-        : null;
-    final showPromo = originalPrice != null && originalPrice > displayPrice;
+    final availableWidth = pageFormat.width - 36;
+
+    // Dynamic height: expand photo if no variants are present
+    final mainPhotoHeight = hasVariants
+        ? pageFormat.height * 0.72
+        : pageFormat.height * 0.82;
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       children: [
-        pw.Align(
-          alignment: pw.Alignment.center,
+        // Top Header
+        pw.Container(
+          height: 30,
+          alignment: pw.Alignment.center, // Centered like screenshot
           child: pw.Text(
-            mode.label,
+            topHeaderText.toUpperCase(),
             style: pw.TextStyle(
-              fontSize: 11,
+              fontSize: 10,
               letterSpacing: 2,
-              color: _colorMuted,
+              fontWeight: pw.FontWeight.normal,
+              color: PdfColors.black,
             ),
           ),
         ),
-        pw.SizedBox(height: 12),
-        pw.Stack(
-          children: [
-            if (heroPath != null)
-              _buildMainPhotoBox(
-                heroPath,
-                width: availableWidth,
-                height: mainPhotoHeight,
-                radius: 20,
-              )
-            else
-              _buildImagePlaceholder(
-                height: mainPhotoHeight,
-                width: availableWidth,
-                radius: 20,
-              ),
-            if (product.promoEnabled && product.promoPercent > 0)
-              pw.Positioned(
-                top: 12,
-                right: 12,
-                child: _buildPromoBadge(product.promoPercent),
-              ),
-          ],
-        ),
-        pw.SizedBox(height: 14),
+        // Main Photo
+        if (heroPath != null)
+          _buildMainPhotoBox(
+            heroPath,
+            width: availableWidth,
+            height: mainPhotoHeight,
+            radius: 0, // Screenshot shows sharp edges for main photo
+          )
+        else
+          _buildImagePlaceholder(
+            height: mainPhotoHeight,
+            width: availableWidth,
+            radius: 0,
+          ),
+        pw.SizedBox(height: 18),
+        // Bottom Content
         pw.Row(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
+            // Left Side: Name, Sizes, Ref
             pw.Expanded(
-              child: pw.Text(
-                product.name.toUpperCase(),
-                maxLines: 2,
-                style: pw.TextStyle(
-                  fontSize: 15,
-                  fontWeight: pw.FontWeight.bold,
-                  letterSpacing: 1.1,
-                  color: _colorTextPrimary,
-                ),
-              ),
-            ),
-            pw.SizedBox(width: 8),
-            pw.Text(
-              'REF: ${product.reference}',
-              style: refStyle,
-              textAlign: pw.TextAlign.right,
-            ),
-          ],
-        ),
-        pw.SizedBox(height: 10),
-        pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.center,
-          children: [
-            pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                if (showPromo)
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
                   pw.Text(
-                    currencyFormat.format(originalPrice),
+                    product.name.toUpperCase(),
+                    maxLines: 2,
                     style: pw.TextStyle(
-                      fontSize: 12,
-                      color: _colorMuted,
-                      decoration: pw.TextDecoration.lineThrough,
+                      fontSize: 14,
+                      fontWeight: pw.FontWeight.bold,
+                      letterSpacing: 0.5,
+                      lineSpacing: 1.2,
+                      color: _colorTextPrimary,
                     ),
                   ),
-                pw.Text(
-                  formattedPrice,
-                  style: pw.TextStyle(
-                    fontSize: 21,
-                    fontWeight: pw.FontWeight.normal,
-                    color: _colorPriceGreen,
+                  pw.SizedBox(height: 12),
+                  pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.center,
+                    children: [
+                      _buildSizePill(sizesText),
+                      pw.SizedBox(width: 15),
+                      pw.Text(
+                        'REF: ${product.reference}',
+                        style: pw.TextStyle(
+                          fontSize: 11,
+                          color: PdfColors.black,
+                          fontWeight: pw.FontWeight.normal,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
-            pw.Spacer(),
-            if (colors.isNotEmpty)
-              pw.Row(children: _buildColorDots(colors, activeColor))
-            else
-              pw.Text(
-                'sem cores',
-                style: pw.TextStyle(fontSize: 12, color: _colorMuted),
+                  if (showPrice) ...[
+                    pw.SizedBox(height: 10),
+                    pw.Text(
+                      currencyFormat.format(displayPrice),
+                      style: pw.TextStyle(
+                        fontSize: 12,
+                        fontWeight: pw.FontWeight.bold,
+                        color: _colorPriceGreen,
+                      ),
+                    ),
+                  ],
+                ],
               ),
-            pw.SizedBox(width: 10),
-            _buildSizePill(sizesText),
+            ),
+            if (hasVariants) ...[
+              pw.SizedBox(width: 12),
+              // Right Side: Variant Thumbnails
+              pw.Wrap(
+                spacing: 8,
+                children: colorVariants.entries.take(3).map((entry) {
+                  return pw.Column(
+                    children: [
+                      _buildImageBox(
+                        entry.value,
+                        width: 48,
+                        height: 60,
+                        radius: 6,
+                      ),
+                      pw.SizedBox(height: 4),
+                      pw.Text(
+                        entry.key.toUpperCase(),
+                        style: pw.TextStyle(
+                          fontSize: 7,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.grey700,
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ],
           ],
-        ),
-        pw.SizedBox(height: 14),
-        if (miniPhotos.isNotEmpty)
-          _buildMiniPhotosRow(
-            miniPhotos,
-            height: pageFormat.height * 0.22,
-            width: availableWidth,
-          ),
-        pw.Spacer(),
-        pw.Divider(color: PdfColors.grey300),
-        pw.SizedBox(height: 6),
-        pw.Text(
-          footerText.toUpperCase(),
-          style: pw.TextStyle(
-            fontSize: 11,
-            letterSpacing: 1.4,
-            color: _colorMuted,
-          ),
-          textAlign: pw.TextAlign.center,
         ),
       ],
     );
-  }
-
-  static List<pw.Widget> _buildColorDots(
-    List<String> colors,
-    String? activeColor,
-  ) {
-    return colors.take(5).map((color) {
-      final normalized = color.trim().toLowerCase();
-      final isActive =
-          activeColor != null && normalized == activeColor.trim().toLowerCase();
-      return pw.Container(
-        width: 16,
-        height: 16,
-        margin: const pw.EdgeInsets.only(left: 6),
-        decoration: pw.BoxDecoration(
-          color: _colorFromName(normalized),
-          borderRadius: pw.BorderRadius.circular(8),
-          border: pw.Border.all(
-            color: isActive ? PdfColors.black : PdfColors.grey400,
-            width: isActive ? 1.4 : 1,
-          ),
-        ),
-      );
-    }).toList();
-  }
-
-  static PdfColor _colorFromName(String name) {
-    if (name.contains('azul')) return PdfColors.blue700;
-    if (name.contains('rosa')) return PdfColors.pink400;
-    if (name.contains('vermelho')) return PdfColors.red400;
-    if (name.contains('marrom')) return PdfColors.brown500;
-    if (name.contains('preto')) return PdfColors.black;
-    if (name.contains('branco')) return PdfColors.grey200;
-    if (name.contains('verde')) return PdfColors.green600;
-    if (name.contains('amarelo')) return PdfColors.yellow600;
-    if (name.contains('cinza')) return PdfColors.grey500;
-    if (name.contains('bege')) return PdfColors.brown200;
-    if (name.contains('lilas') || name.contains('lilá')) {
-      return PdfColors.purple300;
-    }
-    return PdfColors.grey400;
   }
 
   static String _extractSizesText(Product product) {
@@ -325,31 +276,6 @@ class CatalogPdfService {
     return sizes.join('/');
   }
 
-  static List<String> _extractColorNames(Product product) {
-    final colors = <String>{};
-    for (final photo in product.photos) {
-      final key = photo.colorKey?.trim();
-      if (key != null && key.isNotEmpty) {
-        colors.add(key);
-      }
-    }
-    if (colors.isNotEmpty) return colors.toList();
-
-    for (final variant in product.variants) {
-      for (final entry in variant.attributes.entries) {
-        final key = entry.key.toLowerCase();
-        if (key == 'cor' || key == 'color') {
-          final val = entry.value.trim();
-          if (val.isNotEmpty) colors.add(val);
-        }
-      }
-    }
-    if (colors.isEmpty) {
-      colors.addAll(product.colors.map((c) => c.trim()));
-    }
-    return colors.toList();
-  }
-
   static ProductPhoto? _selectPrimaryPhoto(List<ProductPhoto> photos) {
     if (photos.isEmpty) return null;
     for (final photo in photos) {
@@ -360,71 +286,6 @@ class CatalogPdfService {
       if (key != null && key.isNotEmpty) return photo;
     }
     return photos.first;
-  }
-
-  static String? _selectActiveColor(
-    List<ProductPhoto> photos,
-    ProductPhoto? primary,
-  ) {
-    if (photos.isEmpty) return null;
-    final primaryColor = primary?.colorKey?.trim();
-    if (primaryColor != null && primaryColor.isNotEmpty) {
-      return primaryColor;
-    }
-    for (final photo in photos) {
-      final key = photo.colorKey?.trim();
-      if (key != null && key.isNotEmpty) return key;
-    }
-    return null;
-  }
-
-  static List<ProductPhoto> _selectMiniPhotos(
-    List<ProductPhoto> photos,
-    String? activeColor,
-    ProductPhoto? primary,
-  ) {
-    if (photos.isEmpty) return const [];
-    final normalizedActive = activeColor?.toLowerCase();
-    final primaryPath = primary?.path;
-
-    List<ProductPhoto> pick(Iterable<ProductPhoto> source) {
-      final filtered = source
-          .where((p) => p.path.isNotEmpty && p.path != primaryPath)
-          .toList();
-      filtered.sort((a, b) {
-        final aScore = a.isPrimary ? 1 : 0;
-        final bScore = b.isPrimary ? 1 : 0;
-        return bScore.compareTo(aScore);
-      });
-      return filtered;
-    }
-
-    final ordered = <ProductPhoto>[];
-    if (normalizedActive != null) {
-      ordered.addAll(
-        pick(
-          photos.where((p) => p.colorKey?.toLowerCase() == normalizedActive),
-        ),
-      );
-    }
-    if (ordered.length < 3) {
-      ordered.addAll(
-        pick(photos.where((p) => p.colorKey == null || p.colorKey!.isEmpty)),
-      );
-    }
-    if (ordered.length < 3) {
-      ordered.addAll(pick(photos));
-    }
-
-    final unique = <String>{};
-    final result = <ProductPhoto>[];
-    for (final photo in ordered) {
-      if (unique.add(photo.path)) {
-        result.add(photo);
-      }
-      if (result.length == 3) break;
-    }
-    return result;
   }
 
   static pw.Widget _buildImageBox(
@@ -748,83 +609,21 @@ class CatalogPdfService {
 
   static pw.Widget _buildSizePill(String sizesText) {
     return pw.Container(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: pw.BoxDecoration(
         color: _colorSizePillBg,
-        borderRadius: pw.BorderRadius.circular(12),
+        borderRadius: pw.BorderRadius.circular(
+          2,
+        ), // Rectangular with slight radius
       ),
       child: pw.Text(
         sizesText,
         style: pw.TextStyle(
-          fontSize: 12,
+          fontSize: 10,
           fontWeight: pw.FontWeight.bold,
-          color: _colorMuted,
+          color: PdfColors.black,
         ),
       ),
-    );
-  }
-
-  static double _calcMainPhotoHeight(double width, double pageHeight) {
-    final ratioHeight = width * 4 / 3;
-    final maxHeight = pageHeight * 0.5;
-    return ratioHeight > maxHeight ? maxHeight : ratioHeight;
-  }
-
-  static pw.Widget _buildPromoBadge(double percent) {
-    final value = percent.round().clamp(1, 100);
-    return pw.Container(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: pw.BoxDecoration(
-        color: PdfColors.green600,
-        borderRadius: pw.BorderRadius.circular(20),
-        boxShadow: [
-          pw.BoxShadow(
-            blurRadius: 6,
-            color: PdfColors.orange,
-            offset: const PdfPoint(0, 2),
-          ),
-        ],
-      ),
-      child: pw.Text(
-        '-$value%',
-        style: pw.TextStyle(
-          fontSize: 18,
-          fontWeight: pw.FontWeight.bold,
-          color: PdfColors.white,
-          letterSpacing: 0.5,
-        ),
-      ),
-    );
-  }
-
-  static pw.Widget _buildMiniPhotosRow(
-    List<ProductPhoto> photos, {
-    required double height,
-    required double width,
-  }) {
-    final count = photos.length >= 3 ? 3 : photos.length;
-    if (count <= 0) return pw.SizedBox.shrink();
-    final gap = 10.0;
-    final totalGap = gap * (count - 1);
-    final itemWidth = (width - totalGap) / count;
-
-    return pw.Row(
-      children: List.generate(count, (index) {
-        final photo = photos[index];
-        final widget = _buildImageBox(
-          photo.path,
-          height: height,
-          width: itemWidth,
-          radius: 12,
-        );
-        if (index == count - 1) return widget;
-        return pw.Row(
-          children: [
-            widget,
-            pw.SizedBox(width: gap),
-          ],
-        );
-      }),
     );
   }
 }

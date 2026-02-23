@@ -1,5 +1,4 @@
-﻿import 'package:flutter/foundation.dart' hide Category;
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gravity/models/category.dart';
 import 'package:gravity/models/product.dart';
@@ -717,7 +716,7 @@ class _SearchAndFiltersSection extends StatelessWidget {
               child: ListView.separated(
                 shrinkWrap: true,
                 itemCount: options.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
+                separatorBuilder: (_, _) => const Divider(height: 1),
                 itemBuilder: (context, index) {
                   final option = options[index];
                   final isSelected = option.value == selected;
@@ -841,7 +840,7 @@ class _ProductsListSection extends StatelessWidget {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: state.filteredProducts.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final product = state.filteredProducts[index];
         return AppProductListTile(

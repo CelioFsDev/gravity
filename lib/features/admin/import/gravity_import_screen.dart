@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:gravity/core/services/export_import_service.dart';
 import 'package:gravity/viewmodels/gravity_import_viewmodel.dart';
 import 'package:gravity/ui/theme/app_tokens.dart';
@@ -308,6 +309,14 @@ class GravityImportScreen extends ConsumerWidget {
                 Navigator.of(context).pop();
               },
               child: const Text('Voltar para Produtos'),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () {
+                viewModel.reset();
+                context.go('/admin/products');
+              },
+              child: const Text('Voltar para o Menu'),
             ),
           ],
         ),

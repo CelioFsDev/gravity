@@ -92,7 +92,7 @@ class AppScaffold extends StatelessWidget {
                       ],
                     ),
                   ),
-                if (bottom != null) bottom!,
+                ?bottom,
                 Expanded(child: body),
               ],
             ),

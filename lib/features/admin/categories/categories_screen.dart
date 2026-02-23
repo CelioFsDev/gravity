@@ -1,20 +1,12 @@
-﻿import 'dart:io';
-import 'dart:math' as math;
-import 'dart:convert';
+﻿import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:gravity/models/category.dart';
-import 'package:gravity/core/services/local_media_service.dart';
 import 'package:gravity/viewmodels/categories_viewmodel.dart';
 import 'package:gravity/ui/theme/app_tokens.dart';
 import 'package:gravity/ui/widgets/app_scaffold.dart';
 import 'package:gravity/ui/widgets/app_search_field.dart';
 import 'package:gravity/ui/widgets/app_empty_state.dart';
-import 'package:gravity/ui/widgets/section_card.dart';
-import 'package:path/path.dart' as p;
-import 'package:uuid/uuid.dart';
 
 class CategoriesScreen extends ConsumerStatefulWidget {
   const CategoriesScreen({super.key});

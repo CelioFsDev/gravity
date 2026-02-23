@@ -98,7 +98,7 @@ class AppProductListTile extends StatelessWidget {
             ),
           ),
 
-          if (trailing != null) trailing!,
+          ?trailing,
           if (trailing == null && (onEdit != null || onDelete != null))
             _buildAdminMenu(context),
           if (trailing == null && onEdit == null && onDelete == null)

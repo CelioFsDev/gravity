@@ -391,7 +391,7 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
               child: Image.file(
                 File(path),
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const Center(
+                errorBuilder: (_, _, _) => const Center(
                   child: Icon(
                     Icons.broken_image,
                     size: 48,

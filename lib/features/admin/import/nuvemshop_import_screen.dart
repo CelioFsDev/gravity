@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:go_router/go_router.dart';
 import 'package:gravity/core/importer/nuvemshop_api_client.dart';
 import 'package:gravity/core/importer/nuvemshop_csv_reader.dart';
 import 'package:gravity/core/importer/nuvemshop_forward_fill.dart';
@@ -174,6 +175,26 @@ class _NuvemshopImportScreenState extends ConsumerState<NuvemshopImportScreen> {
                 icon: Icons.cloud_download_outlined,
               ),
             ),
+            if (_report != null && !_loading) ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.inventory_2_outlined),
+                  label: const Text('Voltar para Produtos'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton.icon(
+                  onPressed: () => context.go('/admin/products'),
+                  icon: const Icon(Icons.menu),
+                  label: const Text('Voltar para o Menu'),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -359,9 +380,9 @@ class _NuvemshopImportScreenState extends ConsumerState<NuvemshopImportScreen> {
               alignment: Alignment.centerLeft,
               child: Text(
                 _report!.warnings.take(3).join('\n'),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.orange.shade800,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: Colors.orange.shade800),
               ),
             ),
           ],
