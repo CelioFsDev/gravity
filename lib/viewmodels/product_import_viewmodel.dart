@@ -32,6 +32,8 @@ class ProductImportState {
   final int imagesMatchedCount;
   final int
   imagesTotalCount; // Total expected based on CSV SKU count or file upload count
+  final double progress;
+  final String? message;
   final bool isLoading;
   final String? errorMessage;
   final bool isDone;
@@ -43,6 +45,8 @@ class ProductImportState {
     this.matchedImages = const [],
     this.imagesMatchedCount = 0,
     this.imagesTotalCount = 0,
+    this.progress = 0,
+    this.message,
     this.isLoading = false,
     this.errorMessage,
     this.isDone = false,
@@ -55,6 +59,8 @@ class ProductImportState {
     List<String>? matchedImages,
     int? imagesMatchedCount,
     int? imagesTotalCount,
+    double? progress,
+    String? message,
     bool? isLoading,
     String? errorMessage,
     bool? isDone,
@@ -66,6 +72,8 @@ class ProductImportState {
       matchedImages: matchedImages ?? this.matchedImages,
       imagesMatchedCount: imagesMatchedCount ?? this.imagesMatchedCount,
       imagesTotalCount: imagesTotalCount ?? this.imagesTotalCount,
+      progress: progress ?? this.progress,
+      message: message ?? this.message,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage ?? this.errorMessage,
       isDone: isDone ?? this.isDone,
@@ -156,6 +164,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
   }
 
   // Step 3: Upload Images
+  // Step 3: Upload Images
   Future<void> pickAndMatchImages() async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
@@ -163,7 +172,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         allowMultiple: true,
         type: FileType.custom,
         allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
-        withData: kIsWeb,
+        withData: !kIsWeb, // Important: need bytes for Drive files
       );
 
       if (result != null) {
@@ -171,7 +180,6 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         int matched = 0;
 
         for (var file in result.files) {
-          if (!kIsWeb && file.path == null) continue;
           final matchedProduct = _findProductByKey(
             file.name,
             state.parsedProducts,
@@ -188,8 +196,6 @@ class ProductImportViewModel extends _$ProductImportViewModel {
 
         final updatedProducts = state.parsedProducts.map((p) {
           if (productImages.containsKey(p.id)) {
-            // Merge with existing if any, or replace?
-            // For import flow, we usually replace since it's a fresh batch
             return p.copyWith(images: productImages[p.id]!);
           }
           return p;
@@ -218,55 +224,136 @@ class ProductImportViewModel extends _$ProductImportViewModel {
 
   /// New method to match images against products already in the database
   Future<void> pickAndMatchImagesToExistingProducts() async {
-    state = state.copyWith(isLoading: true, errorMessage: null);
+    state = state.copyWith(
+      isLoading: true,
+      errorMessage: null,
+      progress: 0.01,
+      message: 'Selecione as fotos...',
+    );
     try {
       final productsRepo = ref.read(productsRepositoryProvider);
       final existingProducts = await productsRepo.getProducts();
 
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        allowMultiple: true,
-        type: FileType.custom,
-        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
-        withData: kIsWeb,
+      debugPrint(
+        'Vincular: Iniciando busca com ${existingProducts.length} produtos no banco',
       );
 
-      if (result == null) {
+      if (existingProducts.isEmpty) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: "Nenhum produto cadastrado no app para vincular fotos.",
+        );
+        return;
+      }
+
+      // Use FileType.any with NO extensions on Android to get the most
+      // compatible native picker that shows Drive and the 'Select' button correctly.
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.any,
+        withData: !kIsWeb, // Important: need bytes for Drive files
+      );
+
+      if (result == null || result.files.isEmpty) {
         state = state.copyWith(isLoading: false);
         return;
       }
 
+      state = state.copyWith(
+        message: 'Analisando fotos selecionadas...',
+        progress: 0.1,
+      );
+
       int matchedCount = 0;
       final productsToUpdate = <String, List<String>>{};
+      final totalFiles = result.files.length;
 
-      for (var file in result.files) {
-        if (!kIsWeb && file.path == null) continue;
-        final product = _findProductByKey(file.name, existingProducts);
+      for (int i = 0; i < totalFiles; i++) {
+        try {
+          final file = result.files[i];
 
-        if (product != null) {
-          final savedPath = await _resolveImageForPlatform(file);
-          if (savedPath != null) {
-            productsToUpdate.putIfAbsent(product.id, () => []).add(savedPath);
-            matchedCount++;
+          state = state.copyWith(
+            progress: 0.1 + (0.8 * ((i + 1) / totalFiles)),
+            message: 'Analisando ${file.name}...',
+          );
+
+          final product = _findProductByKey(file.name, existingProducts);
+
+          if (product != null) {
+            debugPrint(
+              'Vincular: Match encontrado para ${file.name} -> Produto: ${product.ref}',
+            );
+            final savedPath = await _resolveImageForPlatform(file);
+            if (savedPath != null) {
+              productsToUpdate.putIfAbsent(product.id, () => []).add(savedPath);
+              matchedCount++;
+            }
+          } else {
+            debugPrint(
+              'Vincular: Nenhum produto encontrado para o arquivo ${file.name}',
+            );
           }
+
+          // Let UI breathe more frequently
+          await Future.delayed(const Duration(milliseconds: 10));
+        } catch (e) {
+          debugPrint('Vincular: Erro ao processar arquivo $i: $e');
         }
       }
+
+      state = state.copyWith(
+        message: 'Salvando vinculações...',
+        progress: 0.95,
+      );
 
       // Update database
       for (final entry in productsToUpdate.entries) {
         final productId = entry.key;
-        final newImages = entry.value;
-        final p = existingProducts.firstWhere((p) => p.id == productId);
+        final importData =
+            entry.value; // It's a list of file paths for this product
+        final product = existingProducts.firstWhere((p) => p.id == productId);
 
-        // Add to existing images
-        final updatedImages = List<String>.from(p.images)..addAll(newImages);
-        await productsRepo.updateProduct(p.copyWith(images: updatedImages));
+        List<String> currentImages = List<String>.from(product.images);
+        int mainImageIndex = product.mainImageIndex;
+
+        for (final filePath in importData) {
+          // Check if this image (normalized path or content) is already there
+          // Since we copy with UUID, we check if the product already has
+          // a lot of images or if we've reached a limit if necessary.
+          // To strictly avoid duplicates, normally we would hash content,
+          // but here we'll check if the name contains 'principal' to set order.
+
+          final fileNameLower = p.basename(filePath).toLowerCase();
+
+          if (fileNameLower.contains('principal')) {
+            // Add to the beginning if not already there (simple check)
+            if (!currentImages.contains(filePath)) {
+              currentImages.insert(0, filePath);
+              mainImageIndex = 0; // Point to the new first image
+            }
+          } else {
+            // Append to the end (detalhes e cores)
+            if (!currentImages.contains(filePath)) {
+              currentImages.add(filePath);
+            }
+          }
+        }
+
+        await productsRepo.updateProduct(
+          product.copyWith(
+            images: currentImages,
+            mainImageIndex: mainImageIndex,
+          ),
+        );
       }
 
       state = state.copyWith(
         isLoading: false,
         isDone: true,
+        progress: 1.0,
+        message: 'Concluído!',
         imagesMatchedCount: matchedCount,
-        imagesTotalCount: result.files.length,
+        imagesTotalCount: totalFiles,
       );
     } catch (e) {
       state = state.copyWith(
@@ -303,18 +390,35 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       final targets = products.where((p) => p.ref.isNotEmpty).toList();
       totalToTry = targets.length;
 
-      for (final p in targets) {
-        // Construct URL: baseUrl + ref + .jpg
-        // Ensure baseUrl ends with /
-        final separator = baseUrl.endsWith('/') ? '' : '/';
-        final imageUrl = "$baseUrl$separator${p.ref.trim()}.jpg";
+      if (totalToTry == 0) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: "Nenhum produto com referência encontrado.",
+        );
+        return;
+      }
 
-        final localPath = await imageCache.downloadAndCacheImage(imageUrl);
-        if (localPath != null) {
-          // Add to existing images
-          final updatedImages = List<String>.from(p.images)..add(localPath);
-          await productsRepo.updateProduct(p.copyWith(images: updatedImages));
-          syncedCount++;
+      final extensions = ['.jpg', '.jpeg', '.png', '.webp'];
+
+      for (final p in targets) {
+        final separator = baseUrl.endsWith('/') ? '' : '/';
+        final cleanRef = p.ref.trim();
+
+        for (final ext in extensions) {
+          final imageUrl = "$baseUrl$separator$cleanRef$ext";
+          final localPath = await imageCache.downloadAndCacheImage(imageUrl);
+
+          if (localPath != null) {
+            // Add to existing images if not already there
+            if (!p.images.contains(localPath)) {
+              final updatedImages = List<String>.from(p.images)..add(localPath);
+              await productsRepo.updateProduct(
+                p.copyWith(images: updatedImages),
+              );
+              syncedCount++;
+            }
+            break; // Found one extension, skip others for this product
+          }
         }
       }
 
@@ -771,36 +875,64 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     return sku.trim().toLowerCase();
   }
 
+  String _normalizeForImageMatch(String value) {
+    // Remove extension, leading/trailing spaces, and convert to lower
+    String v = value.toLowerCase().trim();
+    // Remove common separators to make it easier to match
+    v = v.replaceAll(RegExp(r'[-_\s]'), '');
+    return v;
+  }
+
+  String _normalizeReference(String ref) {
+    // Normalize a reference by removing leading zeros for flexible matching
+    // but keep a version with zeros as well.
+    return ref.trim().toLowerCase().replaceAll(RegExp(r'[-_\s]'), '');
+  }
+
   Product? _findProductByKey(String fileName, List<Product> products) {
-    final lower = fileName.toLowerCase();
-    final normalizedFile = _normalizeForImageMatch(
-      p.basenameWithoutExtension(lower),
-    );
+    final fileNameNoExt = p
+        .basenameWithoutExtension(fileName)
+        .toLowerCase()
+        .trim();
+    final normalizedFileName = _normalizeForImageMatch(fileNameNoExt);
 
     for (final product in products) {
-      // 1. Try SKU (legacy/standard)
-      final sku = product.sku.trim().toLowerCase();
-      if (sku.isNotEmpty) {
-        final normalizedSku = _normalizeForImageMatch(sku);
-        if (normalizedFile.startsWith(normalizedSku)) {
-          return product;
-        }
-      }
-
-      // 2. Try Reference (User request)
+      // 1. Try Reference (Primary for this user)
       final ref = product.ref.trim().toLowerCase();
       if (ref.isNotEmpty) {
-        final normalizedRef = _normalizeForImageMatch(ref);
-        if (normalizedFile.startsWith(normalizedRef)) {
+        final normalizedRef = _normalizeReference(ref);
+        final normalizedRefNoZeros = normalizedRef.replaceFirst(
+          RegExp(r'^0+'),
+          '',
+        );
+
+        // Exact match of normalized names
+        if (normalizedFileName == normalizedRef) return product;
+
+        // Match if the filename is exactly the reference with or without leading zeros
+        if (normalizedRefNoZeros.isNotEmpty) {
+          final normalizedFileNoZeros = normalizedFileName.replaceFirst(
+            RegExp(r'^0+'),
+            '',
+          );
+          if (normalizedFileNoZeros == normalizedRefNoZeros) return product;
+        }
+
+        // Match if the filename STARTS with the reference (e.g., "00003_azul.jpg" matches "00003")
+        if (normalizedFileName.startsWith(normalizedRef)) return product;
+      }
+
+      // 2. Try SKU (Fallback)
+      final sku = product.sku.trim().toLowerCase();
+      if (sku.isNotEmpty) {
+        final normalizedSku = _normalizeReference(sku);
+        if (normalizedFileName == normalizedSku ||
+            normalizedFileName.startsWith(normalizedSku)) {
           return product;
         }
       }
     }
     return null;
-  }
-
-  String _normalizeForImageMatch(String input) {
-    return input.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
   }
 
   DateTime? _parseDateTime(String value) {
@@ -917,62 +1049,42 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     return utf8.decode(bytes);
   }
 
-  String _inferMimeType(String fileName) {
-    final ext = p.extension(fileName).toLowerCase();
-    switch (ext) {
-      case '.jpg':
-      case '.jpeg':
-        return 'image/jpeg';
-      case '.png':
-        return 'image/png';
-      case '.webp':
-        return 'image/webp';
-      default:
-        return 'application/octet-stream';
-    }
-  }
-
   Future<String?> _resolveImageForPlatform(PlatformFile file) async {
-    if (kIsWeb) {
-      final bytes = file.bytes;
-      if (bytes == null) return null;
-      final mime = _inferMimeType(file.name);
-      return 'data:$mime;base64,${base64Encode(bytes)}';
-    }
-
-    if (file.path == null) return null;
-    return _copyImageToPersistentStorage(file.path!);
-  }
-
-  Future<String?> _copyImageToPersistentStorage(String sourcePath) async {
     try {
       final baseDir = await getApplicationDocumentsDirectory();
       final imagesDir = Directory(p.join(baseDir.path, 'product_images'));
       if (!await imagesDir.exists()) {
         await imagesDir.create(recursive: true);
       }
-      final fileName = '${const Uuid().v4()}${p.extension(sourcePath)}';
+      final ext = p.extension(file.name).isNotEmpty
+          ? p.extension(file.name).toLowerCase()
+          : '.jpg';
+      final fileName = '${const Uuid().v4()}$ext';
       final targetPath = p.join(imagesDir.path, fileName);
-      final File targetFile = File(targetPath);
 
-      final sourceFile = File(sourcePath);
-      if (await sourceFile.exists()) {
-        final bytes = await sourceFile.readAsBytes();
-        await targetFile.writeAsBytes(bytes);
+      if (kIsWeb) {
+        if (file.bytes == null) return null;
+        await File(targetPath).writeAsBytes(file.bytes!);
         return targetPath;
-      }
-      return null;
-    } on MissingPluginException {
-      if (kDebugMode) {
-        print(
-          'MissingPluginException: path_provider not implemented on this platform or stale build.',
-        );
+      } else {
+        // 1. Try local path first (faster)
+        if (file.path != null) {
+          final sourceFile = File(file.path!);
+          if (await sourceFile.exists()) {
+            await sourceFile.copy(targetPath);
+            return targetPath;
+          }
+        }
+        // 2. Fallback for cloud files (Drive) where path is null but bytes are available
+        // FilePicker automatically downloads small files or if configured with withData: true
+        if (file.bytes != null) {
+          await File(targetPath).writeAsBytes(file.bytes!);
+          return targetPath;
+        }
       }
       return null;
     } catch (e) {
-      if (kDebugMode) {
-        print('Failed to copy import image: $e');
-      }
+      debugPrint('Error resolving image: $e');
       return null;
     }
   }

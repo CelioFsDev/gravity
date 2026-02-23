@@ -76,6 +76,8 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 onDeleteProduct: (product) => _deleteProduct(product),
                 onDuplicateProduct: (product) => _duplicateProduct(product),
                 onTogglePromo: (product) => _togglePromo(product),
+                onRefresh: () async =>
+                    ref.read(productsViewModelProvider.notifier).refresh(),
               ),
               error: (e, s) => AppEmptyState(
                 icon: Icons.error_outline,
@@ -213,15 +215,41 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               ),
               onTap: () {
                 Navigator.pop(context);
-                ref
-                    .read(productImportViewModelProvider.notifier)
+                final importViewModel = ref.read(
+                  productImportViewModelProvider.notifier,
+                );
+
+                _showVincularProgressDialog(context);
+
+                importViewModel
                     .pickAndMatchImagesToExistingProducts()
                     .then((_) {
+                      final stateAfter = ref.read(
+                        productImportViewModelProvider,
+                      );
+                      // Only close automatically if successful AND we found matches
                       if (context.mounted) {
+                        if (stateAfter.errorMessage != null ||
+                            stateAfter.imagesMatchedCount == 0 ||
+                            !stateAfter.isDone) {
+                          // Keep dialog open to show results
+                        } else {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Vinculação concluída com sucesso!',
+                              ),
+                            ),
+                          );
+                        }
+                      }
+                    })
+                    .catchError((e) {
+                      if (context.mounted) {
+                        Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Vinculação concluída com sucesso!'),
-                          ),
+                          SnackBar(content: Text('Erro ao vincular: $e')),
                         );
                       }
                     });
@@ -341,6 +369,90 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     );
   }
 
+  void _showVincularProgressDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return Consumer(
+          builder: (context, ref, _) {
+            final importState = ref.watch(productImportViewModelProvider);
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+              ),
+              title: const Text('Vinculando Fotos'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 8),
+                  LinearProgressIndicator(
+                    value: importState.progress,
+                    backgroundColor: AppTokens.accentBlue.withOpacity(0.1),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      AppTokens.accentBlue,
+                    ),
+                    minHeight: 8,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    importState.message ?? 'Iniciando...',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${(importState.progress * 100).toInt()}%',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  if (importState.imagesMatchedCount > 0) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      '${importState.imagesMatchedCount} fotos vinculadas',
+                      style: TextStyle(
+                        color: importState.imagesMatchedCount > 0
+                            ? AppTokens.accentGreen
+                            : Colors.orange,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                  if (importState.errorMessage != null ||
+                      (importState.isDone &&
+                          importState.imagesMatchedCount == 0)) ...[
+                    const SizedBox(height: 20),
+                    if (importState.errorMessage != null)
+                      Text(
+                        importState.errorMessage!,
+                        style: const TextStyle(color: Colors.red, fontSize: 12),
+                        textAlign: TextAlign.center,
+                      )
+                    else
+                      const Text(
+                        'Nenhuma foto correspondeu às referências dos produtos selecionados.',
+                        style: TextStyle(fontSize: 12),
+                        textAlign: TextAlign.center,
+                      ),
+                    const SizedBox(height: 16),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Fechar'),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showExportProgressDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -446,6 +558,7 @@ class _ProductsContent extends StatelessWidget {
   final ValueChanged<Product> onDeleteProduct;
   final ValueChanged<Product> onDuplicateProduct;
   final ValueChanged<Product> onTogglePromo;
+  final RefreshCallback onRefresh;
 
   const _ProductsContent({
     required this.state,
@@ -462,6 +575,7 @@ class _ProductsContent extends StatelessWidget {
     required this.onDeleteProduct,
     required this.onDuplicateProduct,
     required this.onTogglePromo,
+    required this.onRefresh,
   });
 
   @override
@@ -479,35 +593,42 @@ class _ProductsContent extends StatelessWidget {
       );
     }
 
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
-      children: [
-        const SizedBox(height: AppTokens.space16),
-        _KpiSection(state: state),
-        const SizedBox(height: AppTokens.space24),
-        _SearchAndFiltersSection(
-          state: state,
-          controller: searchController,
-          onSearchChanged: onSearchChanged,
-          onClearFilters: hasFilters ? onClearFilters : null,
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      displacement: 20,
+      color: AppTokens.accentBlue,
+      child: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
+        physics:
+            const AlwaysScrollableScrollPhysics(), // Important for Pull-to-Refresh
+        children: [
+          const SizedBox(height: AppTokens.space16),
+          _KpiSection(state: state),
+          const SizedBox(height: AppTokens.space24),
+          _SearchAndFiltersSection(
+            state: state,
+            controller: searchController,
+            onSearchChanged: onSearchChanged,
+            onClearFilters: hasFilters ? onClearFilters : null,
 
-          onSelectCategory: onSelectCategory,
-          onSelectStatus: onSelectStatus,
-          onSelectSort: onSelectSort,
-        ),
-        const SizedBox(height: AppTokens.space24),
-        _ProductsListSection(
-          state: state,
-          categories: state.categories,
-          onNewProduct: onNewProduct,
-          onViewProduct: onViewProduct,
-          onEditProduct: onEditProduct,
-          onDeleteProduct: onDeleteProduct,
-          onDuplicateProduct: onDuplicateProduct,
-          onTogglePromo: onTogglePromo,
-        ),
-        const SizedBox(height: AppTokens.space48),
-      ],
+            onSelectCategory: onSelectCategory,
+            onSelectStatus: onSelectStatus,
+            onSelectSort: onSelectSort,
+          ),
+          const SizedBox(height: AppTokens.space24),
+          _ProductsListSection(
+            state: state,
+            categories: state.categories,
+            onNewProduct: onNewProduct,
+            onViewProduct: onViewProduct,
+            onEditProduct: onEditProduct,
+            onDeleteProduct: onDeleteProduct,
+            onDuplicateProduct: onDuplicateProduct,
+            onTogglePromo: onTogglePromo,
+          ),
+          const SizedBox(height: AppTokens.space48),
+        ],
+      ),
     );
   }
 }
