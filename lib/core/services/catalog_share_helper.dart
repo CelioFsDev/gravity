@@ -93,11 +93,37 @@ class CatalogShareHelper {
         ),
       );
 
+      final dateStr = DateFormat('dd_MM_yyyy').format(DateTime.now());
+      String collectionName = catalog.name.isNotEmpty ? catalog.name : "geral";
+
+      // If a specific collection was selected in the options, use its name
+      if (options.collectionId != null) {
+        try {
+          final selectedCol = availableCollections.firstWhere(
+            (c) => c.id == options.collectionId,
+          );
+          if (selectedCol.name != null && selectedCol.name!.isNotEmpty) {
+            collectionName = selectedCol.name!;
+          }
+        } catch (_) {
+          // If not found in filtered list, keep catalog name
+        }
+      }
+
+      // Sanitize name for filename (remove special chars/spaces)
+      final sanitizedCollection = collectionName
+          .toLowerCase()
+          .replaceAll(RegExp(r'[^a-z0-9]'), '_')
+          .replaceAll(RegExp(r'_+'), '_')
+          .trim();
+
+      final fileName = 'catalogo_vitoriana_${sanitizedCollection}_$dateStr.pdf';
+
       await WhatsAppShareService.shareFile(
         bytes: pdfBytes,
-        fileName:
-            'catalogo_${catalog.slug.isNotEmpty ? catalog.slug : "doc"}.pdf',
+        fileName: fileName,
         text: 'Confira nosso catálogo ${catalog.name}!',
+        mimeType: 'application/pdf',
       );
     } catch (e) {
       if (context.mounted) {

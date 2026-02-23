@@ -9,8 +9,9 @@ import 'package:gravity/ui/widgets/app_primary_button.dart';
 import 'package:gravity/ui/widgets/app_scaffold.dart';
 import 'package:gravity/ui/widgets/section_card.dart';
 import 'package:gravity/viewmodels/categories_viewmodel.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:gravity/core/services/image_optimizer_service.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 class CollectionFormScreen extends ConsumerStatefulWidget {
@@ -100,10 +101,15 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
         final file = File(result.files.single.path!);
         if (!await file.exists()) return;
 
+        // Compress image
+        final optimizer = ref.read(imageOptimizerServiceProvider.notifier);
+        final compressedFile = await optimizer.compressImage(file);
+        final fileToSave = compressedFile ?? file;
+
         // Copy to app storage
         final appDir = await getApplicationDocumentsDirectory();
-        final fileName = '${const Uuid().v4()}${p.extension(file.path)}';
-        final savedImage = await file.copy('${appDir.path}/$fileName');
+        final fileName = '${const Uuid().v4()}${p.extension(fileToSave.path)}';
+        final savedImage = await fileToSave.copy('${appDir.path}/$fileName');
 
         setState(() {
           if (isMini) {
@@ -363,42 +369,80 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
                 ),
               )
             else
-              OutlinedButton.icon(
-                onPressed: onRemove,
-                icon: const Icon(
-                  Icons.delete_outline,
-                  size: 18,
-                  color: AppTokens.accentRed,
-                ),
-                label: const Text('Remover'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTokens.accentRed,
-                  side: const BorderSide(color: AppTokens.accentRed),
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextButton.icon(
+                    onPressed: onPick,
+                    icon: const Icon(Icons.refresh, size: 18),
+                    label: const Text('Alterar'),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: onRemove,
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      size: 18,
+                      color: AppTokens.accentRed,
+                    ),
+                    tooltip: 'Remover Imagem',
+                  ),
+                ],
               ),
           ],
         ),
         const SizedBox(height: 12),
         if (path != null)
-          Container(
-            height: height,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              border: Border.all(color: Theme.of(context).dividerColor),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.file(
-                File(path),
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => const Center(
-                  child: Icon(
-                    Icons.broken_image,
-                    size: 48,
-                    color: AppTokens.textMuted,
+          GestureDetector(
+            onTap: onPick,
+            child: Container(
+              height: height,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                border: Border.all(color: Theme.of(context).dividerColor),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.file(
+                      File(path),
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                      errorBuilder: (_, _, _) => const Center(
+                        child: Icon(
+                          Icons.broken_image,
+                          size: 48,
+                          color: AppTokens.textMuted,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.0),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.35),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.refresh,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           )

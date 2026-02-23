@@ -21,11 +21,24 @@ class WhatsAppShareService {
     String? text,
     String? mimeType,
   }) async {
+    // Infer mimeType from extension if null
+    String? effectiveMimeType = mimeType;
+    if (effectiveMimeType == null) {
+      final ext = fileName.toLowerCase();
+      if (ext.endsWith('.pdf')) {
+        effectiveMimeType = 'application/pdf';
+      } else if (ext.endsWith('.zip')) {
+        effectiveMimeType = 'application/zip';
+      } else if (ext.endsWith('.json')) {
+        effectiveMimeType = 'application/json';
+      }
+    }
+
     await Share.shareXFiles([
       XFile.fromData(
         Uint8List.fromList(bytes),
         name: fileName,
-        mimeType: mimeType,
+        mimeType: effectiveMimeType,
       ),
     ], text: text);
   }
