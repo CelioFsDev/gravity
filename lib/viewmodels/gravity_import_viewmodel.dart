@@ -77,13 +77,21 @@ class GravityImportViewModel extends _$GravityImportViewModel {
 
       if (result != null && result.files.single.path != null) {
         final filePath = result.files.single.path!;
-        final isZip = filePath.toLowerCase().endsWith('.zip');
-
         final exportService = ref.read(exportImportServiceProvider);
         GravityExportPayload payload;
         String? extractDir;
 
-        if (isZip) {
+        // More robust ZIP detection: Check extension OR check file header (PK)
+        bool isActuallyZip = filePath.toLowerCase().endsWith('.zip');
+        if (!isActuallyZip) {
+          final file = File(filePath);
+          final bytes = await file.openRead(0, 2).first;
+          if (bytes.length >= 2 && bytes[0] == 0x50 && bytes[1] == 0x4B) {
+            isActuallyZip = true;
+          }
+        }
+
+        if (isActuallyZip) {
           final packageService = ref.read(gravityPackageServiceProvider);
           final (p, dir) = await packageService.preparePackage(File(filePath));
           payload = p;

@@ -61,8 +61,8 @@ class ProductExportViewModel extends _$ProductExportViewModel {
         },
       );
 
-      await WhatsAppShareService.shareFile(
-        bytes: await zipFile.readAsBytes(),
+      await WhatsAppShareService.shareXFile(
+        filePath: zipFile.path,
         fileName: p.basename(zipFile.path),
         text: 'Backup do Catálogo Gravity',
         mimeType: 'application/zip',

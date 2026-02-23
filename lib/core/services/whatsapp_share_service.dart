@@ -21,17 +21,24 @@ class WhatsAppShareService {
     String? text,
     String? mimeType,
   }) async {
-    await Share.shareXFiles(
-      [
-        XFile.fromData(
-          Uint8List.fromList(bytes),
-          name: fileName,
-          mimeType: mimeType ?? 'application/pdf',
-        ),
-      ],
-      text: text,
-      subject: text,
-    );
+    await Share.shareXFiles([
+      XFile.fromData(
+        Uint8List.fromList(bytes),
+        name: fileName,
+        mimeType: mimeType,
+      ),
+    ], text: text);
+  }
+
+  static Future<void> shareXFile({
+    required String filePath,
+    required String fileName,
+    String? text,
+    String? mimeType,
+  }) async {
+    await Share.shareXFiles([
+      XFile(filePath, name: fileName, mimeType: mimeType),
+    ], text: text);
   }
 
   static Future<void> _launchWhatsApp({
