@@ -49,7 +49,7 @@ class CatalogShareHelper {
             leading: const Icon(Icons.download),
             title: const Text('Salvar PDF no dispositivo'),
             subtitle: const Text(
-              'Cria uma c\u00ef¿½pia do cat\u00e1logo em PDF nos documentos',
+              'Cria uma c\u00f3pia do cat\u00e1logo em PDF nos documentos',
             ),
             onTap: () async {
               Navigator.pop(sheetContext);
@@ -307,7 +307,9 @@ class CatalogShareHelper {
 
     if (catalogProducts.isEmpty) {
       if (catalog.productIds.isEmpty) {
-        throw Exception('Este cat\u00e1logo n\u00ef¿½o possui produtos selecionados.');
+        throw Exception(
+          'Este cat\u00e1logo n\u00e3o possui produtos selecionados.',
+        );
       }
 
       // Fallback: try to fetch directly from repo in case state is stale
@@ -319,7 +321,7 @@ class CatalogShareHelper {
 
       if (fallbackProducts.isEmpty) {
         throw Exception(
-          'Os produtos deste cat\u00e1logo n\u00ef¿½o foram encontrados no banco de dados.',
+          'Os produtos deste cat\u00e1logo n\u00e3o foram encontrados no banco de dados.',
         );
       }
 
@@ -327,7 +329,9 @@ class CatalogShareHelper {
         fallbackProducts,
         productsState.categories,
       );
-      final catalogName = catalog.name.isEmpty ? 'Meu Cat\u00e1logo' : catalog.name;
+      final catalogName = catalog.name.isEmpty
+          ? 'Meu Cat\u00e1logo'
+          : catalog.name;
 
       // Re-resolve for fallback (simplified)
       CollectionCover? fbCover;
@@ -360,7 +364,9 @@ class CatalogShareHelper {
       );
     }
 
-    final catalogName = catalog.name.isEmpty ? 'Meu Cat\u00e1logo' : catalog.name;
+    final catalogName = catalog.name.isEmpty
+        ? 'Meu Cat\u00e1logo'
+        : catalog.name;
     return CatalogPdfService.generateCatalogPdf(
       catalogName: catalogName,
       products: catalogProducts,
@@ -503,7 +509,7 @@ class CatalogShareHelper {
                   _buildCoverTypeTile(
                     context,
                     title: 'Capa da Cole\u00e7\u00e3o (Com Foto)',
-                    subtitle: 'Usa a imagem principal da cole\u00ef¿½\u00ef¿½o',
+                    subtitle: 'Usa a imagem principal da cole\u00e7\u00e3o',
                     isSelected: selectedCoverType == 'collection',
                     icon: Icons.image_outlined,
                     onTap: () =>

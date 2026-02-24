@@ -2,11 +2,11 @@
 import 'dart:typed_data';
 import 'dart:convert';
 
+import 'package:catalogo_ja/models/catalog.dart';
+import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/models/product.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:gravity/models/catalog.dart';
-import 'package:gravity/models/category.dart';
-import 'package:gravity/models/product.dart';
 import 'package:intl/intl.dart';
 
 class CatalogPdfService {
@@ -31,10 +31,7 @@ class CatalogPdfService {
     String? mainCoverCollectionId,
     bool showPrice = true,
   }) async {
-    // Parameters kept for API compatibility.
-    final _ = catalogName;
-    final _ = columnsCount;
-    final _ = bannerImagePath;
+    final _ = [catalogName, columnsCount]; // Suppress unused warnings
 
     final pdf = pw.Document();
     final currencyFormat = NumberFormat.simpleCurrency(locale: 'pt_BR');
@@ -128,7 +125,15 @@ class CatalogPdfService {
       }
     }
 
-    final hasVariants = colorVariants.isNotEmpty;
+    final variantEntries = colorVariants.entries.toList();
+    final hasSpecial4Layout = variantEntries.length == 4;
+    final topVariants = hasSpecial4Layout
+        ? variantEntries.sublist(0, 2)
+        : <MapEntry<String, String>>[];
+    final bottomVariants = hasSpecial4Layout
+        ? variantEntries.sublist(2)
+        : variantEntries;
+
     final sizesText = _extractSizesText(product);
     final topHeaderText =
         (collectionName != null && collectionName.trim().isNotEmpty)
@@ -136,125 +141,161 @@ class CatalogPdfService {
         : defaultSubtitle;
 
     final availableWidth = pageFormat.width - 36;
+    final availableHeight = pageFormat.height - 36;
 
-    // Dynamic height: expand photo if no variants are present
-    final mainPhotoHeight = hasVariants
-        ? pageFormat.height * 0.72
-        : pageFormat.height * 0.82;
+    // Proporções
+    final bottomContentHeight = 175.0;
+    final topHeaderHeight = 35.0;
+    final spacing = 15.0;
+    final mainPhotoHeight = variantEntries.isNotEmpty
+        ? availableHeight - topHeaderHeight - bottomContentHeight - spacing
+        : availableHeight - topHeaderHeight - spacing;
 
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-      children: [
-        // Top Header
-        pw.Container(
-          height: 30,
-          alignment: pw.Alignment.center, // Centered like screenshot
-          child: pw.Text(
-            topHeaderText.toUpperCase(),
-            style: pw.TextStyle(
-              fontSize: 10,
-              letterSpacing: 2,
-              fontWeight: pw.FontWeight.normal,
-              color: PdfColors.black,
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 18),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          // Top Header
+          pw.Container(
+            height: topHeaderHeight,
+            alignment: pw.Alignment.centerLeft,
+            child: pw.Text(
+              topHeaderText.toUpperCase(),
+              style: pw.TextStyle(
+                fontSize: 10,
+                letterSpacing: 2,
+                fontWeight: pw.FontWeight.normal,
+                color: PdfColors.black,
+              ),
             ),
           ),
-        ),
-        // Main Photo
-        if (heroPath != null)
-          _buildMainPhotoBox(
-            heroPath,
-            width: availableWidth,
-            height: mainPhotoHeight,
-            radius: 0, // Screenshot shows sharp edges for main photo
-          )
-        else
-          _buildImagePlaceholder(
-            height: mainPhotoHeight,
-            width: availableWidth,
-            radius: 0,
-          ),
-        pw.SizedBox(height: 18),
-        // Bottom Content
-        pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            // Left Side: Name, Sizes, Ref
-            pw.Expanded(
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
+          // Main Photo Section
+          if (hasSpecial4Layout)
+            pw.Container(
+              height: mainPhotoHeight,
+              width: availableWidth,
+              child: pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                 children: [
-                  pw.Text(
-                    product.name.toUpperCase(),
-                    maxLines: 2,
-                    style: pw.TextStyle(
-                      fontSize: 14,
-                      fontWeight: pw.FontWeight.bold,
-                      letterSpacing: 0.5,
-                      lineSpacing: 1.2,
-                      color: _colorTextPrimary,
+                  pw.Expanded(
+                    child: heroPath != null
+                        ? _buildMainPhotoBox(
+                            heroPath,
+                            height: mainPhotoHeight,
+                            radius: 0,
+                          )
+                        : _buildImagePlaceholder(
+                            height: mainPhotoHeight,
+                            width: availableWidth,
+                            radius: 0,
+                          ),
+                  ),
+                  pw.SizedBox(width: 10),
+                  pw.Container(
+                    width: 85,
+                    child: pw.Column(
+                      mainAxisAlignment: pw.MainAxisAlignment.center,
+                      children: topVariants
+                          .map(
+                            (v) => pw.Expanded(
+                              child: pw.Padding(
+                                padding: const pw.EdgeInsets.symmetric(
+                                  vertical: 4,
+                                ),
+                                child: _buildSwatchThumb(
+                                  v.key,
+                                  v.value,
+                                  width: 85,
+                                  expand: true,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
                     ),
                   ),
-                  pw.SizedBox(height: 12),
-                  pw.Row(
-                    crossAxisAlignment: pw.CrossAxisAlignment.center,
-                    children: [
-                      _buildSizePill(sizesText),
-                      pw.SizedBox(width: 15),
-                      pw.Text(
-                        'REF: ${product.reference}',
-                        style: pw.TextStyle(
-                          fontSize: 11,
-                          color: PdfColors.black,
-                          fontWeight: pw.FontWeight.normal,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (showPrice) ...[
-                    pw.SizedBox(height: 10),
-                    pw.Text(
-                      currencyFormat.format(displayPrice),
-                      style: pw.TextStyle(
-                        fontSize: 12,
-                        fontWeight: pw.FontWeight.bold,
-                        color: _colorPriceGreen,
-                      ),
-                    ),
-                  ],
                 ],
               ),
+            )
+          else
+            // Original Main Photo
+            pw.Container(
+              height: mainPhotoHeight,
+              width: availableWidth,
+              child: heroPath != null
+                  ? _buildMainPhotoBox(
+                      heroPath,
+                      width: availableWidth,
+                      height: mainPhotoHeight,
+                      radius: 0,
+                    )
+                  : _buildImagePlaceholder(
+                      height: mainPhotoHeight,
+                      width: availableWidth,
+                      radius: 0,
+                    ),
             ),
-            if (hasVariants) ...[
-              pw.SizedBox(width: 12),
-              // Right Side: Variant Thumbnails
-              pw.Wrap(
-                spacing: 8,
-                children: colorVariants.entries.take(3).map((entry) {
-                  return pw.Column(
-                    children: [
-                      _buildImageBox(
-                        entry.value,
-                        width: 48,
-                        height: 60,
-                        radius: 6,
+          pw.SizedBox(height: spacing),
+          // Bottom Content
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Left Side: Name, Sizes, Ref
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      product.name.toUpperCase(),
+                      maxLines: 2,
+                      style: pw.TextStyle(
+                        fontSize: 14,
+                        fontWeight: pw.FontWeight.bold,
+                        letterSpacing: 0.5,
+                        lineSpacing: 1.2,
+                        color: _colorTextPrimary,
                       ),
-                      pw.SizedBox(height: 4),
+                    ),
+                    pw.SizedBox(height: 12),
+                    pw.Row(
+                      crossAxisAlignment: pw.CrossAxisAlignment.center,
+                      children: [
+                        _buildSizePill(sizesText),
+                        pw.SizedBox(width: 15),
+                        pw.Text(
+                          'REF: ${product.reference}',
+                          style: pw.TextStyle(
+                            fontSize: 11,
+                            color: PdfColors.black,
+                            fontWeight: pw.FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (showPrice) ...[
+                      pw.SizedBox(height: 15),
                       pw.Text(
-                        entry.key.toUpperCase(),
+                        currencyFormat.format(displayPrice),
                         style: pw.TextStyle(
-                          fontSize: 7,
+                          fontSize: 22,
                           fontWeight: pw.FontWeight.bold,
-                          color: PdfColors.grey700,
+                          color: _colorPriceGreen,
                         ),
                       ),
                     ],
-                  );
-                }).toList(),
+                  ],
+                ),
               ),
+              if (bottomVariants.isNotEmpty) ...[
+                pw.SizedBox(width: 12),
+                // Right Side: Variant Thumbnails
+                _buildVariantThumbsLayout(bottomVariants),
+              ],
             ],
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -273,7 +314,44 @@ class CatalogPdfService {
       sizes.addAll(product.sizes.map((s) => s.toUpperCase()));
     }
     if (sizes.isEmpty) return 'ÚNICO';
-    return sizes.join('/');
+
+    final sorted = _sortSizes(sizes);
+    return sorted.join('/');
+  }
+
+  static List<String> _sortSizes(Iterable<String> sizes) {
+    const order = [
+      'RN',
+      'PP',
+      'P',
+      'M',
+      'G',
+      'GG',
+      'XG',
+      'G1',
+      'G2',
+      'G3',
+      'G4',
+    ];
+    final list = sizes.toList();
+    list.sort((a, b) {
+      final numA = double.tryParse(a.replaceAll(',', '.'));
+      final numB = double.tryParse(b.replaceAll(',', '.'));
+
+      if (numA != null && numB != null) return numA.compareTo(numB);
+      if (numA != null) return -1;
+      if (numB != null) return 1;
+
+      final idxA = order.indexOf(a.toUpperCase());
+      final idxB = order.indexOf(b.toUpperCase());
+
+      if (idxA != -1 && idxB != -1) return idxA.compareTo(idxB);
+      if (idxA != -1) return -1;
+      if (idxB != -1) return 1;
+
+      return a.compareTo(b);
+    });
+    return list;
   }
 
   static ProductPhoto? _selectPrimaryPhoto(List<ProductPhoto> photos) {
@@ -346,7 +424,7 @@ class CatalogPdfService {
 
   static pw.Widget _buildMainPhotoBox(
     String path, {
-    required double width,
+    double? width,
     required double height,
     double radius = 0,
   }) {
@@ -530,6 +608,97 @@ class CatalogPdfService {
           ),
         ),
       ),
+    );
+  }
+
+  /// Builds the variant thumb layout based on quantity rules
+  static pw.Widget _buildVariantThumbsLayout(
+    List<MapEntry<String, String>> variants,
+  ) {
+    final count = variants.length;
+
+    if (count == 2) {
+      // Caso 2: Duas fotos grandes ocupando o espaço lateral
+      return pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.end,
+        mainAxisSize: pw.MainAxisSize.min,
+        children: [
+          _buildSwatchThumb(variants[0].key, variants[0].value, width: 85),
+          pw.SizedBox(width: 10),
+          _buildSwatchThumb(variants[1].key, variants[1].value, width: 85),
+        ],
+      );
+    } else {
+      // Outros casos
+      final thumbWidth = (count >= 3) ? 42.0 : 85.0;
+      return pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.end,
+        mainAxisSize: pw.MainAxisSize.min,
+        children: variants.asMap().entries.map((entry) {
+          return pw.Padding(
+            padding: pw.EdgeInsets.only(left: entry.key == 0 ? 0 : 8),
+            child: _buildSwatchThumb(
+              entry.value.key,
+              entry.value.value,
+              width: thumbWidth,
+            ),
+          );
+        }).toList(),
+      );
+    }
+  }
+
+  /// Helper for a single variant swatch thumb
+  static pw.Widget _buildSwatchThumb(
+    String label,
+    String path, {
+    double? width,
+    bool small = false,
+    bool expand = false,
+  }) {
+    final thumbWidth = width ?? (small ? 42.0 : 56.0);
+    final thumbHeight = expand ? null : (thumbWidth * 1.3);
+
+    final imageContainer = pw.Container(
+      width: thumbWidth,
+      height: thumbHeight,
+      decoration: pw.BoxDecoration(
+        borderRadius: pw.BorderRadius.circular(10),
+        border: pw.Border.all(color: PdfColors.grey200, width: 0.5),
+      ),
+      child: pw.ClipRRect(
+        horizontalRadius: 10,
+        verticalRadius: 10,
+        child: _buildImageBox(
+          path,
+          height: thumbHeight ?? 200,
+          width: thumbWidth,
+          radius: 10,
+        ),
+      ),
+    );
+
+    return pw.Column(
+      mainAxisSize: expand ? pw.MainAxisSize.max : pw.MainAxisSize.min,
+      children: [
+        expand ? pw.Expanded(child: imageContainer) : imageContainer,
+        pw.SizedBox(height: 2),
+        pw.Container(
+          width: thumbWidth + 10,
+          child: pw.Text(
+            label.toUpperCase(),
+            style: pw.TextStyle(
+              fontSize: small ? 7 : 8,
+              letterSpacing: 0.5,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColors.grey800,
+            ),
+            textAlign: pw.TextAlign.center,
+            maxLines: 1,
+            overflow: pw.TextOverflow.clip,
+          ),
+        ),
+      ],
     );
   }
 

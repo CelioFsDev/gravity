@@ -158,7 +158,7 @@ class CatalogPdfService {
         ? collectionName.trim()
         : defaultSubtitle;
 
-    final fullWidth = pageFormat.width;
+    final availableWidth = pageFormat.width - 36;
     final availableHeight = pageFormat.height - 36;
 
     // Proporções para garantir que a foto principal domine a parte superior
@@ -169,16 +169,23 @@ class CatalogPdfService {
         availableHeight - topHeaderHeight - bottomContentHeight - spacing;
 
     final variantEntries = colorVariants.entries.toList();
+    final hasSpecial4Layout = variantEntries.length == 4;
+    final topVariants = hasSpecial4Layout
+        ? variantEntries.sublist(0, 2)
+        : <MapEntry<String, String>>[];
+    final bottomVariants = hasSpecial4Layout
+        ? variantEntries.sublist(2)
+        : variantEntries;
 
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-      children: [
-        // 1. Top Header
-        pw.Padding(
-          padding: const pw.EdgeInsets.symmetric(horizontal: 18),
-          child: pw.Container(
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 18),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          // 1. Top Header
+          pw.Container(
             height: topHeaderHeight,
-            alignment: pw.Alignment.center,
+            alignment: pw.Alignment.centerLeft,
             child: pw.Text(
               topHeaderText.toUpperCase(),
               style: pw.TextStyle(
@@ -189,29 +196,75 @@ class CatalogPdfService {
               ),
             ),
           ),
-        ),
-        // 2. Main Photo (FULL-WIDTH)
-        pw.Container(
-          height: mainPhotoHeight,
-          width: fullWidth,
-          child: heroPath != null
-              ? _buildMainPhotoBox(
-                  heroPath,
-                  width: fullWidth,
-                  height: mainPhotoHeight,
-                  radius: 0,
-                )
-              : _buildImagePlaceholder(
-                  height: mainPhotoHeight,
-                  width: fullWidth,
-                  radius: 0,
-                ),
-        ),
-        pw.SizedBox(height: spacing),
-        // 3. Bottom Content (Padding on text)
-        pw.Padding(
-          padding: const pw.EdgeInsets.symmetric(horizontal: 18),
-          child: pw.Container(
+          // 2. Main Photo Section
+          if (hasSpecial4Layout)
+            pw.Container(
+              height: mainPhotoHeight,
+              width: availableWidth,
+              child: pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: [
+                  pw.Expanded(
+                    child: heroPath != null
+                        ? _buildMainPhotoBox(
+                            heroPath,
+                            height: mainPhotoHeight,
+                            radius: 0,
+                          )
+                        : _buildImagePlaceholder(
+                            height: mainPhotoHeight,
+                            width: availableWidth,
+                            radius: 0,
+                          ),
+                  ),
+                  pw.SizedBox(width: 10),
+                  pw.Container(
+                    width: 85, // Enforced width for side thumbs
+                    child: pw.Column(
+                      mainAxisAlignment: pw.MainAxisAlignment.center,
+                      children: topVariants
+                          .map(
+                            (v) => pw.Expanded(
+                              child: pw.Padding(
+                                padding: const pw.EdgeInsets.symmetric(
+                                  vertical: 4,
+                                ),
+                                child: _buildSwatchThumb(
+                                  v.key,
+                                  v.value,
+                                  width: 85,
+                                  expand: true,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            // Original Main Photo
+            pw.Container(
+              height: mainPhotoHeight,
+              width: availableWidth,
+              child: heroPath != null
+                  ? _buildMainPhotoBox(
+                      heroPath,
+                      width: availableWidth,
+                      height: mainPhotoHeight,
+                      radius: 0,
+                    )
+                  : _buildImagePlaceholder(
+                      height: mainPhotoHeight,
+                      width: availableWidth,
+                      radius: 0,
+                    ),
+            ),
+          pw.SizedBox(height: spacing),
+          // 3. Bottom Content
+          pw.Container(
             height: bottomContentHeight,
             child: pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -245,7 +298,9 @@ class CatalogPdfService {
                         ),
                       ),
                       if (showPrice) ...[
-                        pw.Spacer(), // Empurra o preço para a base do bloco
+                        pw.SizedBox(
+                          height: 15,
+                        ), // Empurra o preço para a base do bloco
                         pw.Text(
                           currencyFormat.format(displayPrice),
                           style: pw.TextStyle(
@@ -259,19 +314,19 @@ class CatalogPdfService {
                   ),
                 ),
                 // Coluna da Direita: BLOCO THUMBS (Ocupa o espaço restante)
-                if (variantEntries.isNotEmpty)
+                if (bottomVariants.isNotEmpty)
                   pw.Expanded(
                     flex: 6, // Maior flex para fotos grandes
                     child: pw.Container(
                       alignment: pw.Alignment.topRight,
-                      child: _buildVariantThumbsLayout(variantEntries),
+                      child: _buildVariantThumbsLayout(bottomVariants),
                     ),
                   ),
               ],
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -345,30 +400,34 @@ class CatalogPdfService {
     String path, {
     double? width,
     bool small = false,
+    bool expand = false,
   }) {
     final thumbWidth = width ?? (small ? 42.0 : 56.0);
-    final thumbHeight = thumbWidth * 1.3;
-    return pw.Column(
-      mainAxisSize: pw.MainAxisSize.min,
-      children: [
-        pw.Container(
+    final thumbHeight = expand ? null : (thumbWidth * 1.3);
+
+    final imageContainer = pw.Container(
+      width: thumbWidth,
+      height: thumbHeight,
+      decoration: pw.BoxDecoration(
+        borderRadius: pw.BorderRadius.circular(10),
+        border: pw.Border.all(color: PdfColors.grey200, width: 0.5),
+      ),
+      child: pw.ClipRRect(
+        horizontalRadius: 10,
+        verticalRadius: 10,
+        child: _buildImageBox(
+          path,
+          height: thumbHeight ?? 200, // Large fallback for fit
           width: thumbWidth,
-          height: thumbHeight,
-          decoration: pw.BoxDecoration(
-            borderRadius: pw.BorderRadius.circular(10),
-            border: pw.Border.all(color: PdfColors.grey200, width: 0.5),
-          ),
-          child: pw.ClipRRect(
-            horizontalRadius: 10,
-            verticalRadius: 10,
-            child: _buildImageBox(
-              path,
-              height: thumbHeight,
-              width: thumbWidth,
-              radius: 10,
-            ),
-          ),
+          radius: 10,
         ),
+      ),
+    );
+
+    return pw.Column(
+      mainAxisSize: expand ? pw.MainAxisSize.max : pw.MainAxisSize.min,
+      children: [
+        expand ? pw.Expanded(child: imageContainer) : imageContainer,
         pw.SizedBox(height: 2),
         pw.Container(
           width: thumbWidth + 10,
@@ -404,7 +463,44 @@ class CatalogPdfService {
       sizes.addAll(product.sizes.map((s) => s.toUpperCase()));
     }
     if (sizes.isEmpty) return 'ÚNICO';
-    return sizes.join('/');
+
+    final sorted = _sortSizes(sizes);
+    return sorted.join('/');
+  }
+
+  static List<String> _sortSizes(Iterable<String> sizes) {
+    const order = [
+      'RN',
+      'PP',
+      'P',
+      'M',
+      'G',
+      'GG',
+      'XG',
+      'G1',
+      'G2',
+      'G3',
+      'G4',
+    ];
+    final list = sizes.toList();
+    list.sort((a, b) {
+      final numA = double.tryParse(a.replaceAll(',', '.'));
+      final numB = double.tryParse(b.replaceAll(',', '.'));
+
+      if (numA != null && numB != null) return numA.compareTo(numB);
+      if (numA != null) return -1;
+      if (numB != null) return 1;
+
+      final idxA = order.indexOf(a.toUpperCase());
+      final idxB = order.indexOf(b.toUpperCase());
+
+      if (idxA != -1 && idxB != -1) return idxA.compareTo(idxB);
+      if (idxA != -1) return -1;
+      if (idxB != -1) return 1;
+
+      return a.compareTo(b);
+    });
+    return list;
   }
 
   static ProductPhoto? _selectPrimaryPhoto(List<ProductPhoto> photos) {
@@ -435,7 +531,7 @@ class CatalogPdfService {
           return pw.Container(
             height: height,
             width: width,
-            alignment: pw.Alignment.center,
+            alignment: pw.Alignment.centerLeft,
             decoration: pw.BoxDecoration(
               color: _colorImageBg,
               borderRadius: pw.BorderRadius.circular(radius),
@@ -477,7 +573,7 @@ class CatalogPdfService {
 
   static pw.Widget _buildMainPhotoBox(
     String path, {
-    required double width,
+    double? width,
     required double height,
     double radius = 0,
   }) {

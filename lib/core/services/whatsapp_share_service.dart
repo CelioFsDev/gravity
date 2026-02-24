@@ -9,9 +9,11 @@ class WhatsAppShareService {
     required String catalogUrl,
     required CatalogMode mode,
   }) async {
-    final label = mode == CatalogMode.atacado ? '??? *ATACADO*' : '? *VAREJO*';
+    final label = mode == CatalogMode.atacado
+        ? '\ud83d\udce6 *ATACADO*'
+        : '\ud83c\udff7\ufe0f *VAREJO*';
     final text =
-        'Ol\u00e1! ??\n\nConfira nosso cat\u00e1logo digital: *${catalogName.toUpperCase()}*\n\n$label\n?? Clique para ver os produtos: $catalogUrl\n\nAguardamos seu pedido! ??';
+        'Ol\u00e1! \ud83d\udc4b\n\nConfira nosso cat\u00e1logo digital: *${catalogName.toUpperCase()}*\n\n$label\n\ud83d\udcf1 Clique para ver os produtos: $catalogUrl\n\nAguardamos seu pedido! \ud83d\ude42';
     await _launchWhatsApp(text: text);
   }
 
