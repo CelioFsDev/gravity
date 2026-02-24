@@ -1,16 +1,16 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gravity/core/services/export_import_service.dart';
-import 'package:gravity/core/services/whatsapp_share_service.dart';
-import 'package:gravity/data/repositories/categories_repository.dart';
-import 'package:gravity/data/repositories/products_repository.dart';
-import 'package:gravity/models/category.dart';
-import 'package:gravity/models/product.dart';
+import 'package:catalogo_ja/core/services/export_import_service.dart';
+import 'package:catalogo_ja/core/services/whatsapp_share_service.dart';
+import 'package:catalogo_ja/data/repositories/categories_repository.dart';
+import 'package:catalogo_ja/data/repositories/products_repository.dart';
+import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/models/product.dart';
 import 'package:csv/csv.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
@@ -43,11 +43,11 @@ class ProductTransferService {
         () => _buildZipBytes(products, categories),
       );
       final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-      final fileName = 'gravity_produtos_$timestamp.zip';
+      final fileName = 'CatalogoJa_produtos_$timestamp.zip';
       await WhatsAppShareService.shareFile(
         bytes: bytes,
         fileName: fileName,
-        text: 'Exportação de produtos',
+        text: 'Exporta\u00e7\u00e3o de produtos',
         mimeType: 'application/zip',
       );
     } catch (e) {
@@ -59,7 +59,7 @@ class ProductTransferService {
     }
   }
 
-  static Future<void> shareGravityBackup(
+  static Future<void> shareCatalogoJaBackup(
     BuildContext context,
     WidgetRef ref,
   ) async {
@@ -71,13 +71,13 @@ class ProductTransferService {
       );
 
       final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-      final fileName = 'gravity_backup_$timestamp.json';
+      final fileName = 'CatalogoJa_backup_$timestamp.json';
       final bytes = await file.readAsBytes();
 
       await WhatsAppShareService.shareFile(
         bytes: bytes,
         fileName: fileName,
-        text: 'Backup Gravity',
+        text: 'Backup CatalogoJa',
         mimeType: 'application/json',
       );
     } catch (e) {
@@ -91,7 +91,7 @@ class ProductTransferService {
 
   static Future<void> saveTemplateCsv(BuildContext context) async {
     try {
-      final csv = const ListToCsvConverter().convert([_csvHeader]);
+      final csv = const CsvEncoder().convert([_csvHeader]);
       final dir =
           await getDownloadsDirectory() ??
           await getApplicationDocumentsDirectory();
@@ -166,7 +166,7 @@ class ProductTransferService {
       ]);
     }
 
-    final csv = const ListToCsvConverter().convert(rows);
+    final csv = const CsvEncoder().convert(rows);
     final csvBytes = utf8.encode(csv);
     archive.addFile(ArchiveFile(_csvFileName, csvBytes.length, csvBytes));
 

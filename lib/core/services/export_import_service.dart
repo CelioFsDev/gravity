@@ -1,13 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:gravity/core/services/dto/gravity_export_dtos.dart';
-import 'package:gravity/data/repositories/contracts/categories_repository_contract.dart';
-import 'package:gravity/data/repositories/contracts/products_repository_contract.dart';
-import 'package:gravity/data/repositories/products_repository.dart';
-import 'package:gravity/data/repositories/categories_repository.dart';
-import 'package:gravity/data/repositories/settings_repository.dart';
-import 'package:gravity/models/category.dart';
+import 'package:catalogo_ja/core/services/dto/catalogo_ja_export_dtos.dart';
+import 'package:catalogo_ja/data/repositories/contracts/categories_repository_contract.dart';
+import 'package:catalogo_ja/data/repositories/contracts/products_repository_contract.dart';
+import 'package:catalogo_ja/data/repositories/products_repository.dart';
+import 'package:catalogo_ja/data/repositories/categories_repository.dart';
+import 'package:catalogo_ja/data/repositories/settings_repository.dart';
+import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/core/utils/encoding_utils.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -66,7 +68,7 @@ class ExportImportService {
     this._settingsRepo,
   );
 
-  /// Generates the gravity_export.json file and returns it.
+  /// Generates the CatalogoJa_export.json file and returns it.
   Future<File> exportToJsonFile() async {
     final products = await _productsRepo.getProducts();
     final allCategories = await _categoriesRepo.getCategories();
@@ -85,8 +87,8 @@ class ExportImportService {
 
     final productDTOs = products.map((p) => ProductDTO.fromModel(p)).toList();
 
-    final payload = GravityExportPayload(
-      app: 'gravity',
+    final payload = CatalogoJaExportPayload(
+      app: 'CatalogoJa',
       version: 1,
       exportedAt: DateTime.now().toIso8601String(),
       store: StoreInfoDTO(
@@ -101,30 +103,61 @@ class ExportImportService {
     final jsonString = jsonEncode(payload.toJson());
 
     final directory = await getApplicationDocumentsDirectory();
-    final file = File('${directory.path}/gravity_export.json');
+    final file = File('${directory.path}/CatalogoJa_export.json');
     await file.writeAsString(jsonString);
 
     return file;
   }
 
   /// Parses the JSON content of a file into a payload.
-  Future<GravityExportPayload> parsePayload(File file) async {
+  Future<CatalogoJaExportPayload> parsePayload(File file) async {
     try {
-      final jsonString = await file.readAsString();
-      final map = jsonDecode(jsonString) as Map<String, dynamic>;
-
-      if (map['app'] != 'gravity') {
-        throw Exception('Arquivo inválido ou de outro aplicativo.');
+      if (!await file.exists()) {
+        throw Exception('Arquivo n\u00e3o encontrado no caminho especificado.');
       }
 
-      return GravityExportPayload.fromJson(map);
+      final bytes = await file.readAsBytes();
+      String jsonString;
+      try {
+        jsonString = utf8.decode(bytes);
+        if (jsonString.startsWith('\uFEFF')) {
+          jsonString = jsonString.substring(1);
+        }
+      } catch (_) {
+        // Fallback to Latin1 if UTF-8 fails
+        jsonString = latin1.decode(bytes);
+      }
+
+      // Safety net: fix possible garbled characters if file was decoded with wrong charset
+      jsonString = EncodingUtils.fixGarbledString(jsonString);
+
+      final map = jsonDecode(jsonString) as Map<String, dynamic>;
+
+      final appIdentifier = map['app']?.toString() ?? '';
+      final validIdentifiers = {'catalogoja', 'gravity', 'catalogo_ja'};
+
+      if (!validIdentifiers.contains(
+        appIdentifier.toLowerCase().replaceAll(' ', '').replaceAll('_', ''),
+      )) {
+        debugPrint('App identifier mismatch: $appIdentifier');
+        throw Exception(
+          'Este arquivo n\u00e3o parece ser um backup v\u00e1lido do CatalogoJa ou Gravity (ID: $appIdentifier).',
+        );
+      }
+
+      return CatalogoJaExportPayload.fromJson(map);
     } catch (e) {
-      throw Exception('Erro ao ler arquivo de exportação: $e');
+      if (e is FormatException) {
+        throw Exception(
+          'O arquivo n\u00e3o parece ser um JSON v\u00e1lido ou est\u00e1 corrompido.',
+        );
+      }
+      throw Exception('Erro ao ler arquivo de exporta\u00e7\u00e3o: $e');
     }
   }
 
   /// Previews what will happen during import.
-  Future<ImportPreview> previewImport(GravityExportPayload payload) async {
+  Future<ImportPreview> previewImport(CatalogoJaExportPayload payload) async {
     final existingProducts = await _productsRepo.getProducts();
     final existingRefs = existingProducts
         .map((p) => p.ref.toLowerCase().trim())
@@ -156,7 +189,7 @@ class ExportImportService {
 
   /// Executes the import based on the selected mode.
   Future<ImportResult> executeImport(
-    GravityExportPayload payload,
+    CatalogoJaExportPayload payload,
     ImportMode mode,
   ) async {
     int success = 0;

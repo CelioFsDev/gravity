@@ -1,9 +1,9 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gravity/models/product.dart';
-import 'package:gravity/models/category.dart';
-import 'package:gravity/viewmodels/products_viewmodel.dart';
+import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
 import 'package:uuid/uuid.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
@@ -11,14 +11,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/services.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
-import 'package:gravity/ui/widgets/app_scaffold.dart';
-import 'package:gravity/ui/widgets/section_card.dart';
-import 'package:gravity/ui/widgets/app_primary_button.dart';
-import 'package:gravity/features/admin/categories/widgets/category_create_modal.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
+import 'package:catalogo_ja/ui/widgets/section_card.dart';
+import 'package:catalogo_ja/ui/widgets/app_primary_button.dart';
+import 'package:catalogo_ja/features/admin/categories/widgets/category_create_modal.dart';
 import 'package:go_router/go_router.dart';
-import 'package:gravity/core/services/ai_description_service.dart';
-import 'package:gravity/data/repositories/settings_repository.dart';
 
 class ProductFormScreen extends ConsumerStatefulWidget {
   final Product? product; // null for Create, non-null for Edit
@@ -142,9 +140,11 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedCollectionId == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('A coleção é obrigatória')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('A cole\u00e7\u00e3o \u00e9 obrigat\u00f3ria'),
+        ),
+      );
       return;
     }
 
@@ -395,7 +395,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Arquivo "${file.name}" ignorado (não é imagem).'),
+            content: Text(
+              'Arquivo "${file.name}" ignorado (n\u00e3o \u00e9 imagem).',
+            ),
           ),
         );
       }
@@ -536,7 +538,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Atenção: O salvamento de fotos não é suportado no Navegador. Use a versão Windows Desktop.',
+              'Aten\u00e7\u00e3o: O salvamento de fotos n\u00e3o \u00e9 suportado no Navegador. Use a vers\u00e3o Windows Desktop.',
             ),
           ),
         );
@@ -584,7 +586,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       title: widget.product == null ? 'Novo Produto' : 'Editar Produto',
       subtitle: widget.product == null
           ? 'Preencha os dados do novo item'
-          : 'Atualize as informações do produto',
+          : 'Atualize as informa\u00e7\u00f5es do produto',
       body: Form(
         key: _formKey,
         child: Column(
@@ -597,13 +599,14 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                 children: [
                   const SizedBox(height: AppTokens.space24),
                   SectionCard(
-                    title: 'Informações Básicas',
+                    title: 'Informa\u00e7\u00f5es B\u00e1sicas',
                     child: Column(
                       children: [
                         _buildTextField(
                           _nameController,
                           'Nome do Produto',
-                          validator: (v) => v!.isEmpty ? 'Obrigatório' : null,
+                          validator: (v) =>
+                              v!.isEmpty ? 'Obrigat\u00f3rio' : null,
                         ),
                         const SizedBox(height: AppTokens.space16),
                         Row(
@@ -611,10 +614,10 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                             Expanded(
                               child: _buildTextField(
                                 _refController,
-                                'REF (Código)',
+                                'REF (C\u00f3digo)',
                                 validator: (v) {
                                   if (v == null || v.isEmpty) {
-                                    return 'Obrigatório';
+                                    return 'Obrigat\u00f3rio';
                                   }
                                   final state = ref
                                       .read(productsViewModelProvider)
@@ -626,7 +629,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                                               v.toUpperCase() &&
                                           p.id != widget.product?.id,
                                     );
-                                    if (exists) return 'Indisponível';
+                                    if (exists) return 'Indispon\u00edvel';
                                   }
                                   return null;
                                 },
@@ -644,7 +647,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   ),
                   const SizedBox(height: AppTokens.space24),
                   SectionCard(
-                    title: 'Organização',
+                    title: 'Organiza\u00e7\u00e3o',
                     child: _buildOrganizationSection(
                       context,
                       collections,
@@ -653,7 +656,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   ),
                   const SizedBox(height: AppTokens.space24),
                   SectionCard(
-                    title: 'Preços e Estoque',
+                    title: 'Pre\u00e7os e Estoque',
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -662,7 +665,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                             Expanded(
                               child: _buildTextField(
                                 _retailController,
-                                'Preço Varejo',
+                                'Pre\u00e7o Varejo',
                                 isPrice: true,
                               ),
                             ),
@@ -670,7 +673,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                             Expanded(
                               child: _buildTextField(
                                 _wholesaleController,
-                                'Preço Atacado',
+                                'Pre\u00e7o Atacado',
                                 isPrice: true,
                               ),
                             ),
@@ -679,12 +682,12 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                         const SizedBox(height: AppTokens.space16),
                         _buildTextField(
                           _minQtyController,
-                          'Quantidade Mínima para Atacado',
+                          'Quantidade M\u00ednima para Atacado',
                           isNumber: true,
                         ),
                         const SizedBox(height: AppTokens.space12),
                         Text(
-                          'O preço atacado será aplicado automaticamente no carrinho para quantidades maiores que o mínimo.',
+                          'O pre\u00e7o atacado ser\u00e1 aplicado automaticamente no carrinho para quantidades maiores que o m\u00ednimo.',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
@@ -692,7 +695,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   ),
                   const SizedBox(height: AppTokens.space24),
                   SectionCard(
-                    title: 'Variações (Opcional)',
+                    title: 'Varia\u00e7\u00f5es (Opcional)',
                     child: Column(
                       children: [
                         _buildTextField(
@@ -710,35 +713,20 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   const SizedBox(height: AppTokens.space24),
                   const SizedBox(height: AppTokens.space24),
                   SectionCard(
-                    title: 'Descrição do Produto',
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _buildTextField(
-                          _descriptionController,
-                          'Descrição Detalhada',
-                          maxLines: 5,
-                        ),
-                        const SizedBox(height: 12),
-                        OutlinedButton.icon(
-                          onPressed: _generateAiDescription,
-                          icon: const Icon(Icons.auto_awesome),
-                          label: const Text('Gerar Descrição com IA'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.purple,
-                            side: const BorderSide(color: Colors.purple),
-                          ),
-                        ),
-                      ],
+                    title: 'Descri\u00e7\u00e3o do Produto',
+                    child: _buildTextField(
+                      _descriptionController,
+                      'Descri\u00e7\u00e3o Detalhada',
+                      maxLines: 5,
                     ),
                   ),
                   const SizedBox(height: AppTokens.space24),
                   SectionCard(
-                    title: 'Disponibilidade e Promoção',
+                    title: 'Disponibilidade e Promo\u00e7\u00e3o',
                     child: Column(
                       children: [
                         _buildSwitchTile(
-                          'Produto Ativo no Catálogo',
+                          'Produto Ativo no Cat\u00e1logo',
                           _isActive,
                           (v) => setState(() => _isActive = v),
                         ),
@@ -750,7 +738,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                         ),
                         const Divider(),
                         _buildSwitchTile(
-                          'Em Promoção',
+                          'Em Promo\u00e7\u00e3o',
                           _isOnSale,
                           (v) => setState(() => _isOnSale = v),
                         ),
@@ -806,63 +794,14 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       child: SafeArea(
         top: false,
         child: AppPrimaryButton(
-          label: widget.product == null ? 'Criar Produto' : 'Salvar Alterações',
+          label: widget.product == null
+              ? 'Criar Produto'
+              : 'Salvar Altera\u00e7\u00f5es',
           onPressed: _save,
           icon: Icons.check_circle_outline,
         ),
       ),
     );
-  }
-
-  Future<void> _generateAiDescription() async {
-    final name = _nameController.text;
-    if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Informe o nome do produto primeiro')),
-      );
-      return;
-    }
-
-    final category = _selectedCollectionId != null
-        ? ref
-                  .read(productsViewModelProvider)
-                  .value
-                  ?.categories
-                  .firstWhere((c) => c.id == _selectedCollectionId)
-                  .name ??
-              ''
-        : '';
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-
-    try {
-      final desc = await ref
-          .read(aiDescriptionServiceProvider.notifier)
-          .generateDescription(
-            productName: name,
-            category: category,
-            details:
-                'Cores: ${_colorsController.text}, Tamanhos: ${_sizesController.text}',
-          );
-
-      if (mounted) {
-        Navigator.pop(context); // Close loading
-        if (desc != null) {
-          setState(() => _descriptionController.text = desc);
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        Navigator.pop(context); // Close loading
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Erro IA: $e')));
-      }
-    }
   }
 
   Widget _buildImagesSection() {
@@ -1185,7 +1124,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Preço Promocional: ${f.format(value)}',
+              'Pre\u00e7o Promocional: ${f.format(value)}',
               style: const TextStyle(
                 color: AppTokens.accentOrange,
                 fontWeight: FontWeight.bold,
@@ -1213,7 +1152,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
               child: DropdownButtonFormField<String>(
                 initialValue: _selectedCollectionId,
                 decoration: const InputDecoration(
-                  labelText: 'Coleção (Obrigatório)',
+                  labelText: 'Cole\u00e7\u00e3o (Obrigat\u00f3rio)',
                   filled: true,
                 ),
                 items: collections
@@ -1241,7 +1180,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                 }
               },
               icon: const Icon(Icons.add),
-              tooltip: 'Nova Coleção',
+              tooltip: 'Nova Cole\u00e7\u00e3o',
             ),
           ],
         ),
@@ -1276,7 +1215,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
             child: Text(
-              'Nenhuma categoria disponível.',
+              'Nenhuma categoria dispon\u00edvel.',
               style: TextStyle(color: Colors.grey),
             ),
           ),

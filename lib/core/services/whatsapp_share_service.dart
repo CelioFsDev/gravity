@@ -1,6 +1,6 @@
-﻿import 'dart:typed_data';
+import 'dart:typed_data';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:gravity/models/catalog.dart';
+import 'package:catalogo_ja/models/catalog.dart';
 import 'package:share_plus/share_plus.dart';
 
 class WhatsAppShareService {
@@ -9,9 +9,9 @@ class WhatsAppShareService {
     required String catalogUrl,
     required CatalogMode mode,
   }) async {
-    final label = mode == CatalogMode.atacado ? '🛍️ *ATACADO*' : '✨ *VAREJO*';
+    final label = mode == CatalogMode.atacado ? '??? *ATACADO*' : '? *VAREJO*';
     final text =
-        'Olá! 👋\n\nConfira nosso catálogo digital: *${catalogName.toUpperCase()}*\n\n$label\n🔗 Clique para ver os produtos: $catalogUrl\n\nAguardamos seu pedido! 🚀';
+        'Ol\u00e1! ??\n\nConfira nosso cat\u00e1logo digital: *${catalogName.toUpperCase()}*\n\n$label\n?? Clique para ver os produtos: $catalogUrl\n\nAguardamos seu pedido! ??';
     await _launchWhatsApp(text: text);
   }
 

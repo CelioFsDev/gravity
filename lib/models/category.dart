@@ -1,5 +1,5 @@
 import 'package:hive/hive.dart';
-import 'package:gravity/models/category_type.dart';
+import 'package:catalogo_ja/models/category_type.dart';
 
 export 'category_type.dart';
 
@@ -148,11 +148,11 @@ class Category {
   }) : name = name,
        slug = slug;
 
-  /// Retorna o nome ou um valor padrão se for nulo/vazio
+  /// Retorna o nome ou um valor padr\u00e3o se for nulo/vazio
   String get safeName =>
       (name == null || name!.trim().isEmpty) ? 'Sem nome' : name!;
 
-  /// Retorna o slug ou um valor padrão se for nulo/vazio
+  /// Retorna o slug ou um valor padr\u00e3o se for nulo/vazio
   String get safeSlug =>
       (slug == null || slug!.trim().isEmpty) ? 'sem-slug' : slug!;
 

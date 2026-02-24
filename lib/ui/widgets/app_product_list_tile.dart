@@ -1,10 +1,10 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:gravity/models/product.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
-import 'package:gravity/ui/widgets/app_card.dart';
-import 'package:gravity/ui/widgets/app_badge_pill.dart';
+import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/widgets/app_card.dart';
+import 'package:catalogo_ja/ui/widgets/app_badge_pill.dart';
 import 'package:intl/intl.dart';
 
 class AppProductListTile extends StatelessWidget {
@@ -125,7 +125,7 @@ class AppProductListTile extends StatelessWidget {
             ),
           ),
 
-          if (trailing != null) trailing!,
+          ?trailing,
           if (trailing == null && (onEdit != null || onDelete != null))
             _buildAdminMenu(context),
           if (trailing == null && onEdit == null && onDelete == null)

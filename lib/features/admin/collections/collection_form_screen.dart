@@ -3,13 +3,13 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:gravity/models/category.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
-import 'package:gravity/ui/widgets/app_primary_button.dart';
-import 'package:gravity/ui/widgets/app_scaffold.dart';
-import 'package:gravity/ui/widgets/section_card.dart';
-import 'package:gravity/viewmodels/categories_viewmodel.dart';
-import 'package:gravity/core/services/image_optimizer_service.dart';
+import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/widgets/app_primary_button.dart';
+import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
+import 'package:catalogo_ja/ui/widgets/section_card.dart';
+import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
+import 'package:catalogo_ja/core/services/image_optimizer_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
@@ -132,7 +132,7 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
     if (!_formKey.currentState!.validate()) return;
     if (_coverMiniPath == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('A mini capa é obrigatória.')),
+        const SnackBar(content: Text('A mini capa \u00e9 obrigat\u00f3ria.')),
       );
       return;
     }
@@ -188,8 +188,8 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      title: _isEdit ? 'Editar Coleção' : 'Nova Coleção',
-      subtitle: 'Crie a coleção e defina as capas do catálogo',
+      title: _isEdit ? 'Editar Cole\u00e7\u00e3o' : 'Nova Cole\u00e7\u00e3o',
+      subtitle: 'Crie a cole\u00e7\u00e3o e defina as capas do cat\u00e1logo',
       body: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -198,40 +198,40 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
             children: [
               const SizedBox(height: AppTokens.space24),
 
-              // Seção A - Dados da Coleção
+              // Se\u00e7\u00e3o A - Dados da Cole\u00e7\u00e3o
               SectionCard(
-                title: 'Dados da Coleção',
+                title: 'Dados da Cole\u00e7\u00e3o',
                 child: Column(
                   children: [
                     TextFormField(
                       controller: _nameController,
                       decoration: const InputDecoration(
-                        labelText: 'Nome da Coleção',
-                        hintText: 'Ex: Verão 2026',
+                        labelText: 'Nome da Cole\u00e7\u00e3o',
+                        hintText: 'Ex: Ver\u00e3o 2026',
                         filled: true,
                       ),
                       validator: (v) =>
-                          v == null || v.trim().isEmpty ? 'Obrigatório' : null,
+                          v == null || v.trim().isEmpty ? 'Obrigat\u00f3rio' : null,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _slugController,
                       decoration: const InputDecoration(
-                        labelText: 'Slug (URL amigável)',
+                        labelText: 'Slug (URL amig\u00e1vel)',
                         hintText: 'ex: verao-2026',
                         filled: true,
-                        helperText: 'Identificador único na URL',
+                        helperText: 'Identificador \u00fanico na URL',
                       ),
                       onChanged: (_) => _slugTouched = true,
                       validator: (v) =>
-                          v == null || v.trim().isEmpty ? 'Obrigatório' : null,
+                          v == null || v.trim().isEmpty ? 'Obrigat\u00f3rio' : null,
                     ),
                     const SizedBox(height: 16),
                     SwitchListTile.adaptive(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Coleção Ativa'),
+                      title: const Text('Cole\u00e7\u00e3o Ativa'),
                       subtitle: const Text(
-                        'Exibir esta coleção no catálogo e permitir vendas',
+                        'Exibir esta cole\u00e7\u00e3o no cat\u00e1logo e permitir vendas',
                       ),
                       value: _isActive,
                       activeColor: AppTokens.accentBlue,
@@ -243,16 +243,16 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
 
               const SizedBox(height: AppTokens.space24),
 
-              // Seção C - Capas da Coleção
+              // Se\u00e7\u00e3o C - Capas da Cole\u00e7\u00e3o
               SectionCard(
-                title: 'Capas da Coleção',
+                title: 'Capas da Cole\u00e7\u00e3o',
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildCoverSection(
                       title: 'Mini Capa',
                       subtitle:
-                          'Obrigatória. Usada no topo do catálogo (1365×420).',
+                          'Obrigat\u00f3ria. Usada no topo do cat\u00e1logo (1365\u00c3—420).',
                       path: _coverMiniPath,
                       onPick: () => _pickImage(true),
                       onRemove: () => setState(() => _coverMiniPath = null),
@@ -263,7 +263,7 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
                     _buildCoverSection(
                       title: 'Imagem Editorial',
                       subtitle:
-                          'Opcional. Preenche o restante da página de abertura.',
+                          'Opcional. Preenche o restante da p\u00e1gina de abertura.',
                       path: _coverPagePath,
                       onPick: () => _pickImage(false),
                       onRemove: () => setState(() => _coverPagePath = null),
@@ -306,7 +306,7 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
               const SizedBox(width: 16),
               Expanded(
                 child: AppPrimaryButton(
-                  label: 'Salvar Coleção',
+                  label: 'Salvar Cole\u00e7\u00e3o',
                   onPressed: _save,
                 ),
               ),

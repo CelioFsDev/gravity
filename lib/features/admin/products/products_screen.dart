@@ -1,22 +1,22 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gravity/models/category.dart';
-import 'package:gravity/models/product.dart';
-import 'package:gravity/viewmodels/products_viewmodel.dart';
-import 'package:gravity/features/admin/products/product_form_screen.dart';
-import 'package:gravity/features/admin/products/product_detail_screen.dart';
-import 'package:gravity/core/services/product_transfer_service.dart';
-import 'package:gravity/features/admin/import/gravity_import_screen.dart';
-import 'package:gravity/features/admin/import/nuvemshop_import_screen.dart';
-import 'package:gravity/viewmodels/product_export_viewmodel.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
-import 'package:gravity/viewmodels/product_import_viewmodel.dart';
-import 'package:gravity/features/admin/products/product_bulk_edit_screen.dart';
-import 'package:gravity/ui/widgets/app_scaffold.dart';
-import 'package:gravity/ui/widgets/app_kpi_card.dart';
-import 'package:gravity/ui/widgets/app_search_field.dart';
-import 'package:gravity/ui/widgets/app_empty_state.dart';
-import 'package:gravity/ui/widgets/app_product_list_tile.dart';
+import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
+import 'package:catalogo_ja/features/admin/products/product_form_screen.dart';
+import 'package:catalogo_ja/features/admin/products/product_detail_screen.dart';
+import 'package:catalogo_ja/core/services/product_transfer_service.dart';
+import 'package:catalogo_ja/features/admin/import/catalogo_ja_import_screen.dart';
+import 'package:catalogo_ja/features/admin/import/nuvemshop_import_screen.dart';
+import 'package:catalogo_ja/viewmodels/product_export_viewmodel.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/viewmodels/product_import_viewmodel.dart';
+import 'package:catalogo_ja/features/admin/products/product_bulk_edit_screen.dart';
+import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
+import 'package:catalogo_ja/ui/widgets/app_kpi_card.dart';
+import 'package:catalogo_ja/ui/widgets/app_search_field.dart';
+import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
+import 'package:catalogo_ja/ui/widgets/app_product_list_tile.dart';
 import 'package:uuid/uuid.dart';
 
 class ProductsScreen extends ConsumerStatefulWidget {
@@ -47,7 +47,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
     return AppScaffold(
       title: 'Produtos',
-      subtitle: 'Gerencie seu catálogo de produtos',
+      subtitle: 'Gerencie seu cat\u00e1logo de produtos',
       useAppBar: false,
       actions: [_buildMoreActions(context)],
       body: Column(
@@ -146,7 +146,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
           IconButton(
             icon: const Icon(Icons.close),
             onPressed: () => notifier.clearSelection(),
-            tooltip: 'Limpar seleção',
+            tooltip: 'Limpar sele\u00e7\u00e3o',
           ),
         ],
       ),
@@ -159,7 +159,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Excluir Selecionados'),
         content: const Text(
-          'Deseja realmente excluir todos os itens selecionados? Esta ação não pode ser desfeita.',
+          'Deseja realmente excluir todos os itens selecionados? Esta a\u00e7\u00e3o n\u00e3o pode ser desfeita.',
         ),
         actions: [
           TextButton(
@@ -272,7 +272,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
             children: [
               Icon(Icons.edit_note_outlined, size: 18),
               SizedBox(width: 8),
-              Text('Edição Rápida (Preços)'),
+              Text('Edi\u00e7\u00e3o R\u00e1pida (Pre\u00e7os)'),
             ],
           ),
         ),
@@ -282,7 +282,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
             children: [
               Icon(Icons.share_outlined, size: 18),
               SizedBox(width: 8),
-              Text('Exportar Catálogo'),
+              Text('Exportar Cat\u00e1logo'),
             ],
           ),
         ),
@@ -320,24 +320,24 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.cloud_download_outlined),
-              title: const Text('Importar Backup (Gravity)'),
+              title: const Text('Importar Backup (CatalogoJa)'),
               subtitle: const Text(
-                'Restaura produtos, categorias e coleções de um arquivo JSON.',
+                'Restaura produtos, categorias e cole\u00e7\u00f5es de um arquivo JSON.',
               ),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => const GravityImportScreen(),
+                    builder: (_) => const CatalogoJaImportScreen(),
                   ),
                 );
               },
             ),
             ListTile(
               leading: const Icon(Icons.add_a_photo_outlined),
-              title: const Text('Vincular Fotos p/ Referência'),
+              title: const Text('Vincular Fotos p/ Refer\u00eancia'),
               subtitle: const Text(
-                'Associa fotos automaticamente aos produtos puxando de uma pasta pela Referência.',
+                'Associa fotos automaticamente aos produtos puxando de uma pasta pela Refer\u00eancia.',
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -364,7 +364,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text(
-                                'Vinculação concluída com sucesso!',
+                                'Vincula\u00e7\u00e3o conclu\u00edda com sucesso!',
                               ),
                             ),
                           );
@@ -397,7 +397,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text(
-                              'Sincronização concluída com sucesso!',
+                              'Sincroniza\u00e7\u00e3o conclu\u00edda com sucesso!',
                             ),
                           ),
                         );
@@ -443,7 +443,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               leading: const Icon(Icons.archive_outlined),
               title: const Text('Backup Completo (com Fotos)'),
               subtitle: const Text(
-                'Gera um arquivo .zip com todos os dados e imagens para migração.',
+                'Gera um arquivo .zip com todos os dados e imagens para migra\u00e7\u00e3o.',
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -473,13 +473,13 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               subtitle: const Text('Arquivo JSON leve sem imagens.'),
               onTap: () {
                 Navigator.pop(context);
-                ProductTransferService.shareGravityBackup(context, ref);
+                ProductTransferService.shareCatalogoJaBackup(context, ref);
               },
             ),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.file_present_outlined),
-              title: const Text('Planilha para Edição (CSV)'),
+              title: const Text('Planilha para Edi\u00e7\u00e3o (CSV)'),
               subtitle: const Text(
                 'Exporta produtos e fotos em formato CSV/ZIP.',
               ),
@@ -560,7 +560,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                       )
                     else
                       const Text(
-                        'Nenhuma foto correspondeu às referências dos produtos selecionados.',
+                        'Nenhuma foto correspondeu \u00e0s refer\u00eancias dos produtos selecionados.',
                         style: TextStyle(fontSize: 12),
                         textAlign: TextAlign.center,
                       ),
@@ -648,7 +648,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   void _duplicateProduct(Product product) {
     final copy = product.copyWith(
       id: const Uuid().v4(),
-      name: '${product.name} (Cópia)',
+      name: '${product.name} (C\u00f3pia)',
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
@@ -804,7 +804,7 @@ class _KpiSection extends StatelessWidget {
             );
           case 3:
             return AppKpiCard(
-              label: 'Promoções',
+              label: 'Promo\u00e7\u00f5es',
               value: state.onSaleCount.toString(),
               color: AppTokens.accentOrange,
               icon: Icons.percent_rounded,
@@ -909,7 +909,7 @@ class _SearchAndFiltersSection extends StatelessWidget {
       case ProductStatusFilter.noPhotos:
         return 'Sem Fotos';
       case ProductStatusFilter.zeroPrice:
-        return 'Preço Zero';
+        return 'Pre\u00e7o Zero';
       case ProductStatusFilter.createdToday:
         return 'Criados Hoje';
       case ProductStatusFilter.all:
@@ -922,9 +922,9 @@ class _SearchAndFiltersSection extends StatelessWidget {
       case ProductSort.recent:
         return 'Recentes';
       case ProductSort.priceAsc:
-        return 'Menor preço';
+        return 'Menor pre\u00e7o';
       case ProductSort.priceDesc:
-        return 'Maior preço';
+        return 'Maior pre\u00e7o';
       case ProductSort.aToZ:
         return 'A-Z';
     }
@@ -1137,7 +1137,7 @@ class _ProductsListSection extends StatelessWidget {
       return AppEmptyState(
         icon: Icons.inventory_2_outlined,
         title: 'Nenhum produto cadastrado',
-        message: 'Adicione seu primeiro produto para montar o catálogo.',
+        message: 'Adicione seu primeiro produto para montar o cat\u00e1logo.',
         actionLabel: 'Adicionar produto',
         onAction: onNewProduct,
       );

@@ -1,15 +1,15 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:gravity/models/catalog.dart';
-import 'package:gravity/models/product.dart';
-import 'package:gravity/viewmodels/catalog_public_viewmodel.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
-import 'package:gravity/ui/widgets/app_scaffold.dart';
-import 'package:gravity/ui/widgets/app_search_field.dart';
-import 'package:gravity/ui/widgets/app_product_card.dart';
-import 'package:gravity/ui/widgets/app_empty_state.dart';
-import 'package:gravity/models/category.dart';
+import 'package:catalogo_ja/models/catalog.dart';
+import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/viewmodels/catalog_public_viewmodel.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
+import 'package:catalogo_ja/ui/widgets/app_search_field.dart';
+import 'package:catalogo_ja/ui/widgets/app_product_card.dart';
+import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
+import 'package:catalogo_ja/models/category.dart';
 
 class CatalogHomePage extends ConsumerStatefulWidget {
   final String shareCode;
@@ -41,10 +41,10 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
       error: (e, s) => Scaffold(body: Center(child: Text('Erro: $e'))),
       data: (data) {
         if (data == null) {
-          return const Scaffold(body: Center(child: Text('Não encontrado')));
+          return const Scaffold(body: Center(child: Text('N\u00e3o encontrado')));
         }
         if (!data.catalog.active) {
-          return const Scaffold(body: Center(child: Text('Indisponível')));
+          return const Scaffold(body: Center(child: Text('Indispon\u00edvel')));
         }
 
         final filteredProducts = _getFilteredProducts(data.products);

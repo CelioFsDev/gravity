@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:666583578619:android:e2afaa7179b51c063ffd5e",
         "android_client_info": {
-          "package_name": "com.example.gravity"
+          "package_name": "com.catalogoja.app"
         }
       },
       "oauth_client": [
@@ -34,7 +34,7 @@
               "client_id": "666583578619-u9osto95a6qi7pu4iddeh456rorcpum1.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.example.gravity"
+                "bundle_id": "com.catalogoja.app"
               }
             }
           ]

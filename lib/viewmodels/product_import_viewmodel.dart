@@ -1,23 +1,23 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/services.dart';
-import 'package:gravity/core/auth/auth_controller.dart';
-import 'package:gravity/core/auth/auth_guards.dart';
-import 'package:gravity/data/repositories/contracts/categories_repository_contract.dart';
-import 'package:gravity/data/repositories/categories_repository.dart';
-import 'package:gravity/data/repositories/settings_repository.dart';
-import 'package:gravity/data/repositories/products_repository.dart';
-import 'package:gravity/core/services/image_optimizer_service.dart';
-import 'package:gravity/models/category.dart';
-import 'package:gravity/models/product.dart';
+import 'package:catalogo_ja/core/auth/auth_controller.dart';
+import 'package:catalogo_ja/core/auth/auth_guards.dart';
+import 'package:catalogo_ja/data/repositories/contracts/categories_repository_contract.dart';
+import 'package:catalogo_ja/data/repositories/categories_repository.dart';
+import 'package:catalogo_ja/data/repositories/settings_repository.dart';
+import 'package:catalogo_ja/data/repositories/products_repository.dart';
+import 'package:catalogo_ja/core/services/image_optimizer_service.dart';
+import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/models/product.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:csv/csv.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:archive/archive.dart';
-import 'package:gravity/core/services/gravity_package_service.dart';
-import 'package:gravity/core/services/image_cache_service.dart';
+import 'package:catalogo_ja/core/services/catalogo_ja_package_service.dart';
+import 'package:catalogo_ja/core/services/image_cache_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
@@ -115,17 +115,17 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         final ParsedImport parsed;
 
         if (ext == '.zip') {
-          // Check for Gravity Package (manifest.json)
-          final isGravity = await _isGravityPackage(file);
-          if (isGravity) {
+          // Check for CatalogoJa Package (manifest.json)
+          final isCatalogoJa = await _isCatalogoJaPackage(file);
+          if (isCatalogoJa) {
             try {
               if (file.path == null) {
                 throw Exception(
-                  'File path is null for Gravity Package on this platform.',
+                  'File path is null for CatalogoJa Package on this platform.',
                 );
               }
               final report = await ref
-                  .read(gravityPackageServiceProvider)
+                  .read(catalogoJaPackageServiceProvider)
                   .importPackage(File(file.path!));
               state = state.copyWith(
                 isLoading: false,
@@ -303,7 +303,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       }
 
       state = state.copyWith(
-        message: 'Salvando vinculações...',
+        message: 'Salvando vincula\u00e7\u00f5es...',
         progress: 0.95,
       );
 
@@ -352,7 +352,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         isLoading: false,
         isDone: true,
         progress: 1.0,
-        message: 'Concluído!',
+        message: 'Conclu\u00eddo!',
         imagesMatchedCount: matchedCount,
         imagesTotalCount: totalFiles,
       );
@@ -375,7 +375,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         state = state.copyWith(
           isLoading: false,
           errorMessage:
-              "URL Base não configurada. Vá em Ajustes para configurar.",
+              "URL Base n\u00e3o configurada. V\u00e1 em Ajustes para configurar.",
         );
         return;
       }
@@ -394,7 +394,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       if (totalToTry == 0) {
         state = state.copyWith(
           isLoading: false,
-          errorMessage: "Nenhum produto com referência encontrado.",
+          errorMessage: "Nenhum produto com refer\u00eancia encontrado.",
         );
         return;
       }
@@ -432,7 +432,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        errorMessage: "Erro na sincronização remota: $e",
+        errorMessage: "Erro na sincroniza\u00e7\u00e3o remota: $e",
       );
     }
   }
@@ -442,7 +442,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     return _parseCsvContent(input);
   }
 
-  Future<bool> _isGravityPackage(PlatformFile file) async {
+  Future<bool> _isCatalogoJaPackage(PlatformFile file) async {
     try {
       final bytes = await _readFileBytes(file);
       final archive = ZipDecoder().decodeBytes(bytes);
@@ -478,7 +478,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
 
     final csvBytes = _archiveFileBytes(csvEntry);
     final input = utf8.decode(csvBytes);
-    final rows = const CsvToListConverter().convert(input);
+    final rows = const CsvDecoder().convert(input);
     if (rows.isEmpty) {
       throw Exception('Arquivo CSV vazio no pacote.');
     }
@@ -522,7 +522,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
   }
 
   Future<ParsedImport> _parseCsvContent(String input) async {
-    final rows = const CsvToListConverter().convert(input);
+    final rows = const CsvDecoder().convert(input);
     if (rows.isEmpty) throw Exception("Arquivo vazio");
     return _parseRowsToProducts(rows);
   }
@@ -994,7 +994,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
   Future<void> finalizeImport() async {
     final user = ref.read(currentUserProvider);
     if (!isAdmin(user)) {
-      throw Exception('Sem permissão para importar produtos.');
+      throw Exception('Sem permiss\u00e3o para importar produtos.');
     }
     state = state.copyWith(isLoading: true);
     try {
@@ -1027,24 +1027,46 @@ class ProductImportViewModel extends _$ProductImportViewModel {
   }
 
   Future<String> _readCsvContent(PlatformFile file) async {
-    if (kIsWeb) {
+    try {
+      if (kIsWeb) {
+        final bytes = file.bytes;
+        if (bytes == null) {
+          throw Exception('Arquivo CSV sem bytes (web)');
+        }
+        try {
+          return utf8.decode(bytes);
+        } catch (_) {
+          // Fallback to Latin1 for Excel CSVs
+          return latin1.decode(bytes);
+        }
+      }
+
+      if (file.path != null) {
+        final ioFile = File(file.path!);
+        final bytes = await ioFile.readAsBytes();
+        try {
+          return utf8.decode(bytes);
+        } catch (_) {
+          // Fallback to Latin1 for Excel CSVs
+          return latin1.decode(bytes);
+        }
+      }
+
       final bytes = file.bytes;
       if (bytes == null) {
-        throw Exception('Arquivo CSV sem bytes (web)');
+        throw Exception('Arquivo CSV sem path/bytes');
       }
-      return utf8.decode(bytes);
+      try {
+        return utf8.decode(bytes);
+      } catch (_) {
+        return latin1.decode(bytes);
+      }
+    } catch (e) {
+      debugPrint('Error reading CSV: $e');
+      throw Exception(
+        'Erro ao ler o conte\u00fado do arquivo: $e. Verifique se o arquivo n\u00e3o est\u00e1 aberto em outro programa.',
+      );
     }
-
-    if (file.path != null) {
-      final ioFile = File(file.path!);
-      return ioFile.readAsString();
-    }
-
-    final bytes = file.bytes;
-    if (bytes == null) {
-      throw Exception('Arquivo CSV sem path/bytes');
-    }
-    return utf8.decode(bytes);
   }
 
   Future<String?> _resolveImageForPlatform(PlatformFile file) async {

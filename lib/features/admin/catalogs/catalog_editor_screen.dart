@@ -1,20 +1,20 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gravity/models/catalog.dart';
-import 'package:gravity/models/category.dart' show CategoryType;
-import 'package:gravity/viewmodels/catalog_editor_viewmodel.dart';
-import 'package:gravity/viewmodels/products_viewmodel.dart';
-import 'package:gravity/features/admin/catalogs/tabs/products_selection_tab.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
-import 'package:gravity/ui/widgets/app_scaffold.dart';
-import 'package:gravity/ui/widgets/section_card.dart';
-import 'package:gravity/core/services/catalog_share_helper.dart';
+import 'package:catalogo_ja/models/catalog.dart';
+import 'package:catalogo_ja/models/category.dart' show CategoryType;
+import 'package:catalogo_ja/viewmodels/catalog_editor_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
+import 'package:catalogo_ja/features/admin/catalogs/tabs/products_selection_tab.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
+import 'package:catalogo_ja/ui/widgets/section_card.dart';
+import 'package:catalogo_ja/core/services/catalog_share_helper.dart';
 
 class CatalogEditorScreen extends ConsumerStatefulWidget {
   final Catalog? catalog;
 
   const CatalogEditorScreen({super.key, this.catalog});
-  static const defaultBaseUrl = 'https://gravity.app';
+  static const defaultBaseUrl = 'https://CatalogoJa.app';
 
   @override
   ConsumerState<CatalogEditorScreen> createState() =>
@@ -46,8 +46,8 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
     final canShare = state.catalog.productIds.isNotEmpty;
 
     return AppScaffold(
-      title: widget.catalog == null ? 'Novo Catálogo' : 'Editar Catálogo',
-      subtitle: 'Selecione produtos e personalize o catálogo',
+      title: widget.catalog == null ? 'Novo Cat\u00e1logo' : 'Editar Cat\u00e1logo',
+      subtitle: 'Selecione produtos e personalize o cat\u00e1logo',
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(48),
         child: Container(
@@ -64,7 +64,7 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
             indicatorWeight: 3,
             tabs: const [
               Tab(text: 'Selecione Produtos'),
-              Tab(text: 'Personalização'),
+              Tab(text: 'Personaliza\u00e7\u00e3o'),
             ],
           ),
         ),
@@ -128,11 +128,11 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
       child: Column(
         children: [
           SectionCard(
-            title: 'Informações Básicas',
+            title: 'Informa\u00e7\u00f5es B\u00e1sicas',
             child: Column(
               children: [
                 _buildTextField(
-                  label: 'Nome do Catálogo',
+                  label: 'Nome do Cat\u00e1logo',
                   initialValue: state.catalog.name,
                   onChanged: notifier.updateName,
                 ),
@@ -149,12 +149,12 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
           ),
           const SizedBox(height: 16),
           SectionCard(
-            title: 'Configurações de Venda',
+            title: 'Configura\u00e7\u00f5es de Venda',
             child: Column(
               children: [
                 _buildSwitchTile(
-                  title: 'Catálogo Público',
-                  subtitle: 'Disponível via link direto',
+                  title: 'Cat\u00e1logo P\u00fablico',
+                  subtitle: 'Dispon\u00edvel via link direto',
                   value: state.catalog.isPublic,
                   onChanged: notifier.setIsPublic,
                 ),
@@ -178,7 +178,7 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                   label: 'Layout das fotos',
                   value: state.catalog.photoLayout,
                   items: const {
-                    'grid': 'Grade (Padrão)',
+                    'grid': 'Grade (Padr\u00e3o)',
                     'list': 'Lista Detalhada',
                     'carousel': 'Carrossel em Foco',
                   },
@@ -191,8 +191,8 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                       state.catalog.coverType ??
                       (state.catalog.includeCover ? 'collection' : 'none'),
                   items: const {
-                    'collection': 'Automática (Baseada na coleção)',
-                    'standard': 'Padrão (Personalização apenas de texto)',
+                    'collection': 'Autom\u00e1tica (Baseada na cole\u00e7\u00e3o)',
+                    'standard': 'Padr\u00e3o (Personaliza\u00e7\u00e3o apenas de texto)',
                     'none': 'Sem capa principal',
                   },
                   onChanged: (v) {
@@ -206,18 +206,18 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
           ),
           const SizedBox(height: 16),
           SectionCard(
-            title: 'Anúncios',
+            title: 'An\u00fancios',
             child: Column(
               children: [
                 _buildSwitchTile(
-                  title: 'Barra de Anúncio Ativa',
+                  title: 'Barra de An\u00fancio Ativa',
                   value: state.catalog.announcementEnabled,
                   onChanged: notifier.setAnnouncementEnabled,
                 ),
                 if (state.catalog.announcementEnabled) ...[
                   const SizedBox(height: 12),
                   _buildTextField(
-                    label: 'Texto do Anúncio',
+                    label: 'Texto do An\u00fancio',
                     initialValue: state.catalog.announcementText ?? '',
                     onChanged: notifier.setAnnouncementText,
                   ),

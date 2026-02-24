@@ -1,11 +1,11 @@
-﻿import 'package:gravity/core/importer/parse_utils.dart';
+import 'package:catalogo_ja/core/importer/parse_utils.dart';
 
 String? detectCollectionName(List<String> tags) {
   for (final raw in tags) {
     final tag = raw.trim().toLowerCase();
     if (tag.contains('col.') ||
         tag.contains('colecao') ||
-        tag.contains('coleção')) {
+        tag.contains('cole\u00e7\u00e3o')) {
       return _normalizeCollection(raw);
     }
   }
@@ -21,7 +21,7 @@ List<String> parseCategoryNames(String csvCategories) {
 String _normalizeCollection(String raw) {
   var value = raw.trim();
   value = value.replaceAll(
-    RegExp(r'colec[aã]o', caseSensitive: false),
+    RegExp(r'colec[a\u00e3]o', caseSensitive: false),
     'Colecao',
   );
   value = value.replaceAll(RegExp(r'col\.', caseSensitive: false), 'Colecao');

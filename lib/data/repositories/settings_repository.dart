@@ -1,4 +1,4 @@
-import 'package:gravity/models/settings.dart';
+import 'package:catalogo_ja/models/settings.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

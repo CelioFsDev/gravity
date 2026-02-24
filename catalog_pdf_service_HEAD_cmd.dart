@@ -1,21 +1,21 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'dart:typed_data';
 import 'dart:convert';
 
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:catalogo_ja/models/catalog.dart';
-import 'package:catalogo_ja/models/category.dart';
-import 'package:catalogo_ja/models/product.dart';
+import 'package:gravity/models/catalog.dart';
+import 'package:gravity/models/category.dart';
+import 'package:gravity/models/product.dart';
 import 'package:intl/intl.dart';
 
 class CatalogPdfService {
+  static const PdfColor _colorTextPrimary = PdfColors.black;
   static const PdfColor _colorPriceGreen = PdfColor(0.12, 0.42, 0.29);
   static const PdfColor _colorMuted = PdfColor(0.45, 0.45, 0.45);
   static const PdfColor _colorImageBg = PdfColor(0.953, 0.953, 0.953);
   static const PdfColor _colorSizePillBg = PdfColor(0.929, 0.929, 0.929);
   static const PdfPageFormat _defaultMobileFormat = PdfPageFormat(360, 640);
-
   static Future<Uint8List> generateCatalogPdf({
     required String catalogName,
     required List<Product> products,
@@ -82,15 +82,16 @@ class CatalogPdfService {
       pdf.addPage(
         pw.Page(
           pageFormat: pageFormat,
-          margin: const pw.EdgeInsets.symmetric(
-            vertical: 18,
-          ), // No horizontal margin for full-bleed
+          margin: const pw.EdgeInsets.symmetric(horizontal: 18, vertical: 18),
           build: (context) => _buildProductPage(
             product,
             mode,
             currencyFormat,
             pageFormat,
-            collectionName: collectionName,
+            collectionName: collectionName, // This might be stale if mixed?
+            // If mixed collections, maybe we shouldn't pass collectionName to footer?
+            // Or pass the current collection name?
+            // For now keeping original behavior or passing current name if available
             defaultSubtitle: defaultSubtitle,
             showPrice: showPrice,
           ),
@@ -107,283 +108,151 @@ class CatalogPdfService {
     NumberFormat currencyFormat,
     PdfPageFormat pageFormat, {
     String? collectionName,
-    String defaultSubtitle = 'SELE\u00c7\u00c3O DE PRODUTOS',
+    String defaultSubtitle = 'SELEÇÃO DE PRODUTOS',
     bool showPrice = true,
   }) {
     final displayPrice = product.priceForMode(mode.name);
     final primaryPhoto = _selectPrimaryPhoto(product.photos);
     final heroPath = primaryPhoto?.path;
-    final normalizedHeroPath = heroPath?.replaceAll('\\', '/');
 
-    // Filter unique photos for the variants section (max 4)
+    // Filter unique photos per color for the variants section
     final colorVariants = <String, String>{};
-
-    // 1. Collect photos that have specific colors assigned
     for (final photo in product.photos) {
-      final normPath = photo.path.replaceAll('\\', '/');
-      if (normPath == normalizedHeroPath) continue;
-      final color = photo.colorKey?.trim().toUpperCase();
+      final color = photo.colorKey?.trim();
       if (color != null &&
           color.isNotEmpty &&
           !colorVariants.containsKey(color)) {
-        colorVariants[color] = photo.path;
-      }
-      if (colorVariants.length >= 4) break;
-    }
-
-    // 2. Fallback: If less than 4, add other photos linked as Cor
-    if (colorVariants.length < 4) {
-      int detailCounter = 1;
-      for (final photo in product.photos) {
-        final normPath = photo.path.replaceAll('\\', '/');
-        if (normPath == normalizedHeroPath) continue;
-        if (colorVariants.values.any(
-          (v) => v.replaceAll('\\', '/') == normPath,
-        )) {
-          continue;
+        if (photo.path != heroPath) {
+          colorVariants[color] = photo.path;
         }
-
-        String label = (photo.colorKey?.trim().isNotEmpty == true)
-            ? photo.colorKey!.trim().toUpperCase()
-            : 'COR $detailCounter';
-        colorVariants[label] = photo.path;
-        detailCounter++;
-        if (colorVariants.length >= 4) break;
       }
     }
 
+    final hasVariants = colorVariants.isNotEmpty;
     final sizesText = _extractSizesText(product);
     final topHeaderText =
         (collectionName != null && collectionName.trim().isNotEmpty)
         ? collectionName.trim()
         : defaultSubtitle;
 
-    final fullWidth = pageFormat.width;
-    final availableHeight = pageFormat.height - 36;
+    final availableWidth = pageFormat.width - 36;
 
-    // Proporções para garantir que a foto principal domine a parte superior
-    final bottomContentHeight = 175.0; // Altura fixa para a área de informações
-    final topHeaderHeight = 35.0; // Espaço para o nome da coleção no topo
-    final spacing = 15.0; // Respiro entre foto e texto
-    final mainPhotoHeight =
-        availableHeight - topHeaderHeight - bottomContentHeight - spacing;
-
-    final variantEntries = colorVariants.entries.toList();
+    // Dynamic height: expand photo if no variants are present
+    final mainPhotoHeight = hasVariants
+        ? pageFormat.height * 0.72
+        : pageFormat.height * 0.82;
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       children: [
-        // 1. Top Header
-        pw.Padding(
-          padding: const pw.EdgeInsets.symmetric(horizontal: 18),
-          child: pw.Container(
-            height: topHeaderHeight,
-            alignment: pw.Alignment.center,
-            child: pw.Text(
-              topHeaderText.toUpperCase(),
-              style: pw.TextStyle(
-                fontSize: 11,
-                letterSpacing: 3,
-                fontWeight: pw.FontWeight.bold,
-                color: PdfColors.black,
-              ),
+        // Top Header
+        pw.Container(
+          height: 30,
+          alignment: pw.Alignment.center, // Centered like screenshot
+          child: pw.Text(
+            topHeaderText.toUpperCase(),
+            style: pw.TextStyle(
+              fontSize: 10,
+              letterSpacing: 2,
+              fontWeight: pw.FontWeight.normal,
+              color: PdfColors.black,
             ),
           ),
         ),
-        // 2. Main Photo (FULL-WIDTH)
-        pw.Container(
-          height: mainPhotoHeight,
-          width: fullWidth,
-          child: heroPath != null
-              ? _buildMainPhotoBox(
-                  heroPath,
-                  width: fullWidth,
-                  height: mainPhotoHeight,
-                  radius: 0,
-                )
-              : _buildImagePlaceholder(
-                  height: mainPhotoHeight,
-                  width: fullWidth,
-                  radius: 0,
-                ),
-        ),
-        pw.SizedBox(height: spacing),
-        // 3. Bottom Content (Padding on text)
-        pw.Padding(
-          padding: const pw.EdgeInsets.symmetric(horizontal: 18),
-          child: pw.Container(
-            height: bottomContentHeight,
-            child: pw.Row(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                // Coluna da Esquerda: BLOCO INFO (Hierarquia vertical rigorosa)
-                pw.Expanded(
-                  flex: 4,
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+        // Main Photo
+        if (heroPath != null)
+          _buildMainPhotoBox(
+            heroPath,
+            width: availableWidth,
+            height: mainPhotoHeight,
+            radius: 0, // Screenshot shows sharp edges for main photo
+          )
+        else
+          _buildImagePlaceholder(
+            height: mainPhotoHeight,
+            width: availableWidth,
+            radius: 0,
+          ),
+        pw.SizedBox(height: 18),
+        // Bottom Content
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            // Left Side: Name, Sizes, Ref
+            pw.Expanded(
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    product.name.toUpperCase(),
+                    maxLines: 2,
+                    style: pw.TextStyle(
+                      fontSize: 14,
+                      fontWeight: pw.FontWeight.bold,
+                      letterSpacing: 0.5,
+                      lineSpacing: 1.2,
+                      color: _colorTextPrimary,
+                    ),
+                  ),
+                  pw.SizedBox(height: 12),
+                  pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.center,
                     children: [
-                      pw.Text(
-                        product.name.toUpperCase(),
-                        maxLines: 2,
-                        style: pw.TextStyle(
-                          fontSize: 15,
-                          fontWeight: pw.FontWeight.bold,
-                          color: PdfColors.black,
-                          lineSpacing: 1.2,
-                        ),
-                      ),
-                      pw.SizedBox(height: 12),
                       _buildSizePill(sizesText),
-                      pw.SizedBox(height: 12),
+                      pw.SizedBox(width: 15),
                       pw.Text(
                         'REF: ${product.reference}',
                         style: pw.TextStyle(
                           fontSize: 11,
-                          fontWeight: pw.FontWeight.normal,
                           color: PdfColors.black,
-                          letterSpacing: 0.5,
+                          fontWeight: pw.FontWeight.normal,
                         ),
                       ),
-                      if (showPrice) ...[
-                        pw.Spacer(), // Empurra o preço para a base do bloco
-                        pw.Text(
-                          currencyFormat.format(displayPrice),
-                          style: pw.TextStyle(
-                            fontSize: 22,
-                            fontWeight: pw.FontWeight.bold,
-                            color: _colorPriceGreen,
-                          ),
-                        ),
-                      ],
                     ],
                   ),
-                ),
-                // Coluna da Direita: BLOCO THUMBS (Ocupa o espaço restante)
-                if (variantEntries.isNotEmpty)
-                  pw.Expanded(
-                    flex: 6, // Maior flex para fotos grandes
-                    child: pw.Container(
-                      alignment: pw.Alignment.topRight,
-                      child: _buildVariantThumbsLayout(variantEntries),
+                  if (showPrice) ...[
+                    pw.SizedBox(height: 10),
+                    pw.Text(
+                      currencyFormat.format(displayPrice),
+                      style: pw.TextStyle(
+                        fontSize: 12,
+                        fontWeight: pw.FontWeight.bold,
+                        color: _colorPriceGreen,
+                      ),
                     ),
-                  ),
-              ],
+                  ],
+                ],
+              ),
             ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Builds the variant thumb layout based on quantity rules
-  static pw.Widget _buildVariantThumbsLayout(
-    List<MapEntry<String, String>> variants,
-  ) {
-    final count = variants.length;
-
-    if (count == 4) {
-      // Caso 4: Grade 2x2 (Dividir o espaço)
-      return pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.end,
-        mainAxisSize: pw.MainAxisSize.min,
-        children: [
-          pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.end,
-            mainAxisSize: pw.MainAxisSize.min,
-            children: [
-              _buildSwatchThumb(variants[0].key, variants[0].value, width: 44),
-              pw.SizedBox(width: 6),
-              _buildSwatchThumb(variants[1].key, variants[1].value, width: 44),
+            if (hasVariants) ...[
+              pw.SizedBox(width: 12),
+              // Right Side: Variant Thumbnails
+              pw.Wrap(
+                spacing: 8,
+                children: colorVariants.entries.take(3).map((entry) {
+                  return pw.Column(
+                    children: [
+                      _buildImageBox(
+                        entry.value,
+                        width: 48,
+                        height: 60,
+                        radius: 6,
+                      ),
+                      pw.SizedBox(height: 4),
+                      pw.Text(
+                        entry.key.toUpperCase(),
+                        style: pw.TextStyle(
+                          fontSize: 7,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.grey700,
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
             ],
-          ),
-          pw.SizedBox(height: 6),
-          pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.end,
-            mainAxisSize: pw.MainAxisSize.min,
-            children: [
-              _buildSwatchThumb(variants[2].key, variants[2].value, width: 44),
-              pw.SizedBox(width: 6),
-              _buildSwatchThumb(variants[3].key, variants[3].value, width: 44),
-            ],
-          ),
-        ],
-      );
-    } else if (count == 2) {
-      // Caso 2: Duas fotos grandes ocupando o espaço lateral
-      return pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.end,
-        mainAxisSize: pw.MainAxisSize.min,
-        children: [
-          _buildSwatchThumb(variants[0].key, variants[0].value, width: 85),
-          pw.SizedBox(width: 10),
-          _buildSwatchThumb(variants[1].key, variants[1].value, width: 85),
-        ],
-      );
-    } else {
-      // Casos 1 ou 3
-      final thumbWidth = (count == 3) ? 42.0 : 85.0;
-      return pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.end,
-        mainAxisSize: pw.MainAxisSize.min,
-        children: variants.asMap().entries.map((entry) {
-          return pw.Padding(
-            padding: pw.EdgeInsets.only(left: entry.key == 0 ? 0 : 8),
-            child: _buildSwatchThumb(
-              entry.value.key,
-              entry.value.value,
-              width: thumbWidth,
-            ),
-          );
-        }).toList(),
-      );
-    }
-  }
-
-  /// Helper for a single variant swatch thumb
-  static pw.Widget _buildSwatchThumb(
-    String label,
-    String path, {
-    double? width,
-    bool small = false,
-  }) {
-    final thumbWidth = width ?? (small ? 42.0 : 56.0);
-    final thumbHeight = thumbWidth * 1.3;
-    return pw.Column(
-      mainAxisSize: pw.MainAxisSize.min,
-      children: [
-        pw.Container(
-          width: thumbWidth,
-          height: thumbHeight,
-          decoration: pw.BoxDecoration(
-            borderRadius: pw.BorderRadius.circular(10),
-            border: pw.Border.all(color: PdfColors.grey200, width: 0.5),
-          ),
-          child: pw.ClipRRect(
-            horizontalRadius: 10,
-            verticalRadius: 10,
-            child: _buildImageBox(
-              path,
-              height: thumbHeight,
-              width: thumbWidth,
-              radius: 10,
-            ),
-          ),
-        ),
-        pw.SizedBox(height: 2),
-        pw.Container(
-          width: thumbWidth + 10,
-          child: pw.Text(
-            label.toUpperCase(),
-            style: pw.TextStyle(
-              fontSize: small ? 7 : 8,
-              letterSpacing: 0.5,
-              fontWeight: pw.FontWeight.bold,
-              color: PdfColors.grey800,
-            ),
-            textAlign: pw.TextAlign.center,
-            maxLines: 1,
-            overflow: pw.TextOverflow.clip,
-          ),
+          ],
         ),
       ],
     );

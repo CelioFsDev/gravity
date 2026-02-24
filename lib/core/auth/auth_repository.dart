@@ -1,4 +1,4 @@
-﻿import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -41,7 +41,7 @@ class FirebaseAuthRepository implements AuthRepositoryContract {
     if (user == null) {
       throw FirebaseAuthException(
         code: 'NO_USER',
-        message: 'Registro concluído sem usuário.',
+        message: 'Registro conclu\u00eddo sem usu\u00e1rio.',
       );
     }
     return _userFromFirebase(user);
@@ -60,7 +60,7 @@ class FirebaseAuthRepository implements AuthRepositoryContract {
     if (user == null) {
       throw FirebaseAuthException(
         code: 'NO_USER',
-        message: 'Usuário não encontrado após login.',
+        message: 'Usu\u00e1rio n\u00e3o encontrado ap\u00f3s login.',
       );
     }
     return _userFromFirebase(user);
@@ -72,7 +72,7 @@ class FirebaseAuthRepository implements AuthRepositoryContract {
       // User canceled the sign-in flow
       throw FirebaseAuthException(
         code: 'ABORTED',
-        message: 'Login cancelado pelo usuário.',
+        message: 'Login cancelado pelo usu\u00e1rio.',
       );
     }
 
@@ -91,7 +91,7 @@ class FirebaseAuthRepository implements AuthRepositoryContract {
     if (user == null) {
       throw FirebaseAuthException(
         code: 'NO_USER',
-        message: 'Falha ao obter usuário Google.',
+        message: 'Falha ao obter usu\u00e1rio Google.',
       );
     }
     return _userFromFirebase(user);
@@ -137,7 +137,7 @@ class LocalAuthRepository implements AuthRepositoryContract {
   Stream<AuthUser?> authStateChanges() async* {
     // Emita o estado atual imediatamente
     yield _isLoggedIn ? _mockUser : null;
-    // Em um app real, aqui ouviríamos um StreamController
+    // Em um app real, aqui ouvir\u00edamos um StreamController
   }
 
   @override
@@ -173,4 +173,3 @@ class LocalAuthRepository implements AuthRepositoryContract {
 final authRepositoryProvider = Provider<AuthRepositoryContract>((ref) {
   return FirebaseAuthRepository();
 });
-

@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:gravity/models/catalog.dart';
+import 'package:catalogo_ja/models/catalog.dart';
 
 abstract class CatalogsRepositoryContract {
   Future<List<Catalog>> getCatalogs();

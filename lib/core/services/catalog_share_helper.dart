@@ -1,17 +1,17 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gravity/core/services/catalog_pdf_service.dart';
-import 'package:gravity/viewmodels/settings_viewmodel.dart';
-import 'package:gravity/core/services/whatsapp_share_service.dart';
-import 'package:gravity/data/repositories/products_repository.dart';
-import 'package:gravity/models/catalog.dart';
-import 'package:gravity/models/category.dart';
-import 'package:gravity/models/product.dart';
-import 'package:gravity/viewmodels/products_viewmodel.dart';
+import 'package:catalogo_ja/core/services/catalog_pdf_service.dart';
+import 'package:catalogo_ja/viewmodels/settings_viewmodel.dart';
+import 'package:catalogo_ja/core/services/whatsapp_share_service.dart';
+import 'package:catalogo_ja/data/repositories/products_repository.dart';
+import 'package:catalogo_ja/models/catalog.dart';
+import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -39,7 +39,7 @@ class CatalogShareHelper {
           ListTile(
             leading: const Icon(Icons.link),
             title: const Text('Compartilhar Link'),
-            subtitle: const Text('Envia o link do catálogo online'),
+            subtitle: const Text('Envia o link do cat\u00e1logo online'),
             onTap: () async {
               Navigator.pop(sheetContext);
               await shareCatalogLink(context, ref, catalog);
@@ -49,7 +49,7 @@ class CatalogShareHelper {
             leading: const Icon(Icons.download),
             title: const Text('Salvar PDF no dispositivo'),
             subtitle: const Text(
-              'Cria uma cópia do catálogo em PDF nos documentos',
+              'Cria uma c\u00ef¿½pia do cat\u00e1logo em PDF nos documentos',
             ),
             onTap: () async {
               Navigator.pop(sheetContext);
@@ -122,7 +122,7 @@ class CatalogShareHelper {
       await WhatsAppShareService.shareFile(
         bytes: pdfBytes,
         fileName: fileName,
-        text: 'Confira nosso catálogo ${catalog.name}!',
+        text: 'Confira nosso cat\u00e1logo ${catalog.name}!',
         mimeType: 'application/pdf',
       );
     } catch (e) {
@@ -142,7 +142,7 @@ class CatalogShareHelper {
     try {
       final settings = ref.read(settingsViewModelProvider);
       final baseUrl = settings.publicBaseUrl.isEmpty
-          ? 'https://gravity.app'
+          ? 'https://CatalogoJa.app'
           : settings.publicBaseUrl;
       final shareUrl = '$baseUrl/c/${catalog.slug}';
       await WhatsAppShareService.shareCatalog(
@@ -195,14 +195,14 @@ class CatalogShareHelper {
           await getApplicationDocumentsDirectory();
       final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
       final safeName = catalog.slug.isNotEmpty ? catalog.slug : 'catalogo';
-      final filename = 'gravity_catalogo_${safeName}_$timestamp.pdf';
+      final filename = 'CatalogoJa_catalogo_${safeName}_$timestamp.pdf';
       final filePath = p.join(documentsDirectory.path, filename);
       final file = File(filePath);
       await file.writeAsBytes(pdfBytes);
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Catálogo salvo em ${file.path}')),
+          SnackBar(content: Text('Cat\u00e1logo salvo em ${file.path}')),
         );
       }
     } catch (e) {
@@ -307,7 +307,7 @@ class CatalogShareHelper {
 
     if (catalogProducts.isEmpty) {
       if (catalog.productIds.isEmpty) {
-        throw Exception('Este catálogo não possui produtos selecionados.');
+        throw Exception('Este cat\u00e1logo n\u00ef¿½o possui produtos selecionados.');
       }
 
       // Fallback: try to fetch directly from repo in case state is stale
@@ -319,7 +319,7 @@ class CatalogShareHelper {
 
       if (fallbackProducts.isEmpty) {
         throw Exception(
-          'Os produtos deste catálogo não foram encontrados no banco de dados.',
+          'Os produtos deste cat\u00e1logo n\u00ef¿½o foram encontrados no banco de dados.',
         );
       }
 
@@ -327,7 +327,7 @@ class CatalogShareHelper {
         fallbackProducts,
         productsState.categories,
       );
-      final catalogName = catalog.name.isEmpty ? 'Meu Catálogo' : catalog.name;
+      final catalogName = catalog.name.isEmpty ? 'Meu Cat\u00e1logo' : catalog.name;
 
       // Re-resolve for fallback (simplified)
       CollectionCover? fbCover;
@@ -360,7 +360,7 @@ class CatalogShareHelper {
       );
     }
 
-    final catalogName = catalog.name.isEmpty ? 'Meu Catálogo' : catalog.name;
+    final catalogName = catalog.name.isEmpty ? 'Meu Cat\u00e1logo' : catalog.name;
     return CatalogPdfService.generateCatalogPdf(
       catalogName: catalogName,
       products: catalogProducts,
@@ -452,7 +452,7 @@ class CatalogShareHelper {
                     ),
                   ),
                   Text(
-                    'Opções de Exportação',
+                    'Op\u00e7\u00f5es de Exporta\u00e7\u00e3o',
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -461,7 +461,7 @@ class CatalogShareHelper {
                   const SizedBox(height: 24),
 
                   // PRICE SECTION
-                  _buildSubHeader(context, 'Preço no PDF'),
+                  _buildSubHeader(context, 'Pre\u00e7o no PDF'),
                   const SizedBox(height: 12),
                   Row(
                     children: [
@@ -498,12 +498,12 @@ class CatalogShareHelper {
                   const SizedBox(height: 24),
 
                   // COVER SECTION
-                  _buildSubHeader(context, 'Capa do Catálogo'),
+                  _buildSubHeader(context, 'Capa do Cat\u00e1logo'),
                   const SizedBox(height: 12),
                   _buildCoverTypeTile(
                     context,
-                    title: 'Capa da Coleção (Com Foto)',
-                    subtitle: 'Usa a imagem principal da coleção',
+                    title: 'Capa da Cole\u00e7\u00e3o (Com Foto)',
+                    subtitle: 'Usa a imagem principal da cole\u00ef¿½\u00ef¿½o',
                     isSelected: selectedCoverType == 'collection',
                     icon: Icons.image_outlined,
                     onTap: () =>
@@ -518,10 +518,10 @@ class CatalogShareHelper {
                         right: 12,
                       ),
                       child: DropdownButtonFormField<String>(
-                        value: selectedCollectionId,
+                        initialValue: selectedCollectionId,
                         isExpanded: true,
                         decoration: InputDecoration(
-                          labelText: 'Selecione a Coleção',
+                          labelText: 'Selecione a Cole\u00e7\u00e3o',
                           filled: true,
                           fillColor: theme.colorScheme.surfaceContainerHighest,
                           border: OutlineInputBorder(
@@ -535,7 +535,7 @@ class CatalogShareHelper {
                         items: availableCollections.map((c) {
                           return DropdownMenuItem(
                             value: c.id,
-                            child: Text(c.name ?? 'Coleção sem nome'),
+                            child: Text(c.name ?? 'Cole\u00e7\u00e3o sem nome'),
                           );
                         }).toList(),
                         onChanged: (v) =>
@@ -545,8 +545,8 @@ class CatalogShareHelper {
                   const SizedBox(height: 8),
                   _buildCoverTypeTile(
                     context,
-                    title: 'Capa Padrão (Texto)',
-                    subtitle: 'Apenas logo e título centralizado',
+                    title: 'Capa Padr\u00e3o (Texto)',
+                    subtitle: 'Apenas logo e t\u00edtulo centralizado',
                     isSelected: selectedCoverType == 'standard',
                     icon: Icons.text_fields,
                     onTap: () => setState(() => selectedCoverType = 'standard'),

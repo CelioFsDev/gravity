@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'package:go_router/go_router.dart';
-import 'package:gravity/viewmodels/categories_viewmodel.dart';
-import 'package:gravity/models/category_type.dart';
+import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
+import 'package:catalogo_ja/models/category_type.dart';
 
 class CategoryCreateModal extends ConsumerStatefulWidget {
   const CategoryCreateModal({super.key});
@@ -64,7 +64,7 @@ class _CategoryCreateModalState extends ConsumerState<CategoryCreateModal> {
         autofocus: true,
         decoration: const InputDecoration(
           labelText: 'Nome da Categoria',
-          hintText: 'Ex: Camisetas, Calças...',
+          hintText: 'Ex: Camisetas, Cal\u00e7as...',
           filled: true,
         ),
         textCapitalization: TextCapitalization.sentences,

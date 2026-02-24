@@ -90,7 +90,7 @@ class AppSettings {
     return AppSettings(
       storeName: 'Minha Loja',
       whatsappNumber: '',
-      publicBaseUrl: 'https://gravity.app',
+      publicBaseUrl: 'https://CatalogoJa.app',
       updatedAt: DateTime.now(),
       remoteImageBaseUrl: '',
       geminiApiKey: '',

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 // Removed unused AppSectionHeader import
 
 class AppScaffold extends StatelessWidget {
@@ -92,7 +92,7 @@ class AppScaffold extends StatelessWidget {
                       ],
                     ),
                   ),
-                if (bottom != null) bottom!,
+                ?bottom,
                 Expanded(child: body),
               ],
             ),

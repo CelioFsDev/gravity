@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gravity/viewmodels/settings_viewmodel.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
-import 'package:gravity/ui/widgets/app_scaffold.dart';
-import 'package:gravity/ui/widgets/section_card.dart';
+import 'package:catalogo_ja/viewmodels/settings_viewmodel.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
+import 'package:catalogo_ja/ui/widgets/section_card.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -50,7 +50,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         );
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Configurações salvas com sucesso!')),
+        const SnackBar(content: Text('Configura\u00e7\u00f5es salvas com sucesso!')),
       );
     }
   }
@@ -58,8 +58,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      title: 'Configurações',
-      subtitle: 'Personalize sua loja e catálogo',
+      title: 'Configura\u00e7\u00f5es',
+      subtitle: 'Personalize sua loja e cat\u00e1logo',
       maxWidth: 800,
       actions: [IconButton(icon: const Icon(Icons.check), onPressed: _save)],
       body: SingleChildScrollView(
@@ -82,19 +82,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     label: 'WhatsApp de Vendas',
                     hint: '5511999999999',
                     icon: Icons.phone_outlined,
-                    helper: 'Apenas números, com DDI (ex: 55)',
+                    helper: 'Apenas n\u00fameros, com DDI (ex: 55)',
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 24),
             SectionCard(
-              title: 'Integração e Links',
+              title: 'Integra\u00e7\u00e3o e Links',
               child: Column(
                 children: [
                   _buildField(
                     controller: _baseUrlController,
-                    label: 'URL Base do Catálogo',
+                    label: 'URL Base do Cat\u00e1logo',
                     hint: 'https://seusite.com',
                     icon: Icons.language_outlined,
                     helper: 'Usado para gerar links de compartilhamento',
@@ -105,7 +105,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     label: 'URL Base para Fotos (Nuvem)',
                     hint: 'https://seusite.com/fotos',
                     icon: Icons.cloud_download_outlined,
-                    helper: 'As fotos devem seguir o padrão REFERENCIA.jpg',
+                    helper: 'As fotos devem seguir o padr\u00e3o REFERENCIA.jpg',
                   ),
                 ],
               ),
@@ -114,7 +114,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
-                'Versão do App: 1.0.0',
+                'Vers\u00e3o do App: 1.0.0',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),

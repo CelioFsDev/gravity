@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -33,7 +33,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     if (_passwordController.text != _confirmController.text) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('As senhas não conferem')));
+      ).showSnackBar(const SnackBar(content: Text('As senhas n\u00e3o conferem')));
       return;
     }
 
@@ -81,7 +81,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       if ((value ?? '').trim().isEmpty) {
                         return 'Informe o e-mail';
                       }
-                      if (!(value!.contains('@'))) return 'E-mail inválido';
+                      if (!(value!.contains('@'))) return 'E-mail inv\u00e1lido';
                       return null;
                     },
                   ),
@@ -93,7 +93,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     validator: (value) {
                       if ((value ?? '').isEmpty) return 'Informe a senha';
                       if ((value ?? '').length < 6) {
-                        return 'Mínimo 6 caracteres';
+                        return 'M\u00ednimo 6 caracteres';
                       }
                       return null;
                     },

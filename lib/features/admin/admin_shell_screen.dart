@@ -1,9 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:gravity/core/widgets/admin_drawer_header.dart';
-import 'package:gravity/features/theme/theme_providers.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/core/widgets/admin_drawer_header.dart';
+import 'package:catalogo_ja/features/theme/theme_providers.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 
 class AdminShellScreen extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
@@ -12,10 +12,10 @@ class AdminShellScreen extends ConsumerWidget {
 
   static const _destinations = [
     _NavItem(icon: Icons.inventory, label: 'Produtos'),
-    _NavItem(icon: Icons.collections_bookmark, label: 'Coleções'),
+    _NavItem(icon: Icons.collections_bookmark, label: 'Cole\u00e7\u00f5es'),
     _NavItem(icon: Icons.category, label: 'Categorias'),
-    _NavItem(icon: Icons.menu_book, label: 'Catálogos'),
-    _NavItem(icon: Icons.cloud_download, label: 'Importações'),
+    _NavItem(icon: Icons.menu_book, label: 'Cat\u00e1logos'),
+    _NavItem(icon: Icons.cloud_download, label: 'Importa\u00e7\u00f5es'),
   ];
 
   @override
@@ -70,8 +70,8 @@ class AdminShellScreen extends ConsumerWidget {
                         const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 16),
                           child: AdminDrawerHeader(
-                            title: 'Gravity Admin',
-                            subtitle: 'Catálogos automatizados',
+                            title: 'CatalogoJa Admin',
+                            subtitle: 'Cat\u00e1logos automatizados',
                             icon: Icons.auto_awesome_outlined,
                           ),
                         ),
@@ -129,7 +129,7 @@ class AdminShellScreen extends ConsumerWidget {
                             horizontal: 16,
                           ),
                           child: AdminDrawerHeader(
-                            title: 'Gravity Admin',
+                            title: 'CatalogoJa Admin',
                             subtitle: 'Beta Version',
                             icon: Icons.auto_awesome_outlined,
                           ),

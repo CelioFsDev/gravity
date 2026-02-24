@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gravity/models/product.dart';
-import 'package:gravity/viewmodels/products_viewmodel.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
-import 'package:gravity/ui/widgets/app_scaffold.dart';
+import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 
 class ProductBulkEditScreen extends ConsumerStatefulWidget {
   const ProductBulkEditScreen({super.key});
@@ -72,7 +72,7 @@ class _ProductBulkEditScreenState extends ConsumerState<ProductBulkEditScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Preços atualizados com sucesso!')),
+          const SnackBar(content: Text('Pre\u00e7os atualizados com sucesso!')),
         );
         Navigator.pop(context);
       }
@@ -92,8 +92,8 @@ class _ProductBulkEditScreenState extends ConsumerState<ProductBulkEditScreen> {
     final productsState = ref.watch(productsViewModelProvider);
 
     return AppScaffold(
-      title: 'Edição Rápida',
-      subtitle: 'Altere preços de forma massiva',
+      title: 'Edi\u00e7\u00e3o R\u00e1pida',
+      subtitle: 'Altere pre\u00e7os de forma massiva',
       actions: [
         if (_isSaving)
           const Center(
@@ -119,7 +119,7 @@ class _ProductBulkEditScreenState extends ConsumerState<ProductBulkEditScreen> {
           return ListView.separated(
             padding: const EdgeInsets.all(AppTokens.space16),
             itemCount: state.filteredProducts.length,
-            separatorBuilder: (_, __) => const Divider(),
+            separatorBuilder: (_, _) => const Divider(),
             itemBuilder: (context, index) {
               final product = state.filteredProducts[index];
               return Padding(

@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:gravity/data/repositories/contracts/products_repository_contract.dart';
-import 'package:gravity/models/product.dart';
+import 'package:catalogo_ja/data/repositories/contracts/products_repository_contract.dart';
+import 'package:catalogo_ja/models/product.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 

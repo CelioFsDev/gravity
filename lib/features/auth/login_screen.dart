@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -75,7 +75,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         return 'Informe o e-mail';
                       }
                       if (!(value!.contains('@'))) {
-                        return 'E-mail inválido';
+                        return 'E-mail inv\u00e1lido';
                       }
                       return null;
                     },
@@ -90,7 +90,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         return 'Informe a senha';
                       }
                       if ((value ?? '').length < 6) {
-                        return 'Mínimo 6 caracteres';
+                        return 'M\u00ednimo 6 caracteres';
                       }
                       return null;
                     },
@@ -113,7 +113,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   TextButton(
                     onPressed: () => GoRouter.of(context).go('/register'),
                     child: Text(
-                      'Ainda não tem conta? Cadastre-se',
+                      'Ainda n\u00e3o tem conta? Cadastre-se',
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.primary,
                       ),

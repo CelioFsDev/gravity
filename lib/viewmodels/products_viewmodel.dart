@@ -1,12 +1,12 @@
-﻿import 'package:gravity/core/auth/auth_controller.dart';
-import 'package:gravity/core/auth/auth_guards.dart';
-import 'package:gravity/data/repositories/categories_repository.dart';
-import 'package:gravity/data/repositories/products_repository.dart';
-import 'package:gravity/models/product.dart';
-import 'package:gravity/models/category.dart';
-import 'package:gravity/viewmodels/catalog_public_viewmodel.dart';
-import 'package:gravity/viewmodels/catalogs_viewmodel.dart';
-import 'package:gravity/viewmodels/categories_viewmodel.dart';
+import 'package:catalogo_ja/core/auth/auth_controller.dart';
+import 'package:catalogo_ja/core/auth/auth_guards.dart';
+import 'package:catalogo_ja/data/repositories/categories_repository.dart';
+import 'package:catalogo_ja/data/repositories/products_repository.dart';
+import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/viewmodels/catalog_public_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'products_viewmodel.g.dart';
@@ -374,7 +374,7 @@ class ProductsViewModel extends _$ProductsViewModel {
   void _requireAdmin() {
     final user = ref.read(currentUserProvider);
     if (!isAdmin(user)) {
-      throw Exception('Sem permissão para modificar produtos.');
+      throw Exception('Sem permiss\u00e3o para modificar produtos.');
     }
   }
 }

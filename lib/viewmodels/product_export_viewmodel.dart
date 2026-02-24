@@ -1,5 +1,5 @@
-import 'package:gravity/core/services/gravity_package_service.dart';
-import 'package:gravity/core/services/whatsapp_share_service.dart';
+import 'package:catalogo_ja/core/services/catalogo_ja_package_service.dart';
+import 'package:catalogo_ja/core/services/whatsapp_share_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -54,8 +54,8 @@ class ProductExportViewModel extends _$ProductExportViewModel {
     );
 
     try {
-      final gravityService = ref.read(gravityPackageServiceProvider);
-      final zipFile = await gravityService.exportPackage(
+      final CatalogoJaService = ref.read(catalogoJaPackageServiceProvider);
+      final zipFile = await CatalogoJaService.exportPackage(
         onProgress: (progress, message) {
           state = state.copyWith(progress: progress, message: message);
         },
@@ -64,13 +64,13 @@ class ProductExportViewModel extends _$ProductExportViewModel {
       await WhatsAppShareService.shareXFile(
         filePath: zipFile.path,
         fileName: p.basename(zipFile.path),
-        text: 'Backup do Catálogo Gravity',
+        text: 'Backup do Cat\u00e1logo CatalogoJa',
         mimeType: 'application/zip',
       );
 
       state = state.copyWith(
         isLoading: false,
-        successMessage: 'Exportação concluída',
+        successMessage: 'Exporta\u00e7\u00e3o conclu\u00edda',
       );
     } catch (e) {
       state = state.copyWith(

@@ -1,12 +1,12 @@
-﻿import 'dart:math' as math;
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gravity/models/category.dart';
-import 'package:gravity/viewmodels/categories_viewmodel.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
-import 'package:gravity/ui/widgets/app_scaffold.dart';
-import 'package:gravity/ui/widgets/app_search_field.dart';
-import 'package:gravity/ui/widgets/app_empty_state.dart';
+import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
+import 'package:catalogo_ja/ui/widgets/app_search_field.dart';
+import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
 
 class CategoriesScreen extends ConsumerStatefulWidget {
   const CategoriesScreen({super.key});
@@ -35,7 +35,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
 
     return AppScaffold(
       title: 'Categorias',
-      subtitle: 'Organize as categorias do catálogo',
+      subtitle: 'Organize as categorias do cat\u00e1logo',
       actions: [
         IconButton(
           icon: const Icon(Icons.add),
@@ -257,7 +257,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
         ),
         subtitle: Text('${state.productCounts[category.id] ?? 0} produtos'),
         trailing: PopupMenuButton<_CategoryAction>(
-          tooltip: 'Ações',
+          tooltip: 'A\u00e7\u00f5es',
           onSelected: (value) {
             if (value == _CategoryAction.edit) {
               _showCategoryDialog(context, notifier, category: category);
@@ -403,14 +403,14 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
 
     if (result.success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Categoria excluída com sucesso.')),
+        const SnackBar(content: Text('Categoria exclu\u00edda com sucesso.')),
       );
       return;
     }
 
     if (result.hasProducts) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.message ?? 'Não é possível excluir.')),
+        SnackBar(content: Text(result.message ?? 'N\u00e3o \u00e9 poss\u00edvel excluir.')),
       );
     }
   }

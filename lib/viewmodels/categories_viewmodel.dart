@@ -1,9 +1,9 @@
-﻿import 'package:gravity/core/auth/auth_controller.dart';
-import 'package:gravity/core/auth/auth_guards.dart';
-import 'package:gravity/data/repositories/categories_repository.dart';
-import 'package:gravity/data/repositories/products_repository.dart';
-import 'package:gravity/models/category.dart';
-import 'package:gravity/viewmodels/products_viewmodel.dart';
+import 'package:catalogo_ja/core/auth/auth_controller.dart';
+import 'package:catalogo_ja/core/auth/auth_guards.dart';
+import 'package:catalogo_ja/data/repositories/categories_repository.dart';
+import 'package:catalogo_ja/data/repositories/products_repository.dart';
+import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
 
@@ -152,7 +152,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
           c.safeName.trim().toLowerCase() == name.trim().toLowerCase() &&
           c.type == type,
     )) {
-      return 'Categoria já existe';
+      return 'Categoria j\u00e1 existe';
     }
 
     final maxOrder = currentCategories.isNotEmpty
@@ -197,7 +197,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
           c.type == CategoryType.collection &&
           c.safeSlug.trim().toLowerCase() == slug.trim().toLowerCase(),
     )) {
-      return 'Slug já existe';
+      return 'Slug j\u00e1 existe';
     }
 
     // Check name uniqueness among collections
@@ -206,12 +206,12 @@ class CategoriesViewModel extends _$CategoriesViewModel {
           c.type == CategoryType.collection &&
           c.safeName.trim().toLowerCase() == name.trim().toLowerCase(),
     )) {
-      return 'Coleção já existe';
+      return 'Cole\u00e7\u00e3o j\u00e1 existe';
     }
 
     // Validation: Mini cover is mandatory
     if (coverMiniPath.trim().isEmpty) {
-      return 'Mini capa é obrigatória';
+      return 'Mini capa \u00e9 obrigat\u00f3ria';
     }
 
     final maxOrder = currentCategories.isNotEmpty
@@ -254,7 +254,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
           c.id != id &&
           c.safeName.trim().toLowerCase() == newName.trim().toLowerCase(),
     )) {
-      return 'Nome já em uso';
+      return 'Nome j\u00e1 em uso';
     }
 
     final cat = currentCategories.firstWhere((c) => c.id == id);
@@ -291,12 +291,12 @@ class CategoriesViewModel extends _$CategoriesViewModel {
           c.type == CategoryType.collection &&
           c.safeSlug.trim().toLowerCase() == slug.trim().toLowerCase(),
     )) {
-      return 'Slug já existe';
+      return 'Slug j\u00e1 existe';
     }
 
     // Validation: Mini cover is mandatory
     if (coverMiniPath.trim().isEmpty) {
-      return 'Mini capa é obrigatória';
+      return 'Mini capa \u00e9 obrigat\u00f3ria';
     }
 
     final cat = currentCategories.firstWhere((c) => c.id == id);
@@ -407,7 +407,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
   void _requireAdmin() {
     final user = ref.read(currentUserProvider);
     if (!isAdmin(user)) {
-      throw Exception('Sem permissão para modificar categorias.');
+      throw Exception('Sem permiss\u00e3o para modificar categorias.');
     }
   }
 }

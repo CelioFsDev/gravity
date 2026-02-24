@@ -1,16 +1,17 @@
-﻿import 'package:file_picker/file_picker.dart';
-import 'package:gravity/core/importer/nuvemshop_api_client.dart';
-import 'package:gravity/core/importer/nuvemshop_csv_reader.dart';
-import 'package:gravity/core/importer/nuvemshop_forward_fill.dart';
-import 'package:gravity/core/importer/nuvemshop_category_mapper.dart';
-import 'package:gravity/core/importer/parse_utils.dart';
-import 'package:gravity/data/repositories/contracts/categories_repository_contract.dart';
-import 'package:gravity/data/repositories/contracts/products_repository_contract.dart';
-import 'package:gravity/models/category.dart';
-import 'package:gravity/models/product.dart';
-import 'package:gravity/models/product_variant.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:catalogo_ja/core/importer/nuvemshop_api_client.dart';
+import 'package:catalogo_ja/core/importer/nuvemshop_csv_reader.dart';
+import 'package:catalogo_ja/core/importer/nuvemshop_forward_fill.dart';
+import 'package:catalogo_ja/core/importer/nuvemshop_category_mapper.dart';
+import 'package:catalogo_ja/core/importer/parse_utils.dart';
+import 'package:catalogo_ja/data/repositories/contracts/categories_repository_contract.dart';
+import 'package:catalogo_ja/data/repositories/contracts/products_repository_contract.dart';
+import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/models/product_variant.dart';
 import 'package:flutter/foundation.dart' hide Category;
-import 'package:gravity/core/services/image_cache_service.dart';
+import 'package:catalogo_ja/core/services/image_cache_service.dart';
+import 'package:catalogo_ja/core/utils/encoding_utils.dart';
 import 'package:uuid/uuid.dart';
 
 class ImportOptions {
@@ -55,12 +56,16 @@ class NuvemshopImportService {
     void Function(double progress)? onProgress,
     void Function(String status)? onStatus,
   }) async {
-    debugPrint('Iniciando importação Nuvemshop: ${file.name}');
+    debugPrint('Iniciando importa\u00e7\u00e3o Nuvemshop: ${file.name}');
     onStatus?.call('Lendo CSV...');
     final table = await NuvemshopCsvReader.readFromPlatformFile(file);
     debugPrint('Colunas encontradas no CSV: ${table.headers.join(', ')}');
     onStatus?.call('Organizando dados...');
-    final rows = forwardFill(table.rows, _columnsToFill);
+
+    // First, normalize all row keys to standard keys for easier processing
+    final normalizedRawRows = table.rows.map((r) => _normalizeRow(r)).toList();
+
+    final rows = forwardFill(normalizedRawRows, _columnsToFill);
 
     final grouped = <String, List<Map<String, String>>>{};
     for (final row in rows) {
@@ -82,7 +87,7 @@ class NuvemshopImportService {
         variantsCount: 0,
         createdCategoriesCount: 0,
         warnings: [
-          'Nenhum produto encontrado no CSV. Verifique se há ao menos Nome ou SKU preenchidos.',
+          'Nenhum produto encontrado no CSV. Verifique se h\u00e1 ao menos Nome ou SKU preenchidos.',
         ],
       );
     }
@@ -111,22 +116,38 @@ class NuvemshopImportService {
       onProgress?.call((i + 1) / entries.length);
       onStatus?.call('Processando ${i + 1}/${entries.length}: ${entry.key}');
 
-      final row = entry.value.first;
-      final name = _value(row, 'Nome');
-      final slugFromCsv = _value(row, 'Identificador URL');
-      final slug = slugFromCsv.isNotEmpty ? slugFromCsv : _slugFromName(name);
-      final description = _value(row, 'Descrição');
-      final tags = splitCsvList(_value(row, 'Tags'));
-      final categoriesNames = parseCategoryNames(_value(row, 'Categorias'));
-      final collectionName = detectCollectionName(tags);
+      // Normalize all rows in this group to use standard keys
+      final groupRows = entry.value.map((r) => _normalizeRow(r)).toList();
+      final row = groupRows.first;
 
-      final priceRetail = parseMoney(_value(row, 'Preço'));
+      final name = EncodingUtils.fixGarbledString(_value(row, 'nome'));
+      final slugFromCsv = _value(row, 'identificador url');
+      final slug = slugFromCsv.isNotEmpty ? slugFromCsv : _slugFromName(name);
+      final description = EncodingUtils.fixGarbledString(
+        _value(row, 'descricao'),
+      );
+      final tags = splitCsvList(
+        EncodingUtils.fixGarbledString(_value(row, 'tags')),
+      );
+      final categoriesNames = parseCategoryNames(
+        EncodingUtils.fixGarbledString(_value(row, 'categorias')),
+      );
+      final collectionName = EncodingUtils.fixGarbledString(
+        detectCollectionName(tags) ?? '',
+      );
+
+      final priceRetail = parseMoney(_value(row, 'preco'));
       if (priceRetail <= 0) {
-        warnings.add('Preço inválido para "$name". Linha ignorada.');
+        warnings.add('Pre\u00e7o inv\u00e1lido para "$name". Linha ignorada.');
         continue;
       }
 
-      final promoPrice = parseMoney(_value(row, 'Preço promocional'));
+      final priceWholesaleInput = parseMoney(_value(row, 'preco atacado'));
+      final priceWholesale = priceWholesaleInput > 0
+          ? priceWholesaleInput
+          : priceRetail;
+
+      final promoPrice = parseMoney(_value(row, 'preco promocional'));
       var promoPercent = 0.0;
       var promoEnabled = false;
       if (promoPrice > 0 && promoPrice < priceRetail) {
@@ -135,19 +156,19 @@ class NuvemshopImportService {
         promoEnabled = promoPercent > 0;
       }
 
-      final firstSku = _firstNonEmpty(entry.value, 'SKU');
+      final firstSku = _firstNonEmpty(groupRows, 'sku');
       final safeSku = firstSku.isNotEmpty ? firstSku : slug;
       final ref = _extractRef(safeSku).isNotEmpty ? _extractRef(safeSku) : slug;
       final existing = byRef[ref.toLowerCase()];
       final remoteImages = await _resolveRemoteImages(
-        entry.value,
+        groupRows,
         sku: safeSku,
         productLabel: name.isNotEmpty ? name : slug,
         onStatus: onStatus,
       );
 
       final categoryIds = <String>[];
-      if (collectionName != null && collectionName.isNotEmpty) {
+      if (collectionName.isNotEmpty) {
         final id = await _getOrCreateCategory(
           categoryByKey,
           collectionName,
@@ -166,7 +187,11 @@ class NuvemshopImportService {
         categoryIds.add(id.id);
       }
 
-      final variants = _buildVariants(entry.value);
+      final variantData = _buildVariants(groupRows);
+      final variants = variantData.variants;
+      final productColors = variantData.colors;
+      final productSizes = variantData.sizes;
+
       variantsCount += variants.length;
 
       if (existing == null && options.createNew) {
@@ -181,10 +206,10 @@ class NuvemshopImportService {
           remoteImages: remoteImages,
           categoryIds: categoryIds.toSet().toList(),
           priceRetail: priceRetail,
-          priceWholesale: priceRetail,
+          priceWholesale: priceWholesale,
           minWholesaleQty: 1,
-          sizes: const [],
-          colors: const [],
+          sizes: productSizes,
+          colors: productColors,
           images: await _downloadImagesIfNecessary(
             remoteImages,
             productLabel: name.isNotEmpty ? name : slug,
@@ -210,7 +235,13 @@ class NuvemshopImportService {
           remoteImages: remoteImages,
           categoryIds: categoryIds.toSet().toList(),
           priceRetail: priceRetail,
-          priceWholesale: existing.priceWholesale,
+          priceWholesale: priceWholesaleInput > 0
+              ? priceWholesaleInput
+              : (existing.priceWholesale > 0
+                    ? existing.priceWholesale
+                    : priceRetail),
+          sizes: productSizes.isNotEmpty ? productSizes : existing.sizes,
+          colors: productColors.isNotEmpty ? productColors : existing.colors,
           images: (existing.images.isEmpty)
               ? await _downloadImagesIfNecessary(
                   remoteImages,
@@ -220,7 +251,7 @@ class NuvemshopImportService {
               : existing.images,
           promoEnabled: promoEnabled,
           promoPercent: promoPercent,
-          variants: variants,
+          variants: variants.isNotEmpty ? variants : existing.variants,
           updatedAt: DateTime.now(),
         );
         await productsRepository.updateProduct(updatedProduct);
@@ -263,20 +294,63 @@ class NuvemshopImportService {
     return _CategoryResult(id: category.id, created: true);
   }
 
-  List<ProductVariant> _buildVariants(List<Map<String, String>> rows) {
-    return rows.map((row) {
-      final sku = _value(row, 'SKU');
-      final stock = parseIntSafe(_value(row, 'Estoque'));
+  ({List<ProductVariant> variants, List<String> colors, List<String> sizes})
+  _buildVariants(List<Map<String, String>> rows) {
+    final variants = <ProductVariant>[];
+    final allColors = <String>{};
+    final allSizes = <String>{};
+
+    for (final row in rows) {
+      final sku = _value(row, 'sku');
+      final stock = parseIntSafe(_value(row, 'estoque'));
       final attributes = <String, String>{};
+
       for (var i = 1; i <= 3; i++) {
-        final key = _value(row, 'Nome da variação $i');
-        final val = _value(row, 'Valor da variação $i');
+        final key = _value(row, 'nome da variacao $i');
+        final val = _value(row, 'valor da variacao $i');
+
         if (key.isNotEmpty && val.isNotEmpty) {
-          attributes[key.toUpperCase()] = val.toUpperCase();
+          final normKey = key.toUpperCase();
+          final normVal = val.trim();
+          attributes[normKey] = normVal;
+
+          // Detect if it is color or size
+          final normalizedKeyVal = _normalizeHeaderKey(key);
+          if (normalizedKeyVal.contains('cor') ||
+              normalizedKeyVal.contains('color')) {
+            allColors.add(normVal);
+          } else if (normalizedKeyVal.contains('tamanho') ||
+              normalizedKeyVal.contains('size') ||
+              normalizedKeyVal.contains('tam')) {
+            allSizes.add(normVal);
+          }
         }
       }
-      return ProductVariant(sku: sku, stock: stock, attributes: attributes);
-    }).toList();
+
+      // Check for direct color/size columns if variation columns didn't catch them
+      final directColor = _value(row, 'cor');
+      if (directColor.isNotEmpty) {
+        attributes['COR'] = directColor;
+        allColors.add(directColor);
+      }
+      final directSize = _value(row, 'tamanho');
+      if (directSize.isNotEmpty) {
+        attributes['TAMANHO'] = directSize;
+        allSizes.add(directSize);
+      }
+
+      if (attributes.isNotEmpty || sku.isNotEmpty) {
+        variants.add(
+          ProductVariant(sku: sku, stock: stock, attributes: attributes),
+        );
+      }
+    }
+
+    return (
+      variants: variants,
+      colors: allColors.toList(),
+      sizes: allSizes.toList(),
+    );
   }
 
   List<String> _extractRemoteImages(List<Map<String, String>> rows) {
@@ -347,61 +421,74 @@ class NuvemshopImportService {
   }
 
   String _value(Map<String, String> row, String key) {
+    // We expect 'key' to be already a standard key from _headerAliases.keys
     if (row.containsKey(key)) return (row[key] ?? '').trim();
 
-    final normalizedKey = _normalizeHeaderKey(key);
-    final normalizedAliases = _headerAliases[normalizedKey] ?? [normalizedKey];
-    final normalizedRow = {
-      for (final entry in row.entries)
-        _normalizeHeaderKey(entry.key): entry.value.trim(),
+    // Fallback searching by normalized name in case normalization didn't catch it
+    final normSearch = _normalizeHeaderKey(key);
+    if (row.containsKey(normSearch)) return (row[normSearch] ?? '').trim();
+
+    return '';
+  }
+
+  Map<String, String> _normalizeRow(Map<String, String> row) {
+    final normalized = <String, String>{};
+
+    // 1. Create a map of normalized original headers to their values
+    final normalizedInput = {
+      for (var entry in row.entries)
+        _normalizeHeaderKey(entry.key): entry.value,
     };
 
-    for (final alias in normalizedAliases) {
-      final value = normalizedRow[alias];
-      if (value != null) return value;
-    }
-    for (final entry in normalizedRow.entries) {
-      for (final alias in normalizedAliases) {
-        if (entry.key.contains(alias) || alias.contains(entry.key)) {
-          return entry.value;
+    // 2. Map standard keys to values using aliases
+    for (var standardKey in _headerAliases.keys) {
+      final aliases = _headerAliases[standardKey]!;
+      for (var alias in aliases) {
+        if (normalizedInput.containsKey(alias)) {
+          normalized[standardKey] = normalizedInput[alias]!;
+          break;
         }
       }
     }
 
-    final index = _standardColumnIndex[normalizedKey];
-    if (index != null && index >= 0 && row.length > index) {
-      return row.values.elementAt(index).trim();
+    // 3. Keep original values for any keys not recognized (safety)
+    for (var entry in row.entries) {
+      final normKey = _normalizeHeaderKey(entry.key);
+      if (!normalized.containsKey(normKey)) {
+        normalized[normKey] = entry.value;
+      }
     }
-    return '';
+
+    return normalized;
   }
 
   String _normalizeHeaderKey(String value) {
     var normalized = value.toLowerCase().trim();
     const replacements = {
-      'á': 'a',
-      'à': 'a',
-      'â': 'a',
-      'ã': 'a',
-      'ä': 'a',
-      'é': 'e',
-      'è': 'e',
-      'ê': 'e',
-      'ë': 'e',
-      'í': 'i',
-      'ì': 'i',
-      'î': 'i',
-      'ï': 'i',
-      'ó': 'o',
-      'ò': 'o',
-      'ô': 'o',
-      'õ': 'o',
-      'ö': 'o',
-      'ú': 'u',
-      'ù': 'u',
-      'û': 'u',
-      'ü': 'u',
-      'ç': 'c',
-      'ñ': 'n',
+      '\u00e1': 'a',
+      '\u00e0': 'a',
+      '\u00e2': 'a',
+      '\u00e3': 'a',
+      '\u00e4': 'a',
+      '\u00e9': 'e',
+      '\u00e8': 'e',
+      '\u00ea': 'e',
+      '\u00eb': 'e',
+      '\u00ed': 'i',
+      '\u00ec': 'i',
+      '\u00ee': 'i',
+      '\u00ef': 'i',
+      '\u00f3': 'o',
+      '\u00f2': 'o',
+      '\u00f4': 'o',
+      '\u00f5': 'o',
+      '\u00f6': 'o',
+      '\u00fa': 'u',
+      '\u00f9': 'u',
+      '\u00fb': 'u',
+      '\u00fc': 'u',
+      '\u00e7': 'c',
+      '\u00f1': 'n',
     };
     replacements.forEach((from, to) {
       normalized = normalized.replaceAll(from, to);
@@ -413,17 +500,16 @@ class NuvemshopImportService {
 
   static const Map<String, List<String>> _headerAliases = {
     'identificador url': ['identificador url', 'url', 'handle', 'slug'],
-    'sku': [
-      'sku',
-      'codigo',
-      'codigo de barras',
-      'ean',
-      'referencia',
-      'ref',
-    ],
+    'sku': ['sku', 'codigo', 'codigo de barras', 'ean', 'referencia', 'ref'],
     'nome': ['nome', 'titulo', 'title', 'name'],
     'descricao': ['descricao', 'description', 'conteudo'],
     'preco': ['preco', 'price', 'valor'],
+    'preco atacado': [
+      'preco atacado',
+      'valor atacado',
+      'preco revenda',
+      'wholesale price',
+    ],
     'preco promocional': [
       'preco promocional',
       'valor promocional',
@@ -434,44 +520,35 @@ class NuvemshopImportService {
     'tags': ['tags', 'tag'],
     'estoque': ['estoque', 'stock', 'inventory'],
     'url da imagem': ['url da imagem', 'imagem', 'image', 'image url'],
-    'nome da variacao 1': ['nome da variacao 1', 'opcao1 nome'],
-    'valor da variacao 1': ['valor da variacao 1', 'opcao1 valor'],
-    'nome da variacao 2': ['nome da variacao 2', 'opcao2 nome'],
-    'valor da variacao 2': ['valor da variacao 2', 'opcao2 valor'],
-    'nome da variacao 3': ['nome da variacao 3', 'opcao3 nome'],
-    'valor da variacao 3': ['valor da variacao 3', 'opcao3 valor'],
-  };
-
-  static const Map<String, int> _standardColumnIndex = {
-    'identificador url': 0,
-    'nome': 1,
-    'categorias': 2,
-    'nome da variacao 1': 3,
-    'valor da variacao 1': 4,
-    'nome da variacao 2': 5,
-    'valor da variacao 2': 6,
-    'nome da variacao 3': 7,
-    'valor da variacao 3': 8,
-    'preco': 9,
-    'preco promocional': 10,
-    'estoque': 15,
-    'sku': 16,
-    'descricao': 20,
-    'tags': 21,
+    'nome da variacao 1': ['nome da variacao 1', 'opcao 1 nome', 'variacao 1'],
+    'valor da variacao 1': ['valor da variacao 1', 'opcao 1 valor', 'valor 1'],
+    'nome da variacao 2': ['nome da variacao 2', 'opcao 2 nome', 'variacao 2'],
+    'valor da variacao 2': ['valor da variacao 2', 'opcao 2 valor', 'valor 2'],
+    'nome da variacao 3': ['nome da variacao 3', 'opcao 3 nome', 'variacao 3'],
+    'valor da variacao 3': ['valor da variacao 3', 'opcao 3 valor', 'valor 3'],
+    'cor': ['cor', 'color', 'cores'],
+    'tamanho': ['tamanho', 'size', 'tam', 'tamanhos'],
   };
 
   static const _columnsToFill = [
-    'Nome',
-    'Categorias',
-    'Preço',
-    'Preço promocional',
-    'Descrição',
-    'Tags',
+    'nome',
+    'categorias',
+    'preco',
+    'preco promocional',
+    'descricao',
+    'tags',
+    'nome da variacao 1',
+    'valor da variacao 1',
+    'nome da variacao 2',
+    'valor da variacao 2',
+    'nome da variacao 3',
+    'valor da variacao 3',
+    'cor',
+    'tamanho',
   ];
 
   Future<List<String>> _downloadImagesIfNecessary(
-    List<String> urls,
-    {
+    List<String> urls, {
     String? productLabel,
     void Function(String status)? onStatus,
   }) async {
@@ -503,6 +580,3 @@ class _CategoryResult {
 
   const _CategoryResult({required this.id, required this.created});
 }
-
-
-

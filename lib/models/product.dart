@@ -1,6 +1,6 @@
 import 'package:hive/hive.dart';
-import 'package:gravity/core/utils/price_calculator.dart';
-import 'package:gravity/models/product_variant.dart';
+import 'package:catalogo_ja/core/utils/price_calculator.dart';
+import 'package:catalogo_ja/models/product_variant.dart';
 
 part 'product.g.dart';
 

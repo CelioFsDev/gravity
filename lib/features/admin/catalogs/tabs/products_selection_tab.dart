@@ -1,12 +1,12 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
-import 'package:gravity/models/product.dart';
-import 'package:gravity/models/category.dart';
+import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/models/category.dart';
 import 'package:intl/intl.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
-import 'package:gravity/ui/widgets/app_search_field.dart';
-import 'package:gravity/ui/widgets/app_empty_state.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/widgets/app_search_field.dart';
+import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
 
 class ProductsSelectionTab extends StatefulWidget {
   final List<String> selectedIds;

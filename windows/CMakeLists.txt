@@ -1,10 +1,10 @@
 ﻿# Project-level configuration.
 cmake_minimum_required(VERSION 3.14)
-project(gravity LANGUAGES CXX)
+project(catalogo_ja LANGUAGES CXX)
 
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
-set(BINARY_NAME "gravity")
+set(BINARY_NAME "catalogo_ja")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.

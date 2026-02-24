@@ -1,12 +1,12 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gravity/core/services/catalog_share_helper.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
-import 'package:gravity/ui/widgets/app_scaffold.dart';
-import 'package:gravity/ui/widgets/app_empty_state.dart';
-import 'package:gravity/features/admin/catalogs/catalog_editor_screen.dart';
-import 'package:gravity/models/catalog.dart';
-import 'package:gravity/viewmodels/catalogs_viewmodel.dart';
+import 'package:catalogo_ja/core/services/catalog_share_helper.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
+import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
+import 'package:catalogo_ja/features/admin/catalogs/catalog_editor_screen.dart';
+import 'package:catalogo_ja/models/catalog.dart';
+import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
 import 'package:intl/intl.dart';
 
 class CatalogsScreen extends ConsumerWidget {
@@ -18,13 +18,13 @@ class CatalogsScreen extends ConsumerWidget {
     final notifier = ref.read(catalogsViewModelProvider.notifier);
 
     return AppScaffold(
-      title: 'Catálogos',
-      subtitle: 'Gerencie seus catálogos digitais',
+      title: 'Cat\u00e1logos',
+      subtitle: 'Gerencie seus cat\u00e1logos digitais',
       actions: [
         IconButton(
           icon: const Icon(Icons.add),
           onPressed: () => _openNew(context),
-          tooltip: 'Novo Catálogo',
+          tooltip: 'Novo Cat\u00e1logo',
         ),
       ],
       body: state.when(
@@ -80,9 +80,9 @@ class _CatalogsContent extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
         child: AppEmptyState(
           icon: Icons.collections_bookmark_outlined,
-          title: 'Nenhum catálogo ainda',
-          message: 'Crie um catálogo para gerar PDF e compartilhar.',
-          actionLabel: 'Criar catálogo',
+          title: 'Nenhum cat\u00e1logo ainda',
+          message: 'Crie um cat\u00e1logo para gerar PDF e compartilhar.',
+          actionLabel: 'Criar cat\u00e1logo',
           onAction: onCreate,
         ),
       );
@@ -161,7 +161,7 @@ class CatalogCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           child: PopupMenuButton<_CatalogAction>(
-            tooltip: 'Ações',
+            tooltip: 'A\u00e7\u00f5es',
             onSelected: (value) {
               switch (value) {
                 case _CatalogAction.share:

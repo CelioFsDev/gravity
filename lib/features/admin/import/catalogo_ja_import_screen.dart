@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:gravity/core/services/export_import_service.dart';
-import 'package:gravity/viewmodels/gravity_import_viewmodel.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/core/services/export_import_service.dart';
+import 'package:catalogo_ja/viewmodels/catalogo_ja_import_viewmodel.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 
-class GravityImportScreen extends ConsumerWidget {
-  const GravityImportScreen({super.key});
+class CatalogoJaImportScreen extends ConsumerWidget {
+  const CatalogoJaImportScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(gravityImportViewModelProvider);
-    final viewModel = ref.read(gravityImportViewModelProvider.notifier);
+    final state = ref.watch(catalogoJaImportViewModelProvider);
+    final viewModel = ref.read(catalogoJaImportViewModelProvider.notifier);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Importar Backup (Gravity)'),
+        title: const Text('Importar Backup (CatalogoJa)'),
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () {
@@ -31,8 +31,8 @@ class GravityImportScreen extends ConsumerWidget {
   Widget _buildBody(
     BuildContext context,
     WidgetRef ref,
-    GravityImportState state,
-    GravityImportViewModel viewModel,
+    CatalogoJaImportState state,
+    CatalogoJaImportViewModel viewModel,
   ) {
     if (state.isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -79,7 +79,7 @@ class GravityImportScreen extends ConsumerWidget {
 
   Widget _buildPickerStep(
     BuildContext context,
-    GravityImportViewModel viewModel,
+    CatalogoJaImportViewModel viewModel,
   ) {
     return Center(
       child: Padding(
@@ -124,8 +124,8 @@ class GravityImportScreen extends ConsumerWidget {
 
   Widget _buildPreviewStep(
     BuildContext context,
-    GravityImportState state,
-    GravityImportViewModel viewModel,
+    CatalogoJaImportState state,
+    CatalogoJaImportViewModel viewModel,
   ) {
     final preview = state.preview!;
     final payload = state.payload!;
@@ -159,7 +159,7 @@ class GravityImportScreen extends ConsumerWidget {
           const Divider(height: 32),
 
           Text(
-            'Resumo do Conteúdo',
+            'Resumo do Conte\u00fado',
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.bold,
               color: Colors.grey,
@@ -179,12 +179,12 @@ class GravityImportScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           _buildStatRow('Categorias', '${preview.totalCategoriesInFile}'),
-          _buildStatRow('Coleções', '${preview.totalCollectionsInFile}'),
+          _buildStatRow('Cole\u00e7\u00f5es', '${preview.totalCollectionsInFile}'),
 
           const Divider(height: 32),
 
           Text(
-            'Modo de Importação',
+            'Modo de Importa\u00e7\u00e3o',
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.bold,
               color: Colors.grey,
@@ -195,9 +195,9 @@ class GravityImportScreen extends ConsumerWidget {
           _buildModeOption(
             context,
             mode: ImportMode.merge,
-            title: 'Mesclar (Padrão)',
+            title: 'Mesclar (Padr\u00e3o)',
             description:
-                'Atualiza produtos existentes (pelo REF) e cria novos. Mantém IDs locais e restaura fotos se disponíveis.',
+                'Atualiza produtos existentes (pelo REF) e cria novos. Mant\u00e9m IDs locais e restaura fotos se dispon\u00edveis.',
             groupValue: state.selectedMode,
             onChanged: (v) => viewModel.setMode(v!),
           ),
@@ -206,7 +206,7 @@ class GravityImportScreen extends ConsumerWidget {
             mode: ImportMode.onlyNew,
             title: 'Somente Novos',
             description:
-                'Ignora produtos que já existem (pelo REF). Importa apenas os novos.',
+                'Ignora produtos que j\u00e1 existem (pelo REF). Importa apenas os novos.',
             groupValue: state.selectedMode,
             onChanged: (v) => viewModel.setMode(v!),
           ),
@@ -234,8 +234,8 @@ class GravityImportScreen extends ConsumerWidget {
               ),
               child: Text(
                 state.selectedMode == ImportMode.replaceAll
-                    ? 'CONFIRMAR SUBSTITUIÇÃO TOTAL'
-                    : 'Confirmar Importação',
+                    ? 'CONFIRMAR SUBSTITUI\u00c7\u00c3O TOTAL'
+                    : 'Confirmar Importa\u00e7\u00e3o',
               ),
             ),
           ),
@@ -246,8 +246,8 @@ class GravityImportScreen extends ConsumerWidget {
 
   Widget _buildResultStep(
     BuildContext context,
-    GravityImportState state,
-    GravityImportViewModel viewModel,
+    CatalogoJaImportState state,
+    CatalogoJaImportViewModel viewModel,
   ) {
     final result = state.result!;
     return Center(
@@ -259,7 +259,7 @@ class GravityImportScreen extends ConsumerWidget {
             const Icon(Icons.check_circle, color: Colors.green, size: 80),
             const SizedBox(height: 24),
             Text(
-              'Importação Concluída!',
+              'Importa\u00e7\u00e3o Conclu\u00edda!',
               style: Theme.of(context).textTheme.headlineMedium,
             ),
             const SizedBox(height: 32),
