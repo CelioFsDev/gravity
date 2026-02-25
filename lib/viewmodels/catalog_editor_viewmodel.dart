@@ -1,5 +1,3 @@
-import 'package:catalogo_ja/core/auth/auth_controller.dart';
-import 'package:catalogo_ja/core/auth/auth_guards.dart';
 import 'package:catalogo_ja/data/repositories/catalogs_repository.dart';
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/viewmodels/catalog_public_viewmodel.dart';
@@ -184,33 +182,11 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
         return false;
       }
 
-      final user = ref.read(currentUserProvider);
       var toSave = state.catalog;
-      if (!isLoggedIn(user)) {
-        state = state.copyWith(
-          isSaving: false,
-          slugError: 'Usu\u00e1rio n\u00e3o autenticado.',
-        );
-        return false;
-      }
-      if (user != null &&
-          toSave.ownerUid.isNotEmpty &&
-          toSave.ownerUid != user.uid) {
-        state = state.copyWith(
-          isSaving: false,
-          slugError: 'Sem permiss\u00e3o para editar este cat\u00e1logo.',
-        );
-        return false;
-      }
       if (toSave.shareCode.isEmpty) {
         toSave = toSave.copyWith(shareCode: _generateShareCode());
       }
-      toSave = toSave.copyWith(
-        updatedAt: DateTime.now(),
-        ownerUid: toSave.ownerUid.isEmpty && user != null
-            ? user.uid
-            : toSave.ownerUid,
-      );
+      toSave = toSave.copyWith(updatedAt: DateTime.now());
 
       await repository.addCatalog(toSave);
 

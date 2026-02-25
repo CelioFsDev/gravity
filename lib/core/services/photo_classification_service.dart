@@ -148,9 +148,9 @@ class PhotoClassificationService extends _$PhotoClassificationService {
     // The requirement 4.1 says: {REF}__C{N}__{COR}.jpg
     
     if (photoType == typeColor) {
-      return '${ref}__C{N}__${colorName}.${extension}';
+      return '${ref}__C{N}__$colorName.$extension';
     } else {
-      return '${ref}__${photoType}.${extension}';
+      return '${ref}__$photoType.$extension';
     }
   }
 

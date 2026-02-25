@@ -1,5 +1,3 @@
-import 'package:catalogo_ja/core/auth/auth_controller.dart';
-import 'package:catalogo_ja/core/auth/auth_guards.dart';
 import 'package:catalogo_ja/data/repositories/categories_repository.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/models/product.dart';
@@ -194,7 +192,6 @@ class ProductsViewModel extends _$ProductsViewModel {
 
   Future<void> deleteSelected() async {
     if (state.value == null || state.value!.selectedProductIds.isEmpty) return;
-    _requireAdmin();
     final repository = ref.read(productsRepositoryProvider);
     for (final id in state.value!.selectedProductIds) {
       await repository.deleteProduct(id);
@@ -205,7 +202,6 @@ class ProductsViewModel extends _$ProductsViewModel {
 
   Future<void> updateStatusSelected(bool active) async {
     if (state.value == null || state.value!.selectedProductIds.isEmpty) return;
-    _requireAdmin();
     final repository = ref.read(productsRepositoryProvider);
     for (final id in state.value!.selectedProductIds) {
       final product = state.value!.allProducts.firstWhere((p) => p.id == id);
@@ -217,7 +213,6 @@ class ProductsViewModel extends _$ProductsViewModel {
 
   Future<void> updateCategorySelected(String categoryId) async {
     if (state.value == null || state.value!.selectedProductIds.isEmpty) return;
-    _requireAdmin();
     final repository = ref.read(productsRepositoryProvider);
     for (final id in state.value!.selectedProductIds) {
       final product = state.value!.allProducts.firstWhere((p) => p.id == id);
@@ -236,7 +231,6 @@ class ProductsViewModel extends _$ProductsViewModel {
   }
 
   Future<void> deleteProduct(String id) async {
-    _requireAdmin();
     final repository = ref.read(productsRepositoryProvider);
     await repository.deleteProduct(id);
     await refresh();
@@ -244,7 +238,6 @@ class ProductsViewModel extends _$ProductsViewModel {
   }
 
   Future<void> addProduct(Product product) async {
-    _requireAdmin();
     final repository = ref.read(productsRepositoryProvider);
     await repository.addProduct(product);
     await refresh();
@@ -252,7 +245,6 @@ class ProductsViewModel extends _$ProductsViewModel {
   }
 
   Future<void> updateProduct(Product product) async {
-    _requireAdmin();
     final repository = ref.read(productsRepositoryProvider);
     await repository.updateProduct(product);
     await refresh();
@@ -369,12 +361,5 @@ class ProductsViewModel extends _$ProductsViewModel {
       outOfStockCount: outOfStock,
       onSaleCount: onSale,
     );
-  }
-
-  void _requireAdmin() {
-    final user = ref.read(currentUserProvider);
-    if (!isAdmin(user)) {
-      throw Exception('Sem permiss\u00e3o para modificar produtos.');
-    }
   }
 }

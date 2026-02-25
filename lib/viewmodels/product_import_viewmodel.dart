@@ -1,11 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/services.dart';
-import 'package:catalogo_ja/core/auth/auth_controller.dart';
-import 'package:catalogo_ja/core/auth/auth_guards.dart';
 import 'package:catalogo_ja/data/repositories/contracts/categories_repository_contract.dart';
 import 'package:catalogo_ja/data/repositories/categories_repository.dart';
 import 'package:catalogo_ja/data/repositories/settings_repository.dart';
@@ -221,7 +218,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
                   colorKey: classification.colorName,
                   photoType: classification.photoType, // Placeholder "C"
                 );
-                
+
                 currentPhotos = ref
                     .read(photoClassificationServiceProvider.notifier)
                     .organizeColors(currentPhotos, newPhoto);
@@ -370,8 +367,12 @@ class ProductImportViewModel extends _$ProductImportViewModel {
                 colorKey: classification?.colorName,
                 photoType:
                     classification?.photoType ??
-                    (file.name.toLowerCase().contains('principal') ? 'P' : null),
-                isPrimary: classification?.photoType == 'P' || file.name.toLowerCase().contains('principal'),
+                    (file.name.toLowerCase().contains('principal')
+                        ? 'P'
+                        : null),
+                isPrimary:
+                    classification?.photoType == 'P' ||
+                    file.name.toLowerCase().contains('principal'),
               );
               productsToUpdate.putIfAbsent(product.id, () => []).add(photo);
               matchedCount++;
@@ -959,11 +960,17 @@ class ProductImportViewModel extends _$ProductImportViewModel {
   }
 
   Product? _findProductByKey(String fileName, List<Product> products) {
-    final fileNameNoExt = p.basenameWithoutExtension(fileName).toLowerCase().trim();
+    final fileNameNoExt = p
+        .basenameWithoutExtension(fileName)
+        .toLowerCase()
+        .trim();
     final normalizedFileName = _normalizeForImageMatch(fileNameNoExt);
     final filePrefixToken = fileNameNoExt.split(RegExp(r'[-_\s\.]+')).first;
     final normalizedFilePrefix = _normalizeForImageMatch(filePrefixToken);
-    final normalizedFileNoZeros = normalizedFileName.replaceFirst(RegExp(r'^0+'), '');
+    final normalizedFileNoZeros = normalizedFileName.replaceFirst(
+      RegExp(r'^0+'),
+      '',
+    );
     final normalizedFilePrefixNoZeros = normalizedFilePrefix.replaceFirst(
       RegExp(r'^0+'),
       '',
@@ -974,7 +981,10 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       final ref = product.ref.trim().toLowerCase();
       if (ref.isNotEmpty) {
         final normalizedRef = _normalizeReference(ref);
-        final normalizedRefNoZeros = normalizedRef.replaceFirst(RegExp(r'^0+'), '');
+        final normalizedRefNoZeros = normalizedRef.replaceFirst(
+          RegExp(r'^0+'),
+          '',
+        );
         if (normalizedRef.isNotEmpty) {
           if (normalizedFileName == normalizedRef ||
               normalizedFilePrefix == normalizedRef ||
@@ -994,7 +1004,10 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       final sku = product.sku.trim().toLowerCase();
       if (sku.isNotEmpty) {
         final normalizedSku = _normalizeReference(sku);
-        final normalizedSkuNoZeros = normalizedSku.replaceFirst(RegExp(r'^0+'), '');
+        final normalizedSkuNoZeros = normalizedSku.replaceFirst(
+          RegExp(r'^0+'),
+          '',
+        );
         if (normalizedSku.isNotEmpty &&
             (normalizedFileName == normalizedSku ||
                 normalizedFilePrefix == normalizedSku ||
@@ -1071,10 +1084,6 @@ class ProductImportViewModel extends _$ProductImportViewModel {
 
   // Finalize
   Future<void> finalizeImport() async {
-    final user = ref.read(currentUserProvider);
-    if (!isAdmin(user)) {
-      throw Exception('Sem permiss\u00e3o para importar produtos.');
-    }
     state = state.copyWith(isLoading: true);
     try {
       final repository = ref.read(productsRepositoryProvider);
@@ -1168,10 +1177,9 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       if (!await imagesDir.exists()) {
         await imagesDir.create(recursive: true);
       }
-      final ext =
-          p.extension(file.name).isNotEmpty
-              ? p.extension(file.name).toLowerCase()
-              : '.jpg';
+      final ext = p.extension(file.name).isNotEmpty
+          ? p.extension(file.name).toLowerCase()
+          : '.jpg';
 
       String fileName;
       if (classification != null) {
@@ -1199,7 +1207,8 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       }
       // 2. Fallback for cloud files (Drive)
       if (file.bytes != null) {
-        final optimized = await optimizer.compressBytes(file.bytes!) ?? file.bytes!;
+        final optimized =
+            await optimizer.compressBytes(file.bytes!) ?? file.bytes!;
         await File(targetPath).writeAsBytes(optimized);
         return targetPath;
       }

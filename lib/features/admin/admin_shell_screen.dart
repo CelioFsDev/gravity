@@ -116,60 +116,58 @@ class AdminShellScreen extends ConsumerWidget {
               ? Row(
                   children: [
                     Container(
+                      width: 280,
                       decoration: BoxDecoration(
                         border: Border(
-                          right: BorderSide(
-                            color: Theme.of(context).dividerColor,
-                          ),
+                          right: BorderSide(color: Theme.of(context).dividerColor),
                         ),
                       ),
-                      child: NavigationRail(
-                        minExtendedWidth: 240,
-                        extended: true,
-                        leading: const Padding(
-                          padding: EdgeInsets.symmetric(
-                            vertical: 32,
-                            horizontal: 16,
-                          ),
-                          child: AdminDrawerHeader(
-                            title: 'CatalogoJa Admin',
-                            subtitle: 'Beta Version',
-                            icon: Icons.auto_awesome_outlined,
-                          ),
-                        ),
-                        trailing: Expanded(
-                          child: Align(
-                            alignment: Alignment.bottomCenter,
-                            child: Padding(
-                              padding: const EdgeInsets.only(bottom: 24),
-                              child: _ThemeToggleButton(
-                                isDark: isDark,
-                                onToggle: toggleTheme,
+                      child: SafeArea(
+                        child: NavigationDrawer(
+                          selectedIndex: navigationShell.currentIndex,
+                          onDestinationSelected: onAdminNavigation,
+                          children: [
+                            const SizedBox(height: AppTokens.space24),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 16),
+                              child: AdminDrawerHeader(
+                                title: 'CatalogoJa Admin',
+                                subtitle: 'Beta Version',
+                                icon: Icons.auto_awesome_outlined,
                               ),
                             ),
-                          ),
-                        ),
-                        destinations: _destinations
-                            .map(
-                              (item) => NavigationRailDestination(
-                                icon: Icon(item.icon, size: 22),
+                            const SizedBox(height: AppTokens.space24),
+                            ..._destinations.map(
+                              (item) => NavigationDrawerDestination(
+                                icon: Icon(item.icon),
                                 selectedIcon: Icon(
                                   item.icon,
                                   color: AppTokens.accentBlue,
-                                  size: 22,
                                 ),
-                                label: Text(
-                                  item.label,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
+                                label: Text(item.label),
                               ),
-                            )
-                            .toList(),
-                        selectedIndex: navigationShell.currentIndex,
-                        onDestinationSelected: onAdminNavigation,
-                        indicatorColor: AppTokens.accentBlue.withOpacity(0.08),
+                            ),
+                            const Padding(
+                              padding: EdgeInsets.all(AppTokens.space16),
+                              child: Divider(),
+                            ),
+                            SwitchListTile.adaptive(
+                              title: const Text(
+                                'Modo noturno',
+                                style: TextStyle(fontSize: 14),
+                              ),
+                              value: isDark,
+                              onChanged: (_) => toggleTheme(),
+                              activeColor: AppTokens.accentBlue,
+                              secondary: Icon(
+                                isDark
+                                    ? Icons.dark_mode_outlined
+                                    : Icons.light_mode_outlined,
+                                size: 20,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     Expanded(child: navigationShell),
@@ -178,42 +176,6 @@ class AdminShellScreen extends ConsumerWidget {
               : navigationShell,
         );
       },
-    );
-  }
-}
-
-class _ThemeToggleButton extends StatelessWidget {
-  final bool isDark;
-  final VoidCallback onToggle;
-
-  const _ThemeToggleButton({required this.isDark, required this.onToggle});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onToggle,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-              size: 18,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              isDark ? 'Modo Claro' : 'Modo Escuro',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

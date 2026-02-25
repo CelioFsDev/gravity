@@ -51,56 +51,82 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       subtitle: 'Gerencie seu cat\u00e1logo de produtos',
       useAppBar: false,
       actions: [_buildMoreActions(context)],
-      body: Column(
-        children: [
-          _buildBulkActionsBar(context),
-          Expanded(
-            child: state.when(
-              data: (data) => _ProductsContent(
-                state: data,
-                searchController: _searchController,
-                onSearchChanged: (value) => ref
-                    .read(productsViewModelProvider.notifier)
-                    .setSearchQuery(value),
-                onClearFilters: () => _clearFilters(data),
+      body: SizedBox.expand(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            final maxContentWidth = width < 900 ? width : 1200.0;
 
-                onSelectCategory: (value) => ref
-                    .read(productsViewModelProvider.notifier)
-                    .setCategoryFilter(value),
-                onSelectStatus: (value) => ref
-                    .read(productsViewModelProvider.notifier)
-                    .setStatusFilter(value),
-                onSelectSort: (value) => ref
-                    .read(productsViewModelProvider.notifier)
-                    .setSortOption(value),
-                onNewProduct: () => _openNewProduct(context),
-                onViewProduct: (product) => _openDetails(context, product),
-                onEditProduct: (product) => _openEdit(context, product),
-                onDeleteProduct: (product) => _deleteProduct(product),
-                onDuplicateProduct: (product) => _duplicateProduct(product),
-                onTogglePromo: (product) => _togglePromo(product),
-                onRefresh: () async =>
-                    ref.read(productsViewModelProvider.notifier).refresh(),
-                onToggleSelection: (id) => ref
-                    .read(productsViewModelProvider.notifier)
-                    .toggleSelection(id),
+            return Align(
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: maxContentWidth,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildBulkActionsBar(context),
+                      Expanded(
+                        child: state.when(
+                          data: (data) => _ProductsContent(
+                            state: data,
+                            searchController: _searchController,
+                            onSearchChanged: (value) => ref
+                                .read(productsViewModelProvider.notifier)
+                                .setSearchQuery(value),
+                            onClearFilters: () => _clearFilters(data),
+
+                            onSelectCategory: (value) => ref
+                                .read(productsViewModelProvider.notifier)
+                                .setCategoryFilter(value),
+                            onSelectStatus: (value) => ref
+                                .read(productsViewModelProvider.notifier)
+                                .setStatusFilter(value),
+                            onSelectSort: (value) => ref
+                                .read(productsViewModelProvider.notifier)
+                                .setSortOption(value),
+                            onNewProduct: () => _openNewProduct(context),
+                            onViewProduct: (product) =>
+                                _openDetails(context, product),
+                            onEditProduct: (product) =>
+                                _openEdit(context, product),
+                            onDeleteProduct: (product) =>
+                                _deleteProduct(product),
+                            onDuplicateProduct: (product) =>
+                                _duplicateProduct(product),
+                            onTogglePromo: (product) => _togglePromo(product),
+                            onRefresh: () async => ref
+                                .read(productsViewModelProvider.notifier)
+                                .refresh(),
+                            onToggleSelection: (id) => ref
+                                .read(productsViewModelProvider.notifier)
+                                .toggleSelection(id),
+                          ),
+                          error: (e, s) => AppEmptyState(
+                            icon: Icons.error_outline,
+                            title: 'Erro ao carregar',
+                            message: e.toString(),
+                            actionLabel: 'Tentar novamente',
+                            onAction: () => ref
+                                .read(productsViewModelProvider.notifier)
+                                .refresh(),
+                          ),
+                          loading: () =>
+                              const Center(child: CircularProgressIndicator()),
+                        ),
+                      ),
+                      state.maybeWhen(
+                        data: (data) => _buildBottomBar(context),
+                        orElse: () => const SizedBox.shrink(),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              error: (e, s) => AppEmptyState(
-                icon: Icons.error_outline,
-                title: 'Erro ao carregar',
-                message: e.toString(),
-                actionLabel: 'Tentar novamente',
-                onAction: () =>
-                    ref.read(productsViewModelProvider.notifier).refresh(),
-              ),
-              loading: () => const Center(child: CircularProgressIndicator()),
-            ),
-          ),
-          state.maybeWhen(
-            data: (data) => _buildBottomBar(context),
-            orElse: () => const SizedBox.shrink(),
-          ),
-        ],
+            );
+          },
+        ),
       ),
     );
   }

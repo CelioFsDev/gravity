@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 // Removed unused AppSectionHeader import
@@ -43,8 +45,23 @@ class AppScaffold extends StatelessWidget {
             )
           : null,
       body: SafeArea(
-        child: Center(
-          child: _buildContent(context, hasTitle),
+        child: SizedBox.expand(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final resolvedMaxWidth = maxWidth.isFinite
+                  ? math.min(maxWidth, constraints.maxWidth)
+                  : constraints.maxWidth;
+
+              return Align(
+                alignment: Alignment.topCenter,
+                child: SizedBox(
+                  width: resolvedMaxWidth,
+                  height: constraints.maxHeight,
+                  child: _buildContent(context, hasTitle),
+                ),
+              );
+            },
+          ),
         ),
       ),
       floatingActionButton: floatingActionButton,
@@ -54,7 +71,7 @@ class AppScaffold extends StatelessWidget {
 
   Widget _buildContent(BuildContext context, bool hasTitle) {
     final content = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (!useAppBar && showHeader && hasTitle)
           Padding(
@@ -99,13 +116,6 @@ class AppScaffold extends StatelessWidget {
       ],
     );
 
-    if (maxWidth.isFinite) {
-      return ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: maxWidth),
-        child: content,
-      );
-    }
-
-    return SizedBox(width: double.infinity, child: content);
+    return content;
   }
 }

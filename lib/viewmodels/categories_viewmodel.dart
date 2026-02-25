@@ -1,5 +1,3 @@
-import 'package:catalogo_ja/core/auth/auth_controller.dart';
-import 'package:catalogo_ja/core/auth/auth_guards.dart';
 import 'package:catalogo_ja/data/repositories/categories_repository.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/models/category.dart';
@@ -142,7 +140,6 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     CollectionCover? cover,
     String? id,
   }) async {
-    _requireAdmin();
     final categoriesRepo = ref.read(categoriesRepositoryProvider);
     final currentCategories = await categoriesRepo.getCategories();
 
@@ -187,7 +184,6 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     bool isActive = true,
     String? id,
   }) async {
-    _requireAdmin();
     final categoriesRepo = ref.read(categoriesRepositoryProvider);
     final currentCategories = await categoriesRepo.getCategories();
 
@@ -244,7 +240,6 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     String newName, {
     CollectionCover? cover,
   }) async {
-    _requireAdmin();
     final categoriesRepo = ref.read(categoriesRepositoryProvider);
     final currentCategories = await categoriesRepo.getCategories();
 
@@ -280,7 +275,6 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     String? coverPagePath,
     required bool isActive,
   }) async {
-    _requireAdmin();
     final categoriesRepo = ref.read(categoriesRepositoryProvider);
     final currentCategories = await categoriesRepo.getCategories();
 
@@ -319,7 +313,6 @@ class CategoriesViewModel extends _$CategoriesViewModel {
 
   // Reorder
   Future<void> reorder(int oldIndex, int newIndex) async {
-    _requireAdmin();
     if (state.value == null) return;
     // Only allow in manual mode
     if (state.value!.sortOption != CategorySortOption.manual) return;
@@ -361,7 +354,6 @@ class CategoriesViewModel extends _$CategoriesViewModel {
 
   // Delete Check
   Future<CategoryDeleteResult> checkDelete(String id) async {
-    _requireAdmin();
     final productRepository = ref.read(productsRepositoryProvider);
     final categoriesRepo = ref.read(categoriesRepositoryProvider);
     final products = await productRepository.getProductsByCategory(id);
@@ -388,7 +380,6 @@ class CategoriesViewModel extends _$CategoriesViewModel {
   // Let's implement options directly.
 
   Future<void> deleteWithMove(String id, String targetCategoryId) async {
-    _requireAdmin();
     final categoriesRepo = ref.read(categoriesRepositoryProvider);
     await categoriesRepo.reassignCategory(id, targetCategoryId);
     await categoriesRepo.deleteCategory(id);
@@ -396,18 +387,10 @@ class CategoriesViewModel extends _$CategoriesViewModel {
   }
 
   Future<void> deleteAndUncategorize(String id) async {
-    _requireAdmin();
     // Reassign to empty string or specialized 'uncategorized'
     final categoriesRepo = ref.read(categoriesRepositoryProvider);
     await categoriesRepo.reassignCategory(id, ''); // '' = Uncategorized
     await categoriesRepo.deleteCategory(id);
     await _refresh();
-  }
-
-  void _requireAdmin() {
-    final user = ref.read(currentUserProvider);
-    if (!isAdmin(user)) {
-      throw Exception('Sem permiss\u00e3o para modificar categorias.');
-    }
   }
 }

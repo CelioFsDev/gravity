@@ -1,13 +1,7 @@
-import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:catalogo_ja/core/auth/auth_controller.dart';
-import 'package:catalogo_ja/core/auth/auth_guards.dart';
-import 'package:catalogo_ja/core/auth/auth_user.dart';
-import 'package:catalogo_ja/features/auth/login_screen.dart';
-import 'package:catalogo_ja/features/auth/register_screen.dart';
 import 'package:catalogo_ja/firebase_options.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:go_router/go_router.dart';
@@ -26,7 +20,6 @@ import 'package:catalogo_ja/features/admin/import/nuvemshop_import_screen.dart';
 import 'package:catalogo_ja/features/admin/settings/settings_screen.dart';
 import 'package:catalogo_ja/features/theme/theme_providers.dart';
 import 'package:catalogo_ja/features/public/catalog_home_page.dart';
-import 'package:catalogo_ja/core/auth/auth_repository.dart';
 import 'package:catalogo_ja/features/public/product_detail_screen.dart';
 import 'package:catalogo_ja/ui/theme/app_theme.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
@@ -92,27 +85,16 @@ class MyApp extends ConsumerStatefulWidget {
 
 class _MyAppState extends ConsumerState<MyApp> {
   late final GoRouter _router;
-  late final GoRouterRefreshStream _routerRefresh;
 
   @override
   void initState() {
     super.initState();
-    _routerRefresh = GoRouterRefreshStream(
-      ref.read(authRepositoryProvider).authStateChanges(),
-    );
     _router = GoRouter(
       initialLocation: '/admin/products',
-      refreshListenable: _routerRefresh,
-      redirect: (context, state) => _authRedirect(
-        ref.read(authControllerProvider).value,
-        state,
-      ),
       routes: [
-        GoRoute(path: '/', builder: (context, state) => const PublicHomeScreen()),
-        GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
         GoRoute(
-          path: '/register',
-          builder: (context, state) => const RegisterScreen(),
+          path: '/',
+          builder: (context, state) => const PublicHomeScreen(),
         ),
         GoRoute(
           path: 'p/:productId',
@@ -164,8 +146,9 @@ class _MyAppState extends ConsumerState<MyApp> {
                     ),
                     GoRoute(
                       path: ':id/edit',
-                      builder: (context, state) =>
-                          CollectionFormScreen(collectionId: state.pathParameters['id']),
+                      builder: (context, state) => CollectionFormScreen(
+                        collectionId: state.pathParameters['id'],
+                      ),
                     ),
                   ],
                 ),
@@ -212,7 +195,6 @@ class _MyAppState extends ConsumerState<MyApp> {
   @override
   void dispose() {
     _router.dispose();
-    _routerRefresh.dispose();
     super.dispose();
   }
 
@@ -242,37 +224,6 @@ class _MyAppState extends ConsumerState<MyApp> {
       ),
     );
   }
-}
-
-class GoRouterRefreshStream extends ChangeNotifier {
-  GoRouterRefreshStream(Stream<dynamic> stream) {
-    _subscription = stream.listen((event) => notifyListeners());
-  }
-  late final StreamSubscription<dynamic> _subscription;
-  @override
-  void dispose() {
-    _subscription.cancel();
-    super.dispose();
-  }
-}
-
-String? _authRedirect(AuthUser? user, GoRouterState state) {
-  if (kBypassAuth) return null;
-  final path = state.uri.path;
-  if (!isLoggedIn(user)) {
-    if (path == '/login' ||
-        path == '/register' ||
-        path.startsWith('/c/') ||
-        path == '/') {
-      return null;
-    }
-    return '/login';
-  }
-  if (path == '/login' || path == '/register') {
-    return isAdmin(user) ? '/admin/products' : '/';
-  }
-  if (path.startsWith('/admin') && !isAdmin(user)) return '/';
-  return null;
 }
 
 class PublicHomeScreen extends ConsumerStatefulWidget {
@@ -339,24 +290,6 @@ class _PublicHomeScreenState extends ConsumerState<PublicHomeScreen> {
                         onPressed: _openCatalog,
                         child: const Text('Abrir cat\u00e1logo'),
                       ),
-                    ),
-                    const Divider(height: 48),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => context.go('/login'),
-                            child: const Text('Entrar'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: () => context.go('/register'),
-                            child: const Text('Criar conta'),
-                          ),
-                        ),
-                      ],
                     ),
                   ],
                 ),
