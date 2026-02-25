@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -93,20 +95,43 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
   Future<void> _pickImage(bool isMini) async {
     try {
       final result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'],
         allowMultiple: false,
+        withData: kIsWeb,
       );
 
-      if (result != null && result.files.single.path != null) {
-        final file = File(result.files.single.path!);
+      if (result == null || result.files.isEmpty) return;
+      final picked = result.files.single;
+      final optimizer = ref.read(imageOptimizerServiceProvider.notifier);
+
+      if (kIsWeb) {
+        final rawBytes = picked.bytes;
+        if (rawBytes == null || rawBytes.isEmpty) {
+          throw Exception('Arquivo invalido no navegador.');
+        }
+        final compressedBytes = await optimizer.compressBytes(rawBytes);
+        final bytesToUse = compressedBytes ?? rawBytes;
+        final dataUrl =
+            'data:${_mimeTypeFromFileName(picked.name)};base64,${base64Encode(bytesToUse)}';
+
+        setState(() {
+          if (isMini) {
+            _coverMiniPath = dataUrl;
+          } else {
+            _coverPagePath = dataUrl;
+          }
+        });
+        return;
+      }
+
+      if (picked.path != null) {
+        final file = File(picked.path!);
         if (!await file.exists()) return;
 
-        // Compress image
-        final optimizer = ref.read(imageOptimizerServiceProvider.notifier);
         final compressedFile = await optimizer.compressImage(file);
         final fileToSave = compressedFile ?? file;
 
-        // Copy to app storage
         final appDir = await getApplicationDocumentsDirectory();
         final fileName = '${const Uuid().v4()}${p.extension(fileToSave.path)}';
         final savedImage = await fileToSave.copy('${appDir.path}/$fileName');
@@ -406,19 +431,7 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: Image.file(
-                      File(path),
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                      height: double.infinity,
-                      errorBuilder: (_, _, _) => const Center(
-                        child: Icon(
-                          Icons.broken_image,
-                          size: 48,
-                          color: AppTokens.textMuted,
-                        ),
-                      ),
-                    ),
+                    child: _buildImageFromPath(path),
                   ),
                   Positioned.fill(
                     child: Container(
@@ -450,7 +463,7 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
           GestureDetector(
             onTap: onPick,
             child: Container(
-              height: height / 2.5,
+              height: height * 0.62,
               width: double.infinity,
               decoration: BoxDecoration(
                 color: Theme.of(
@@ -463,27 +476,83 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
               alignment: Alignment.center,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.add_photo_alternate_outlined,
-                    size: 32,
-                    color: AppTokens.textMuted.withOpacity(0.5),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Clique para selecionar',
-                    style: TextStyle(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.add_photo_alternate_outlined,
+                      size: 32,
                       color: AppTokens.textMuted.withOpacity(0.5),
-                      fontSize: 12,
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    Text(
+                      'Clique para selecionar',
+                      style: TextStyle(
+                        color: AppTokens.textMuted.withOpacity(0.5),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
       ],
     );
   }
+
+  Widget _buildImageFromPath(String path) {
+    if (path.startsWith('data:image') || path.startsWith('http')) {
+      return Image.network(
+        path,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (_, _, _) => const Center(
+          child: Icon(
+            Icons.broken_image,
+            size: 48,
+            color: AppTokens.textMuted,
+          ),
+        ),
+      );
+    }
+
+    return Image.file(
+      File(path),
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      errorBuilder: (_, _, _) => const Center(
+        child: Icon(
+          Icons.broken_image,
+          size: 48,
+          color: AppTokens.textMuted,
+        ),
+      ),
+    );
+  }
+
+  String _mimeTypeFromFileName(String fileName) {
+    final ext = p.extension(fileName).toLowerCase();
+    switch (ext) {
+      case '.jpg':
+      case '.jpeg':
+        return 'image/jpeg';
+      case '.png':
+        return 'image/png';
+      case '.webp':
+        return 'image/webp';
+      case '.gif':
+        return 'image/gif';
+      case '.bmp':
+        return 'image/bmp';
+      default:
+        return 'application/octet-stream';
+    }
+  }
 }
+

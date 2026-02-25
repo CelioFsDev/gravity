@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -17,6 +18,9 @@ class ImageOptimizerService extends _$ImageOptimizerService {
     int quality = 80,
     int maxWidth = 1200,
   }) async {
+    // flutter_image_compress uses native code, skip on web
+    if (kIsWeb) return null;
+
     try {
       final tempDir = await getTemporaryDirectory();
       final targetPath = p.join(
@@ -46,6 +50,9 @@ class ImageOptimizerService extends _$ImageOptimizerService {
     int quality = 80,
     int maxWidth = 1200,
   }) async {
+    // flutter_image_compress uses native code, skip on web
+    if (kIsWeb) return null;
+
     try {
       return await FlutterImageCompress.compressWithList(
         bytes,

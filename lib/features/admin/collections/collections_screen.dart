@@ -172,11 +172,7 @@ class _CollectionCard extends StatelessWidget {
               height: 120,
               width: double.infinity,
               child: hasCover
-                  ? Image.file(
-                      File(coverPath),
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => _buildPlaceholder(context),
-                    )
+                  ? _buildCoverImage(coverPath, context)
                   : _buildPlaceholder(context),
             ),
             Padding(
@@ -259,6 +255,22 @@ class _CollectionCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCoverImage(String coverPath, BuildContext context) {
+    if (coverPath.startsWith('data:image') || coverPath.startsWith('http')) {
+      return Image.network(
+        coverPath,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => _buildPlaceholder(context),
+      );
+    }
+
+    return Image.file(
+      File(coverPath),
+      fit: BoxFit.cover,
+      errorBuilder: (_, _, _) => _buildPlaceholder(context),
     );
   }
 }

@@ -83,29 +83,33 @@ void main() async {
   runApp(const ProviderScope(child: MyApp()));
 }
 
-class MyApp extends ConsumerWidget {
+class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final mode = ref.watch(themeModeProvider);
-    final authState = ref.watch(authControllerProvider);
-    final user = authState.value;
-    final streamSource = ref.watch(authRepositoryProvider).authStateChanges();
+  ConsumerState<MyApp> createState() => _MyAppState();
+}
 
-    final router = GoRouter(
+class _MyAppState extends ConsumerState<MyApp> {
+  late final GoRouter _router;
+  late final GoRouterRefreshStream _routerRefresh;
+
+  @override
+  void initState() {
+    super.initState();
+    _routerRefresh = GoRouterRefreshStream(
+      ref.read(authRepositoryProvider).authStateChanges(),
+    );
+    _router = GoRouter(
       initialLocation: '/admin/products',
-      refreshListenable: GoRouterRefreshStream(streamSource),
-      redirect: (context, state) => _authRedirect(user, state),
+      refreshListenable: _routerRefresh,
+      redirect: (context, state) => _authRedirect(
+        ref.read(authControllerProvider).value,
+        state,
+      ),
       routes: [
-        GoRoute(
-          path: '/',
-          builder: (context, state) => const PublicHomeScreen(),
-        ),
-        GoRoute(
-          path: '/login',
-          builder: (context, state) => const LoginScreen(),
-        ),
+        GoRoute(path: '/', builder: (context, state) => const PublicHomeScreen()),
+        GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
         GoRoute(
           path: '/register',
           builder: (context, state) => const RegisterScreen(),
@@ -160,15 +164,13 @@ class MyApp extends ConsumerWidget {
                     ),
                     GoRoute(
                       path: ':id/edit',
-                      builder: (context, state) => CollectionFormScreen(
-                        collectionId: state.pathParameters['id'],
-                      ),
+                      builder: (context, state) =>
+                          CollectionFormScreen(collectionId: state.pathParameters['id']),
                     ),
                   ],
                 ),
               ],
             ),
-
             StatefulShellBranch(
               routes: [
                 GoRoute(
@@ -205,6 +207,18 @@ class MyApp extends ConsumerWidget {
         ),
       ],
     );
+  }
+
+  @override
+  void dispose() {
+    _router.dispose();
+    _routerRefresh.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mode = ref.watch(themeModeProvider);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: ref.watch(themeModeProvider) == ThemeMode.dark
@@ -223,7 +237,7 @@ class MyApp extends ConsumerWidget {
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
         themeMode: mode,
-        routerConfig: router,
+        routerConfig: _router,
         debugShowCheckedModeBanner: false,
       ),
     );

@@ -172,25 +172,34 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
 
   Widget _buildGrid(List<Product> products, String layout, CatalogMode mode) {
     final isList = layout == 'list';
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = isList
+            ? 1
+            : (constraints.maxWidth / 260).floor().clamp(1, 6);
+        final cardWidth = constraints.maxWidth / crossAxisCount;
+        final childAspectRatio = isList ? 2.5 : (cardWidth / 340).clamp(0.62, 0.9);
 
-    return GridView.builder(
-      padding: const EdgeInsets.all(AppTokens.space24),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: isList ? 1 : 2,
-        childAspectRatio: isList ? 2.5 : 0.75,
-        crossAxisSpacing: AppTokens.space16,
-        mainAxisSpacing: AppTokens.space16,
-      ),
-      itemCount: products.length,
-      itemBuilder: (context, index) {
-        final product = products[index];
-        return AppProductCard(
-          product: product,
-          mode: mode,
-          onTap: () => context.push(
-            '/c/${widget.shareCode}/p/${product.id}',
-            extra: {'product': product, 'mode': mode},
+        return GridView.builder(
+          padding: const EdgeInsets.all(AppTokens.space24),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            childAspectRatio: childAspectRatio,
+            crossAxisSpacing: AppTokens.space16,
+            mainAxisSpacing: AppTokens.space16,
           ),
+          itemCount: products.length,
+          itemBuilder: (context, index) {
+            final product = products[index];
+            return AppProductCard(
+              product: product,
+              mode: mode,
+              onTap: () => context.push(
+                '/c/${widget.shareCode}/p/${product.id}',
+                extra: {'product': product, 'mode': mode},
+              ),
+            );
+          },
         );
       },
     );
