@@ -110,31 +110,8 @@ class CatalogShareHelper {
         ),
       );
 
-      final dateStr = DateFormat('dd_MM_yyyy').format(DateTime.now());
-      String collectionName = catalog.name.isNotEmpty ? catalog.name : "geral";
-
-      // If a specific collection was selected in the options, use its name
-      if (options.collectionId != null) {
-        try {
-          final selectedCol = availableCollections.firstWhere(
-            (c) => c.id == options.collectionId,
-          );
-          if (selectedCol.name != null && selectedCol.name!.isNotEmpty) {
-            collectionName = selectedCol.name!;
-          }
-        } catch (_) {
-          // If not found in filtered list, keep catalog name
-        }
-      }
-
-      // Sanitize name for filename (remove special chars/spaces)
-      final sanitizedCollection = collectionName
-          .toLowerCase()
-          .replaceAll(RegExp(r'[^a-z0-9]'), '_')
-          .replaceAll(RegExp(r'_+'), '_')
-          .trim();
-
-      final fileName = 'catalogo_vitoriana_${sanitizedCollection}_$dateStr.pdf';
+      final dateStr = DateFormat('dd-MM-yyyy').format(DateTime.now());
+      final fileName = 'VITORIANA-$dateStr.PDF';
 
       await WhatsAppShareService.shareFile(
         bytes: pdfBytes,
@@ -226,9 +203,8 @@ class CatalogShareHelper {
       final documentsDirectory =
           await getDownloadsDirectory() ??
           await getApplicationDocumentsDirectory();
-      final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-      final safeName = catalog.slug.isNotEmpty ? catalog.slug : 'catalogo';
-      final filename = 'CatalogoJa_catalogo_${safeName}_$timestamp.pdf';
+      final dateStr = DateFormat('dd-MM-yyyy').format(DateTime.now());
+      final filename = 'VITORIANA-$dateStr.PDF';
       final filePath = p.join(documentsDirectory.path, filename);
       final file = File(filePath);
       await file.writeAsBytes(pdfBytes);
