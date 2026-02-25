@@ -17,6 +17,7 @@ import 'package:catalogo_ja/ui/widgets/app_kpi_card.dart';
 import 'package:catalogo_ja/ui/widgets/app_search_field.dart';
 import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
 import 'package:catalogo_ja/ui/widgets/app_product_list_tile.dart';
+import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
 class ProductsScreen extends ConsumerStatefulWidget {
@@ -344,6 +345,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 final importViewModel = ref.read(
                   productImportViewModelProvider.notifier,
                 );
+                importViewModel.reset();
 
                 _showVincularProgressDialog(context);
 
@@ -564,6 +566,15 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                         style: TextStyle(fontSize: 12),
                         textAlign: TextAlign.center,
                       ),
+                    const SizedBox(height: 16),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Fechar'),
+                    ),
+                  ],
+                  if (!importState.isLoading &&
+                      importState.errorMessage == null &&
+                      !importState.isDone) ...[
                     const SizedBox(height: 16),
                     TextButton(
                       onPressed: () => Navigator.pop(context),
@@ -1165,6 +1176,7 @@ class _ProductsListSection extends StatelessWidget {
           onDelete: () => onDeleteProduct(product),
           onDuplicate: () => onDuplicateProduct(product),
           onTogglePromo: () => onTogglePromo(product),
+          onGoMainMenu: () => context.go('/'),
         );
       },
     );

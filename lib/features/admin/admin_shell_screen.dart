@@ -27,6 +27,9 @@ class AdminShellScreen extends ConsumerWidget {
           ? ThemeMode.light
           : ThemeMode.dark;
     }
+    void onAdminNavigation(int index) {
+      navigationShell.goBranch(index, initialLocation: index == 0);
+    }
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -62,7 +65,7 @@ class AdminShellScreen extends ConsumerWidget {
                     child: NavigationDrawer(
                       selectedIndex: navigationShell.currentIndex,
                       onDestinationSelected: (index) {
-                        navigationShell.goBranch(index);
+                        onAdminNavigation(index);
                         Navigator.of(context).pop();
                       },
                       children: [
@@ -165,8 +168,7 @@ class AdminShellScreen extends ConsumerWidget {
                             )
                             .toList(),
                         selectedIndex: navigationShell.currentIndex,
-                        onDestinationSelected: (index) =>
-                            navigationShell.goBranch(index),
+                        onDestinationSelected: onAdminNavigation,
                         indicatorColor: AppTokens.accentBlue.withOpacity(0.08),
                       ),
                     ),

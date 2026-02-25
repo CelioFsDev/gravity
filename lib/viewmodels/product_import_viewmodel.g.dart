@@ -7,7 +7,7 @@ part of 'product_import_viewmodel.dart';
 // **************************************************************************
 
 String _$productImportViewModelHash() =>
-    r'293531565752de0d0c800ca78a4db589a1fad4a1';
+    r'c277079432e3aa8beae6b841d7df5d03768a3352';
 
 /// See also [ProductImportViewModel].
 @ProviderFor(ProductImportViewModel)

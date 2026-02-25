@@ -14,6 +14,7 @@ class AppProductListTile extends StatelessWidget {
   final VoidCallback? onDelete;
   final VoidCallback? onDuplicate;
   final VoidCallback? onTogglePromo;
+  final VoidCallback? onGoMainMenu;
   final Widget? trailing;
   final bool isSelected;
   final VoidCallback? onLongPress;
@@ -26,6 +27,7 @@ class AppProductListTile extends StatelessWidget {
     this.onDelete,
     this.onDuplicate,
     this.onTogglePromo,
+    this.onGoMainMenu,
     this.trailing,
     this.isSelected = false,
     this.onLongPress,
@@ -125,7 +127,15 @@ class AppProductListTile extends StatelessWidget {
             ),
           ),
 
-          ?trailing,
+          if (trailing != null) ...[
+            trailing!,
+          ],
+          if (trailing == null && onGoMainMenu != null)
+            IconButton(
+              tooltip: 'Menu principal',
+              onPressed: onGoMainMenu,
+              icon: const Icon(Icons.home_outlined),
+            ),
           if (trailing == null && (onEdit != null || onDelete != null))
             _buildAdminMenu(context),
           if (trailing == null && onEdit == null && onDelete == null)

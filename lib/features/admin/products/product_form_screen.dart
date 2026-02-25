@@ -6,6 +6,7 @@ import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
 import 'package:uuid/uuid.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:catalogo_ja/core/services/photo_classification_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
@@ -216,16 +217,35 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       );
       if (result == null || result.files.isEmpty) return;
       final file = result.files.first;
-      final resolved = await _processPickedImage(file);
+
+      final classification = ref
+          .read(photoClassificationServiceProvider.notifier)
+          .classifyFileName(file.name);
+
+      final resolved = await _processPickedImage(
+        file,
+        classification: classification,
+      );
       if (resolved == null || !mounted) return;
 
       setState(() {
         // Clear previous primary and set this one
         _photos = _photos.map((p) => p.copyWith(isPrimary: false)).toList();
-        _photos.insert(
-          0,
-          ProductPhoto(path: resolved, colorKey: null, isPrimary: true),
+        
+        final newPhoto = ProductPhoto(
+          path: resolved,
+          colorKey: classification?.colorName,
+          photoType: classification?.photoType ?? 'P',
+          isPrimary: true,
         );
+
+        // Replace existing primary if it exists
+        final existingIdx = _photos.indexWhere((p) => p.photoType == 'P');
+        if (existingIdx != -1) {
+          _photos[existingIdx] = newPhoto;
+        } else {
+          _photos.insert(0, newPhoto);
+        }
       });
     } catch (e) {
       if (mounted) {
@@ -245,16 +265,30 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       if (result == null || result.files.isEmpty) return;
 
       for (var file in result.files) {
-        final resolved = await _processPickedImage(file);
+        final classification = ref
+            .read(photoClassificationServiceProvider.notifier)
+            .classifyFileName(file.name);
+
+        final resolved = await _processPickedImage(
+          file,
+          classification: classification,
+        );
         if (resolved == null || !mounted) continue;
 
-        final meta = await _showPhotoMetaDialog(context);
-        if (meta == null || !mounted) break;
+        String? colorKey;
+        bool isPrimary = false;
+        String? photoType;
 
-        setState(() {
-          if (meta.isPrimary) {
-            _photos = _photos.map((p) => p.copyWith(isPrimary: false)).toList();
-          }
+        if (classification != null) {
+          photoType = classification.photoType;
+          colorKey = classification.colorName;
+          isPrimary = photoType == 'P';
+        } else {
+          final meta = await _showPhotoMetaDialog(context);
+          if (meta == null || !mounted) break;
+          colorKey = meta.colorKey;
+          isPrimary = meta.isPrimary;
+
           if (meta.isNewColor && meta.colorKey != null) {
             final current = _parseColorOptions().toSet();
             if (!current.contains(meta.colorKey)) {
@@ -263,13 +297,37 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   '${_colorsController.text.trim()}$sep${meta.colorKey}';
             }
           }
-          _photos.add(
-            ProductPhoto(
-              path: resolved,
-              colorKey: meta.colorKey,
-              isPrimary: meta.isPrimary,
-            ),
+        }
+
+        setState(() {
+          if (isPrimary) {
+            _photos = _photos.map((p) => p.copyWith(isPrimary: false)).toList();
+          }
+
+          final newPhoto = ProductPhoto(
+            path: resolved,
+            colorKey: colorKey,
+            photoType: photoType,
+            isPrimary: isPrimary,
           );
+
+          if (photoType != null && photoType.startsWith('C')) {
+            _photos = ref
+                .read(photoClassificationServiceProvider.notifier)
+                .organizeColors(_photos, newPhoto);
+          } else if (photoType != null) {
+            // P, D1, D2 - Replace if same type exists
+            final existingIdx = _photos.indexWhere(
+              (p) => p.photoType == photoType,
+            );
+            if (existingIdx != -1) {
+              _photos[existingIdx] = newPhoto;
+            } else {
+              _photos.add(newPhoto);
+            }
+          } else {
+            _photos.add(newPhoto);
+          }
         });
       }
     } catch (e) {
@@ -389,7 +447,10 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     return values;
   }
 
-  Future<String?> _processPickedImage(PlatformFile file) async {
+  Future<String?> _processPickedImage(
+    PlatformFile file, {
+    PhotoClassification? classification,
+  }) async {
     final ext = p.extension(file.name).toLowerCase();
     if (!['.jpg', '.jpeg', '.png', '.webp'].contains(ext)) {
       if (mounted) {
@@ -413,7 +474,10 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       );
     }
 
-    final resolved = await _copyFileToPersistentStorage(file);
+    final resolved = await _copyFileToPersistentStorage(
+      file,
+      classification: classification,
+    );
     if (resolved == null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Falha ao processar "${file.name}".')),
@@ -469,7 +533,10 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     });
   }
 
-  Future<String?> _copyFileToPersistentStorage(PlatformFile file) async {
+  Future<String?> _copyFileToPersistentStorage(
+    PlatformFile file, {
+    PhotoClassification? classification,
+  }) async {
     try {
       // Windows/Desktop priority: use path if available
       if (!kIsWeb && file.path != null) {
@@ -479,10 +546,13 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           await imagesDir.create(recursive: true);
         }
 
-        final extension = p.extension(file.name).isNotEmpty
-            ? p.extension(file.name).toLowerCase()
-            : '.jpg';
-        final String fileName = '${const Uuid().v4()}$extension';
+        final extension =
+            p.extension(file.name).isNotEmpty
+                ? p.extension(file.name).toLowerCase()
+                : '.jpg';
+
+        final String fileName =
+            classification?.standardName ?? '${const Uuid().v4()}$extension';
         final String targetPath = p.join(imagesDir.path, fileName);
         final File targetFile = File(targetPath);
 
@@ -587,6 +657,13 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       subtitle: widget.product == null
           ? 'Preencha os dados do novo item'
           : 'Atualize as informa\u00e7\u00f5es do produto',
+      actions: [
+        IconButton(
+          tooltip: 'Menu principal',
+          icon: const Icon(Icons.home_outlined),
+          onPressed: () => context.go('/'),
+        ),
+      ],
       body: Form(
         key: _formKey,
         child: Column(

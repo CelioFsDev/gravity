@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/services.dart';
@@ -18,6 +19,11 @@ import 'package:file_picker/file_picker.dart';
 import 'package:archive/archive.dart';
 import 'package:catalogo_ja/core/services/catalogo_ja_package_service.dart';
 import 'package:catalogo_ja/core/services/image_cache_service.dart';
+import 'package:catalogo_ja/core/services/photo_classification_service.dart';
+import 'package:catalogo_ja/viewmodels/catalog_public_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
@@ -177,30 +183,76 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       );
 
       if (result != null) {
-        Map<String, List<String>> productImages = {};
         int matched = 0;
+        final updatedProducts = List<Product>.from(state.parsedProducts);
 
         for (var file in result.files) {
-          final matchedProduct = _findProductByKey(
-            file.name,
-            state.parsedProducts,
+          final classification = ref
+              .read(photoClassificationServiceProvider.notifier)
+              .classifyFileName(file.name);
+
+          final productIdx = updatedProducts.indexWhere((p) {
+            if (classification != null) {
+              return p.ref == classification.ref;
+            }
+            return _findProductByKey(file.name, [p]) != null;
+          });
+
+          if (productIdx == -1) continue;
+
+          final matchedProduct = updatedProducts[productIdx];
+          final copiedPath = await _resolveImageForPlatform(
+            file,
+            classification: classification,
           );
-          if (matchedProduct == null) continue;
-          final copiedPath = await _resolveImageForPlatform(file);
+
           if (copiedPath != null) {
-            productImages
-                .putIfAbsent(matchedProduct.id, () => [])
-                .add(copiedPath);
             matched++;
+            // Update the product photos
+            var currentPhotos = List<ProductPhoto>.from(matchedProduct.photos);
+
+            if (classification != null) {
+              final type = classification.photoType;
+              final isColor = type == PhotoClassificationService.typeColor;
+
+              if (isColor) {
+                final newPhoto = ProductPhoto(
+                  path: copiedPath,
+                  colorKey: classification.colorName,
+                  photoType: classification.photoType, // Placeholder "C"
+                );
+                
+                currentPhotos = ref
+                    .read(photoClassificationServiceProvider.notifier)
+                    .organizeColors(currentPhotos, newPhoto);
+              } else {
+                // P, D1, D2
+                final newPhoto = ProductPhoto(
+                  path: copiedPath,
+                  isPrimary: type == PhotoClassificationService.typePrimary,
+                  photoType: type,
+                );
+
+                // Replace if same type exists
+                final existingIdx = currentPhotos.indexWhere(
+                  (p) => p.photoType == type,
+                );
+                if (existingIdx != -1) {
+                  currentPhotos[existingIdx] = newPhoto;
+                } else {
+                  currentPhotos.add(newPhoto);
+                }
+              }
+            } else {
+              // Generic photo
+              currentPhotos.add(ProductPhoto(path: copiedPath));
+            }
+
+            updatedProducts[productIdx] = matchedProduct.copyWith(
+              photos: currentPhotos,
+            );
           }
         }
-
-        final updatedProducts = state.parsedProducts.map((p) {
-          if (productImages.containsKey(p.id)) {
-            return p.copyWith(images: productImages[p.id]!);
-          }
-          return p;
-        }).toList();
 
         state = state.copyWith(
           parsedProducts: updatedProducts,
@@ -232,6 +284,31 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       message: 'Selecione as fotos...',
     );
     try {
+      // Pick files first to avoid losing the user gesture context on web.
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'],
+        withData: true,
+      );
+
+      if (result == null || result.files.isEmpty) {
+        state = state.copyWith(
+          isLoading: false,
+          isDone: true,
+          progress: 0.0,
+          message: 'Selecao cancelada.',
+          imagesMatchedCount: 0,
+          imagesTotalCount: 0,
+        );
+        return;
+      }
+
+      state = state.copyWith(
+        message: 'Carregando produtos cadastrados...',
+        progress: 0.05,
+      );
+
       final productsRepo = ref.read(productsRepositoryProvider);
       final existingProducts = await productsRepo.getProducts();
 
@@ -246,27 +323,13 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         );
         return;
       }
-
-      // Use FileType.any with NO extensions on Android to get the most
-      // compatible native picker that shows Drive and the 'Select' button correctly.
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        allowMultiple: true,
-        type: FileType.any,
-        withData: !kIsWeb, // Important: need bytes for Drive files
-      );
-
-      if (result == null || result.files.isEmpty) {
-        state = state.copyWith(isLoading: false);
-        return;
-      }
-
       state = state.copyWith(
         message: 'Analisando fotos selecionadas...',
         progress: 0.1,
       );
 
       int matchedCount = 0;
-      final productsToUpdate = <String, List<String>>{};
+      final productsToUpdate = <String, List<ProductPhoto>>{};
       final totalFiles = result.files.length;
 
       for (int i = 0; i < totalFiles; i++) {
@@ -278,24 +341,44 @@ class ProductImportViewModel extends _$ProductImportViewModel {
             message: 'Analisando ${file.name}...',
           );
 
-          final product = _findProductByKey(file.name, existingProducts);
+          final classification = ref
+              .read(photoClassificationServiceProvider.notifier)
+              .classifyFileName(file.name);
+
+          Product? product;
+          if (classification != null) {
+            final normalizedRef = _normalizeReference(classification.ref);
+            product = existingProducts
+                .where((p) => _normalizeReference(p.ref) == normalizedRef)
+                .firstOrNull;
+            product ??= _findProductByKey(file.name, existingProducts);
+          } else {
+            product = _findProductByKey(file.name, existingProducts);
+          }
 
           if (product != null) {
             debugPrint(
               'Vincular: Match encontrado para ${file.name} -> Produto: ${product.ref}',
             );
-            final savedPath = await _resolveImageForPlatform(file);
+            final savedPath = await _resolveImageForPlatform(
+              file,
+              classification: classification,
+            );
             if (savedPath != null) {
-              productsToUpdate.putIfAbsent(product.id, () => []).add(savedPath);
+              final photo = ProductPhoto(
+                path: savedPath,
+                colorKey: classification?.colorName,
+                photoType:
+                    classification?.photoType ??
+                    (file.name.toLowerCase().contains('principal') ? 'P' : null),
+                isPrimary: classification?.photoType == 'P' || file.name.toLowerCase().contains('principal'),
+              );
+              productsToUpdate.putIfAbsent(product.id, () => []).add(photo);
               matchedCount++;
             }
-          } else {
-            debugPrint(
-              'Vincular: Nenhum produto encontrado para o arquivo ${file.name}',
-            );
           }
 
-          // Let UI breathe more frequently
+          // Let UI breathe
           await Future.delayed(const Duration(milliseconds: 10));
         } catch (e) {
           debugPrint('Vincular: Erro ao processar arquivo $i: $e');
@@ -310,41 +393,34 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       // Update database
       for (final entry in productsToUpdate.entries) {
         final productId = entry.key;
-        final importData =
-            entry.value; // It's a list of file paths for this product
+        final newPhotos = entry.value;
         final product = existingProducts.firstWhere((p) => p.id == productId);
 
-        List<String> currentImages = List<String>.from(product.images);
-        int mainImageIndex = product.mainImageIndex;
+        var currentPhotos = List<ProductPhoto>.from(product.photos);
 
-        for (final filePath in importData) {
-          // Check if this image (normalized path or content) is already there
-          // Since we copy with UUID, we check if the product already has
-          // a lot of images or if we've reached a limit if necessary.
-          // To strictly avoid duplicates, normally we would hash content,
-          // but here we'll check if the name contains 'principal' to set order.
-
-          final fileNameLower = p.basename(filePath).toLowerCase();
-
-          if (fileNameLower.contains('principal')) {
-            // Add to the beginning if not already there (simple check)
-            if (!currentImages.contains(filePath)) {
-              currentImages.insert(0, filePath);
-              mainImageIndex = 0; // Point to the new first image
+        for (final photo in newPhotos) {
+          if (photo.photoType != null && photo.photoType!.startsWith('C')) {
+            currentPhotos = ref
+                .read(photoClassificationServiceProvider.notifier)
+                .organizeColors(currentPhotos, photo);
+          } else if (photo.photoType != null) {
+            // P, D1, D2 - Replace if same type exists
+            final existingIdx = currentPhotos.indexWhere(
+              (p) => p.photoType == photo.photoType,
+            );
+            if (existingIdx != -1) {
+              currentPhotos[existingIdx] = photo;
+            } else {
+              currentPhotos.add(photo);
             }
           } else {
-            // Append to the end (detalhes e cores)
-            if (!currentImages.contains(filePath)) {
-              currentImages.add(filePath);
-            }
+            // Generic
+            currentPhotos.add(photo);
           }
         }
 
         await productsRepo.updateProduct(
-          product.copyWith(
-            images: currentImages,
-            mainImageIndex: mainImageIndex,
-          ),
+          product.copyWith(photos: currentPhotos),
         );
       }
 
@@ -874,58 +950,61 @@ class ProductImportViewModel extends _$ProductImportViewModel {
   }
 
   String _normalizeForImageMatch(String value) {
-    // Remove extension, leading/trailing spaces, and convert to lower
-    String v = value.toLowerCase().trim();
-    // Remove common separators to make it easier to match
-    v = v.replaceAll(RegExp(r'[-_\s]'), '');
-    return v;
+    // Keep only alphanumeric chars for tolerant matching across formats.
+    return value.toLowerCase().trim().replaceAll(RegExp(r'[^a-z0-9]'), '');
   }
 
   String _normalizeReference(String ref) {
-    // Normalize a reference by removing leading zeros for flexible matching
-    // but keep a version with zeros as well.
-    return ref.trim().toLowerCase().replaceAll(RegExp(r'[-_\s]'), '');
+    return _normalizeForImageMatch(ref);
   }
 
   Product? _findProductByKey(String fileName, List<Product> products) {
-    final fileNameNoExt = p
-        .basenameWithoutExtension(fileName)
-        .toLowerCase()
-        .trim();
+    final fileNameNoExt = p.basenameWithoutExtension(fileName).toLowerCase().trim();
     final normalizedFileName = _normalizeForImageMatch(fileNameNoExt);
+    final filePrefixToken = fileNameNoExt.split(RegExp(r'[-_\s\.]+')).first;
+    final normalizedFilePrefix = _normalizeForImageMatch(filePrefixToken);
+    final normalizedFileNoZeros = normalizedFileName.replaceFirst(RegExp(r'^0+'), '');
+    final normalizedFilePrefixNoZeros = normalizedFilePrefix.replaceFirst(
+      RegExp(r'^0+'),
+      '',
+    );
 
     for (final product in products) {
-      // 1. Try Reference (Primary for this user)
+      // 1) Reference (primary key)
       final ref = product.ref.trim().toLowerCase();
       if (ref.isNotEmpty) {
         final normalizedRef = _normalizeReference(ref);
-        final normalizedRefNoZeros = normalizedRef.replaceFirst(
-          RegExp(r'^0+'),
-          '',
-        );
-
-        // Exact match of normalized names
-        if (normalizedFileName == normalizedRef) return product;
-
-        // Match if the filename is exactly the reference with or without leading zeros
-        if (normalizedRefNoZeros.isNotEmpty) {
-          final normalizedFileNoZeros = normalizedFileName.replaceFirst(
-            RegExp(r'^0+'),
-            '',
-          );
-          if (normalizedFileNoZeros == normalizedRefNoZeros) return product;
+        final normalizedRefNoZeros = normalizedRef.replaceFirst(RegExp(r'^0+'), '');
+        if (normalizedRef.isNotEmpty) {
+          if (normalizedFileName == normalizedRef ||
+              normalizedFilePrefix == normalizedRef ||
+              normalizedFileName.startsWith(normalizedRef)) {
+            return product;
+          }
         }
-
-        // Match if the filename STARTS with the reference (e.g., "00003_azul.jpg" matches "00003")
-        if (normalizedFileName.startsWith(normalizedRef)) return product;
+        if (normalizedRefNoZeros.isNotEmpty &&
+            (normalizedFileNoZeros == normalizedRefNoZeros ||
+                normalizedFilePrefixNoZeros == normalizedRefNoZeros ||
+                normalizedFileNoZeros.startsWith(normalizedRefNoZeros))) {
+          return product;
+        }
       }
 
-      // 2. Try SKU (Fallback)
+      // 2) SKU (fallback)
       final sku = product.sku.trim().toLowerCase();
       if (sku.isNotEmpty) {
         final normalizedSku = _normalizeReference(sku);
-        if (normalizedFileName == normalizedSku ||
-            normalizedFileName.startsWith(normalizedSku)) {
+        final normalizedSkuNoZeros = normalizedSku.replaceFirst(RegExp(r'^0+'), '');
+        if (normalizedSku.isNotEmpty &&
+            (normalizedFileName == normalizedSku ||
+                normalizedFilePrefix == normalizedSku ||
+                normalizedFileName.startsWith(normalizedSku))) {
+          return product;
+        }
+        if (normalizedSkuNoZeros.isNotEmpty &&
+            (normalizedFileNoZeros == normalizedSkuNoZeros ||
+                normalizedFilePrefixNoZeros == normalizedSkuNoZeros ||
+                normalizedFileNoZeros.startsWith(normalizedSkuNoZeros))) {
           return product;
         }
       }
@@ -1005,6 +1084,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       }
 
       state = state.copyWith(isLoading: false, isDone: true);
+      _notifyChanges();
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -1069,54 +1149,96 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     }
   }
 
-  Future<String?> _resolveImageForPlatform(PlatformFile file) async {
+  Future<String?> _resolveImageForPlatform(
+    PlatformFile file, {
+    PhotoClassification? classification,
+  }) async {
     try {
+      final optimizer = ref.read(imageOptimizerServiceProvider.notifier);
+
+      if (kIsWeb) {
+        if (file.bytes == null || file.bytes!.isEmpty) return null;
+        final optimized =
+            await optimizer.compressBytes(file.bytes!) ?? file.bytes!;
+        return _buildDataUrl(file.name, optimized);
+      }
+
       final baseDir = await getApplicationDocumentsDirectory();
       final imagesDir = Directory(p.join(baseDir.path, 'product_images'));
       if (!await imagesDir.exists()) {
         await imagesDir.create(recursive: true);
       }
-      final ext = p.extension(file.name).isNotEmpty
-          ? p.extension(file.name).toLowerCase()
-          : '.jpg';
-      final fileName = '${const Uuid().v4()}$ext';
-      final targetPath = p.join(imagesDir.path, fileName);
-      final optimizer = ref.read(imageOptimizerServiceProvider.notifier);
+      final ext =
+          p.extension(file.name).isNotEmpty
+              ? p.extension(file.name).toLowerCase()
+              : '.jpg';
 
-      if (kIsWeb) {
-        if (file.bytes == null) return null;
-        final optimized =
-            await optimizer.compressBytes(file.bytes!) ?? file.bytes!;
-        await File(targetPath).writeAsBytes(optimized);
-        return targetPath;
+      String fileName;
+      if (classification != null) {
+        // Use standard name pattern. The {N} will be replaced when saving to product if it's a color.
+        fileName = classification.standardName;
       } else {
-        // 1. Try local path first (faster)
-        if (file.path != null) {
-          final sourceFile = File(file.path!);
-          if (await sourceFile.exists()) {
-            final optimizedFile = await optimizer.compressImage(sourceFile);
-            if (optimizedFile != null) {
-              await optimizedFile.copy(targetPath);
-              return targetPath;
-            } else {
-              await sourceFile.copy(targetPath);
-              return targetPath;
-            }
+        fileName = '${const Uuid().v4()}$ext';
+      }
+
+      final targetPath = p.join(imagesDir.path, fileName);
+
+      // 1. Try local path first (faster)
+      if (file.path != null) {
+        final sourceFile = File(file.path!);
+        if (await sourceFile.exists()) {
+          final optimizedFile = await optimizer.compressImage(sourceFile);
+          if (optimizedFile != null) {
+            await optimizedFile.copy(targetPath);
+            return targetPath;
+          } else {
+            await sourceFile.copy(targetPath);
+            return targetPath;
           }
         }
-        // 2. Fallback for cloud files (Drive)
-        if (file.bytes != null) {
-          final optimized =
-              await optimizer.compressBytes(file.bytes!) ?? file.bytes!;
-          await File(targetPath).writeAsBytes(optimized);
-          return targetPath;
-        }
+      }
+      // 2. Fallback for cloud files (Drive)
+      if (file.bytes != null) {
+        final optimized = await optimizer.compressBytes(file.bytes!) ?? file.bytes!;
+        await File(targetPath).writeAsBytes(optimized);
+        return targetPath;
       }
       return null;
     } catch (e) {
       debugPrint('Error resolving image: $e');
       return null;
     }
+  }
+
+  String _buildDataUrl(String fileName, Uint8List bytes) {
+    final mime = _mimeTypeFromFileName(fileName);
+    return 'data:$mime;base64,${base64Encode(bytes)}';
+  }
+
+  String _mimeTypeFromFileName(String fileName) {
+    final ext = p.extension(fileName).toLowerCase();
+    switch (ext) {
+      case '.jpg':
+      case '.jpeg':
+        return 'image/jpeg';
+      case '.png':
+        return 'image/png';
+      case '.webp':
+        return 'image/webp';
+      case '.gif':
+        return 'image/gif';
+      case '.bmp':
+        return 'image/bmp';
+      default:
+        return 'application/octet-stream';
+    }
+  }
+
+  void _notifyChanges() {
+    ref.invalidate(productsViewModelProvider);
+    ref.invalidate(categoriesViewModelProvider);
+    ref.invalidate(catalogsViewModelProvider);
+    ref.invalidate(catalogPublicProvider);
   }
 }
 

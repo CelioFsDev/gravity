@@ -7,7 +7,7 @@ part of 'ai_description_service.dart';
 // **************************************************************************
 
 String _$aiDescriptionServiceHash() =>
-    r'1cb385ed0672fed6fa1786f81d86bd3b8b840647';
+    r'42576288400a9b17062c9bc538f099d29df8c66d';
 
 /// See also [AiDescriptionService].
 @ProviderFor(AiDescriptionService)

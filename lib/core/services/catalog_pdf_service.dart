@@ -111,47 +111,45 @@ class CatalogPdfService {
     bool showPrice = true,
   }) {
     final displayPrice = product.priceForMode(mode.name);
-    final primaryPhoto = _selectPrimaryPhoto(product.photos);
-    final heroPath = primaryPhoto?.path;
-    final normalizedHeroPath = heroPath?.replaceAll('\\', '/');
+    
+    // 1. Organize photos by type
+    ProductPhoto? photoP;
+    final photosD = <ProductPhoto>[];
+    final photosC = <ProductPhoto>[];
+    final otherPhotos = <ProductPhoto>[];
 
-    // Filter unique photos for the variants section (max 4)
-    final colorVariants = <String, String>{};
-
-    // 1. Collect photos that have specific colors assigned
     for (final photo in product.photos) {
-      final normPath = photo.path.replaceAll('\\', '/');
-      if (normPath == normalizedHeroPath) continue;
-      final color = photo.colorKey?.trim().toUpperCase();
-      if (color != null &&
-          color.isNotEmpty &&
-          !colorVariants.containsKey(color)) {
-        colorVariants[color] = photo.path;
-      }
-      if (colorVariants.length >= 4) break;
-    }
-
-    // 2. Fallback: If less than 4, add other photos linked as Cor
-    if (colorVariants.length < 4) {
-      int detailCounter = 1;
-      for (final photo in product.photos) {
-        final normPath = photo.path.replaceAll('\\', '/');
-        if (normPath == normalizedHeroPath) continue;
-        if (colorVariants.values.any(
-          (v) => v.replaceAll('\\', '/') == normPath,
-        )) {
-          continue;
-        }
-
-        String label = (photo.colorKey?.trim().isNotEmpty == true)
-            ? photo.colorKey!.trim().toUpperCase()
-            : 'COR $detailCounter';
-        colorVariants[label] = photo.path;
-        detailCounter++;
-        if (colorVariants.length >= 4) break;
+      final type = photo.photoType;
+      if (type == 'P') {
+        photoP = photo;
+      } else if (type == 'D1' || type == 'D2') {
+        photosD.add(photo);
+      } else if (type != null && type.startsWith('C')) {
+        photosC.add(photo);
+      } else if (photo.isPrimary && photoP == null) {
+        photoP = photo;
+      } else {
+        otherPhotos.add(photo);
       }
     }
 
+    // Fallback for legacy products
+    if (photoP == null && otherPhotos.isNotEmpty) {
+      photoP = otherPhotos.removeAt(0);
+    }
+    
+    // If we still have space for D or C from otherPhotos
+    while (photosD.length < 2 && otherPhotos.isNotEmpty) {
+      photosD.add(otherPhotos.removeAt(0));
+    }
+    while (photosC.length < 4 && otherPhotos.isNotEmpty) {
+      photosC.add(otherPhotos.removeAt(0));
+    }
+
+    // Sort Colors by name (C1, C2...)
+    photosC.sort((a, b) => (a.photoType ?? '').compareTo(b.photoType ?? ''));
+
+    final heroPath = photoP?.path;
     final sizesText = _extractSizesText(product);
     final topHeaderText =
         (collectionName != null && collectionName.trim().isNotEmpty)
@@ -161,21 +159,24 @@ class CatalogPdfService {
     final availableWidth = pageFormat.width - 36;
     final availableHeight = pageFormat.height - 36;
 
-    // Proporções para garantir que a foto principal domine a parte superior
-    final bottomContentHeight = 175.0; // Altura fixa para a área de informações
-    final topHeaderHeight = 35.0; // Espaço para o nome da coleção no topo
-    final spacing = 15.0; // Respiro entre foto e texto
+    final bottomContentHeight = 175.0; 
+    final topHeaderHeight = 35.0;
+    final spacing = 15.0;
     final mainPhotoHeight =
         availableHeight - topHeaderHeight - bottomContentHeight - spacing;
 
-    final variantEntries = colorVariants.entries.toList();
-    final hasSpecial4Layout = variantEntries.length == 4;
-    final topVariants = hasSpecial4Layout
-        ? variantEntries.sublist(0, 2)
-        : <MapEntry<String, String>>[];
-    final bottomVariants = hasSpecial4Layout
-        ? variantEntries.sublist(2)
-        : variantEntries;
+    // Convert photosD to MapEntry for _buildVariantThumbsLayout compatibility or similar
+    final detailVariants = photosD.map((p) {
+      String label = (p.photoType == 'D1' || p.photoType == 'D2')
+          ? (p.photoType == 'D1' ? 'DETALHE 1' : 'DETALHE 2')
+          : 'DETALHE';
+      return MapEntry(label, p.path);
+    }).toList();
+
+    final colorVariants = photosC.map((p) {
+      String label = p.colorKey ?? (p.photoType ?? 'COR');
+      return MapEntry(label, p.path);
+    }).toList();
 
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 18),
@@ -196,33 +197,35 @@ class CatalogPdfService {
               ),
             ),
           ),
-          // 2. Main Photo Section
-          if (hasSpecial4Layout)
-            pw.Container(
-              height: mainPhotoHeight,
-              width: availableWidth,
-              child: pw.Row(
-                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                children: [
-                  pw.Expanded(
-                    child: heroPath != null
-                        ? _buildMainPhotoBox(
-                            heroPath,
-                            height: mainPhotoHeight,
-                            radius: 0,
-                          )
-                        : _buildImagePlaceholder(
-                            height: mainPhotoHeight,
-                            width: availableWidth,
-                            radius: 0,
-                          ),
-                  ),
+          // 2. Main Photo Section + Details
+          pw.Container(
+            height: mainPhotoHeight,
+            width: availableWidth,
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                // MAIN PHOTO (P)
+                pw.Expanded(
+                  child: heroPath != null
+                      ? _buildMainPhotoBox(
+                          heroPath,
+                          height: mainPhotoHeight,
+                          radius: 0,
+                        )
+                      : _buildImagePlaceholder(
+                          height: mainPhotoHeight,
+                          width: availableWidth,
+                          radius: 0,
+                        ),
+                ),
+                // DETAILS (D1, D2)
+                if (detailVariants.isNotEmpty) ...[
                   pw.SizedBox(width: 10),
                   pw.Container(
-                    width: 85, // Enforced width for side thumbs
+                    width: 85,
                     child: pw.Column(
                       mainAxisAlignment: pw.MainAxisAlignment.center,
-                      children: topVariants
+                      children: detailVariants
                           .map(
                             (v) => pw.Expanded(
                               child: pw.Padding(
@@ -242,34 +245,17 @@ class CatalogPdfService {
                     ),
                   ),
                 ],
-              ),
-            )
-          else
-            // Original Main Photo
-            pw.Container(
-              height: mainPhotoHeight,
-              width: availableWidth,
-              child: heroPath != null
-                  ? _buildMainPhotoBox(
-                      heroPath,
-                      width: availableWidth,
-                      height: mainPhotoHeight,
-                      radius: 0,
-                    )
-                  : _buildImagePlaceholder(
-                      height: mainPhotoHeight,
-                      width: availableWidth,
-                      radius: 0,
-                    ),
+              ],
             ),
+          ),
           pw.SizedBox(height: spacing),
-          // 3. Bottom Content
+          // 3. Bottom Content (Info + Colors)
           pw.Container(
             height: bottomContentHeight,
             child: pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                // Coluna da Esquerda: BLOCO INFO (Hierarquia vertical rigorosa)
+                // Info Section
                 pw.Expanded(
                   flex: 4,
                   child: pw.Column(
@@ -298,9 +284,7 @@ class CatalogPdfService {
                         ),
                       ),
                       if (showPrice) ...[
-                        pw.SizedBox(
-                          height: 15,
-                        ), // Empurra o preço para a base do bloco
+                        pw.SizedBox(height: 15),
                         pw.Text(
                           currencyFormat.format(displayPrice),
                           style: pw.TextStyle(
@@ -313,13 +297,13 @@ class CatalogPdfService {
                     ],
                   ),
                 ),
-                // Coluna da Direita: BLOCO THUMBS (Ocupa o espaço restante)
-                if (bottomVariants.isNotEmpty)
+                // Colors Section (C1-C4)
+                if (colorVariants.isNotEmpty)
                   pw.Expanded(
-                    flex: 6, // Maior flex para fotos grandes
+                    flex: 6,
                     child: pw.Container(
                       alignment: pw.Alignment.topRight,
-                      child: _buildVariantThumbsLayout(bottomVariants),
+                      child: _buildVariantThumbsLayout(colorVariants),
                     ),
                   ),
               ],
@@ -505,13 +489,23 @@ class CatalogPdfService {
 
   static ProductPhoto? _selectPrimaryPhoto(List<ProductPhoto> photos) {
     if (photos.isEmpty) return null;
+
+    // 1. Try by photoType 'P'
+    for (final photo in photos) {
+      if (photo.photoType == 'P') return photo;
+    }
+
+    // 2. Try by isPrimary flag
     for (final photo in photos) {
       if (photo.isPrimary) return photo;
     }
+
+    // 3. Fallback to any photo with colorKey (to avoid semi-empty thumbnails if possible)
     for (final photo in photos) {
       final key = photo.colorKey?.trim();
       if (key != null && key.isNotEmpty) return photo;
     }
+
     return photos.first;
   }
 

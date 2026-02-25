@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
@@ -37,6 +38,11 @@ class ProductDetailScreen extends ConsumerWidget {
       subtitle: 'REF: ${updatedProduct.reference}',
       useAppBar: false,
       actions: [
+        IconButton(
+          tooltip: 'Menu principal',
+          icon: const Icon(Icons.home_outlined),
+          onPressed: () => context.go('/'),
+        ),
         IconButton(
           icon: const Icon(Icons.edit_outlined),
           onPressed: () {

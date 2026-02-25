@@ -13,6 +13,7 @@ import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
 import 'package:intl/intl.dart';
+import 'package:catalogo_ja/core/services/photo_classification_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -67,7 +68,23 @@ class CatalogShareHelper {
     Catalog catalog,
   ) async {
     try {
-      // 1. Fetch relevant collections for the catalog
+      // 1. Fetch relevant products and validate them
+      final productsState = await ref.read(productsViewModelProvider.future);
+      final catalogProducts = productsState.allProducts
+          .where((p) => catalog.productIds.contains(p.id))
+          .toList();
+
+      if (catalogProducts.isEmpty) {
+        throw Exception('Nenhum produto encontrado para este cat\u00e1logo.');
+      }
+
+      final issues = _validateCatalogProducts(ref, catalogProducts);
+      if (issues.isNotEmpty) {
+        final proceed = await _showValidationIssuesDialog(context, issues);
+        if (!proceed) return;
+      }
+
+      // 2. Fetch relevant collections for the catalog
       final availableCollections = await _getRelevantCollections(ref, catalog);
 
       final options = await _selectExportOptions(
@@ -165,7 +182,23 @@ class CatalogShareHelper {
     Catalog catalog,
   ) async {
     try {
-      // 1. Fetch relevant collections for the catalog
+      // 1. Fetch relevant products and validate them
+      final productsState = await ref.read(productsViewModelProvider.future);
+      final catalogProducts = productsState.allProducts
+          .where((p) => catalog.productIds.contains(p.id))
+          .toList();
+
+      if (catalogProducts.isEmpty) {
+        throw Exception('Nenhum produto encontrado para este cat\u00e1logo.');
+      }
+
+      final issues = _validateCatalogProducts(ref, catalogProducts);
+      if (issues.isNotEmpty) {
+        final proceed = await _showValidationIssuesDialog(context, issues);
+        if (!proceed) return;
+      }
+
+      // 2. Fetch relevant collections for the catalog
       final availableCollections = await _getRelevantCollections(ref, catalog);
 
       final options = await _selectExportOptions(
@@ -764,6 +797,116 @@ class CatalogShareHelper {
               catalogCollectionIds.contains(c.id),
         )
         .toList();
+  }
+
+  static Map<Product, List<PhotoValidationIssue>> _validateCatalogProducts(
+    WidgetRef ref,
+    List<Product> products,
+  ) {
+    final validationService =
+        ref.read(photoClassificationServiceProvider.notifier);
+    final results = <Product, List<PhotoValidationIssue>>{};
+
+    for (final product in products) {
+      final issues = validationService.validateProductPhotos(product);
+      if (issues.isNotEmpty) {
+        results[product] = issues;
+      }
+    }
+
+    return results;
+  }
+
+  static Future<bool> _showValidationIssuesDialog(
+    BuildContext context,
+    Map<Product, List<PhotoValidationIssue>> results,
+  ) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.warning_amber_rounded,
+                    color: Colors.orange.shade800),
+                const SizedBox(width: 8),
+                const Text('Pend\u00eancias de Fotos'),
+              ],
+            ),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Os seguintes produtos possuem problemas nas fotos que podem afetar o layout do PDF:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 16),
+                    ...results.entries.map((entry) {
+                      final product = entry.key;
+                      final issues = entry.value;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${product.ref} - ${product.name}',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            ...issues.map((issue) => Padding(
+                                  padding:
+                                      const EdgeInsets.only(left: 12, top: 2),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '\u2022 ',
+                                        style: TextStyle(
+                                          color: issue.isCritical
+                                              ? Colors.red
+                                              : Colors.orange,
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Text(
+                                          issue.message,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: issue.isCritical
+                                                ? Colors.red
+                                                : Colors.black87,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('CORRIGIR AGORA'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('GERAR MESMO ASSIM'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 }
 

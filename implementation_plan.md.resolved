@@ -1,0 +1,131 @@
+# Sistema de Classificação Automática de Fotos
+
+Sistema para detectar, renomear e vincular automaticamente fotos de produtos baseado no nome do arquivo, integrando com o modelo de dados e geração de PDF.
+
+## User Review Required
+
+> [!IMPORTANT]
+> **Novo campo Hive no [ProductPhoto](file:///d:/SERVIDOR%20VITORIANA%202023/Usuarios/Celio/REPOSITORIOS%20BACKUP/learning_portfolio_app/gravity/lib/models/product.dart#7-32)**: Adicionaremos `@HiveField(3) final String? photoType` ao modelo. Isso é **retrocompatível** — fotos existentes simplesmente terão `photoType == null` e continuarão funcionando como antes. Porém, será necessário rodar `flutter pub run build_runner build` para regenerar o adapter.
+
+> [!WARNING]
+> **Renomeio de arquivos**: Fotos importadas serão renomeadas para o padrão `{REF}__P.jpg`, `{REF}__D1.jpg`, etc. Fotos já existentes (salvas com UUID) **não serão renomeadas retroativamente** — apenas novas importações usarão o padrão novo.
+
+## Proposed Changes
+
+### Serviço de Classificação de Fotos
+
+#### [NEW] [photo_classifier_service.dart](file:///d:/SERVIDOR%20VITORIANA%202023/Usuarios/Celio/REPOSITORIOS%20BACKUP/learning_portfolio_app/gravity/lib/core/services/photo_classifier_service.dart)
+
+Serviço centralizado com toda a lógica de parsing e classificação:
+
+- `classifyFileName(String fileName)` → retorna `PhotoClassification` com `ref`, `photoType`, `colorName`
+- Patterns aceitos: `{REF}_referencia_principal`, `{REF}_referencia_detalhe1`, `{REF}_referencia_detalhe2`, `{REF}_referencia_cor_{cor}`
+- `buildInternalName(String ref, String photoType, String? colorName)` → gera nome padrão (`106603__P.jpg`, `106603__C1__PRETO.jpg`)
+- `normalizeColorName(String raw)` → remove acentos, underscores→espaços, CAIXA ALTA, trim
+- Constantes: `photoTypePrimary = 'P'`, `photoTypeDetail1 = 'D1'`, `photoTypeDetail2 = 'D2'`, `photoTypeColor = 'C'`
+- Regra especial: PRETO sempre ocupa posição C1; se inserido depois de outras cores, reorganiza
+
+---
+
+### Modelo de Dados
+
+#### [MODIFY] [product.dart](file:///d:/SERVIDOR%20VITORIANA%202023/Usuarios/Celio/REPOSITORIOS%20BACKUP/learning_portfolio_app/gravity/lib/models/product.dart)
+
+Adicionar ao [ProductPhoto](file:///d:/SERVIDOR%20VITORIANA%202023/Usuarios/Celio/REPOSITORIOS%20BACKUP/learning_portfolio_app/gravity/lib/models/product.dart#7-32):
+
+```diff
++@HiveField(3)
++final String? photoType; // 'P', 'D1', 'D2', 'C1', 'C2', 'C3', 'C4'
+```
+
+Adicionar helpers ao [Product](file:///d:/SERVIDOR%20VITORIANA%202023/Usuarios/Celio/REPOSITORIOS%20BACKUP/learning_portfolio_app/gravity/lib/models/product.dart#33-278):
+
+```dart
+ProductPhoto? get primaryPhoto => photos.where((p) => p.photoType == 'P').firstOrNull;
+ProductPhoto? get detail1Photo => photos.where((p) => p.photoType == 'D1').firstOrNull;
+ProductPhoto? get detail2Photo => photos.where((p) => p.photoType == 'D2').firstOrNull;
+List<ProductPhoto> get colorPhotos => photos.where((p) => p.photoType?.startsWith('C') == true).toList()..sort((a, b) => (a.photoType ?? '').compareTo(b.photoType ?? ''));
+```
+
+---
+
+### Import / Vinculação de Fotos
+
+#### [MODIFY] [product_import_viewmodel.dart](file:///d:/SERVIDOR%20VITORIANA%202023/Usuarios/Celio/REPOSITORIOS%20BACKUP/learning_portfolio_app/gravity/lib/viewmodels/product_import_viewmodel.dart)
+
+Alterar [pickAndMatchImagesToExistingProducts()](file:///d:/SERVIDOR%20VITORIANA%202023/Usuarios/Celio/REPOSITORIOS%20BACKUP/learning_portfolio_app/gravity/lib/viewmodels/product_import_viewmodel.dart#226-366):
+
+1. Após encontrar produto via [_findProductByKey](file:///d:/SERVIDOR%20VITORIANA%202023/Usuarios/Celio/REPOSITORIOS%20BACKUP/learning_portfolio_app/gravity/lib/viewmodels/product_import_viewmodel.dart#890-935), chamar `PhotoClassifierService.classifyFileName(file.name)`
+2. Se classificação retornar tipo reconhecido → definir `photoType` e `colorKey` no [ProductPhoto](file:///d:/SERVIDOR%20VITORIANA%202023/Usuarios/Celio/REPOSITORIOS%20BACKUP/learning_portfolio_app/gravity/lib/models/product.dart#7-32)
+3. Se não reconhecido → `photoType = null` (foto genérica como hoje)
+4. Salvar com nome padronizado via `buildInternalName()`
+5. Aplicar regra de substituição: se já existe foto com mesmo `photoType`, substituir
+6. Regra PRETO: se cor é PRETO, reordenar para C1
+7. Limite de 4 cores: se já tem 4, bloquear e reportar no log
+
+Alterar [_resolveImageForPlatform()](file:///d:/SERVIDOR%20VITORIANA%202023/Usuarios/Celio/REPOSITORIOS%20BACKUP/learning_portfolio_app/gravity/lib/viewmodels/product_import_viewmodel.dart#1072-1121) → receber `String? standardName` para salvar com nome correto em vez de UUID.
+
+---
+
+### PDF Layout
+
+#### [MODIFY] [catalog_pdf_service.dart](file:///d:/SERVIDOR%20VITORIANA%202023/Usuarios/Celio/REPOSITORIOS%20BACKUP/learning_portfolio_app/gravity/lib/core/services/catalog_pdf_service.dart)
+
+Alterar [_buildProductPage()](file:///d:/SERVIDOR%20VITORIANA%202023/Usuarios/Celio/REPOSITORIOS%20BACKUP/learning_portfolio_app/gravity/lib/core/services/catalog_pdf_service.dart#104-332):
+
+1. Usar `product.primaryPhoto` em vez de [_selectPrimaryPhoto()](file:///d:/SERVIDOR%20VITORIANA%202023/Usuarios/Celio/REPOSITORIOS%20BACKUP/learning_portfolio_app/gravity/lib/core/services/catalog_pdf_service.dart#506-517) (fallback mantido)
+2. Layout com 4 fotos (quando tem D1 + D2):
+   - **Esquerda**: Imagem Principal (ocupa altura total)
+   - **Direita cima**: Detail 1
+   - **Direita baixo**: Detail 2
+3. Seção inferior: nome do produto com foto PRETO (C1) à esquerda do nome
+4. Cores (C1..C4) com labels embaixo, lado a lado
+
+Alterar [_selectPrimaryPhoto()](file:///d:/SERVIDOR%20VITORIANA%202023/Usuarios/Celio/REPOSITORIOS%20BACKUP/learning_portfolio_app/gravity/lib/core/services/catalog_pdf_service.dart#506-517) → priorizar `photoType == 'P'`.
+
+---
+
+### Product Form
+
+#### [MODIFY] [product_form_screen.dart](file:///d:/SERVIDOR%20VITORIANA%202023/Usuarios/Celio/REPOSITORIOS%20BACKUP/learning_portfolio_app/gravity/lib/features/admin/products/product_form_screen.dart)
+
+Alterar [_processPickedImage()](file:///d:/SERVIDOR%20VITORIANA%202023/Usuarios/Celio/REPOSITORIOS%20BACKUP/learning_portfolio_app/gravity/lib/features/admin/products/product_form_screen.dart#392-424):
+
+1. Ao selecionar foto, classificar pelo nome do arquivo via `PhotoClassifierService`
+2. Se tipo reconhecido → aplicar `photoType` automaticamente no [ProductPhoto](file:///d:/SERVIDOR%20VITORIANA%202023/Usuarios/Celio/REPOSITORIOS%20BACKUP/learning_portfolio_app/gravity/lib/models/product.dart#7-32)
+3. Se não reconhecido → usar dialog existente [_showPhotoMetaDialog](file:///d:/SERVIDOR%20VITORIANA%202023/Usuarios/Celio/REPOSITORIOS%20BACKUP/learning_portfolio_app/gravity/lib/features/admin/products/product_form_screen.dart#284-379)
+4. Renomear e salvar com padrão interno
+
+Alterar [_addPrimaryPhoto()](file:///d:/SERVIDOR%20VITORIANA%202023/Usuarios/Celio/REPOSITORIOS%20BACKUP/learning_portfolio_app/gravity/lib/features/admin/products/product_form_screen.dart#211-238) e [_addSecondaryPhotos()](file:///d:/SERVIDOR%20VITORIANA%202023/Usuarios/Celio/REPOSITORIOS%20BACKUP/learning_portfolio_app/gravity/lib/features/admin/products/product_form_screen.dart#239-283):
+- Classificação automática se nome bater no padrão
+- Substituição automática se tipo já existir
+
+---
+
+### Validação Pré-PDF
+
+#### [NEW] Método em [CatalogPdfService](file:///d:/SERVIDOR%20VITORIANA%202023/Usuarios/Celio/REPOSITORIOS%20BACKUP/learning_portfolio_app/gravity/lib/core/services/catalog_pdf_service.dart#12-857) ou serviço separado
+
+`validateProductPhotos(Product product)` → retorna lista de avisos:
+- `"Falta foto principal"` se não tem `photoType == 'P'` nem fallback
+- `"Detalhe 1 ausente"` se tem D2 mas não D1
+- `"Mais de 4 cores"` → bloquear geração
+- `"COR NÃO IDENTIFICADA"` se cor sem texto
+
+## Verification Plan
+
+### Automated Tests
+1. `flutter pub run build_runner build` — regenerar Hive adapters
+2. `flutter analyze` — zero erros
+3. Testar manualmente com arquivos nomeados:
+   - `106603_referencia_principal.jpg`
+   - `106603_referencia_detalhe1.jpg`
+   - `106603_referencia_cor_preto.jpg`
+   - `106603_referencia_cor_rosa.jpg`
+
+### Manual Verification
+- Importar fotos via "Vincular Fotos" → verificar classificação automática
+- Gerar PDF → verificar layout correto (principal, detalhes, cores)
+- Testar regra PRETO → deve sempre ser C1
+- Testar limite 4 cores → deve bloquear 5ª cor
+- Testar substituição → nova foto com mesmo tipo substitui a anterior
