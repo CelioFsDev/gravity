@@ -21,7 +21,7 @@ class AppScaffold extends StatelessWidget {
     this.actions,
     required this.body,
     this.floatingActionButton,
-    this.maxWidth = 1000,
+    this.maxWidth = double.infinity,
     this.showHeader = true,
     this.bottomNavigationBar,
     this.useAppBar = false,
@@ -44,63 +44,68 @@ class AppScaffold extends StatelessWidget {
           : null,
       body: SafeArea(
         child: Center(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: maxWidth),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (!useAppBar && showHeader && hasTitle)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppTokens.space24,
-                      AppTokens.space24,
-                      AppTokens.space24,
-                      AppTokens.space16,
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                title!,
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.headlineSmall,
-                                overflow: TextOverflow.visible,
-                              ),
-                              if (subtitle != null) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  subtitle!,
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        if (actions != null && actions!.isNotEmpty) ...[
-                          const SizedBox(width: AppTokens.space16),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: actions!,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                if (bottom != null) bottom!,
-                Expanded(child: body),
-              ],
-            ),
-          ),
+          child: _buildContent(context, hasTitle),
         ),
       ),
       floatingActionButton: floatingActionButton,
       bottomNavigationBar: bottomNavigationBar,
     );
+  }
+
+  Widget _buildContent(BuildContext context, bool hasTitle) {
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (!useAppBar && showHeader && hasTitle)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppTokens.space24,
+              AppTokens.space24,
+              AppTokens.space24,
+              AppTokens.space16,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title!,
+                        style: Theme.of(context).textTheme.headlineSmall,
+                        overflow: TextOverflow.visible,
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle!,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (actions != null && actions!.isNotEmpty) ...[
+                  const SizedBox(width: AppTokens.space16),
+                  Row(mainAxisSize: MainAxisSize.min, children: actions!),
+                ],
+              ],
+            ),
+          ),
+        if (bottom != null) ...[bottom!],
+        Expanded(child: body),
+      ],
+    );
+
+    if (maxWidth.isFinite) {
+      return ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: content,
+      );
+    }
+
+    return SizedBox(width: double.infinity, child: content);
   }
 }
