@@ -135,6 +135,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
                 isDone: true,
                 parsedProducts: report.importedProducts ?? [],
               );
+              _notifyChanges();
               return;
             } catch (e) {
               state = state.copyWith(
@@ -286,7 +287,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         allowMultiple: true,
         type: FileType.custom,
         allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'],
-        withData: true,
+        withData: kIsWeb,
       );
 
       if (result == null || result.files.isEmpty) {
@@ -433,6 +434,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         imagesMatchedCount: matchedCount,
         imagesTotalCount: totalFiles,
       );
+      _notifyChanges();
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -506,6 +508,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         imagesMatchedCount: syncedCount,
         imagesTotalCount: totalToTry,
       );
+      _notifyChanges();
     } catch (e) {
       state = state.copyWith(
         isLoading: false,

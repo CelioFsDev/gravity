@@ -13,6 +13,10 @@ import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/ui/widgets/section_card.dart';
 import 'package:catalogo_ja/ui/widgets/app_primary_button.dart';
+import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/catalog_public_viewmodel.dart';
 
 class NuvemshopImportScreen extends ConsumerStatefulWidget {
   const NuvemshopImportScreen({super.key});
@@ -96,6 +100,10 @@ class _NuvemshopImportScreenState extends ConsumerState<NuvemshopImportScreen> {
             ? 'Importa\u00e7\u00e3o conclu\u00edda com avisos.'
             : 'Importa\u00e7\u00e3o conclu\u00edda.';
       });
+      ref.invalidate(productsViewModelProvider);
+      ref.invalidate(categoriesViewModelProvider);
+      ref.invalidate(catalogsViewModelProvider);
+      ref.invalidate(catalogPublicProvider);
     } catch (e, stack) {
       debugPrint('Erro na importa\u00e7\u00e3o: $e\n$stack');
       if (mounted) {

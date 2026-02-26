@@ -341,45 +341,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               ),
               onTap: () {
                 Navigator.pop(context);
-                final importViewModel = ref.read(
-                  productImportViewModelProvider.notifier,
-                );
-                importViewModel.reset();
-
-                _showVincularProgressDialog(context);
-
-                importViewModel
-                    .pickAndMatchImagesToExistingProducts()
-                    .then((_) {
-                      final stateAfter = ref.read(
-                        productImportViewModelProvider,
-                      );
-                      // Only close automatically if successful AND we found matches
-                      if (context.mounted) {
-                        if (stateAfter.errorMessage != null ||
-                            stateAfter.imagesMatchedCount == 0 ||
-                            !stateAfter.isDone) {
-                          // Keep dialog open to show results
-                        } else {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Vincula\u00e7\u00e3o conclu\u00edda com sucesso!',
-                              ),
-                            ),
-                          );
-                        }
-                      }
-                    })
-                    .catchError((e) {
-                      if (context.mounted) {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Erro ao vincular: $e')),
-                        );
-                      }
-                    });
+                _startPhotoReferenceLinking();
               },
             ),
             ListTile(
@@ -494,6 +456,50 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         ),
       ),
     );
+  }
+
+  void _startPhotoReferenceLinking() {
+    final screenContext = this.context;
+    ref.read(productImportViewModelProvider.notifier).reset();
+    _showVincularProgressDialog(screenContext);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        await ref
+            .read(productImportViewModelProvider.notifier)
+            .pickAndMatchImagesToExistingProducts();
+
+        if (!mounted) return;
+        final stateAfter = ref.read(productImportViewModelProvider);
+        final rootNav = Navigator.of(screenContext, rootNavigator: true);
+        if (rootNav.canPop()) {
+          rootNav.pop();
+        }
+
+        if (stateAfter.errorMessage != null) {
+          ScaffoldMessenger.of(
+            screenContext,
+          ).showSnackBar(SnackBar(content: Text(stateAfter.errorMessage!)));
+          return;
+        }
+
+        final msg = stateAfter.imagesMatchedCount > 0
+            ? 'Vincula\u00e7\u00e3o conclu\u00edda: ${stateAfter.imagesMatchedCount} fotos vinculadas.'
+            : 'Vincula\u00e7\u00e3o conclu\u00edda sem correspond\u00eancias.';
+        ScaffoldMessenger.of(
+          screenContext,
+        ).showSnackBar(SnackBar(content: Text(msg)));
+      } catch (e) {
+        if (!mounted) return;
+        final rootNav = Navigator.of(screenContext, rootNavigator: true);
+        if (rootNav.canPop()) {
+          rootNav.pop();
+        }
+        ScaffoldMessenger.of(
+          screenContext,
+        ).showSnackBar(SnackBar(content: Text('Erro ao vincular: $e')));
+      }
+    });
   }
 
   void _showVincularProgressDialog(BuildContext context) {
