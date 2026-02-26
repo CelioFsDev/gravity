@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:catalogo_ja/models/product.dart';
@@ -435,6 +436,38 @@ class ProductDetailScreen extends ConsumerWidget {
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
         alignment: Alignment.center,
         child: const Icon(Icons.image_not_supported_outlined, size: 48),
+      );
+    }
+
+    if (kIsWeb) {
+      return Image.network(
+        imagePath,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Container(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          alignment: Alignment.center,
+          child: const Icon(
+            Icons.broken_image_outlined,
+            size: 48,
+            color: AppTokens.accentRed,
+          ),
+        ),
+      );
+    }
+
+    if (imagePath.startsWith('http')) {
+      return Image.network(
+        imagePath,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Container(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          alignment: Alignment.center,
+          child: const Icon(
+            Icons.broken_image_outlined,
+            size: 48,
+            color: AppTokens.accentRed,
+          ),
+        ),
       );
     }
 

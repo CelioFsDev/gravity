@@ -369,6 +369,36 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               },
             ),
             ListTile(
+              leading: const Icon(Icons.auto_fix_high_outlined),
+              title: const Text('Reorganizar Fotos'),
+              subtitle: const Text(
+                'Aplica a regra da foto principal (P) para produtos antigos.',
+              ),
+              onTap: () async {
+                Navigator.pop(context);
+                try {
+                  final updatedCount = await ref
+                      .read(productsViewModelProvider.notifier)
+                      .reorganizePhotosPriority();
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        updatedCount > 0
+                            ? 'Reorganização concluída em $updatedCount produto(s).'
+                            : 'Nenhum produto precisou de reorganização.',
+                      ),
+                    ),
+                  );
+                } catch (e) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Erro ao reorganizar fotos: $e')),
+                  );
+                }
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.shopping_bag_outlined),
               title: const Text('Sincronizar Planilha Nuvemshop'),
               subtitle: const Text(
@@ -510,6 +540,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         return Consumer(
           builder: (context, ref, _) {
             final importState = ref.watch(productImportViewModelProvider);
+            final failures = importState.linkReport
+                .where((item) => !item.linked)
+                .toList();
             return AlertDialog(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(AppTokens.radiusLg),
@@ -552,6 +585,42 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                             ? AppTokens.accentGreen
                             : Colors.orange,
                         fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                  if (importState.isDone && importState.linkReport.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'Relatório: ${importState.imagesMatchedCount}/${importState.imagesTotalCount} vinculadas',
+                      style: const TextStyle(fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                  if (importState.isDone && failures.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Não vinculadas (${failures.length})',
+                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    SizedBox(
+                      height: 140,
+                      width: 320,
+                      child: ListView.separated(
+                        itemCount: failures.length,
+                        separatorBuilder: (_, _) => const Divider(height: 10),
+                        itemBuilder: (context, index) {
+                          final item = failures[index];
+                          return Text(
+                            '${item.fileName}: ${item.reason}',
+                            style: const TextStyle(fontSize: 11),
+                          );
+                        },
                       ),
                     ),
                   ],
@@ -922,6 +991,8 @@ class _SearchAndFiltersSection extends StatelessWidget {
         return 'Esgotado';
       case ProductStatusFilter.inactive:
         return 'Inativos';
+      case ProductStatusFilter.withPhotos:
+        return 'Com Fotos';
       case ProductStatusFilter.noPhotos:
         return 'Sem Fotos';
       case ProductStatusFilter.zeroPrice:
@@ -971,6 +1042,8 @@ class _SearchAndFiltersSection extends StatelessWidget {
       _SheetOption(value: ProductStatusFilter.active, label: 'Ativo'),
       _SheetOption(value: ProductStatusFilter.outOfStock, label: 'Esgotado'),
       _SheetOption(value: ProductStatusFilter.inactive, label: 'Inativo'),
+      _SheetOption(value: ProductStatusFilter.withPhotos, label: 'Com Fotos'),
+      _SheetOption(value: ProductStatusFilter.noPhotos, label: 'Sem Fotos'),
     ];
     final result = await _showSelectionSheet<ProductStatusFilter>(
       context,

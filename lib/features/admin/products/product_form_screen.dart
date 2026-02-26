@@ -104,6 +104,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         );
       }).toList();
     }
+    _photos = _prioritizePrimaryPhoto(_photos);
   }
 
   @override
@@ -485,13 +486,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
   List<ProductPhoto> _normalizePhotosForSave() {
     if (_photos.isEmpty) return const [];
-    final hasPrimary = _photos.any((p) => p.isPrimary);
-    if (hasPrimary) return List<ProductPhoto>.from(_photos);
-    final updated = <ProductPhoto>[];
-    for (var i = 0; i < _photos.length; i++) {
-      updated.add(_photos[i].copyWith(isPrimary: i == 0));
-    }
-    return updated;
+    return _prioritizePrimaryPhoto(_photos);
   }
 
   List<String> _imagesFromPhotos(List<ProductPhoto> photos) {
@@ -499,8 +494,31 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   }
 
   int _mainIndexFromPhotos(List<ProductPhoto> photos) {
+    final typePrimaryIndex = photos.indexWhere((p) => p.photoType == 'P');
+    if (typePrimaryIndex >= 0) return typePrimaryIndex;
     final index = photos.indexWhere((p) => p.isPrimary);
     return index >= 0 ? index : 0;
+  }
+
+  List<ProductPhoto> _prioritizePrimaryPhoto(List<ProductPhoto> photos) {
+    if (photos.isEmpty) return const [];
+    final updated = List<ProductPhoto>.from(photos);
+
+    var primaryIndex = updated.indexWhere((p) => p.photoType == 'P');
+    primaryIndex = primaryIndex >= 0
+        ? primaryIndex
+        : updated.indexWhere((p) => p.isPrimary);
+    primaryIndex = primaryIndex >= 0 ? primaryIndex : 0;
+
+    for (var i = 0; i < updated.length; i++) {
+      updated[i] = updated[i].copyWith(isPrimary: i == primaryIndex);
+    }
+
+    if (primaryIndex > 0) {
+      final primary = updated.removeAt(primaryIndex);
+      updated.insert(0, primary);
+    }
+    return updated;
   }
 
   void _setPrimaryPhoto(String path) {

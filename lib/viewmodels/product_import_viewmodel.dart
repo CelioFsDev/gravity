@@ -41,6 +41,7 @@ class ProductImportState {
   final bool isLoading;
   final String? errorMessage;
   final bool isDone;
+  final List<PhotoLinkReportItem> linkReport;
 
   ProductImportState({
     this.currentStep = 0,
@@ -54,6 +55,7 @@ class ProductImportState {
     this.isLoading = false,
     this.errorMessage,
     this.isDone = false,
+    this.linkReport = const [],
   });
 
   ProductImportState copyWith({
@@ -68,6 +70,7 @@ class ProductImportState {
     bool? isLoading,
     String? errorMessage,
     bool? isDone,
+    List<PhotoLinkReportItem>? linkReport,
   }) {
     return ProductImportState(
       currentStep: currentStep ?? this.currentStep,
@@ -81,8 +84,23 @@ class ProductImportState {
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage ?? this.errorMessage,
       isDone: isDone ?? this.isDone,
+      linkReport: linkReport ?? this.linkReport,
     );
   }
+}
+
+class PhotoLinkReportItem {
+  final String fileName;
+  final bool linked;
+  final String reason;
+  final String? productRef;
+
+  const PhotoLinkReportItem({
+    required this.fileName,
+    required this.linked,
+    required this.reason,
+    this.productRef,
+  });
 }
 
 @riverpod
@@ -329,6 +347,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       int matchedCount = 0;
       final productsToUpdate = <String, List<ProductPhoto>>{};
       final totalFiles = result.files.length;
+      final report = <PhotoLinkReportItem>[];
 
       for (int i = 0; i < totalFiles; i++) {
         try {
@@ -377,13 +396,49 @@ class ProductImportViewModel extends _$ProductImportViewModel {
               );
               productsToUpdate.putIfAbsent(product.id, () => []).add(photo);
               matchedCount++;
+              report.add(
+                PhotoLinkReportItem(
+                  fileName: file.name,
+                  linked: true,
+                  reason: 'Vinculada com sucesso',
+                  productRef: product.ref,
+                ),
+              );
+            } else {
+              report.add(
+                PhotoLinkReportItem(
+                  fileName: file.name,
+                  linked: false,
+                  reason: 'Falha ao salvar imagem local',
+                  productRef: product.ref,
+                ),
+              );
             }
+          } else {
+            final reason = classification != null
+                ? 'Referência ${classification.ref} não encontrada'
+                : 'Produto não encontrado por nome/REF/SKU';
+            report.add(
+              PhotoLinkReportItem(
+                fileName: file.name,
+                linked: false,
+                reason: reason,
+              ),
+            );
           }
 
           // Let UI breathe
           await Future.delayed(const Duration(milliseconds: 10));
         } catch (e) {
           debugPrint('Vincular: Erro ao processar arquivo $i: $e');
+          final fileName = (i >= 0 && i < totalFiles) ? result.files[i].name : '';
+          report.add(
+            PhotoLinkReportItem(
+              fileName: fileName,
+              linked: false,
+              reason: 'Erro ao processar: $e',
+            ),
+          );
         }
       }
 
@@ -421,6 +476,8 @@ class ProductImportViewModel extends _$ProductImportViewModel {
           }
         }
 
+        currentPhotos = _prioritizePrimaryPhoto(currentPhotos);
+
         await productsRepo.updateProduct(
           product.copyWith(photos: currentPhotos),
         );
@@ -433,6 +490,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         message: 'Conclu\u00eddo!',
         imagesMatchedCount: matchedCount,
         imagesTotalCount: totalFiles,
+        linkReport: report,
       );
       _notifyChanges();
     } catch (e) {
@@ -1251,6 +1309,28 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     ref.invalidate(categoriesViewModelProvider);
     ref.invalidate(catalogsViewModelProvider);
     ref.invalidate(catalogPublicProvider);
+  }
+
+  List<ProductPhoto> _prioritizePrimaryPhoto(List<ProductPhoto> photos) {
+    if (photos.isEmpty) return const [];
+    final updated = List<ProductPhoto>.from(photos);
+
+    var primaryIndex = updated.indexWhere((p) => p.photoType == 'P');
+    primaryIndex = primaryIndex >= 0
+        ? primaryIndex
+        : updated.indexWhere((p) => p.isPrimary);
+    primaryIndex = primaryIndex >= 0 ? primaryIndex : 0;
+
+    for (var i = 0; i < updated.length; i++) {
+      updated[i] = updated[i].copyWith(isPrimary: i == primaryIndex);
+    }
+
+    if (primaryIndex > 0) {
+      final primary = updated.removeAt(primaryIndex);
+      updated.insert(0, primary);
+    }
+
+    return updated;
   }
 }
 

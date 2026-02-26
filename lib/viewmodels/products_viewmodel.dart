@@ -16,6 +16,7 @@ enum ProductStatusFilter {
   active,
   outOfStock,
   inactive,
+  withPhotos,
   noPhotos,
   zeroPrice,
   createdToday,
@@ -251,6 +252,66 @@ class ProductsViewModel extends _$ProductsViewModel {
     _notifyChanges();
   }
 
+  Future<int> reorganizePhotosPriority() async {
+    final repository = ref.read(productsRepositoryProvider);
+    final products = await repository.getProducts();
+    var updatedCount = 0;
+
+    for (final product in products) {
+      final reorganized = _prioritizePrimaryPhoto(product.photos);
+      if (!_samePhotoOrderAndPrimary(product.photos, reorganized)) {
+        await repository.updateProduct(product.copyWith(photos: reorganized));
+        updatedCount++;
+      }
+    }
+
+    if (updatedCount > 0) {
+      await refresh();
+      _notifyChanges();
+    }
+    return updatedCount;
+  }
+
+  List<ProductPhoto> _prioritizePrimaryPhoto(List<ProductPhoto> photos) {
+    if (photos.isEmpty) return const [];
+    final updated = List<ProductPhoto>.from(photos);
+
+    var primaryIndex = updated.indexWhere((p) => p.photoType == 'P');
+    primaryIndex = primaryIndex >= 0
+        ? primaryIndex
+        : updated.indexWhere((p) => p.isPrimary);
+    primaryIndex = primaryIndex >= 0 ? primaryIndex : 0;
+
+    for (var i = 0; i < updated.length; i++) {
+      updated[i] = updated[i].copyWith(isPrimary: i == primaryIndex);
+    }
+
+    if (primaryIndex > 0) {
+      final primary = updated.removeAt(primaryIndex);
+      updated.insert(0, primary);
+    }
+
+    return updated;
+  }
+
+  bool _samePhotoOrderAndPrimary(
+    List<ProductPhoto> oldPhotos,
+    List<ProductPhoto> newPhotos,
+  ) {
+    if (oldPhotos.length != newPhotos.length) return false;
+    for (var i = 0; i < oldPhotos.length; i++) {
+      final oldP = oldPhotos[i];
+      final newP = newPhotos[i];
+      if (oldP.path != newP.path ||
+          oldP.isPrimary != newP.isPrimary ||
+          oldP.photoType != newP.photoType ||
+          oldP.colorKey != newP.colorKey) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   void _notifyChanges() {
     // Notify other viewmodels that products changed
     ref.invalidate(categoriesViewModelProvider);
@@ -313,6 +374,11 @@ class ProductsViewModel extends _$ProductsViewModel {
         break;
       case ProductStatusFilter.inactive:
         filtered = filtered.where((p) => !p.isActive).toList();
+        break;
+      case ProductStatusFilter.withPhotos:
+        filtered = filtered
+            .where((p) => p.photos.isNotEmpty || p.images.isNotEmpty)
+            .toList();
         break;
       case ProductStatusFilter.noPhotos:
         filtered = filtered.where((p) => p.images.isEmpty).toList();
