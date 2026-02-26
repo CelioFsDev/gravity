@@ -104,6 +104,7 @@ class CatalogShareHelper {
             catalog,
             mode: options.mode,
             showPrice: options.showPrice,
+            pdfStyle: options.pdfStyle,
           ),
         );
         if (files.isEmpty) {
@@ -132,6 +133,7 @@ class CatalogShareHelper {
             mode: options.mode,
             showPrice: options.showPrice,
             useLoosePhotos: false,
+            pdfStyle: options.pdfStyle,
             coverTypeOverride: options.coverType,
             collectionIdOverride: options.collectionId,
           ),
@@ -226,6 +228,7 @@ class CatalogShareHelper {
             catalog,
             mode: options.mode,
             showPrice: options.showPrice,
+            pdfStyle: options.pdfStyle,
           ),
         );
         if (files.isEmpty) {
@@ -256,6 +259,7 @@ class CatalogShareHelper {
             mode: options.mode,
             showPrice: options.showPrice,
             useLoosePhotos: false,
+            pdfStyle: options.pdfStyle,
             coverTypeOverride: options.coverType,
             collectionIdOverride: options.collectionId,
           ),
@@ -288,6 +292,7 @@ class CatalogShareHelper {
     required CatalogMode mode,
     bool showPrice = true,
     bool useLoosePhotos = false,
+    CatalogPdfStyle pdfStyle = CatalogPdfStyle.classic,
     String? coverTypeOverride,
     String? collectionIdOverride,
   }) async {
@@ -424,6 +429,7 @@ class CatalogShareHelper {
         mode: mode,
         showPrice: showPrice,
         useLoosePhotos: useLoosePhotos,
+        style: pdfStyle,
         bannerImagePath: bannerImagePath,
         collectionCover: fbCover,
         collectionName: fallbackCoverInfo.name,
@@ -443,6 +449,7 @@ class CatalogShareHelper {
       mode: mode,
       showPrice: showPrice,
       useLoosePhotos: useLoosePhotos,
+      style: pdfStyle,
       bannerImagePath: bannerImagePath,
       collectionCover: resolvedCollectionCover,
       collectionName: coverInfo.name,
@@ -484,6 +491,7 @@ class CatalogShareHelper {
     CatalogMode selectedMode = CatalogMode.varejo;
     bool showPrice = true;
     bool useLoosePhotos = false;
+    CatalogPdfStyle selectedPdfStyle = CatalogPdfStyle.classic;
     String selectedCoverType =
         'collection'; // Default to collection/custom if available
     String? selectedCollectionId = availableCollections.isNotEmpty
@@ -512,10 +520,12 @@ class CatalogShareHelper {
                 left: 24,
                 right: 24,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height * 0.86,
+                child: Column(
+                  mainAxisSize: MainAxisSize.max,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
                   // Handle
                   Center(
                     child: Container(
@@ -535,10 +545,14 @@ class CatalogShareHelper {
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 24),
-
-                  // PRICE SECTION
-                  _buildSubHeader(context, 'Pre\u00e7o no PDF'),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // PRICE SECTION
+                          _buildSubHeader(context, 'Pre\u00e7o no PDF'),
                   const SizedBox(height: 12),
                   Row(
                     children: [
@@ -590,6 +604,24 @@ class CatalogShareHelper {
                     onChanged: (value) =>
                         setState(() => useLoosePhotos = value),
                     activeThumbColor: AppTokens.accentBlue,
+                  ),
+                  const SizedBox(height: 24),
+
+                  // STYLE SECTION
+                  _buildSubHeader(context, 'Estilo do Layout'),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: CatalogPdfStyle.values.map((style) {
+                      final isSelected = selectedPdfStyle == style;
+                      return ChoiceChip(
+                        label: Text(_pdfStyleLabel(style)),
+                        selected: isSelected,
+                        onSelected: (_) =>
+                            setState(() => selectedPdfStyle = style),
+                      );
+                    }).toList(),
                   ),
                   const SizedBox(height: 24),
 
@@ -657,7 +689,12 @@ class CatalogShareHelper {
                     onTap: () => setState(() => selectedCoverType = 'none'),
                   ),
 
-                  const SizedBox(height: 32),
+                          const SizedBox(height: 16),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
 
                   // ACTIONS
                   Row(
@@ -688,6 +725,7 @@ class CatalogShareHelper {
                               selectedCollectionId,
                               showPrice,
                               useLoosePhotos,
+                              selectedPdfStyle,
                             ),
                           ),
                           child: const Text(
@@ -701,7 +739,8 @@ class CatalogShareHelper {
                       ),
                     ],
                   ),
-                ],
+                  ],
+                ),
               ),
             );
           },
@@ -974,12 +1013,14 @@ class CatalogExportOptions {
   final String? collectionId;
   final bool showPrice;
   final bool useLoosePhotos;
+  final CatalogPdfStyle pdfStyle;
   CatalogExportOptions(
     this.mode,
     this.coverType,
     this.collectionId,
     this.showPrice,
     this.useLoosePhotos,
+    this.pdfStyle,
   );
 }
 
@@ -1002,6 +1043,7 @@ Future<List<_GeneratedPdfFile>> _generatePerProductPdfFiles(
   Catalog catalog, {
   required CatalogMode mode,
   required bool showPrice,
+  required CatalogPdfStyle pdfStyle,
 }) async {
   final productsState = await ref.read(productsViewModelProvider.future);
   final catalogProducts = productsState.allProducts
@@ -1020,6 +1062,7 @@ Future<List<_GeneratedPdfFile>> _generatePerProductPdfFiles(
       includeCover: false,
       collectionsMap: null,
       useLoosePhotos: false,
+      style: pdfStyle,
     );
 
     final baseName =
@@ -1032,6 +1075,16 @@ Future<List<_GeneratedPdfFile>> _generatePerProductPdfFiles(
   }
 
   return files;
+}
+
+String _pdfStyleLabel(CatalogPdfStyle style) {
+  return switch (style) {
+    CatalogPdfStyle.classic => 'Clássico',
+    CatalogPdfStyle.clean => 'Clean',
+    CatalogPdfStyle.compact => 'Compacto',
+    CatalogPdfStyle.editorial => 'Editorial',
+    CatalogPdfStyle.minimal => 'Minimalista',
+  };
 }
 
 class _CollectionCoverResult {

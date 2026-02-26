@@ -53,7 +53,6 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   late TextEditingController _sizesController;
   late TextEditingController _colorsController;
   late TextEditingController _discountController;
-  late TextEditingController _descriptionController;
 
   List<String> _selectedCategoryIds = [];
   String? _selectedCollectionId;
@@ -88,7 +87,6 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     _discountController = TextEditingController(
       text: pr?.saleDiscountPercent.toString() ?? '0',
     );
-    _descriptionController = TextEditingController(text: pr?.description ?? '');
 
     _initialCategoryIds = pr?.categoryIds ?? [];
     _isActive = pr?.isActive ?? true;
@@ -119,7 +117,6 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     _sizesController.dispose();
     _colorsController.dispose();
     _discountController.dispose();
-    _descriptionController.dispose();
     super.dispose();
   }
 
@@ -188,7 +185,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       promoPercent: _isOnSale
           ? (int.tryParse(_discountController.text) ?? 0).toDouble()
           : 0.0,
-      description: _descriptionController.text,
+      description: widget.product?.description,
     );
 
     try {
@@ -786,16 +783,6 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                           'Cores (ex: Preto, Branco, Azul)',
                         ),
                       ],
-                    ),
-                  ),
-                  const SizedBox(height: AppTokens.space24),
-                  const SizedBox(height: AppTokens.space24),
-                  SectionCard(
-                    title: 'Descri\u00e7\u00e3o do Produto',
-                    child: _buildTextField(
-                      _descriptionController,
-                      'Descri\u00e7\u00e3o Detalhada',
-                      maxLines: 5,
                     ),
                   ),
                   const SizedBox(height: AppTokens.space24),

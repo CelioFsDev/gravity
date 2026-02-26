@@ -9,6 +9,14 @@ import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:intl/intl.dart';
 
+enum CatalogPdfStyle {
+  classic,
+  clean,
+  compact,
+  editorial,
+  minimal,
+}
+
 class CatalogPdfService {
   static const PdfColor _colorPriceGreen = PdfColor(0.12, 0.42, 0.29);
   static const PdfColor _colorMuted = PdfColor(0.45, 0.45, 0.45);
@@ -31,6 +39,7 @@ class CatalogPdfService {
     String? mainCoverCollectionId,
     bool showPrice = true,
     bool useLoosePhotos = false,
+    CatalogPdfStyle style = CatalogPdfStyle.classic,
   }) async {
     // Parameters kept for API compatibility.
     final _ = catalogName;
@@ -96,6 +105,7 @@ class CatalogPdfService {
                 defaultSubtitle: defaultSubtitle,
                 showPrice: showPrice,
                 useLoosePhotos: true,
+                style: style,
               ),
             ),
           );
@@ -115,6 +125,7 @@ class CatalogPdfService {
                   showPrice: showPrice,
                   useLoosePhotos: true,
                   forcedHeroPath: photoPath,
+                  style: style,
                 ),
               ),
             );
@@ -136,6 +147,7 @@ class CatalogPdfService {
               defaultSubtitle: defaultSubtitle,
               showPrice: showPrice,
               useLoosePhotos: false,
+              style: style,
             ),
           ),
         );
@@ -155,6 +167,7 @@ class CatalogPdfService {
     bool showPrice = true,
     bool useLoosePhotos = false,
     String? forcedHeroPath,
+    CatalogPdfStyle style = CatalogPdfStyle.classic,
   }) {
     final displayPrice = product.priceForMode(mode.name);
     ProductPhoto? photoP;
@@ -245,9 +258,71 @@ class CatalogPdfService {
     final availableWidth = pageFormat.width - 36;
     final availableHeight = pageFormat.height - 36;
 
-    final bottomContentHeight = 175.0; 
-    final topHeaderHeight = 35.0;
-    final spacing = 15.0;
+    final bottomContentHeight = switch (style) {
+      CatalogPdfStyle.classic => 175.0,
+      CatalogPdfStyle.clean => 165.0,
+      CatalogPdfStyle.compact => 145.0,
+      CatalogPdfStyle.editorial => 190.0,
+      CatalogPdfStyle.minimal => 135.0,
+    };
+    final topHeaderHeight = switch (style) {
+      CatalogPdfStyle.classic => 35.0,
+      CatalogPdfStyle.clean => 28.0,
+      CatalogPdfStyle.compact => 24.0,
+      CatalogPdfStyle.editorial => 46.0,
+      CatalogPdfStyle.minimal => 0.0,
+    };
+    final spacing = switch (style) {
+      CatalogPdfStyle.classic => 15.0,
+      CatalogPdfStyle.clean => 12.0,
+      CatalogPdfStyle.compact => 8.0,
+      CatalogPdfStyle.editorial => 18.0,
+      CatalogPdfStyle.minimal => 10.0,
+    };
+    final mainRadius = switch (style) {
+      CatalogPdfStyle.classic => 0.0,
+      CatalogPdfStyle.clean => 8.0,
+      CatalogPdfStyle.compact => 6.0,
+      CatalogPdfStyle.editorial => 0.0,
+      CatalogPdfStyle.minimal => 12.0,
+    };
+    final productNameSize = switch (style) {
+      CatalogPdfStyle.classic => 15.0,
+      CatalogPdfStyle.clean => 14.0,
+      CatalogPdfStyle.compact => 13.0,
+      CatalogPdfStyle.editorial => 17.0,
+      CatalogPdfStyle.minimal => 14.0,
+    };
+    final priceSize = switch (style) {
+      CatalogPdfStyle.classic => 22.0,
+      CatalogPdfStyle.clean => 21.0,
+      CatalogPdfStyle.compact => 18.0,
+      CatalogPdfStyle.editorial => 24.0,
+      CatalogPdfStyle.minimal => 20.0,
+    };
+    final detailColumnWidth = switch (style) {
+      CatalogPdfStyle.classic => 85.0,
+      CatalogPdfStyle.clean => 82.0,
+      CatalogPdfStyle.compact => 72.0,
+      CatalogPdfStyle.editorial => 92.0,
+      CatalogPdfStyle.minimal => 78.0,
+    };
+    final showHeader = style != CatalogPdfStyle.minimal;
+    final infoFlex = switch (style) {
+      CatalogPdfStyle.classic => 4,
+      CatalogPdfStyle.clean => 5,
+      CatalogPdfStyle.compact => 6,
+      CatalogPdfStyle.editorial => 5,
+      CatalogPdfStyle.minimal => 6,
+    };
+    final colorFlex = switch (style) {
+      CatalogPdfStyle.classic => 6,
+      CatalogPdfStyle.clean => 5,
+      CatalogPdfStyle.compact => 4,
+      CatalogPdfStyle.editorial => 5,
+      CatalogPdfStyle.minimal => 4,
+    };
+    final nameMaxLines = style == CatalogPdfStyle.compact ? 1 : 2;
     final mainPhotoHeight =
         availableHeight - topHeaderHeight - bottomContentHeight - spacing;
 
@@ -257,19 +332,20 @@ class CatalogPdfService {
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
           // 1. Top Header
-          pw.Container(
-            height: topHeaderHeight,
-            alignment: pw.Alignment.centerLeft,
-            child: pw.Text(
-              topHeaderText.toUpperCase(),
-              style: pw.TextStyle(
-                fontSize: 11,
-                letterSpacing: 3,
-                fontWeight: pw.FontWeight.bold,
-                color: PdfColors.black,
+          if (showHeader)
+            pw.Container(
+              height: topHeaderHeight,
+              alignment: pw.Alignment.centerLeft,
+              child: pw.Text(
+                topHeaderText.toUpperCase(),
+                style: pw.TextStyle(
+                  fontSize: style == CatalogPdfStyle.editorial ? 12 : 11,
+                  letterSpacing: style == CatalogPdfStyle.compact ? 1.4 : 3,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.black,
+                ),
               ),
             ),
-          ),
           // 2. Main Photo Section + Details
           pw.Container(
             height: mainPhotoHeight,
@@ -283,19 +359,19 @@ class CatalogPdfService {
                       ? _buildMainPhotoBox(
                           heroPath,
                           height: mainPhotoHeight,
-                          radius: 0,
+                          radius: mainRadius,
                         )
                       : _buildImagePlaceholder(
                           height: mainPhotoHeight,
                           width: availableWidth,
-                          radius: 0,
+                          radius: mainRadius,
                         ),
                 ),
                 // DETAILS (D1, D2)
                 if (detailVariants.isNotEmpty) ...[
                   pw.SizedBox(width: 10),
                   pw.Container(
-                    width: 85,
+                    width: detailColumnWidth,
                     child: pw.Column(
                       mainAxisAlignment: pw.MainAxisAlignment.center,
                       children: detailVariants
@@ -308,7 +384,7 @@ class CatalogPdfService {
                                 child: _buildSwatchThumb(
                                   v.key,
                                   v.value,
-                                  width: 85,
+                                  width: detailColumnWidth,
                                   expand: true,
                                 ),
                               ),
@@ -330,15 +406,15 @@ class CatalogPdfService {
               children: [
                 // Info Section
                 pw.Expanded(
-                  flex: 4,
+                  flex: infoFlex,
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
                       pw.Text(
                         product.name.toUpperCase(),
-                        maxLines: 2,
+                        maxLines: nameMaxLines,
                         style: pw.TextStyle(
-                          fontSize: 15,
+                          fontSize: productNameSize,
                           fontWeight: pw.FontWeight.bold,
                           color: PdfColors.black,
                           lineSpacing: 1.2,
@@ -361,7 +437,7 @@ class CatalogPdfService {
                         pw.Text(
                           currencyFormat.format(displayPrice),
                           style: pw.TextStyle(
-                            fontSize: 22,
+                            fontSize: priceSize,
                             fontWeight: pw.FontWeight.bold,
                             color: _colorPriceGreen,
                           ),
@@ -373,7 +449,7 @@ class CatalogPdfService {
                 // Colors Section (C1-C4)
                 if (colorVariants.isNotEmpty)
                   pw.Expanded(
-                    flex: 6,
+                    flex: colorFlex,
                     child: pw.Container(
                       alignment: pw.Alignment.topRight,
                       child: _buildVariantThumbsLayout(colorVariants),
