@@ -39,9 +39,15 @@ class ProductDetailScreen extends ConsumerWidget {
       useAppBar: false,
       actions: [
         IconButton(
-          tooltip: 'Menu principal',
-          icon: const Icon(Icons.home_outlined),
-          onPressed: () => context.go('/'),
+          tooltip: 'Voltar',
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              context.go('/admin/products');
+            }
+          },
         ),
         IconButton(
           icon: const Icon(Icons.edit_outlined),

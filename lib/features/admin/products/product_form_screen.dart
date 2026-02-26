@@ -657,11 +657,12 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       subtitle: widget.product == null
           ? 'Preencha os dados do novo item'
           : 'Atualize as informa\u00e7\u00f5es do produto',
+      useAppBar: true,
       actions: [
         IconButton(
           tooltip: 'Menu principal',
           icon: const Icon(Icons.home_outlined),
-          onPressed: () => context.go('/'),
+          onPressed: () => context.go('/admin/products'),
         ),
       ],
       body: Form(
