@@ -148,33 +148,42 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
   Future<void> _selectCategory(BuildContext context) async {
     final result = await showModalBottomSheet<String?>(
       context: context,
+      isScrollControlled: true,
       builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const ListTile(
-              title: Text(
-                'Categoria',
-                style: TextStyle(fontWeight: FontWeight.bold),
+        child: SizedBox(
+          height: MediaQuery.of(sheetContext).size.height * 0.75,
+          child: Column(
+            children: [
+              const ListTile(
+                title: Text(
+                  'Categoria',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
-            ),
-            ListTile(
-              title: const Text('Todas categorias'),
-              trailing: _categoryFilter == null
-                  ? const Icon(Icons.check)
-                  : const SizedBox(),
-              onTap: () => Navigator.pop(sheetContext, null),
-            ),
-            ...widget.categories.map(
-              (category) => ListTile(
-                title: Text(category.safeName),
-                trailing: _categoryFilter == category.id
-                    ? const Icon(Icons.check)
-                    : const SizedBox(),
-                onTap: () => Navigator.pop(sheetContext, category.id),
+              Expanded(
+                child: ListView(
+                  children: [
+                    ListTile(
+                      title: const Text('Todas categorias'),
+                      trailing: _categoryFilter == null
+                          ? const Icon(Icons.check)
+                          : const SizedBox(),
+                      onTap: () => Navigator.pop(sheetContext, null),
+                    ),
+                    ...widget.categories.map(
+                      (category) => ListTile(
+                        title: Text(category.safeName),
+                        trailing: _categoryFilter == category.id
+                            ? const Icon(Icons.check)
+                            : const SizedBox(),
+                        onTap: () => Navigator.pop(sheetContext, category.id),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

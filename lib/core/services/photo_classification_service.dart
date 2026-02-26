@@ -88,38 +88,64 @@ class PhotoClassificationService extends _$PhotoClassificationService {
   }
 
   PhotoClassification? classifyFileName(String fileName) {
-    // Regex patterns
-    // 106603_referencia_principal
-    // 106603_referencia_detalhe1
-    // 106603_referencia_detalhe2
-    // 106603_referencia_cor_{cor}
+    // Accepted examples:
+    // 106603_p.jpg / 106603_principal.jpg
+    // 106603_d1.jpg / 106603_d2.jpg
+    // 106603_detalhe1.jpg / 106603_detalhe2.jpg
+    // 106603_preto.jpg / 106603_cor_preto.jpg
+    // Legacy compatibility: 106603_referencia_principal.jpg
+    final parsed = RegExp(
+      r'^(\d+)[_\-\s]+(.+)\.(jpg|jpeg|png|webp)$',
+      caseSensitive: false,
+    ).firstMatch(fileName);
+    if (parsed == null) return null;
 
-    final regExp = RegExp(r'^(\d+)_referencia_(principal|detalhe1|detalhe2|cor_(.+))\.(jpg|jpeg|png|webp)$', caseSensitive: false);
-    final match = regExp.firstMatch(fileName);
+    final ref = parsed.group(1)!;
+    final suffixRaw = parsed.group(2)!;
+    final extension = parsed.group(3)!;
 
-    if (match == null) return null;
+    var tokens = suffixRaw
+        .split(RegExp(r'[_\-\s]+'))
+        .map((t) => removeDiacritics(t).toLowerCase().trim())
+        .where((t) => t.isNotEmpty)
+        .toList();
+    if (tokens.isEmpty) return null;
 
-    final ref = match.group(1)!;
-    final suffix = match.group(2)!;
-    final extension = match.group(4)!;
+    // Ignore legacy connector word.
+    if (tokens.first == 'referencia') {
+      tokens = tokens.skip(1).toList();
+    }
+    if (tokens.isEmpty) return null;
 
     String photoType;
     String? colorName;
 
-    if (suffix == 'principal') {
+    final first = tokens.first;
+    if (first == 'p' || first == 'principal') {
       photoType = typePrimary;
-    } else if (suffix == 'detalhe1') {
+    } else if (first == 'd1' ||
+        first == 'detalhe1' ||
+        (first == 'detalhe' && tokens.length > 1 && tokens[1] == '1')) {
       photoType = typeDetail1;
-    } else if (suffix == 'detalhe2') {
+    } else if (first == 'd2' ||
+        first == 'detalhe2' ||
+        (first == 'detalhe' && tokens.length > 1 && tokens[1] == '2')) {
       photoType = typeDetail2;
-    } else if (suffix.startsWith('cor_')) {
-      photoType = typeColor;
-      colorName = normalizeColor(match.group(3)!);
     } else {
-      return null;
+      photoType = typeColor;
+      if (first == 'cor') {
+        tokens = tokens.skip(1).toList();
+      }
+      if (tokens.isEmpty) return null;
+      colorName = normalizeColor(tokens.join('_'));
     }
 
-    final standardName = buildInternalName(ref, photoType, colorName, extension);
+    final standardName = buildInternalName(
+      ref,
+      photoType,
+      colorName,
+      extension,
+    );
 
     return PhotoClassification(
       ref: ref,
@@ -200,7 +226,6 @@ class PhotoClassificationService extends _$PhotoClassificationService {
       final idx = entry.key + 1;
       final photo = entry.value;
       final type = 'C$idx';
-      final colorName = _getColorNameFromPath(photo.path);
       final newPath = _updatePathWithCorrectC(photo.path, type);
       return photo.copyWith(
         photoType: type,
