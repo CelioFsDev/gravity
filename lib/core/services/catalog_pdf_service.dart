@@ -235,15 +235,11 @@ class CatalogPdfService {
       // Sort Colors by name (C1, C2...)
       photosC.sort((a, b) => (a.photoType ?? '').compareTo(b.photoType ?? ''));
 
-      detailVariants = photosD.map((p) {
-        final label = (p.photoType == 'D1' || p.photoType == 'D2')
-            ? (p.photoType == 'D1' ? 'DETALHE 1' : 'DETALHE 2')
-            : 'DETALHE';
-        return MapEntry(label, p.path);
-      }).toList();
+      // Detail photos should maximize visual space; keep labels only for colors.
+      detailVariants = photosD.map((p) => MapEntry('', p.path)).toList();
 
       colorVariants = photosC.map((p) {
-        final label = p.colorKey ?? (p.photoType ?? 'COR');
+        final label = _resolveColorLabel(p);
         return MapEntry(label, p.path);
       }).toList();
     }
@@ -373,20 +369,15 @@ class CatalogPdfService {
                   pw.Container(
                     width: detailColumnWidth,
                     child: pw.Column(
-                      mainAxisAlignment: pw.MainAxisAlignment.center,
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                       children: detailVariants
                           .map(
                             (v) => pw.Expanded(
-                              child: pw.Padding(
-                                padding: const pw.EdgeInsets.symmetric(
-                                  vertical: 4,
-                                ),
-                                child: _buildSwatchThumb(
-                                  v.key,
-                                  v.value,
-                                  width: detailColumnWidth,
-                                  expand: true,
-                                ),
+                              child: _buildSwatchThumb(
+                                v.key,
+                                v.value,
+                                width: detailColumnWidth,
+                                expand: true,
                               ),
                             ),
                           )
@@ -678,6 +669,67 @@ class CatalogPdfService {
     }
 
     return result;
+  }
+
+  static String _resolveColorLabel(ProductPhoto photo) {
+    final explicit = photo.colorKey?.trim();
+    if (explicit != null && explicit.isNotEmpty) {
+      return explicit;
+    }
+
+    final fromPath = _extractColorFromPath(photo.path);
+    if (fromPath != null && fromPath.isNotEmpty) {
+      return fromPath;
+    }
+
+    final type = photo.photoType?.trim();
+    if (type != null && type.isNotEmpty) {
+      return type;
+    }
+    return 'COR';
+  }
+
+  static String? _extractColorFromPath(String path) {
+    final fileName = path.split(RegExp(r'[\\/]')).last;
+    if (fileName.isEmpty) return null;
+
+    final base = fileName.replaceFirst(RegExp(r'\.[^.]+$'), '');
+
+    // Internal format: 106603__C1__PRETO
+    final internal = RegExp(
+      r'__c\d*__([a-z0-9_\-\s]+)$',
+      caseSensitive: false,
+    ).firstMatch(base);
+    if (internal != null) {
+      return _normalizeColorText(internal.group(1)!);
+    }
+
+    // External formats:
+    // 106603_cor_preto / 106603_cor_azul-marinho / 106603_preto
+    final byRef = RegExp(
+      r'^\d+[_\-\s]+(.+)$',
+      caseSensitive: false,
+    ).firstMatch(base);
+    if (byRef == null) return null;
+
+    var suffix = byRef.group(1) ?? '';
+    suffix = suffix.replaceFirst(
+      RegExp(r'^cor[_\-\s]+', caseSensitive: false),
+      '',
+    );
+    if (suffix.trim().isEmpty) return null;
+
+    return _normalizeColorText(suffix);
+  }
+
+  static String _normalizeColorText(String raw) {
+    final parts = raw
+        .split(RegExp(r'[_\-\s]+'))
+        .map((p) => p.trim())
+        .where((p) => p.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return raw.trim().toUpperCase();
+    return parts.join(' ').toUpperCase();
   }
 
   static pw.Widget _buildImageBox(

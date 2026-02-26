@@ -31,6 +31,7 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
   String _search = '';
   String? _categoryFilter;
   bool _onlySelected = false;
+  bool _onlyWithPhoto = false;
 
   @override
   void dispose() {
@@ -42,6 +43,7 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
   Widget build(BuildContext context) {
     final filtered = widget.allProducts.where((p) {
       if (_onlySelected && !widget.selectedIds.contains(p.id)) return false;
+      if (_onlyWithPhoto && p.photos.isEmpty && p.images.isEmpty) return false;
       if (_categoryFilter != null && !p.categoryIds.contains(_categoryFilter)) {
         return false;
       }
@@ -88,6 +90,12 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
                       label: const Text('Apenas Selecionados'),
                       selected: _onlySelected,
                       onSelected: (val) => setState(() => _onlySelected = val),
+                    ),
+                    const SizedBox(width: 8),
+                    FilterChip(
+                      label: const Text('Somente com foto'),
+                      selected: _onlyWithPhoto,
+                      onSelected: (val) => setState(() => _onlyWithPhoto = val),
                     ),
                     const SizedBox(width: 8),
                     Chip(

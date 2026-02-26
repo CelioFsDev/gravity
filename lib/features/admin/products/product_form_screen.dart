@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/models/product.dart';
@@ -1091,13 +1092,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   : Theme.of(context).dividerColor,
               width: photo.isPrimary ? 2 : 1,
             ),
-            image: DecorationImage(
-              image: photo.path.startsWith('http')
-                  ? NetworkImage(photo.path)
-                  : FileImage(File(photo.path)) as ImageProvider,
-              fit: BoxFit.cover,
-            ),
           ),
+          clipBehavior: Clip.antiAlias,
+          child: _buildPhotoPreview(photo.path),
         ),
         if (photo.colorKey != null)
           Positioned(
@@ -1179,6 +1176,62 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildPhotoPreview(String path) {
+    if (path.startsWith('data:')) {
+      final commaIndex = path.indexOf(',');
+      if (commaIndex != -1 && commaIndex + 1 < path.length) {
+        try {
+          final bytes = base64Decode(path.substring(commaIndex + 1));
+          return Image.memory(
+            bytes,
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+            errorBuilder: (_, _, _) => _buildPhotoPlaceholder(),
+          );
+        } catch (_) {
+          return _buildPhotoPlaceholder();
+        }
+      }
+      return _buildPhotoPlaceholder();
+    }
+
+    if (path.startsWith('http://') ||
+        path.startsWith('https://') ||
+        path.startsWith('blob:')) {
+      return Image.network(
+        path,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (_, _, _) => _buildPhotoPlaceholder(),
+      );
+    }
+
+    if (!kIsWeb) {
+      return Image.file(
+        File(path),
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (_, _, _) => _buildPhotoPlaceholder(),
+      );
+    }
+
+    return _buildPhotoPlaceholder();
+  }
+
+  Widget _buildPhotoPlaceholder() {
+    return Container(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.image_not_supported_outlined,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
     );
   }
 
