@@ -4,9 +4,11 @@ import 'package:archive/archive_io.dart';
 import 'package:catalogo_ja/core/services/dto/catalogo_ja_export_dtos.dart';
 import 'package:catalogo_ja/core/services/export_import_service.dart';
 import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/models/category.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart' hide Category;
 
 typedef ProgressCallback = void Function(double progress, String message);
 
@@ -16,6 +18,26 @@ class CatalogoJaPackageService {
   CatalogoJaPackageService(this._exportImportService);
 
   Future<File> exportPackage({ProgressCallback? onProgress}) async {
+    return _exportPackageBase(onProgress: onProgress);
+  }
+
+  Future<File> exportPackageForCatalog({
+    required List<Product> products,
+    required List<Category> collections,
+    ProgressCallback? onProgress,
+  }) async {
+    return _exportPackageBase(
+      products: products,
+      collections: collections,
+      onProgress: onProgress,
+    );
+  }
+
+  Future<File> _exportPackageBase({
+    List<Product>? products,
+    List<Category>? collections,
+    ProgressCallback? onProgress,
+  }) async {
     final tempDir = await getTemporaryDirectory();
     final packageDir = Directory(
       p.join(
@@ -27,9 +49,11 @@ class CatalogoJaPackageService {
 
     // 1. Get base payload
     onProgress?.call(0.05, 'Analisando banco de dados...');
-    final jsonFile = await _exportImportService.exportToJsonFile();
+    final payload = await _exportImportService.generatePayload(
+      products: products,
+      categories: collections,
+    );
     onProgress?.call(0.10, 'Lendo dados do cat\u00e1logo...');
-    final payload = await _exportImportService.parsePayload(jsonFile);
     await Future.delayed(const Duration(milliseconds: 10));
 
     // 2. Process images and update payload
@@ -267,9 +291,6 @@ class CatalogoJaPackageService {
     onProgress?.call(0.95, 'Finalizando arquivo...');
     final zipBytes = ZipEncoder().encode(archive);
     await zipFile.writeAsBytes(zipBytes);
-
-    // Cleanup temp dir
-    // await packageDir.delete(recursive: true); // Optional, system cleans temp
 
     return zipFile;
   }

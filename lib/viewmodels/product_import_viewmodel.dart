@@ -319,7 +319,9 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
         type: FileType.image,
-        withData: kIsWeb,
+        // Mobile cloud providers (Google Drive, etc.) often return files
+        // without a local path, so we need in-memory bytes too.
+        withData: true,
       );
 
       if (result == null || result.files.isEmpty) {

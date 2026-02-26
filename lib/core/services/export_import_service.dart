@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/core/services/dto/catalogo_ja_export_dtos.dart';
 import 'package:catalogo_ja/data/repositories/contracts/categories_repository_contract.dart';
 import 'package:catalogo_ja/data/repositories/contracts/products_repository_contract.dart';
@@ -9,7 +10,7 @@ import 'package:catalogo_ja/data/repositories/categories_repository.dart';
 import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/core/utils/encoding_utils.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:path_provider/path_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -68,26 +69,31 @@ class ExportImportService {
     this._settingsRepo,
   );
 
-  /// Generates the CatalogoJa_export.json file and returns it.
-  Future<File> exportToJsonFile() async {
-    final products = await _productsRepo.getProducts();
-    final allCategories = await _categoriesRepo.getCategories();
+  /// Generates the payload object for export.
+  Future<CatalogoJaExportPayload> generatePayload({
+    List<Product>? products,
+    List<Category>? categories,
+  }) async {
+    final allProducts = products ?? await _productsRepo.getProducts();
+    final allCategories = categories ?? await _categoriesRepo.getCategories();
     final settings = _settingsRepo.getSettings();
 
     // Split categories and collections
-    final categories = allCategories
+    final categoryDTOs = allCategories
         .where((c) => c.type == CategoryType.productType)
         .map((c) => CategoryDTO.fromModel(c))
         .toList();
 
-    final collections = allCategories
+    final collectionDTOs = allCategories
         .where((c) => c.type == CategoryType.collection)
         .map((c) => CategoryDTO.fromModel(c))
         .toList();
 
-    final productDTOs = products.map((p) => ProductDTO.fromModel(p)).toList();
+    final productDTOs = allProducts
+        .map((p) => ProductDTO.fromModel(p))
+        .toList();
 
-    final payload = CatalogoJaExportPayload(
+    return CatalogoJaExportPayload(
       app: 'CatalogoJa',
       version: 1,
       exportedAt: DateTime.now().toIso8601String(),
@@ -95,11 +101,15 @@ class ExportImportService {
         name: settings.storeName,
         phone: settings.whatsappNumber,
       ),
-      categories: categories,
-      collections: collections,
+      categories: categoryDTOs,
+      collections: collectionDTOs,
       products: productDTOs,
     );
+  }
 
+  /// Generates the CatalogoJa_export.json file and returns it.
+  Future<File> exportToJsonFile() async {
+    final payload = await generatePayload();
     final jsonString = jsonEncode(payload.toJson());
 
     final directory = await getApplicationDocumentsDirectory();
