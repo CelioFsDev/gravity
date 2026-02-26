@@ -76,14 +76,17 @@ class AppProductListTile extends StatelessWidget {
             clipBehavior: Clip.antiAlias,
             child: _buildImage(primaryImage),
           ),
-          const SizedBox(width: AppTokens.space16),
+          const SizedBox(width: AppTokens.space8),
 
           // Info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                Wrap(
+                  spacing: AppTokens.space8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
                       product.ref,
@@ -92,14 +95,11 @@ class AppProductListTile extends StatelessWidget {
                         color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
-                    const SizedBox(width: AppTokens.space8),
                     if (product.promoEnabled)
                       const AppBadgePill(
                         label: 'PROMO',
                         color: AppTokens.accentRed,
                       ),
-                    if (product.isOutOfStock)
-                      const SizedBox(width: AppTokens.space4),
                     if (product.isOutOfStock)
                       const AppBadgePill(
                         label: 'ESGOTADO',
@@ -122,6 +122,8 @@ class AppProductListTile extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
