@@ -30,6 +30,7 @@ class CatalogPdfService {
     Map<String, Category>? collectionsMap,
     String? mainCoverCollectionId,
     bool showPrice = true,
+    bool useLoosePhotos = false,
   }) async {
     // Parameters kept for API compatibility.
     final _ = catalogName;
@@ -79,23 +80,66 @@ class CatalogPdfService {
         }
       }
 
-      pdf.addPage(
-        pw.Page(
-          pageFormat: pageFormat,
-          margin: const pw.EdgeInsets.symmetric(
-            vertical: 18,
-          ), // No horizontal margin for full-bleed
-          build: (context) => _buildProductPage(
-            product,
-            mode,
-            currencyFormat,
-            pageFormat,
-            collectionName: collectionName,
-            defaultSubtitle: defaultSubtitle,
-            showPrice: showPrice,
+      if (useLoosePhotos) {
+        final loosePhotoPaths = _extractLoosePhotoPaths(product);
+        if (loosePhotoPaths.isEmpty) {
+          pdf.addPage(
+            pw.Page(
+              pageFormat: pageFormat,
+              margin: const pw.EdgeInsets.symmetric(vertical: 18),
+              build: (context) => _buildProductPage(
+                product,
+                mode,
+                currencyFormat,
+                pageFormat,
+                collectionName: collectionName,
+                defaultSubtitle: defaultSubtitle,
+                showPrice: showPrice,
+                useLoosePhotos: true,
+              ),
+            ),
+          );
+        } else {
+          for (final photoPath in loosePhotoPaths) {
+            pdf.addPage(
+              pw.Page(
+                pageFormat: pageFormat,
+                margin: const pw.EdgeInsets.symmetric(vertical: 18),
+                build: (context) => _buildProductPage(
+                  product,
+                  mode,
+                  currencyFormat,
+                  pageFormat,
+                  collectionName: collectionName,
+                  defaultSubtitle: defaultSubtitle,
+                  showPrice: showPrice,
+                  useLoosePhotos: true,
+                  forcedHeroPath: photoPath,
+                ),
+              ),
+            );
+          }
+        }
+      } else {
+        pdf.addPage(
+          pw.Page(
+            pageFormat: pageFormat,
+            margin: const pw.EdgeInsets.symmetric(
+              vertical: 18,
+            ), // No horizontal margin for full-bleed
+            build: (context) => _buildProductPage(
+              product,
+              mode,
+              currencyFormat,
+              pageFormat,
+              collectionName: collectionName,
+              defaultSubtitle: defaultSubtitle,
+              showPrice: showPrice,
+              useLoosePhotos: false,
+            ),
           ),
-        ),
-      );
+        );
+      }
     }
 
     return pdf.save();
@@ -109,45 +153,87 @@ class CatalogPdfService {
     String? collectionName,
     String defaultSubtitle = 'SELE\u00c7\u00c3O DE PRODUTOS',
     bool showPrice = true,
+    bool useLoosePhotos = false,
+    String? forcedHeroPath,
   }) {
     final displayPrice = product.priceForMode(mode.name);
-    
-    // 1. Organize photos by type
     ProductPhoto? photoP;
-    final photosD = <ProductPhoto>[];
-    final photosC = <ProductPhoto>[];
-    final otherPhotos = <ProductPhoto>[];
+    List<MapEntry<String, String>> detailVariants;
+    List<MapEntry<String, String>> colorVariants;
 
-    for (final photo in product.photos) {
-      final type = photo.photoType;
-      if (type == 'P') {
-        photoP = photo;
-      } else if (type == 'D1' || type == 'D2') {
-        photosD.add(photo);
-      } else if (type != null && type.startsWith('C')) {
-        photosC.add(photo);
-      } else if (photo.isPrimary && photoP == null) {
-        photoP = photo;
-      } else {
-        otherPhotos.add(photo);
+    if (forcedHeroPath != null && forcedHeroPath.trim().isNotEmpty) {
+      photoP = ProductPhoto(path: forcedHeroPath);
+      detailVariants = const [];
+      colorVariants = const [];
+    } else if (useLoosePhotos) {
+      final pool = <ProductPhoto>[
+        ...product.photos,
+        ...product.images.map((path) => ProductPhoto(path: path)),
+      ];
+
+      photoP = _selectPrimaryPhoto(pool);
+      if (photoP != null) {
+        pool.remove(photoP);
       }
-    }
 
-    // Fallback for legacy products
-    if (photoP == null && otherPhotos.isNotEmpty) {
-      photoP = otherPhotos.removeAt(0);
-    }
-    
-    // If we still have space for D or C from otherPhotos
-    while (photosD.length < 2 && otherPhotos.isNotEmpty) {
-      photosD.add(otherPhotos.removeAt(0));
-    }
-    while (photosC.length < 4 && otherPhotos.isNotEmpty) {
-      photosC.add(otherPhotos.removeAt(0));
-    }
+      detailVariants = pool
+          .take(2)
+          .map((p) => MapEntry('', p.path))
+          .toList();
+      colorVariants = pool
+          .skip(2)
+          .take(4)
+          .map((p) => MapEntry('', p.path))
+          .toList();
+    } else {
+      // 1. Organize photos by type
+      final photosD = <ProductPhoto>[];
+      final photosC = <ProductPhoto>[];
+      final otherPhotos = <ProductPhoto>[];
 
-    // Sort Colors by name (C1, C2...)
-    photosC.sort((a, b) => (a.photoType ?? '').compareTo(b.photoType ?? ''));
+      for (final photo in product.photos) {
+        final type = photo.photoType;
+        if (type == 'P') {
+          photoP = photo;
+        } else if (type == 'D1' || type == 'D2') {
+          photosD.add(photo);
+        } else if (type != null && type.startsWith('C')) {
+          photosC.add(photo);
+        } else if (photo.isPrimary && photoP == null) {
+          photoP = photo;
+        } else {
+          otherPhotos.add(photo);
+        }
+      }
+
+      // Fallback for legacy products
+      if (photoP == null && otherPhotos.isNotEmpty) {
+        photoP = otherPhotos.removeAt(0);
+      }
+
+      // If we still have space for D or C from otherPhotos
+      while (photosD.length < 2 && otherPhotos.isNotEmpty) {
+        photosD.add(otherPhotos.removeAt(0));
+      }
+      while (photosC.length < 4 && otherPhotos.isNotEmpty) {
+        photosC.add(otherPhotos.removeAt(0));
+      }
+
+      // Sort Colors by name (C1, C2...)
+      photosC.sort((a, b) => (a.photoType ?? '').compareTo(b.photoType ?? ''));
+
+      detailVariants = photosD.map((p) {
+        final label = (p.photoType == 'D1' || p.photoType == 'D2')
+            ? (p.photoType == 'D1' ? 'DETALHE 1' : 'DETALHE 2')
+            : 'DETALHE';
+        return MapEntry(label, p.path);
+      }).toList();
+
+      colorVariants = photosC.map((p) {
+        final label = p.colorKey ?? (p.photoType ?? 'COR');
+        return MapEntry(label, p.path);
+      }).toList();
+    }
 
     final heroPath = photoP?.path;
     final sizesText = _extractSizesText(product);
@@ -164,19 +250,6 @@ class CatalogPdfService {
     final spacing = 15.0;
     final mainPhotoHeight =
         availableHeight - topHeaderHeight - bottomContentHeight - spacing;
-
-    // Convert photosD to MapEntry for _buildVariantThumbsLayout compatibility or similar
-    final detailVariants = photosD.map((p) {
-      String label = (p.photoType == 'D1' || p.photoType == 'D2')
-          ? (p.photoType == 'D1' ? 'DETALHE 1' : 'DETALHE 2')
-          : 'DETALHE';
-      return MapEntry(label, p.path);
-    }).toList();
-
-    final colorVariants = photosC.map((p) {
-      String label = p.colorKey ?? (p.photoType ?? 'COR');
-      return MapEntry(label, p.path);
-    }).toList();
 
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 18),
@@ -412,22 +485,24 @@ class CatalogPdfService {
       mainAxisSize: expand ? pw.MainAxisSize.max : pw.MainAxisSize.min,
       children: [
         expand ? pw.Expanded(child: imageContainer) : imageContainer,
-        pw.SizedBox(height: 2),
-        pw.Container(
-          width: thumbWidth + 10,
-          child: pw.Text(
-            label.toUpperCase(),
-            style: pw.TextStyle(
-              fontSize: small ? 7 : 8,
-              letterSpacing: 0.5,
-              fontWeight: pw.FontWeight.bold,
-              color: PdfColors.grey800,
+        if (label.trim().isNotEmpty) ...[
+          pw.SizedBox(height: 2),
+          pw.Container(
+            width: thumbWidth + 10,
+            child: pw.Text(
+              label.toUpperCase(),
+              style: pw.TextStyle(
+                fontSize: small ? 7 : 8,
+                letterSpacing: 0.5,
+                fontWeight: pw.FontWeight.bold,
+                color: PdfColors.grey800,
+              ),
+              textAlign: pw.TextAlign.center,
+              maxLines: 1,
+              overflow: pw.TextOverflow.clip,
             ),
-            textAlign: pw.TextAlign.center,
-            maxLines: 1,
-            overflow: pw.TextOverflow.clip,
           ),
-        ),
+        ],
       ],
     );
   }
@@ -507,6 +582,26 @@ class CatalogPdfService {
     }
 
     return photos.first;
+  }
+
+  static List<String> _extractLoosePhotoPaths(Product product) {
+    final result = <String>[];
+    final seen = <String>{};
+
+    for (final photo in product.photos) {
+      final path = photo.path.trim();
+      if (path.isNotEmpty && seen.add(path)) {
+        result.add(path);
+      }
+    }
+    for (final path in product.images) {
+      final value = path.trim();
+      if (value.isNotEmpty && seen.add(value)) {
+        result.add(value);
+      }
+    }
+
+    return result;
   }
 
   static pw.Widget _buildImageBox(

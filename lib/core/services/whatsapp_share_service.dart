@@ -45,6 +45,34 @@ class WhatsAppShareService {
     ], text: text);
   }
 
+  static Future<void> shareFiles({
+    required List<({List<int> bytes, String fileName, String? mimeType})> files,
+    String? text,
+  }) async {
+    final xfiles = <XFile>[];
+    for (final file in files) {
+      String? effectiveMimeType = file.mimeType;
+      if (effectiveMimeType == null) {
+        final ext = file.fileName.toLowerCase();
+        if (ext.endsWith('.pdf')) {
+          effectiveMimeType = 'application/pdf';
+        } else if (ext.endsWith('.zip')) {
+          effectiveMimeType = 'application/zip';
+        } else if (ext.endsWith('.json')) {
+          effectiveMimeType = 'application/json';
+        }
+      }
+      xfiles.add(
+        XFile.fromData(
+          Uint8List.fromList(file.bytes),
+          name: file.fileName,
+          mimeType: effectiveMimeType,
+        ),
+      );
+    }
+    await Share.shareXFiles(xfiles, text: text);
+  }
+
   static Future<void> shareXFile({
     required String filePath,
     required String fileName,

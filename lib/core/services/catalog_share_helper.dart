@@ -96,29 +96,57 @@ class CatalogShareHelper {
 
       final width = MediaQuery.of(context).size.width;
       final columnsCount = width < 600 ? 1 : 2;
+      if (options.useLoosePhotos) {
+        final files = await _runWithLoadingDialog(
+          context,
+          () => _generatePerProductPdfFiles(
+            ref,
+            catalog,
+            mode: options.mode,
+            showPrice: options.showPrice,
+          ),
+        );
+        if (files.isEmpty) {
+          throw Exception('Nenhum produto encontrado para exportação avulsa.');
+        }
 
-      final pdfBytes = await _runWithLoadingDialog(
-        context,
-        () => _generatePdfBytes(
-          ref,
-          catalog,
-          columnsCount: columnsCount,
-          mode: options.mode,
-          showPrice: options.showPrice,
-          coverTypeOverride: options.coverType,
-          collectionIdOverride: options.collectionId,
-        ),
-      );
+        await WhatsAppShareService.shareFiles(
+          files: files
+              .map(
+                (f) => (
+                  bytes: f.bytes,
+                  fileName: f.fileName,
+                  mimeType: 'application/pdf',
+                ),
+              )
+              .toList(),
+          text: 'Confira nosso cat\u00e1logo ${catalog.name}!',
+        );
+      } else {
+        final pdfBytes = await _runWithLoadingDialog(
+          context,
+          () => _generatePdfBytes(
+            ref,
+            catalog,
+            columnsCount: columnsCount,
+            mode: options.mode,
+            showPrice: options.showPrice,
+            useLoosePhotos: false,
+            coverTypeOverride: options.coverType,
+            collectionIdOverride: options.collectionId,
+          ),
+        );
 
-      final dateStr = DateFormat('dd-MM-yyyy').format(DateTime.now());
-      final fileName = 'VITORIANA-$dateStr.PDF';
+        final dateStr = DateFormat('dd-MM-yyyy').format(DateTime.now());
+        final fileName = 'VITORIANA-$dateStr.PDF';
 
-      await WhatsAppShareService.shareFile(
-        bytes: pdfBytes,
-        fileName: fileName,
-        text: 'Confira nosso cat\u00e1logo ${catalog.name}!',
-        mimeType: 'application/pdf',
-      );
+        await WhatsAppShareService.shareFile(
+          bytes: pdfBytes,
+          fileName: fileName,
+          text: 'Confira nosso cat\u00e1logo ${catalog.name}!',
+          mimeType: 'application/pdf',
+        );
+      }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(
@@ -187,32 +215,62 @@ class CatalogShareHelper {
 
       final width = MediaQuery.of(context).size.width;
       final columnsCount = width < 600 ? 1 : 2;
-
-      final pdfBytes = await _runWithLoadingDialog(
-        context,
-        () => _generatePdfBytes(
-          ref,
-          catalog,
-          columnsCount: columnsCount,
-          mode: options.mode,
-          showPrice: options.showPrice,
-          coverTypeOverride: options.coverType,
-          collectionIdOverride: options.collectionId,
-        ),
-      );
       final documentsDirectory =
           await getDownloadsDirectory() ??
           await getApplicationDocumentsDirectory();
-      final dateStr = DateFormat('dd-MM-yyyy').format(DateTime.now());
-      final filename = 'VITORIANA-$dateStr.PDF';
-      final filePath = p.join(documentsDirectory.path, filename);
-      final file = File(filePath);
-      await file.writeAsBytes(pdfBytes);
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Cat\u00e1logo salvo em ${file.path}')),
+      if (options.useLoosePhotos) {
+        final files = await _runWithLoadingDialog(
+          context,
+          () => _generatePerProductPdfFiles(
+            ref,
+            catalog,
+            mode: options.mode,
+            showPrice: options.showPrice,
+          ),
         );
+        if (files.isEmpty) {
+          throw Exception('Nenhum produto encontrado para exportação avulsa.');
+        }
+        for (final pdf in files) {
+          final filePath = p.join(documentsDirectory.path, pdf.fileName);
+          final file = File(filePath);
+          await file.writeAsBytes(pdf.bytes);
+        }
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '${files.length} PDFs salvos em ${documentsDirectory.path}',
+              ),
+            ),
+          );
+        }
+      } else {
+        final pdfBytes = await _runWithLoadingDialog(
+          context,
+          () => _generatePdfBytes(
+            ref,
+            catalog,
+            columnsCount: columnsCount,
+            mode: options.mode,
+            showPrice: options.showPrice,
+            useLoosePhotos: false,
+            coverTypeOverride: options.coverType,
+            collectionIdOverride: options.collectionId,
+          ),
+        );
+        final dateStr = DateFormat('dd-MM-yyyy').format(DateTime.now());
+        final filename = 'VITORIANA-$dateStr.PDF';
+        final filePath = p.join(documentsDirectory.path, filename);
+        final file = File(filePath);
+        await file.writeAsBytes(pdfBytes);
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Cat\u00e1logo salvo em ${file.path}')),
+          );
+        }
       }
     } catch (e) {
       if (context.mounted) {
@@ -229,6 +287,7 @@ class CatalogShareHelper {
     int columnsCount = 1,
     required CatalogMode mode,
     bool showPrice = true,
+    bool useLoosePhotos = false,
     String? coverTypeOverride,
     String? collectionIdOverride,
   }) async {
@@ -364,6 +423,7 @@ class CatalogShareHelper {
         columnsCount: columnsCount,
         mode: mode,
         showPrice: showPrice,
+        useLoosePhotos: useLoosePhotos,
         bannerImagePath: bannerImagePath,
         collectionCover: fbCover,
         collectionName: fallbackCoverInfo.name,
@@ -382,6 +442,7 @@ class CatalogShareHelper {
       columnsCount: columnsCount,
       mode: mode,
       showPrice: showPrice,
+      useLoosePhotos: useLoosePhotos,
       bannerImagePath: bannerImagePath,
       collectionCover: resolvedCollectionCover,
       collectionName: coverInfo.name,
@@ -422,6 +483,7 @@ class CatalogShareHelper {
   ) async {
     CatalogMode selectedMode = CatalogMode.varejo;
     bool showPrice = true;
+    bool useLoosePhotos = false;
     String selectedCoverType =
         'collection'; // Default to collection/custom if available
     String? selectedCollectionId = availableCollections.isNotEmpty
@@ -504,11 +566,30 @@ class CatalogShareHelper {
                       const SizedBox(width: 8),
                       _buildOptionCard(
                         context,
-                        label: 'Off',
+                        label: 'Sem Preço',
                         isSelected: !showPrice,
                         onTap: () => setState(() => showPrice = false),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  // PHOTO SECTION
+                  _buildSubHeader(context, 'Fotos no PDF'),
+                  const SizedBox(height: 12),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text(
+                      'Fotos avulsas',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: const Text(
+                      'Gera 1 PDF por peça (nome + referência).',
+                    ),
+                    value: useLoosePhotos,
+                    onChanged: (value) =>
+                        setState(() => useLoosePhotos = value),
+                    activeThumbColor: AppTokens.accentBlue,
                   ),
                   const SizedBox(height: 24),
 
@@ -606,6 +687,7 @@ class CatalogShareHelper {
                               selectedCoverType,
                               selectedCollectionId,
                               showPrice,
+                              useLoosePhotos,
                             ),
                           ),
                           child: const Text(
@@ -891,12 +973,65 @@ class CatalogExportOptions {
   final String coverType;
   final String? collectionId;
   final bool showPrice;
+  final bool useLoosePhotos;
   CatalogExportOptions(
     this.mode,
     this.coverType,
     this.collectionId,
     this.showPrice,
+    this.useLoosePhotos,
   );
+}
+
+class _GeneratedPdfFile {
+  final String fileName;
+  final Uint8List bytes;
+
+  const _GeneratedPdfFile({required this.fileName, required this.bytes});
+}
+
+String _sanitizeFileNamePart(String value) {
+  return value
+      .trim()
+      .replaceAll(RegExp(r'[\\/:*?"<>|]'), '')
+      .replaceAll(RegExp(r'\s+'), '_');
+}
+
+Future<List<_GeneratedPdfFile>> _generatePerProductPdfFiles(
+  WidgetRef ref,
+  Catalog catalog, {
+  required CatalogMode mode,
+  required bool showPrice,
+}) async {
+  final productsState = await ref.read(productsViewModelProvider.future);
+  final catalogProducts = productsState.allProducts
+      .where((p) => catalog.productIds.contains(p.id))
+      .toList();
+
+  final usedNames = <String, int>{};
+  final files = <_GeneratedPdfFile>[];
+
+  for (final product in catalogProducts) {
+    final pdfBytes = await CatalogPdfService.generateCatalogPdf(
+      catalogName: catalog.name.isEmpty ? 'Meu Catálogo' : catalog.name,
+      products: [product],
+      mode: mode,
+      showPrice: showPrice,
+      includeCover: false,
+      collectionsMap: null,
+      useLoosePhotos: false,
+    );
+
+    final baseName =
+        '${_sanitizeFileNamePart(product.name)}-${_sanitizeFileNamePart(product.reference)}';
+    final count = (usedNames[baseName] ?? 0) + 1;
+    usedNames[baseName] = count;
+    final uniqueName = count == 1 ? baseName : '${baseName}_$count';
+
+    files.add(_GeneratedPdfFile(fileName: '$uniqueName.pdf', bytes: pdfBytes));
+  }
+
+  return files;
 }
 
 class _CollectionCoverResult {
