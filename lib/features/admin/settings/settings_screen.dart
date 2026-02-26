@@ -105,7 +105,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     label: 'URL Base para Fotos (Nuvem)',
                     hint: 'https://seusite.com/fotos',
                     icon: Icons.cloud_download_outlined,
-                    helper: 'As fotos devem seguir o padr\u00e3o REFERENCIA.jpg',
+                    helper:
+                        'As fotos devem seguir o padr\u00e3o da refer\u00eancia (ex.: REFERENCIA_principal, REFERENCIA_cor_preto) com extens\u00e3o de imagem.',
                   ),
                 ],
               ),

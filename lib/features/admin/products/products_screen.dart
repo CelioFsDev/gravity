@@ -350,22 +350,29 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               subtitle: const Text(
                 'Baixa fotos automaticamente usando a URL Base configurada em Ajustes.',
               ),
-              onTap: () {
+              onTap: () async {
+                final messenger = ScaffoldMessenger.of(context);
                 Navigator.pop(context);
-                ref
+                ref.read(productImportViewModelProvider.notifier).reset();
+                await ref
                     .read(productImportViewModelProvider.notifier)
-                    .syncRemoteImagesFromUrl()
-                    .then((_) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Sincroniza\u00e7\u00e3o conclu\u00edda com sucesso!',
-                            ),
-                          ),
-                        );
-                      }
-                    });
+                    .syncRemoteImagesFromUrl();
+                if (!mounted) return;
+
+                final syncState = ref.read(productImportViewModelProvider);
+                if (syncState.errorMessage != null) {
+                  messenger.showSnackBar(
+                    SnackBar(content: Text(syncState.errorMessage!)),
+                  );
+                  return;
+                }
+
+                final matched = syncState.imagesMatchedCount;
+                final total = syncState.imagesTotalCount;
+                final message = matched > 0
+                    ? 'Sincronização concluída: $matched produto(s) com foto em $total verificados.'
+                    : 'Sincronização concluída sem fotos encontradas. Verifique a URL Base e os nomes (REF.ext).';
+                messenger.showSnackBar(SnackBar(content: Text(message)));
               },
             ),
             ListTile(

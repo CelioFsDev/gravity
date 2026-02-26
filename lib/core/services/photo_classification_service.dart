@@ -95,7 +95,7 @@ class PhotoClassificationService extends _$PhotoClassificationService {
     // 106603_preto.jpg / 106603_cor_preto.jpg
     // Legacy compatibility: 106603_referencia_principal.jpg
     final parsed = RegExp(
-      r'^(\d+)[_\-\s]+(.+)\.(jpg|jpeg|png|webp)$',
+      r'^(\d+)[_\-\s]+(.+)\.([a-z0-9]+)$',
       caseSensitive: false,
     ).firstMatch(fileName);
     if (parsed == null) return null;

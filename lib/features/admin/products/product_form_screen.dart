@@ -42,6 +42,20 @@ class _PhotoMetaResult {
 }
 
 class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
+  static const Set<String> _supportedImageExtensions = {
+    '.jpg',
+    '.jpeg',
+    '.png',
+    '.webp',
+    '.gif',
+    '.bmp',
+    '.tif',
+    '.tiff',
+    '.heic',
+    '.heif',
+    '.avif',
+  };
+
   final _formKey = GlobalKey<FormState>();
 
   // Controllers
@@ -451,7 +465,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     PhotoClassification? classification,
   }) async {
     final ext = p.extension(file.name).toLowerCase();
-    if (!['.jpg', '.jpeg', '.png', '.webp'].contains(ext)) {
+    if (!_supportedImageExtensions.contains(ext)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

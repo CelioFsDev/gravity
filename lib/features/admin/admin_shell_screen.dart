@@ -108,6 +108,17 @@ class AdminShellScreen extends ConsumerWidget {
                             size: 20,
                           ),
                         ),
+                        ListTile(
+                          leading: const Icon(Icons.settings_outlined, size: 20),
+                          title: const Text(
+                            'Ajustes',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            context.push('/admin/settings');
+                          },
+                        ),
                       ],
                     ),
                   ),
@@ -165,6 +176,17 @@ class AdminShellScreen extends ConsumerWidget {
                                     : Icons.light_mode_outlined,
                                 size: 20,
                               ),
+                            ),
+                            ListTile(
+                              leading: const Icon(
+                                Icons.settings_outlined,
+                                size: 20,
+                              ),
+                              title: const Text(
+                                'Ajustes',
+                                style: TextStyle(fontSize: 14),
+                              ),
+                              onTap: () => context.push('/admin/settings'),
                             ),
                           ],
                         ),

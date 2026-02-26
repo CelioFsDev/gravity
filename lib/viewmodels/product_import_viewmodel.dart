@@ -3,7 +3,9 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:catalogo_ja/data/repositories/contracts/categories_repository_contract.dart';
+import 'package:catalogo_ja/data/repositories/contracts/products_repository_contract.dart';
 import 'package:catalogo_ja/data/repositories/categories_repository.dart';
 import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
@@ -105,6 +107,20 @@ class PhotoLinkReportItem {
 
 @riverpod
 class ProductImportViewModel extends _$ProductImportViewModel {
+  static const Set<String> _supportedImageExtensions = {
+    '.jpg',
+    '.jpeg',
+    '.png',
+    '.webp',
+    '.gif',
+    '.bmp',
+    '.tif',
+    '.tiff',
+    '.heic',
+    '.heif',
+    '.avif',
+  };
+
   @override
   ProductImportState build() {
     return ProductImportState();
@@ -193,8 +209,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
-        type: FileType.custom,
-        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
+        type: FileType.image,
         withData: !kIsWeb, // Important: need bytes for Drive files
       );
 
@@ -303,8 +318,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       // Pick files first to avoid losing the user gesture context on web.
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
-        type: FileType.custom,
-        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'],
+        type: FileType.image,
         withData: kIsWeb,
       );
 
@@ -503,7 +517,13 @@ class ProductImportViewModel extends _$ProductImportViewModel {
 
   /// Syncs images from a remote URL pattern based on product reference
   Future<void> syncRemoteImagesFromUrl() async {
-    state = state.copyWith(isLoading: true, errorMessage: null);
+    state = state.copyWith(
+      isLoading: true,
+      isDone: false,
+      progress: 0.01,
+      message: 'Iniciando sincronização...',
+      errorMessage: null,
+    );
     try {
       final settings = ref.read(settingsRepositoryProvider).getSettings();
       final baseUrl = settings.remoteImageBaseUrl.trim();
@@ -511,6 +531,8 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       if (baseUrl.isEmpty) {
         state = state.copyWith(
           isLoading: false,
+          isDone: true,
+          progress: 1.0,
           errorMessage:
               "URL Base n\u00e3o configurada. V\u00e1 em Ajustes para configurar.",
         );
@@ -531,16 +553,40 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       if (totalToTry == 0) {
         state = state.copyWith(
           isLoading: false,
+          isDone: true,
+          progress: 1.0,
           errorMessage: "Nenhum produto com refer\u00eancia encontrado.",
         );
         return;
       }
 
-      final extensions = ['.jpg', '.jpeg', '.png', '.webp'];
+      final isDriveFolderUrl =
+          baseUrl.contains('drive.google.com') &&
+          (baseUrl.contains('/folders/') || baseUrl.contains('open?id='));
+      if (isDriveFolderUrl) {
+        await _syncFromPublicDriveFolder(
+          folderUrl: baseUrl,
+          products: products,
+          productsRepo: productsRepo,
+          imageCache: imageCache,
+        );
+        return;
+      }
 
-      for (final p in targets) {
+      final extensions = _supportedImageExtensions.toList();
+      state = state.copyWith(
+        message: 'Buscando fotos na nuvem...',
+        progress: 0.05,
+      );
+
+      for (var i = 0; i < targets.length; i++) {
+        final p = targets[i];
         final separator = baseUrl.endsWith('/') ? '' : '/';
         final cleanRef = p.ref.trim();
+        state = state.copyWith(
+          progress: 0.05 + (0.9 * ((i + 1) / totalToTry)),
+          message: 'Verificando REF $cleanRef...',
+        );
 
         for (final ext in extensions) {
           final imageUrl = "$baseUrl$separator$cleanRef$ext";
@@ -563,6 +609,8 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       state = state.copyWith(
         isLoading: false,
         isDone: true,
+        progress: 1.0,
+        message: 'Sincronização concluída.',
         imagesMatchedCount: syncedCount,
         imagesTotalCount: totalToTry,
       );
@@ -570,9 +618,207 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
+        isDone: true,
+        progress: 1.0,
         errorMessage: "Erro na sincroniza\u00e7\u00e3o remota: $e",
       );
     }
+  }
+
+  Future<void> _syncFromPublicDriveFolder({
+    required String folderUrl,
+    required List<Product> products,
+    required ProductsRepositoryContract productsRepo,
+    required ImageCacheService imageCache,
+  }) async {
+    final folderId = _extractDriveFolderId(folderUrl);
+    if (folderId == null) {
+      state = state.copyWith(
+        isLoading: false,
+        isDone: true,
+        progress: 1.0,
+        errorMessage: 'Link da pasta do Google Drive inválido.',
+      );
+      return;
+    }
+
+    state = state.copyWith(
+      message: 'Lendo arquivos da pasta do Drive...',
+      progress: 0.1,
+    );
+
+    final files = await _listPublicDriveFolderFiles(folderId);
+    if (files.isEmpty) {
+      state = state.copyWith(
+        isLoading: false,
+        isDone: true,
+        progress: 1.0,
+        errorMessage:
+            'Não foi possível listar imagens da pasta. Verifique se ela está pública (qualquer pessoa com o link).',
+      );
+      return;
+    }
+
+    final productsByRef = <String, Product>{
+      for (final p in products) _normalizeReference(p.ref): p,
+    };
+    final productsToUpdate = <String, List<ProductPhoto>>{};
+    var matchedCount = 0;
+
+    for (var i = 0; i < files.length; i++) {
+      final file = files[i];
+      state = state.copyWith(
+        progress: 0.1 + (0.8 * ((i + 1) / files.length)),
+        message: 'Baixando ${file.name}...',
+      );
+
+      final classification = ref
+          .read(photoClassificationServiceProvider.notifier)
+          .classifyFileName(file.name);
+
+      Product? product;
+      if (classification != null) {
+        product = productsByRef[_normalizeReference(classification.ref)];
+      }
+      product ??= _findProductByKey(file.name, products);
+      if (product == null) continue;
+
+      final savedPath = await imageCache.downloadAndCacheImage(file.downloadUrl);
+      if (savedPath == null) continue;
+
+      final photo = ProductPhoto(
+        path: savedPath,
+        colorKey: classification?.colorName,
+        photoType:
+            classification?.photoType ??
+            (file.name.toLowerCase().contains('principal') ? 'P' : null),
+        isPrimary:
+            classification?.photoType == 'P' ||
+            file.name.toLowerCase().contains('principal'),
+      );
+      productsToUpdate.putIfAbsent(product.id, () => []).add(photo);
+      matchedCount++;
+    }
+
+    for (final entry in productsToUpdate.entries) {
+      final productId = entry.key;
+      final newPhotos = entry.value;
+      final product = products.firstWhere((p) => p.id == productId);
+
+      var currentPhotos = List<ProductPhoto>.from(product.photos);
+      for (final photo in newPhotos) {
+        if (photo.photoType != null && photo.photoType!.startsWith('C')) {
+          currentPhotos = ref
+              .read(photoClassificationServiceProvider.notifier)
+              .organizeColors(currentPhotos, photo);
+        } else if (photo.photoType != null) {
+          final existingIdx = currentPhotos.indexWhere(
+            (p) => p.photoType == photo.photoType,
+          );
+          if (existingIdx != -1) {
+            currentPhotos[existingIdx] = photo;
+          } else {
+            currentPhotos.add(photo);
+          }
+        } else {
+          currentPhotos.add(photo);
+        }
+      }
+
+      currentPhotos = _prioritizePrimaryPhoto(currentPhotos);
+      await productsRepo.updateProduct(
+        product.copyWith(
+          photos: currentPhotos,
+          images: currentPhotos.map((p) => p.path).toList(),
+          mainImageIndex: _mainImageIndexFromPhotos(currentPhotos),
+        ),
+      );
+    }
+
+    state = state.copyWith(
+      isLoading: false,
+      isDone: true,
+      progress: 1.0,
+      message: 'Sincronização concluída.',
+      imagesMatchedCount: matchedCount,
+      imagesTotalCount: files.length,
+    );
+    _notifyChanges();
+  }
+
+  int _mainImageIndexFromPhotos(List<ProductPhoto> photos) {
+    if (photos.isEmpty) return 0;
+    final pIndex = photos.indexWhere((p) => p.photoType == 'P');
+    if (pIndex >= 0) return pIndex;
+    final primary = photos.indexWhere((p) => p.isPrimary);
+    return primary >= 0 ? primary : 0;
+  }
+
+  String? _extractDriveFolderId(String input) {
+    final uri = Uri.tryParse(input.trim());
+    if (uri == null) return null;
+
+    final folderPath = RegExp(r'/folders/([a-zA-Z0-9_-]+)').firstMatch(uri.path);
+    if (folderPath != null) {
+      return folderPath.group(1);
+    }
+
+    final id = uri.queryParameters['id'];
+    if (id != null && id.trim().isNotEmpty) {
+      return id.trim();
+    }
+    return null;
+  }
+
+  Future<List<_DriveFolderFile>> _listPublicDriveFolderFiles(
+    String folderId,
+  ) async {
+    final urls = [
+      'https://drive.google.com/embeddedfolderview?id=$folderId#list',
+      'https://drive.google.com/embeddedfolderview?id=$folderId#grid',
+    ];
+
+    final byId = <String, _DriveFolderFile>{};
+    for (final url in urls) {
+      try {
+        final response = await http.get(
+          Uri.parse(url),
+          headers: {'User-Agent': 'CatalogoJa/1.0'},
+        );
+        if (response.statusCode != 200) continue;
+
+        final html = response.body;
+        final matches = RegExp(
+          r'href="(?:https:\/\/drive\.google\.com)?\/file\/d\/([a-zA-Z0-9_-]+)\/(?:view|preview)[^"]*"[^>]*>([^<]+)<',
+          caseSensitive: false,
+        ).allMatches(html);
+
+        for (final m in matches) {
+          final id = (m.group(1) ?? '').trim();
+          final rawName = (m.group(2) ?? '').trim();
+          if (id.isEmpty || rawName.isEmpty) continue;
+
+          final name = _decodeHtmlEntities(rawName);
+          final ext = p.extension(name).toLowerCase();
+          if (!_supportedImageExtensions.contains(ext)) continue;
+
+          byId[id] = _DriveFolderFile(id: id, name: name);
+        }
+      } catch (_) {
+        // Ignore and try fallback URL.
+      }
+    }
+
+    return byId.values.toList();
+  }
+
+  String _decodeHtmlEntities(String input) {
+    return input
+        .replaceAll('&amp;', '&')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#39;', "'")
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>');
   }
 
   Future<ParsedImport> _parseCsvFile(PlatformFile file) async {
@@ -862,7 +1108,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     for (final entry in archive.files) {
       if (!entry.isFile) continue;
       final ext = p.extension(entry.name).toLowerCase();
-      if (!['.jpg', '.jpeg', '.png', '.webp'].contains(ext)) continue;
+      if (!_supportedImageExtensions.contains(ext)) continue;
       final baseName = p.basename(entry.name).toLowerCase();
       archiveImagesByBaseName[baseName] = entry;
     }
@@ -1299,6 +1545,15 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         return 'image/gif';
       case '.bmp':
         return 'image/bmp';
+      case '.tif':
+      case '.tiff':
+        return 'image/tiff';
+      case '.heic':
+        return 'image/heic';
+      case '.heif':
+        return 'image/heif';
+      case '.avif':
+        return 'image/avif';
       default:
         return 'application/octet-stream';
     }
@@ -1346,4 +1601,13 @@ class ParsedImport {
     required this.imagesMatchedCount,
     required this.imagesTotalCount,
   });
+}
+
+class _DriveFolderFile {
+  final String id;
+  final String name;
+
+  const _DriveFolderFile({required this.id, required this.name});
+
+  String get downloadUrl => 'https://drive.google.com/uc?export=download&id=$id';
 }
