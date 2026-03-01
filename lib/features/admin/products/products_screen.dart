@@ -595,8 +595,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                       ),
                     ),
                   ],
-                  if (importState.isDone &&
-                      importState.linkReport.isNotEmpty) ...[
+                  if (importState.isDone && importState.linkReport.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Text(
                       'Relatório: ${importState.imagesMatchedCount}/${importState.imagesTotalCount} vinculadas',
@@ -610,8 +609,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                       alignment: Alignment.centerLeft,
                       child: Text(
                         'Não vinculadas (${failures.length})',
-                        style: Theme.of(context).textTheme.labelMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
+                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 6),
