@@ -69,7 +69,7 @@ extension AsyncValueUI on AsyncValue {
               onPressed: () {
                 showGeneralDialog(
                   context: context,
-                  pageBuilder: (context, _, __) => AlertDialog(
+                  pageBuilder: (context, _, _) => AlertDialog(
                     title: const Text('Detalhes do Erro'),
                     content: SingleChildScrollView(
                       child: Text(failure.details ?? failure.toString()),

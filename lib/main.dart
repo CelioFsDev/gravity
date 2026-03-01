@@ -10,6 +10,7 @@ import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/models/settings.dart';
 import 'package:catalogo_ja/models/product_variant.dart';
+import 'package:catalogo_ja/models/product_image.dart';
 import 'package:catalogo_ja/features/admin/admin_shell_screen.dart';
 import 'package:catalogo_ja/features/admin/products/products_screen.dart';
 import 'package:catalogo_ja/features/admin/categories/categories_screen.dart';
@@ -23,6 +24,8 @@ import 'package:catalogo_ja/features/public/catalog_home_page.dart';
 import 'package:catalogo_ja/features/public/product_detail_screen.dart';
 import 'package:catalogo_ja/ui/theme/app_theme.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/features/auth/login_screen.dart';
+import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,6 +40,8 @@ void main() async {
   Hive.registerAdapter(CategoryAdapter());
   Hive.registerAdapter(ProductVariantAdapter());
   Hive.registerAdapter(ProductPhotoAdapter());
+  Hive.registerAdapter(ProductImageSourceAdapter());
+  Hive.registerAdapter(ProductImageAdapter());
   Hive.registerAdapter(AppSettingsAdapter());
   Hive.registerAdapter(ProductAdapter());
   Hive.registerAdapter(CatalogBannerAdapter());
@@ -85,19 +90,47 @@ class MyApp extends ConsumerStatefulWidget {
 
 class _MyAppState extends ConsumerState<MyApp> {
   late final GoRouter _router;
+  late final _RouterRefreshNotifier _routerRefreshNotifier;
 
   @override
   void initState() {
     super.initState();
+    _routerRefreshNotifier = _RouterRefreshNotifier(ref);
     _router = GoRouter(
       initialLocation: '/admin/products',
+      refreshListenable: _routerRefreshNotifier,
+      redirect: (context, state) {
+        final authState = ref.read(authViewModelProvider);
+        final user = authState.valueOrNull;
+        final isLoggingIn = state.matchedLocation == '/login';
+        final isPublicArea =
+            state.matchedLocation == '/' ||
+            state.matchedLocation.startsWith('/c/') ||
+            state.matchedLocation.startsWith('/p/');
+
+        if (isPublicArea) return null;
+
+        if (user == null) {
+          return isLoggingIn ? null : '/login';
+        }
+
+        if (isLoggingIn) {
+          return '/admin/products';
+        }
+
+        return null;
+      },
       routes: [
+        GoRoute(
+          path: '/login',
+          builder: (context, state) => const LoginScreen(),
+        ),
         GoRoute(
           path: '/',
           builder: (context, state) => const PublicHomeScreen(),
         ),
         GoRoute(
-          path: 'p/:productId',
+          path: '/p/:productId',
           builder: (context, state) {
             final productId = state.pathParameters['productId']!;
             final extra = state.extra as Map<String, dynamic>?;
@@ -109,7 +142,6 @@ class _MyAppState extends ConsumerState<MyApp> {
               );
             }
 
-            // Deep link support: Fallback to loading screen that fetches the product
             return Scaffold(
               appBar: AppBar(),
               body: Center(child: Text('Carregando produto $productId...')),
@@ -195,6 +227,7 @@ class _MyAppState extends ConsumerState<MyApp> {
   @override
   void dispose() {
     _router.dispose();
+    _routerRefreshNotifier.dispose();
     super.dispose();
   }
 
@@ -299,5 +332,22 @@ class _PublicHomeScreenState extends ConsumerState<PublicHomeScreen> {
         ),
       ),
     );
+  }
+}
+
+class _RouterRefreshNotifier extends ChangeNotifier {
+  _RouterRefreshNotifier(WidgetRef ref) {
+    _subscription = ref.listenManual(
+      authViewModelProvider,
+      (_, _) => notifyListeners(),
+    );
+  }
+
+  late final ProviderSubscription<AsyncValue<dynamic>> _subscription;
+
+  @override
+  void dispose() {
+    _subscription.close();
+    super.dispose();
   }
 }

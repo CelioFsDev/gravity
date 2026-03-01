@@ -3,7 +3,7 @@ import 'package:uuid/uuid.dart';
 
 part 'product_image.g.dart';
 
-@HiveType(typeId: 12)
+@HiveType(typeId: 25)
 enum ProductImageSource {
   @HiveField(0)
   localPath,
@@ -15,7 +15,7 @@ enum ProductImageSource {
   unknown,
 }
 
-@HiveType(typeId: 11)
+@HiveType(typeId: 26)
 class ProductImage {
   @HiveField(0)
   final String id;

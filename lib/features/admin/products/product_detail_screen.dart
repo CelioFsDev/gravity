@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/models/product_image.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
 import 'package:catalogo_ja/features/admin/products/product_form_screen.dart';
@@ -430,8 +431,8 @@ class ProductDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildDetailImage(BuildContext context, String? imagePath) {
-    if (imagePath == null) {
+  Widget _buildDetailImage(BuildContext context, ProductImage? image) {
+    if (image == null || image.uri.isEmpty) {
       return Container(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
         alignment: Alignment.center,
@@ -439,25 +440,9 @@ class ProductDetailScreen extends ConsumerWidget {
       );
     }
 
-    if (kIsWeb) {
+    if (kIsWeb || image.sourceType == ProductImageSource.networkUrl) {
       return Image.network(
-        imagePath,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => Container(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          alignment: Alignment.center,
-          child: const Icon(
-            Icons.broken_image_outlined,
-            size: 48,
-            color: AppTokens.accentRed,
-          ),
-        ),
-      );
-    }
-
-    if (imagePath.startsWith('http')) {
-      return Image.network(
-        imagePath,
+        image.uri,
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) => Container(
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -472,7 +457,7 @@ class ProductDetailScreen extends ConsumerWidget {
     }
 
     return Image.file(
-      File(imagePath),
+      File(image.uri),
       fit: BoxFit.cover,
       errorBuilder: (context, error, stackTrace) => Container(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,

@@ -8,7 +8,7 @@ part of 'product_image.dart';
 
 class ProductImageAdapter extends TypeAdapter<ProductImage> {
   @override
-  final int typeId = 11;
+  final int typeId = 26;
 
   @override
   ProductImage read(BinaryReader reader) {
@@ -57,7 +57,7 @@ class ProductImageAdapter extends TypeAdapter<ProductImage> {
 
 class ProductImageSourceAdapter extends TypeAdapter<ProductImageSource> {
   @override
-  final int typeId = 12;
+  final int typeId = 25;
 
   @override
   ProductImageSource read(BinaryReader reader) {

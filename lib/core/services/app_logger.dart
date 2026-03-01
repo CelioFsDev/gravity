@@ -10,7 +10,9 @@ enum AppEvent {
   importCompleted('import_completed'),
   productCreated('product_created'),
   productUpdated('product_updated'),
-  productDeleted('product_deleted');
+  productDeleted('product_deleted'),
+  login('login'),
+  logout('logout');
 
   final String name;
   const AppEvent(this.name);
