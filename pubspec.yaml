@@ -60,6 +60,7 @@ dependencies:
   cached_network_image: ^3.4.1
   firebase_auth: ^6.1.4
   google_sign_in: ^7.2.0
+  flutter_svg: ^2.0.10+1
 
 dev_dependencies:
   flutter_test:
@@ -79,7 +80,9 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: assets/icon/icon.png
+  image_path: assets/branding/icons/catalogoja_icons_glass_1024x1024.png
+  adaptive_icon_background: '#060C1C'
+  adaptive_icon_foreground: assets/branding/icons/catalogoja_icon_foreground.png
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -92,8 +95,15 @@ flutter:
   # the material Icons class.
   uses-material-design: true
   assets:
-    - assets/images/login_bg.png
     - assets/images/google_logo.png
+    - assets/branding/logo/
+    - assets/branding/splash/
+    - assets/branding/login/
+    - assets/branding/icons/
+    - assets/branding/placeholders/
+    - assets/branding/empty_states/
+    - assets/branding/banners/
+    - assets/branding/catalogs/
 
 
   # To add assets to your application, add an assets section, like this:

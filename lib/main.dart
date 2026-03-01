@@ -25,6 +25,7 @@ import 'package:catalogo_ja/features/public/product_detail_screen.dart';
 import 'package:catalogo_ja/ui/theme/app_theme.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/features/auth/login_screen.dart';
+import 'package:catalogo_ja/features/splash/splash_screen.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 
 void main() async {
@@ -97,18 +98,19 @@ class _MyAppState extends ConsumerState<MyApp> {
     super.initState();
     _routerRefreshNotifier = _RouterRefreshNotifier(ref);
     _router = GoRouter(
-      initialLocation: '/admin/products',
+      initialLocation: '/splash',
       refreshListenable: _routerRefreshNotifier,
       redirect: (context, state) {
         final authState = ref.read(authViewModelProvider);
         final user = authState.valueOrNull;
         final isLoggingIn = state.matchedLocation == '/login';
+        final isSplash = state.matchedLocation == '/splash';
         final isPublicArea =
             state.matchedLocation == '/' ||
             state.matchedLocation.startsWith('/c/') ||
             state.matchedLocation.startsWith('/p/');
 
-        if (isPublicArea) return null;
+        if (isPublicArea || isSplash) return null;
 
         if (user == null) {
           return isLoggingIn ? null : '/login';
@@ -121,6 +123,10 @@ class _MyAppState extends ConsumerState<MyApp> {
         return null;
       },
       routes: [
+        GoRoute(
+          path: '/splash',
+          builder: (context, state) => const SplashScreen(),
+        ),
         GoRoute(
           path: '/login',
           builder: (context, state) => const LoginScreen(),

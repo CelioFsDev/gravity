@@ -234,27 +234,10 @@ class _CollectionCard extends StatelessWidget {
   }
 
   Widget _buildPlaceholder(BuildContext context) {
-    return Container(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      alignment: Alignment.center,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.image_not_supported_outlined,
-            color: AppTokens.textMuted.withOpacity(0.5),
-            size: 32,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Sem capa',
-            style: TextStyle(
-              color: AppTokens.textMuted.withOpacity(0.5),
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
+    return Image.asset(
+      'assets/branding/catalogs/catalogoja_catalogs_mini_1365x420.png',
+      fit: BoxFit.cover,
+      width: double.infinity,
     );
   }
 

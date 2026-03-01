@@ -1,0 +1,13 @@
+<svg width="1920" height="480" viewBox="0 0 1920 480" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="paint0_linear" x1="0" y1="0" x2="1920" y2="480" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#061A3A"/>
+      <stop offset="1" stop-color="#0B0F14"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="480" fill="url(#paint0_linear)"/>
+  <rect x="0" y="0" width="1920" height="480" fill="#FFFFFF" fill-opacity="0.05"/>
+  <text x="100" y="240" dominant-baseline="middle" font-family="Inter, sans-serif" font-size="72" fill="#FFFFFF" font-weight="bold">DASHBOARD <tspan fill="#3DD5F3">ADMIN</tspan></text>
+  <text x="100" y="320" dominant-baseline="middle" font-family="Inter, sans-serif" font-size="32" fill="#94A3B8">Gerencie seus produtos, pedidos e catálogos.</text>
+  <path d="M1600 100V380M1500 240H1700" stroke="#156CFF" stroke-width="60" stroke-linecap="round" fill="none" stroke-opacity="0.3"/>
+</svg>

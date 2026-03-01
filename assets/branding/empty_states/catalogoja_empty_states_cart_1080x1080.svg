@@ -1,0 +1,8 @@
+<svg width="1080" height="1080" viewBox="0 0 1080 1080" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1080" height="1080" fill="#061A3A"/>
+  <circle cx="540" cy="480" r="120" stroke="#156CFF" stroke-width="40" fill="none"/>
+  <rect x="420" y="480" width="240" height="200" rx="30" stroke="#156CFF" stroke-width="40" fill="none"/>
+  <path d="M480 480V600M600 480V600" stroke="#156CFF" stroke-width="20" stroke-linecap="round"/>
+  <text x="50%" y="850" dominant-baseline="middle" text-anchor="middle" font-family="Inter, sans-serif" font-size="48" fill="#94A3B8" font-weight="bold">CARRINHO VAZIO</text>
+  <text x="50%" y="920" dominant-baseline="middle" text-anchor="middle" font-family="Inter, sans-serif" font-size="32" fill="#94A3B8">Adicione produtos para começar.</text>
+</svg>

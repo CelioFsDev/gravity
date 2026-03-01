@@ -15,7 +15,10 @@ class LoginScreen extends ConsumerWidget {
         children: [
           // Background Image with Gradient Overlay
           Positioned.fill(
-            child: Image.asset('assets/images/login_bg.png', fit: BoxFit.cover),
+            child: Image.asset(
+              'assets/branding/login/catalogoja_login_premium_1080x1920.png',
+              fit: BoxFit.cover,
+            ),
           ),
           Positioned.fill(
             child: Container(
@@ -24,8 +27,8 @@ class LoginScreen extends ConsumerWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withOpacity(0.1),
-                    Colors.black.withOpacity(0.7),
+                    Colors.black.withOpacity(0.3),
+                    Colors.black.withOpacity(0.8),
                   ],
                 ),
               ),
@@ -47,42 +50,19 @@ class LoginScreen extends ConsumerWidget {
                   Center(
                     child: Column(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(AppTokens.space16),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 20,
-                                spreadRadius: 5,
-                              ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.shopping_bag_rounded,
-                            size: 48,
-                            color: Color(0xFF007AFF),
-                          ),
+                        Image.asset(
+                          'assets/branding/logo/catalogoja_logo_master_2048x2048.png',
+                          width: MediaQuery.of(context).size.width * 0.8,
+                          fit: BoxFit.contain,
                         ),
-                        const SizedBox(height: AppTokens.space24),
-                        const Text(
-                          'CatalogoJa',
-                          style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                            letterSpacing: -1,
-                          ),
-                        ),
-                        const SizedBox(height: AppTokens.space8),
+                        const SizedBox(height: AppTokens.space12),
                         Text(
                           'Seu catálogo profissional em minutos',
                           style: TextStyle(
                             fontSize: 16,
                             color: Colors.white.withOpacity(0.8),
                             fontWeight: FontWeight.w500,
+                            letterSpacing: 0.5,
                           ),
                         ),
                       ],

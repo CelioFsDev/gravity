@@ -37,10 +37,6 @@ class FirebaseAuthRepository implements AuthRepository {
       // Para a versão 7.2.0+, o método correto é authenticate()
       final googleUser = await GoogleSignIn.instance.authenticate();
 
-      if (googleUser == null) {
-        throw StateError('Log-in cancelado pelo usuário.');
-      }
-
       final googleAuth = googleUser.authentication;
       final idToken = googleAuth.idToken;
 

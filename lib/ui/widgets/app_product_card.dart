@@ -9,6 +9,8 @@ import 'package:catalogo_ja/ui/widgets/app_badge_pill.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
+import 'package:flutter_svg/flutter_svg.dart';
+
 class AppProductCard extends StatelessWidget {
   final Product product;
   final CatalogMode mode;
@@ -102,12 +104,9 @@ class AppProductCard extends StatelessWidget {
 
   Widget _buildImage(ProductImage? img) {
     if (img == null || img.uri.isEmpty) {
-      return Container(
-        color: AppTokens.bg,
-        child: const Icon(
-          Icons.image_not_supported,
-          color: AppTokens.textMuted,
-        ),
+      return SvgPicture.asset(
+        'assets/branding/placeholders/catalogoja_placeholder_produto_1024x1024.svg',
+        fit: BoxFit.cover,
       );
     }
 
@@ -128,24 +127,24 @@ class AppProductCard extends StatelessWidget {
             ),
           ),
         ),
-        errorWidget: (context, url, error) => Container(
-          color: AppTokens.bg,
-          child: const Icon(Icons.broken_image, color: AppTokens.textMuted),
+        errorWidget: (context, url, error) => SvgPicture.asset(
+          'assets/branding/placeholders/catalogoja_placeholder_produto_1024x1024.svg',
+          fit: BoxFit.cover,
         ),
       );
     } else if (img.sourceType == ProductImageSource.localPath) {
       imageWidget = Image.file(
         File(img.uri),
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => Container(
-          color: AppTokens.bg,
-          child: const Icon(Icons.broken_image, color: AppTokens.textMuted),
+        errorBuilder: (context, error, stackTrace) => SvgPicture.asset(
+          'assets/branding/placeholders/catalogoja_placeholder_produto_1024x1024.svg',
+          fit: BoxFit.cover,
         ),
       );
     } else {
-      imageWidget = Container(
-        color: AppTokens.bg,
-        child: const Icon(Icons.image_search),
+      imageWidget = SvgPicture.asset(
+        'assets/branding/placeholders/catalogoja_placeholder_produto_1024x1024.svg',
+        fit: BoxFit.cover,
       );
     }
 
