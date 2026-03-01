@@ -1,9 +1,12 @@
 import 'package:hive/hive.dart';
 import 'package:catalogo_ja/core/utils/price_calculator.dart';
 import 'package:catalogo_ja/models/product_variant.dart';
+import 'package:catalogo_ja/models/product_image.dart';
 
 part 'product.g.dart';
 
+// KEEP ProductPhoto for backward compatibility during migration, but mark it?
+// The user wants ProductImage instead. I'll keep it as a legacy holder if needed.
 @HiveType(typeId: 11)
 class ProductPhoto {
   @HiveField(0)
@@ -38,9 +41,21 @@ class ProductPhoto {
       photoType: photoType ?? this.photoType,
     );
   }
+
+  ProductImage toProductImage() {
+    return ProductImage(
+      id: 'legacy_${path.hashCode}',
+      sourceType: path.startsWith('http')
+          ? ProductImageSource.networkUrl
+          : ProductImageSource.localPath,
+      uri: path,
+      label: photoType ?? (isPrimary ? 'principal' : null),
+      colorTag: colorKey,
+      order: isPrimary ? 0 : 1,
+    );
+  }
 }
 
-@HiveType(typeId: 4)
 @HiveType(typeId: 4)
 class Product {
   @HiveField(0)
@@ -74,10 +89,10 @@ class Product {
   final List<String> colors;
 
   @HiveField(10)
-  final List<String> images;
+  final List<ProductImage> images; // Updated from List<String>
 
   @HiveField(11)
-  final int mainImageIndex;
+  final int mainImageIndex; // Deprecated but kept for Hive compat
 
   @HiveField(12)
   final bool isActive;
@@ -113,7 +128,7 @@ class Product {
   final DateTime updatedAt;
 
   @HiveField(24)
-  final List<ProductPhoto> photos;
+  final List<ProductPhoto> photos; // Legacy photos
 
   Product({
     required this.id,
@@ -126,13 +141,13 @@ class Product {
     required this.minWholesaleQty,
     required this.sizes,
     required this.colors,
-    required this.images,
+    required this.images, // Now List<ProductImage>
     required this.mainImageIndex,
     required this.isActive,
     required this.isOutOfStock,
     required this.promoEnabled,
     required this.createdAt,
-    List<ProductPhoto> photos = const [],
+    this.photos = const [],
     this.promoPercent = 0.0,
     this.slug = '',
     this.description,
@@ -140,10 +155,7 @@ class Product {
     this.remoteImages = const [],
     this.variants = const [],
     DateTime? updatedAt,
-  }) : photos = photos.isNotEmpty
-           ? photos
-           : _photosFromLegacy(images, mainImageIndex),
-       updatedAt = updatedAt ?? createdAt;
+  }) : updatedAt = updatedAt ?? createdAt;
 
   Product copyWith({
     String? id,
@@ -156,7 +168,7 @@ class Product {
     int? minWholesaleQty,
     List<String>? sizes,
     List<String>? colors,
-    List<String>? images,
+    List<ProductImage>? images,
     int? mainImageIndex,
     bool? isActive,
     bool? isOutOfStock,
@@ -171,15 +183,6 @@ class Product {
     DateTime? updatedAt,
     List<ProductPhoto>? photos,
   }) {
-    final resolvedPhotos =
-        photos ??
-        (images != null
-            ? _photosFromLegacy(images, mainImageIndex ?? this.mainImageIndex)
-            : this.photos);
-    final resolvedImages = images ?? _imagesFromPhotos(resolvedPhotos);
-    final resolvedMainIndex =
-        mainImageIndex ??
-        _mainIndexFromPhotos(resolvedPhotos, this.mainImageIndex);
     return Product(
       id: id ?? this.id,
       name: name ?? this.name,
@@ -191,8 +194,8 @@ class Product {
       minWholesaleQty: minWholesaleQty ?? this.minWholesaleQty,
       sizes: sizes ?? this.sizes,
       colors: colors ?? this.colors,
-      images: resolvedImages,
-      mainImageIndex: resolvedMainIndex,
+      images: images ?? this.images,
+      mainImageIndex: mainImageIndex ?? this.mainImageIndex,
       isActive: isActive ?? this.isActive,
       isOutOfStock: isOutOfStock ?? this.isOutOfStock,
       promoEnabled: promoEnabled ?? this.promoEnabled,
@@ -204,18 +207,47 @@ class Product {
       remoteImages: remoteImages ?? this.remoteImages,
       variants: variants ?? this.variants,
       updatedAt: updatedAt ?? this.updatedAt,
-      photos: resolvedPhotos,
+      photos: photos ?? this.photos,
     );
   }
 
-  // ALIASES for compatibility
-  double get retailPrice => priceRetail; // Alias
-  double get priceVarejo => priceRetail; // Alias old
-  double get wholesalePrice => priceWholesale; // Alias
-  double get priceAtacado => priceWholesale; // Alias old
-  String get reference => ref; // Alias old
-  bool get isOnSale => promoEnabled; // Alias old
-  int get saleDiscountPercent => promoPercent.toInt(); // Alias old compatible
+  // --- HELPERS (ProductImage) ---
+
+  ProductImage? get mainImage {
+    if (images.isEmpty) return null;
+    final main = images.where((i) => i.label == 'principal').toList();
+    if (main.isNotEmpty) return main.first;
+    final sorted = List<ProductImage>.from(images)
+      ..sort((a, b) => a.order.compareTo(b.order));
+    return sorted.first;
+  }
+
+  List<ProductImage> get detailImages =>
+      images.where((i) => i.label?.startsWith('detalhe') ?? false).toList();
+
+  List<ProductImage> get colorImages => images
+      .where((i) => (i.label?.startsWith('cor') ?? false) || i.colorTag != null)
+      .toList();
+
+  Map<String, List<int>> get imageIndicesByColor {
+    final result = <String, List<int>>{};
+    for (var i = 0; i < images.length; i++) {
+      final img = images[i];
+      if (img.colorTag != null) {
+        result.putIfAbsent(img.colorTag!, () => []).add(i);
+      }
+    }
+    return result;
+  }
+
+  // --- ALIASES for compatibility ---
+  double get retailPrice => priceRetail;
+  double get priceVarejo => priceRetail;
+  double get wholesalePrice => priceWholesale;
+  double get priceAtacado => priceWholesale;
+  String get reference => ref;
+  bool get isOnSale => promoEnabled;
+  int get saleDiscountPercent => promoPercent.toInt();
 
   double get effectivePriceRetail =>
       PriceCalculator.effectiveRetail(priceRetail, promoEnabled, promoPercent);
@@ -246,42 +278,5 @@ class Product {
             promoEnabled,
             promoPercent,
           );
-  }
-
-  Map<String, List<int>> get imageIndicesByColor {
-    final map = <String, List<int>>{};
-    for (int i = 0; i < photos.length; i++) {
-      final color = photos[i].colorKey;
-      if (color != null) {
-        map.putIfAbsent(color, () => []).add(i);
-      }
-    }
-    return map;
-  }
-
-  static List<ProductPhoto> _photosFromLegacy(
-    List<String> images,
-    int mainImageIndex,
-  ) {
-    if (images.isEmpty) return const [];
-    final safeIndex = mainImageIndex.clamp(0, images.length - 1);
-    return images.asMap().entries.map((entry) {
-      return ProductPhoto(
-        path: entry.value,
-        colorKey: null,
-        isPrimary: entry.key == safeIndex,
-      );
-    }).toList();
-  }
-
-  static List<String> _imagesFromPhotos(List<ProductPhoto> photos) {
-    if (photos.isEmpty) return const [];
-    return photos.map((p) => p.path).toList();
-  }
-
-  static int _mainIndexFromPhotos(List<ProductPhoto> photos, int fallback) {
-    if (photos.isEmpty) return fallback;
-    final primaryIndex = photos.indexWhere((p) => p.isPrimary);
-    return primaryIndex >= 0 ? primaryIndex : 0;
   }
 }

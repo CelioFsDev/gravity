@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:catalogo_ja/models/product_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:catalogo_ja/models/product.dart';
@@ -74,7 +75,7 @@ class AppProductListTile extends StatelessWidget {
               color: Theme.of(context).colorScheme.surfaceContainerHighest,
             ),
             clipBehavior: Clip.antiAlias,
-            child: _buildImage(primaryImage),
+            child: _buildImage(primaryImage?.uri),
           ),
           const SizedBox(width: AppTokens.space8),
 
@@ -129,9 +130,7 @@ class AppProductListTile extends StatelessWidget {
             ),
           ),
 
-          if (trailing != null) ...[
-            trailing!,
-          ],
+          if (trailing != null) ...[trailing!],
           if (trailing == null && onGoMainMenu != null)
             IconButton(
               tooltip: 'Menu principal',
@@ -219,12 +218,7 @@ class AppProductListTile extends StatelessWidget {
         : Image.file(File(path), fit: BoxFit.cover);
   }
 
-  String? _resolvePrimaryImage(Product product) {
-    if (product.images.isNotEmpty) {
-      final idx = product.mainImageIndex;
-      if (idx >= 0 && idx < product.images.length) return product.images[idx];
-      return product.images.first;
-    }
-    return null;
+  ProductImage? _resolvePrimaryImage(Product product) {
+    return product.mainImage;
   }
 }

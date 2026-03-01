@@ -138,7 +138,9 @@ class CatalogoJaPackageService {
           isOutOfStock: product.isOutOfStock,
           promoEnabled: product.promoEnabled,
           promoPercent: product.promoPercent,
-          images: newImages,
+          images: newPhotos
+              .map((p) => ProductImageDTO.fromModel(p.toProductImage()))
+              .toList(),
           photos: newPhotos,
           remoteImages: product.remoteImages,
           mainImageIndex: product.mainImageIndex,
@@ -391,7 +393,9 @@ class CatalogoJaPackageService {
           isOutOfStock: product.isOutOfStock,
           promoEnabled: product.promoEnabled,
           promoPercent: product.promoPercent,
-          images: absoluteImages,
+          images: restoredPhotos
+              .map((p) => ProductImageDTO.fromModel(p.toProductImage()))
+              .toList(),
           photos: restoredPhotos,
           remoteImages: product.remoteImages,
           mainImageIndex: product.mainImageIndex,

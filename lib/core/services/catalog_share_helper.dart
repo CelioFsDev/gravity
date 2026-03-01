@@ -19,6 +19,7 @@ import 'package:catalogo_ja/core/services/photo_classification_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:catalogo_ja/core/services/catalogo_ja_package_service.dart';
+import 'package:catalogo_ja/core/services/app_logger.dart';
 
 class CatalogShareHelper {
   static Future<void> showShareOptions({
@@ -257,6 +258,13 @@ class CatalogShareHelper {
         text: 'Confira o pacote de dados do catálogo ${catalog.name}!',
         mimeType: 'application/zip',
       );
+
+      ref
+          .read(appLoggerProvider.notifier)
+          .log(
+            AppEvent.catalogShared,
+            parameters: {'catalogId': catalog.id, 'type': 'package_zip'},
+          );
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(
@@ -299,6 +307,13 @@ class CatalogShareHelper {
         catalogUrl: shareUrl,
         mode: catalog.mode,
       );
+
+      ref
+          .read(appLoggerProvider.notifier)
+          .log(
+            AppEvent.catalogShared,
+            parameters: {'catalogId': catalog.id, 'type': 'link'},
+          );
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -126,7 +126,7 @@ class ProductTransferService {
     for (final product in products) {
       final imageNames = <String>[];
       for (var i = 0; i < product.images.length; i++) {
-        final path = product.images[i];
+        final path = product.images[i].uri;
         final file = File(path);
         if (!await file.exists()) continue;
         final ext = p.extension(path).toLowerCase();

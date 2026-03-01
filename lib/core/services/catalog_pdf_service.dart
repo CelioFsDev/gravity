@@ -7,15 +7,10 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/models/product_image.dart';
 import 'package:intl/intl.dart';
 
-enum CatalogPdfStyle {
-  classic,
-  clean,
-  compact,
-  editorial,
-  minimal,
-}
+enum CatalogPdfStyle { classic, clean, compact, editorial, minimal }
 
 class CatalogPdfService {
   static const PdfColor _colorPriceGreen = PdfColor(0.12, 0.42, 0.29);
@@ -23,6 +18,9 @@ class CatalogPdfService {
   static const PdfColor _colorImageBg = PdfColor(0.953, 0.953, 0.953);
   static const PdfColor _colorSizePillBg = PdfColor(0.929, 0.929, 0.929);
   static const PdfPageFormat _defaultMobileFormat = PdfPageFormat(360, 640);
+
+  // Cache para imagens baixadas durante a sessão de geração do PDF
+  static final Map<String, Uint8List> _networkImageCache = {};
 
   static Future<Uint8List> generateCatalogPdf({
     required String catalogName,
@@ -62,6 +60,9 @@ class CatalogPdfService {
 
     String? currentCollectionId;
 
+    // Pré-carregar imagens de rede para evitar problemas durante a montagem
+    await _preloadNetworkImages(products);
+
     for (final product in products) {
       // Check for collection change
       if (collectionsMap != null) {
@@ -90,8 +91,8 @@ class CatalogPdfService {
       }
 
       if (useLoosePhotos) {
-        final loosePhotoPaths = _extractLoosePhotoPaths(product);
-        if (loosePhotoPaths.isEmpty) {
+        final loosePhotos = _extractLoosePhotos(product);
+        if (loosePhotos.isEmpty) {
           pdf.addPage(
             pw.Page(
               pageFormat: pageFormat,
@@ -110,7 +111,7 @@ class CatalogPdfService {
             ),
           );
         } else {
-          for (final photoPath in loosePhotoPaths) {
+          for (final photo in loosePhotos) {
             pdf.addPage(
               pw.Page(
                 pageFormat: pageFormat,
@@ -124,7 +125,7 @@ class CatalogPdfService {
                   defaultSubtitle: defaultSubtitle,
                   showPrice: showPrice,
                   useLoosePhotos: true,
-                  forcedHeroPath: photoPath,
+                  forcedHeroPath: photo.uri,
                   style: style,
                 ),
               ),
@@ -154,7 +155,46 @@ class CatalogPdfService {
       }
     }
 
-    return pdf.save();
+    final result = await pdf.save();
+    // Limpar cache após salvar para liberar memória
+    _networkImageCache.clear();
+    return result;
+  }
+
+  static Future<void> _preloadNetworkImages(List<Product> products) async {
+    final urls = <String>{};
+    for (final product in products) {
+      for (final img in product.images) {
+        if (img.sourceType == ProductImageSource.networkUrl) {
+          urls.add(img.uri);
+        }
+      }
+    }
+
+    if (urls.isEmpty) return;
+
+    final client = HttpClient();
+    for (final url in urls) {
+      if (_networkImageCache.containsKey(url)) continue;
+      try {
+        final request = await client
+            .getUrl(Uri.parse(url))
+            .timeout(const Duration(seconds: 5));
+        final response = await request.close().timeout(
+          const Duration(seconds: 5),
+        );
+        if (response.statusCode == 200) {
+          final builder = BytesBuilder();
+          await for (final chunk in response) {
+            builder.add(chunk);
+          }
+          _networkImageCache[url] = builder.takeBytes();
+        }
+      } catch (e) {
+        print('Erro ao baixar imagem para PDF: $url - $e');
+      }
+    }
+    client.close();
   }
 
   static pw.Widget _buildProductPage(
@@ -170,81 +210,26 @@ class CatalogPdfService {
     CatalogPdfStyle style = CatalogPdfStyle.classic,
   }) {
     final displayPrice = product.priceForMode(mode.name);
-    ProductPhoto? photoP;
-    List<MapEntry<String, String>> detailVariants;
-    List<MapEntry<String, String>> colorVariants;
+    ProductImage? photoP;
+    List<MapEntry<String, ProductImage>> detailVariants;
+    List<MapEntry<String, ProductImage>> colorVariants;
 
     if (forcedHeroPath != null && forcedHeroPath.trim().isNotEmpty) {
-      photoP = ProductPhoto(path: forcedHeroPath);
+      photoP = ProductImage.local(path: forcedHeroPath);
       detailVariants = const [];
       colorVariants = const [];
-    } else if (useLoosePhotos) {
-      final pool = <ProductPhoto>[
-        ...product.photos,
-        ...product.images.map((path) => ProductPhoto(path: path)),
-      ];
-
-      photoP = _selectPrimaryPhoto(pool);
-      if (photoP != null) {
-        pool.remove(photoP);
-      }
-
-      detailVariants = pool
-          .take(2)
-          .map((p) => MapEntry('', p.path))
-          .toList();
-      colorVariants = pool
-          .skip(2)
-          .take(4)
-          .map((p) => MapEntry('', p.path))
-          .toList();
     } else {
-      // 1. Organize photos by type
-      final photosD = <ProductPhoto>[];
-      final photosC = <ProductPhoto>[];
-      final otherPhotos = <ProductPhoto>[];
-
-      for (final photo in product.photos) {
-        final type = photo.photoType;
-        if (type == 'P') {
-          photoP = photo;
-        } else if (type == 'D1' || type == 'D2') {
-          photosD.add(photo);
-        } else if (type != null && type.startsWith('C')) {
-          photosC.add(photo);
-        } else if (photo.isPrimary && photoP == null) {
-          photoP = photo;
-        } else {
-          otherPhotos.add(photo);
-        }
-      }
-
-      // Fallback for legacy products
-      if (photoP == null && otherPhotos.isNotEmpty) {
-        photoP = otherPhotos.removeAt(0);
-      }
-
-      // If we still have space for D or C from otherPhotos
-      while (photosD.length < 2 && otherPhotos.isNotEmpty) {
-        photosD.add(otherPhotos.removeAt(0));
-      }
-      while (photosC.length < 4 && otherPhotos.isNotEmpty) {
-        photosC.add(otherPhotos.removeAt(0));
-      }
-
-      // Sort Colors by name (C1, C2...)
-      photosC.sort((a, b) => (a.photoType ?? '').compareTo(b.photoType ?? ''));
-
-      // Detail photos should maximize visual space; keep labels only for colors.
-      detailVariants = photosD.map((p) => MapEntry('', p.path)).toList();
-
-      colorVariants = photosC.map((p) {
-        final label = _resolveColorLabel(p);
-        return MapEntry(label, p.path);
+      photoP = product.mainImage;
+      detailVariants = product.detailImages
+          .take(2)
+          .map((img) => MapEntry('', img))
+          .toList();
+      colorVariants = product.colorImages.take(4).map((img) {
+        final label = img.colorTag ?? _resolveColorLabelLegacy(img.uri);
+        return MapEntry(label, img);
       }).toList();
     }
 
-    final heroPath = photoP?.path;
     final sizesText = _extractSizesText(product);
     final topHeaderText =
         (collectionName != null && collectionName.trim().isNotEmpty)
@@ -351,9 +336,9 @@ class CatalogPdfService {
               children: [
                 // MAIN PHOTO (P)
                 pw.Expanded(
-                  child: heroPath != null
-                      ? _buildMainPhotoBox(
-                          heroPath,
+                  child: photoP != null
+                      ? _buildImageWidget(
+                          photoP,
                           height: mainPhotoHeight,
                           radius: mainRadius,
                         )
@@ -456,7 +441,7 @@ class CatalogPdfService {
 
   /// Builds the variant thumb layout based on quantity rules
   static pw.Widget _buildVariantThumbsLayout(
-    List<MapEntry<String, String>> variants,
+    List<MapEntry<String, ProductImage>> variants,
   ) {
     final count = variants.length;
 
@@ -521,7 +506,7 @@ class CatalogPdfService {
   /// Helper for a single variant swatch thumb
   static pw.Widget _buildSwatchThumb(
     String label,
-    String path, {
+    ProductImage img, {
     double? width,
     bool small = false,
     bool expand = false,
@@ -539,8 +524,8 @@ class CatalogPdfService {
       child: pw.ClipRRect(
         horizontalRadius: 10,
         verticalRadius: 10,
-        child: _buildImageBox(
-          path,
+        child: _buildImageWidget(
+          img,
           height: thumbHeight ?? 200, // Large fallback for fit
           width: thumbWidth,
           radius: 10,
@@ -629,62 +614,24 @@ class CatalogPdfService {
     return list;
   }
 
-  static ProductPhoto? _selectPrimaryPhoto(List<ProductPhoto> photos) {
-    if (photos.isEmpty) return null;
-
-    // 1. Try by photoType 'P'
-    for (final photo in photos) {
-      if (photo.photoType == 'P') return photo;
-    }
-
-    // 2. Try by isPrimary flag
-    for (final photo in photos) {
-      if (photo.isPrimary) return photo;
-    }
-
-    // 3. Fallback to any photo with colorKey (to avoid semi-empty thumbnails if possible)
-    for (final photo in photos) {
-      final key = photo.colorKey?.trim();
-      if (key != null && key.isNotEmpty) return photo;
-    }
-
-    return photos.first;
+  static List<ProductImage> _extractLoosePhotos(Product product) {
+    return product.images;
   }
 
-  static List<String> _extractLoosePhotoPaths(Product product) {
-    final result = <String>[];
-    final seen = <String>{};
-
-    for (final photo in product.photos) {
-      final path = photo.path.trim();
-      if (path.isNotEmpty && seen.add(path)) {
-        result.add(path);
-      }
-    }
-    for (final path in product.images) {
-      final value = path.trim();
-      if (value.isNotEmpty && seen.add(value)) {
-        result.add(value);
-      }
-    }
-
-    return result;
-  }
-
-  static String _resolveColorLabel(ProductPhoto photo) {
-    final explicit = photo.colorKey?.trim();
+  static String _resolveColorLabel(ProductImage img) {
+    final explicit = img.colorTag?.trim();
     if (explicit != null && explicit.isNotEmpty) {
       return explicit;
     }
 
-    final fromPath = _extractColorFromPath(photo.path);
+    final fromPath = _extractColorFromPath(img.uri);
     if (fromPath != null && fromPath.isNotEmpty) {
       return fromPath;
     }
 
-    final type = photo.photoType?.trim();
-    if (type != null && type.isNotEmpty) {
-      return type;
+    final label = img.label?.trim();
+    if (label != null && label.isNotEmpty) {
+      return label;
     }
     return 'COR';
   }
@@ -732,41 +679,41 @@ class CatalogPdfService {
     return parts.join(' ').toUpperCase();
   }
 
-  static pw.Widget _buildImageBox(
-    String path, {
+  static String _resolveColorLabelLegacy(String path) {
+    final fromPath = _extractColorFromPath(path);
+    if (fromPath != null && fromPath.isNotEmpty) {
+      return fromPath;
+    }
+    return 'COR';
+  }
+
+  static pw.Widget _buildImageWidget(
+    ProductImage img, {
     required double height,
     double? width,
     double radius = 0,
   }) {
     try {
-      if (path.startsWith('data:')) {
-        final commaIndex = path.indexOf(',');
-        if (commaIndex != -1) {
-          final base64Data = path.substring(commaIndex + 1);
-          final bytes = base64Decode(base64Data);
-          final image = pw.MemoryImage(bytes);
-          return pw.Container(
-            height: height,
-            width: width,
-            alignment: pw.Alignment.centerLeft,
-            decoration: pw.BoxDecoration(
-              color: _colorImageBg,
-              borderRadius: pw.BorderRadius.circular(radius),
-            ),
-            child: pw.ClipRRect(
-              horizontalRadius: radius,
-              verticalRadius: radius,
-              child: pw.FittedBox(
-                fit: pw.BoxFit.contain,
-                child: pw.Image(image),
-              ),
-            ),
-          );
+      Uint8List? bytes;
+
+      if (img.sourceType == ProductImageSource.networkUrl) {
+        bytes = _networkImageCache[img.uri];
+      } else if (img.sourceType == ProductImageSource.localPath) {
+        final file = File(img.uri);
+        if (file.existsSync()) {
+          bytes = file.readAsBytesSync();
+        }
+      } else if (img.sourceType == ProductImageSource.memory) {
+        if (img.uri.startsWith('data:')) {
+          final commaIndex = img.uri.indexOf(',');
+          if (commaIndex != -1) {
+            bytes = base64Decode(img.uri.substring(commaIndex + 1));
+          }
         }
       }
-      final file = File(path);
-      if (file.existsSync()) {
-        final image = pw.MemoryImage(file.readAsBytesSync());
+
+      if (bytes != null) {
+        final image = pw.MemoryImage(bytes);
         return pw.Container(
           height: height,
           width: width,
@@ -782,19 +729,21 @@ class CatalogPdfService {
           ),
         );
       }
-    } catch (_) {
-      // Ignora erro de imagem
+    } catch (e) {
+      print('Falha ao processar imagem no PDF: ${img.uri} - $e');
     }
     return _buildImagePlaceholder(height: height, width: width, radius: radius);
   }
 
-  static pw.Widget _buildMainPhotoBox(
+  static pw.Widget _buildImageBox(
     String path, {
-    double? width,
     required double height,
+    double? width,
     double radius = 0,
   }) {
-    return _buildImageBox(path, height: height, width: width, radius: radius);
+    // Legacy support for cover images which might be paths
+    final img = ProductImage.local(path: path);
+    return _buildImageWidget(img, height: height, width: width, radius: radius);
   }
 
   static pw.Widget _buildImagePlaceholder({
@@ -807,10 +756,23 @@ class CatalogPdfService {
       width: width,
       alignment: pw.Alignment.center,
       decoration: pw.BoxDecoration(
-        color: _colorImageBg,
+        color: PdfColor(0.9, 0.9, 0.9), // Cinza claro
         borderRadius: pw.BorderRadius.circular(radius),
+        border: pw.Border.all(color: PdfColors.grey300, width: 1),
       ),
-      child: pw.Text('Sem Foto', style: pw.TextStyle(color: _colorMuted)),
+      child: pw.Column(
+        mainAxisAlignment: pw.MainAxisAlignment.center,
+        children: [
+          pw.Text(
+            'Imagem',
+            style: pw.TextStyle(color: _colorMuted, fontSize: 8),
+          ),
+          pw.Text(
+            'indisponível',
+            style: pw.TextStyle(color: _colorMuted, fontSize: 8),
+          ),
+        ],
+      ),
     );
   }
 

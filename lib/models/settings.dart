@@ -39,24 +39,12 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
   }
 }
 
-@HiveType(typeId: 20)
 class AppSettings {
-  @HiveField(0)
   final String storeName;
-
-  @HiveField(1)
   final String whatsappNumber;
-
-  @HiveField(2)
   final String publicBaseUrl;
-
-  @HiveField(3)
   final DateTime updatedAt;
-
-  @HiveField(4)
   final String remoteImageBaseUrl;
-
-  @HiveField(5)
   final String geminiApiKey;
 
   AppSettings({

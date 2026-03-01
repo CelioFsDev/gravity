@@ -11,6 +11,7 @@ import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/ui/widgets/app_badge_pill.dart';
 import 'package:catalogo_ja/ui/widgets/app_primary_button.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
+import 'package:catalogo_ja/core/services/app_logger.dart';
 
 class PublicProductDetailScreen extends ConsumerStatefulWidget {
   final Product product;
@@ -94,6 +95,17 @@ Pode me ajudar?
       'https://wa.me/$whatsapp?text=${Uri.encodeComponent(message)}',
     );
     if (await canLaunchUrl(url)) {
+      ref
+          .read(appLoggerProvider.notifier)
+          .log(
+            AppEvent.orderSubmitted,
+            parameters: {
+              'productId': widget.product.id,
+              'productRef': widget.product.ref,
+              'color': _selectedColor,
+              'size': _selectedSize,
+            },
+          );
       await launchUrl(url, mode: LaunchMode.externalApplication);
     }
   }
@@ -267,10 +279,10 @@ Pode me ajudar?
           ? 1
           : widget.product.images.length,
       itemBuilder: (context, idx) {
-        final path = widget.product.images.isEmpty
+        final uri = widget.product.images.isEmpty
             ? ''
-            : widget.product.images[idx];
-        return _buildImage(path);
+            : widget.product.images[idx].uri;
+        return _buildImage(uri);
       },
     );
   }

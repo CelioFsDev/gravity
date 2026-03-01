@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/models/product_image.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
 import 'package:uuid/uuid.dart';
 import 'package:file_picker/file_picker.dart';
@@ -19,6 +20,8 @@ import 'package:catalogo_ja/ui/widgets/section_card.dart';
 import 'package:catalogo_ja/ui/widgets/app_primary_button.dart';
 import 'package:catalogo_ja/features/admin/categories/widgets/category_create_modal.dart';
 import 'package:go_router/go_router.dart';
+import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
+import 'package:catalogo_ja/core/error/app_failure.dart';
 
 class ProductFormScreen extends ConsumerStatefulWidget {
   final Product? product; // null for Create, non-null for Edit
@@ -112,10 +115,12 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     } else if (pr != null && pr.images.isNotEmpty) {
       final safeIndex = pr.mainImageIndex.clamp(0, pr.images.length - 1);
       _photos = pr.images.asMap().entries.map((entry) {
+        final img = entry.value;
         return ProductPhoto(
-          path: entry.value,
-          colorKey: null,
-          isPrimary: entry.key == safeIndex,
+          path: img.uri,
+          colorKey: img.colorTag,
+          isPrimary: entry.key == safeIndex || img.label == 'principal',
+          photoType: img.label,
         );
       }).toList();
     }
@@ -215,9 +220,15 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Erro ao salvar: $e')));
+        final failure = e is AppFailure
+            ? e
+            : e.toAppFailure(action: 'save', entity: 'Product');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(failure.message),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
       }
     }
   }
@@ -244,7 +255,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       setState(() {
         // Clear previous primary and set this one
         _photos = _photos.map((p) => p.copyWith(isPrimary: false)).toList();
-        
+
         final newPhoto = ProductPhoto(
           path: resolved,
           colorKey: classification?.colorName,
@@ -504,8 +515,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     return _prioritizePrimaryPhoto(_photos);
   }
 
-  List<String> _imagesFromPhotos(List<ProductPhoto> photos) {
-    return photos.map((p) => p.path).toList();
+  List<ProductImage> _imagesFromPhotos(List<ProductPhoto> photos) {
+    return photos.map((p) => p.toProductImage()).toList();
   }
 
   int _mainIndexFromPhotos(List<ProductPhoto> photos) {
@@ -576,10 +587,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           await imagesDir.create(recursive: true);
         }
 
-        final extension =
-            p.extension(file.name).isNotEmpty
-                ? p.extension(file.name).toLowerCase()
-                : '.jpg';
+        final extension = p.extension(file.name).isNotEmpty
+            ? p.extension(file.name).toLowerCase()
+            : '.jpg';
 
         final String fileName =
             classification?.standardName ?? '${const Uuid().v4()}$extension';
@@ -653,6 +663,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   @override
   Widget build(BuildContext context) {
     final productsState = ref.watch(productsViewModelProvider);
+    productsState.showSnackbarOnError(context);
     final categories = productsState.hasValue
         ? productsState.value!.categories
         : <Category>[];

@@ -7,6 +7,7 @@ import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/ui/widgets/app_search_field.dart';
 import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
+import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
 
 class CategoriesScreen extends ConsumerStatefulWidget {
   const CategoriesScreen({super.key});
@@ -43,10 +44,9 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
           tooltip: 'Nova Categoria',
         ),
       ],
-      body: state.when(
+      body: state.whenStandard(
+        onRetry: () => ref.read(categoriesViewModelProvider.notifier).build(),
         data: (data) => _buildContent(context, data, notifier),
-        error: (e, s) => Center(child: Text('Erro: $e')),
-        loading: () => const Center(child: CircularProgressIndicator()),
       ),
     );
   }
@@ -410,7 +410,11 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
 
     if (result.hasProducts) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.message ?? 'N\u00e3o \u00e9 poss\u00edvel excluir.')),
+        SnackBar(
+          content: Text(
+            result.message ?? 'N\u00e3o \u00e9 poss\u00edvel excluir.',
+          ),
+        ),
       );
     }
   }

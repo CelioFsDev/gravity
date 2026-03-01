@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/models/product_image.dart';
 import 'package:intl/intl.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/ui/widgets/app_search_field.dart';
@@ -273,10 +274,10 @@ class _ProductSelectTile extends StatelessWidget {
     if (product.images.isNotEmpty) {
       final idx = product.mainImageIndex;
       if (idx >= 0 && idx < product.images.length) {
-        final path = product.images[idx].trim();
+        final path = product.images[idx].uri.trim();
         if (path.isNotEmpty) return path;
       }
-      final fallback = product.images.first.trim();
+      final fallback = product.images.first.uri.trim();
       if (fallback.isNotEmpty) return fallback;
     }
     return null;

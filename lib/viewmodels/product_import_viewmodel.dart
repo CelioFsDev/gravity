@@ -12,6 +12,7 @@ import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/core/services/image_optimizer_service.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/models/product_image.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:csv/csv.dart';
 import 'package:file_picker/file_picker.dart';
@@ -23,6 +24,7 @@ import 'package:catalogo_ja/viewmodels/catalog_public_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
+import 'package:catalogo_ja/core/services/app_logger.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
@@ -169,6 +171,15 @@ class ProductImportViewModel extends _$ProductImportViewModel {
                 isDone: true,
                 parsedProducts: report.importedProducts ?? [],
               );
+              ref
+                  .read(appLoggerProvider.notifier)
+                  .log(
+                    AppEvent.importCompleted,
+                    parameters: {
+                      'type': 'package',
+                      'created': report.importedProducts?.length ?? 0,
+                    },
+                  );
               _notifyChanges();
               return;
             } catch (e) {
@@ -447,7 +458,9 @@ class ProductImportViewModel extends _$ProductImportViewModel {
           await Future.delayed(const Duration(milliseconds: 10));
         } catch (e) {
           debugPrint('Vincular: Erro ao processar arquivo $i: $e');
-          final fileName = (i >= 0 && i < totalFiles) ? result.files[i].name : '';
+          final fileName = (i >= 0 && i < totalFiles)
+              ? result.files[i].name
+              : '';
           report.add(
             PhotoLinkReportItem(
               fileName: fileName,
@@ -596,8 +609,9 @@ class ProductImportViewModel extends _$ProductImportViewModel {
 
           if (localPath != null) {
             // Add to existing images if not already there
-            if (!p.images.contains(localPath)) {
-              final updatedImages = List<String>.from(p.images)..add(localPath);
+            if (!p.images.any((img) => img.uri == localPath)) {
+              final updatedImages = List<ProductImage>.from(p.images)
+                ..add(ProductImage.local(path: localPath));
               await productsRepo.updateProduct(
                 p.copyWith(images: updatedImages),
               );
@@ -685,7 +699,9 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       product ??= _findProductByKey(file.name, products);
       if (product == null) continue;
 
-      final savedPath = await imageCache.downloadAndCacheImage(file.downloadUrl);
+      final savedPath = await imageCache.downloadAndCacheImage(
+        file.downloadUrl,
+      );
       if (savedPath == null) continue;
 
       final photo = ProductPhoto(
@@ -731,7 +747,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       await productsRepo.updateProduct(
         product.copyWith(
           photos: currentPhotos,
-          images: currentPhotos.map((p) => p.path).toList(),
+          images: currentPhotos.map((p) => p.toProductImage()).toList(),
           mainImageIndex: _mainImageIndexFromPhotos(currentPhotos),
         ),
       );
@@ -760,7 +776,9 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     final uri = Uri.tryParse(input.trim());
     if (uri == null) return null;
 
-    final folderPath = RegExp(r'/folders/([a-zA-Z0-9_-]+)').firstMatch(uri.path);
+    final folderPath = RegExp(
+      r'/folders/([a-zA-Z0-9_-]+)',
+    ).firstMatch(uri.path);
     if (folderPath != null) {
       return folderPath.group(1);
     }
@@ -1073,7 +1091,9 @@ class ProductImportViewModel extends _$ProductImportViewModel {
               int.tryParse(_cellByKeys(row, headerMap, ['minqty'], 6)) ?? 1,
           sizes: sizes,
           colors: colors,
-          images: localImages,
+          images: localImages
+              .map((path) => ProductImage.local(path: path.toString()))
+              .toList(),
           remoteImages: remoteImages,
           mainImageIndex: mainImageIndex,
           isActive: isActive,
@@ -1611,5 +1631,6 @@ class _DriveFolderFile {
 
   const _DriveFolderFile({required this.id, required this.name});
 
-  String get downloadUrl => 'https://drive.google.com/uc?export=download&id=$id';
+  String get downloadUrl =>
+      'https://drive.google.com/uc?export=download&id=$id';
 }

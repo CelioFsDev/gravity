@@ -3,10 +3,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/catalog.dart';
+import 'package:catalogo_ja/models/product_image.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/ui/widgets/app_card.dart';
 import 'package:catalogo_ja/ui/widgets/app_badge_pill.dart';
 import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class AppProductCard extends StatelessWidget {
   final Product product;
@@ -27,7 +29,7 @@ class AppProductCard extends StatelessWidget {
       mode == CatalogMode.atacado ? 'atacado' : 'varejo',
     );
     final hasPromo = product.promoEnabled;
-    final primaryImage = _resolvePrimaryImage(product);
+    final mainImg = product.mainImage;
 
     return AppCard(
       padding: EdgeInsets.zero,
@@ -40,7 +42,7 @@ class AppProductCard extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                _buildImage(primaryImage),
+                _buildImage(mainImg),
                 if (hasPromo)
                   const Positioned(
                     top: AppTokens.space8,
@@ -99,8 +101,8 @@ class AppProductCard extends StatelessWidget {
     );
   }
 
-  Widget _buildImage(String? path) {
-    if (path == null) {
+  Widget _buildImage(ProductImage? img) {
+    if (img == null || img.uri.isEmpty) {
       return Container(
         color: AppTokens.bg,
         child: const Icon(
@@ -110,24 +112,49 @@ class AppProductCard extends StatelessWidget {
       );
     }
 
-    final image = kIsWeb || path.startsWith('http')
-        ? Image.network(path, fit: BoxFit.cover)
-        : Image.file(File(path), fit: BoxFit.cover);
+    final Widget imageWidget;
+
+    if (img.sourceType == ProductImageSource.networkUrl) {
+      imageWidget = CachedNetworkImage(
+        imageUrl: img.uri,
+        fit: BoxFit.cover,
+        placeholder: (context, url) => Container(
+          color: AppTokens.bg,
+          padding: const EdgeInsets.all(AppTokens.space24),
+          child: const Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        ),
+        errorWidget: (context, url, error) => Container(
+          color: AppTokens.bg,
+          child: const Icon(Icons.broken_image, color: AppTokens.textMuted),
+        ),
+      );
+    } else if (img.sourceType == ProductImageSource.localPath) {
+      imageWidget = Image.file(
+        File(img.uri),
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Container(
+          color: AppTokens.bg,
+          child: const Icon(Icons.broken_image, color: AppTokens.textMuted),
+        ),
+      );
+    } else {
+      imageWidget = Container(
+        color: AppTokens.bg,
+        child: const Icon(Icons.image_search),
+      );
+    }
 
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(
         top: Radius.circular(AppTokens.radiusMd),
       ),
-      child: image,
+      child: imageWidget,
     );
-  }
-
-  String? _resolvePrimaryImage(Product product) {
-    if (product.images.isNotEmpty) {
-      final idx = product.mainImageIndex;
-      if (idx >= 0 && idx < product.images.length) return product.images[idx];
-      return product.images.first;
-    }
-    return null;
   }
 }

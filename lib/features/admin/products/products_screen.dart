@@ -18,6 +18,8 @@ import 'package:catalogo_ja/ui/widgets/app_search_field.dart';
 import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
 import 'package:catalogo_ja/ui/widgets/app_product_list_tile.dart';
 import 'package:uuid/uuid.dart';
+import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
+import 'package:catalogo_ja/core/auth/user_role.dart';
 
 class ProductsScreen extends ConsumerStatefulWidget {
   const ProductsScreen({super.key});
@@ -54,7 +56,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         children: [
           _buildBulkActionsBar(context),
           Expanded(
-            child: state.when(
+            child: state.whenStandard(
+              onRetry: () =>
+                  ref.read(productsViewModelProvider.notifier).refresh(),
               data: (data) => _ProductsContent(
                 state: data,
                 searchController: _searchController,
@@ -62,7 +66,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     .read(productsViewModelProvider.notifier)
                     .setSearchQuery(value),
                 onClearFilters: () => _clearFilters(data),
-
                 onSelectCategory: (value) => ref
                     .read(productsViewModelProvider.notifier)
                     .setCategoryFilter(value),
@@ -84,15 +87,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     .read(productsViewModelProvider.notifier)
                     .toggleSelection(id),
               ),
-              error: (e, s) => AppEmptyState(
-                icon: Icons.error_outline,
-                title: 'Erro ao carregar',
-                message: e.toString(),
-                actionLabel: 'Tentar novamente',
-                onAction: () =>
-                    ref.read(productsViewModelProvider.notifier).refresh(),
-              ),
-              loading: () => const Center(child: CircularProgressIndicator()),
             ),
           ),
           state.maybeWhen(
@@ -112,6 +106,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
     final count = state.selectedProductIds.length;
     final notifier = ref.read(productsViewModelProvider.notifier);
+    final role = ref.watch(currentRoleProvider);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -123,11 +118,12 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            onPressed: () => _confirmBulkDelete(context),
-            tooltip: 'Excluir selecionados',
-          ),
+          if (role.canDeleteProduct)
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              onPressed: () => _confirmBulkDelete(context),
+              tooltip: 'Excluir selecionados',
+            ),
           IconButton(
             icon: const Icon(Icons.category_outlined),
             onPressed: () => _showBulkCategoryDialog(context),
@@ -595,7 +591,8 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                       ),
                     ),
                   ],
-                  if (importState.isDone && importState.linkReport.isNotEmpty) ...[
+                  if (importState.isDone &&
+                      importState.linkReport.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Text(
                       'Relatório: ${importState.imagesMatchedCount}/${importState.imagesTotalCount} vinculadas',
@@ -609,9 +606,8 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                       alignment: Alignment.centerLeft,
                       child: Text(
                         'Não vinculadas (${failures.length})',
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                     ),
                     const SizedBox(height: 6),
