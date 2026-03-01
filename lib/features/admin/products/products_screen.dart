@@ -51,7 +51,10 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       title: 'Produtos',
       subtitle: 'Gerencie seu cat\u00e1logo de produtos',
       useAppBar: false,
-      actions: [_buildMoreActions(context)],
+      actions: [
+        if (ref.watch(currentRoleProvider).canManageRegistrations)
+          _buildMoreActions(context),
+      ],
       body: Column(
         children: [
           _buildBulkActionsBar(context),
@@ -77,10 +80,21 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     .setSortOption(value),
                 onNewProduct: () => _openNewProduct(context),
                 onViewProduct: (product) => _openDetails(context, product),
-                onEditProduct: (product) => _openEdit(context, product),
-                onDeleteProduct: (product) => _deleteProduct(product),
-                onDuplicateProduct: (product) => _duplicateProduct(product),
-                onTogglePromo: (product) => _togglePromo(product),
+                onEditProduct:
+                    ref.watch(currentRoleProvider).canManageRegistrations
+                    ? (product) => _openEdit(context, product)
+                    : null,
+                onDeleteProduct: ref.watch(currentRoleProvider).canDeleteProduct
+                    ? (product) => _deleteProduct(product)
+                    : null,
+                onDuplicateProduct:
+                    ref.watch(currentRoleProvider).canManageRegistrations
+                    ? (product) => _duplicateProduct(product)
+                    : null,
+                onTogglePromo:
+                    ref.watch(currentRoleProvider).canManageRegistrations
+                    ? (product) => _togglePromo(product)
+                    : null,
                 onRefresh: () async =>
                     ref.read(productsViewModelProvider.notifier).refresh(),
                 onToggleSelection: (id) => ref
@@ -221,31 +235,33 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       ),
       child: SafeArea(
         top: false,
-        child: Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => _openImport(context),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                icon: const Icon(Icons.cloud_download_outlined, size: 18),
-                label: const Text('Importar'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: () => _openNewProduct(context),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Novo Produto'),
-              ),
-            ),
-          ],
-        ),
+        child: ref.watch(currentRoleProvider).canManageRegistrations
+            ? Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _openImport(context),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      icon: const Icon(Icons.cloud_download_outlined, size: 18),
+                      label: const Text('Importar'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _openNewProduct(context),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Novo Produto'),
+                    ),
+                  ),
+                ],
+              )
+            : const SizedBox.shrink(),
       ),
     );
   }
@@ -768,10 +784,10 @@ class _ProductsContent extends StatelessWidget {
   final ValueChanged<ProductSort> onSelectSort;
   final VoidCallback onNewProduct;
   final ValueChanged<Product> onViewProduct;
-  final ValueChanged<Product> onEditProduct;
-  final ValueChanged<Product> onDeleteProduct;
-  final ValueChanged<Product> onDuplicateProduct;
-  final ValueChanged<Product> onTogglePromo;
+  final ValueChanged<Product>? onEditProduct;
+  final ValueChanged<Product>? onDeleteProduct;
+  final ValueChanged<Product>? onDuplicateProduct;
+  final ValueChanged<Product>? onTogglePromo;
   final RefreshCallback onRefresh;
   final ValueChanged<String> onToggleSelection;
 
@@ -786,10 +802,10 @@ class _ProductsContent extends StatelessWidget {
     required this.onSelectSort,
     required this.onNewProduct,
     required this.onViewProduct,
-    required this.onEditProduct,
-    required this.onDeleteProduct,
-    required this.onDuplicateProduct,
-    required this.onTogglePromo,
+    this.onEditProduct,
+    this.onDeleteProduct,
+    this.onDuplicateProduct,
+    this.onTogglePromo,
     required this.onRefresh,
     required this.onToggleSelection,
   });
@@ -1203,10 +1219,10 @@ class _ProductsListSection extends StatelessWidget {
   final List<Category> categories;
   final VoidCallback onNewProduct;
   final ValueChanged<Product> onViewProduct;
-  final ValueChanged<Product> onEditProduct;
-  final ValueChanged<Product> onDeleteProduct;
-  final ValueChanged<Product> onDuplicateProduct;
-  final ValueChanged<Product> onTogglePromo;
+  final ValueChanged<Product>? onEditProduct;
+  final ValueChanged<Product>? onDeleteProduct;
+  final ValueChanged<Product>? onDuplicateProduct;
+  final ValueChanged<Product>? onTogglePromo;
   final Set<String> selectedIds;
   final ValueChanged<String> onToggleSelection;
 
@@ -1215,10 +1231,10 @@ class _ProductsListSection extends StatelessWidget {
     required this.categories,
     required this.onNewProduct,
     required this.onViewProduct,
-    required this.onEditProduct,
-    required this.onDeleteProduct,
-    required this.onDuplicateProduct,
-    required this.onTogglePromo,
+    this.onEditProduct,
+    this.onDeleteProduct,
+    this.onDuplicateProduct,
+    this.onTogglePromo,
     required this.selectedIds,
     required this.onToggleSelection,
   });
@@ -1253,10 +1269,16 @@ class _ProductsListSection extends StatelessWidget {
               onViewProduct(product);
             }
           },
-          onEdit: () => onEditProduct(product),
-          onDelete: () => onDeleteProduct(product),
-          onDuplicate: () => onDuplicateProduct(product),
-          onTogglePromo: () => onTogglePromo(product),
+          onEdit: onEditProduct != null ? () => onEditProduct!(product) : null,
+          onDelete: onDeleteProduct != null
+              ? () => onDeleteProduct!(product)
+              : null,
+          onDuplicate: onDuplicateProduct != null
+              ? () => onDuplicateProduct!(product)
+              : null,
+          onTogglePromo: onTogglePromo != null
+              ? () => onTogglePromo!(product)
+              : null,
         );
       },
     );

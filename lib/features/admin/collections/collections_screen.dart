@@ -9,6 +9,7 @@ import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
 import 'package:catalogo_ja/ui/widgets/app_badge_pill.dart';
 import 'package:catalogo_ja/ui/widgets/app_search_field.dart';
 import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
+import 'package:catalogo_ja/core/auth/user_role.dart';
 
 class CollectionsScreen extends ConsumerStatefulWidget {
   const CollectionsScreen({super.key});
@@ -35,11 +36,12 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
       title: 'Cole\u00e7\u00f5es',
       subtitle: 'Gerencie suas cole\u00e7\u00f5es e cat\u00e1logos',
       actions: [
-        FilledButton.icon(
-          onPressed: () => context.push('/admin/collections/new'),
-          icon: const Icon(Icons.add),
-          label: const Text('Nova Cole\u00e7\u00e3o'),
-        ),
+        if (ref.watch(currentRoleProvider).canManageRegistrations)
+          FilledButton.icon(
+            onPressed: () => context.push('/admin/collections/new'),
+            icon: const Icon(Icons.add),
+            label: const Text('Nova Coleção'),
+          ),
       ],
       body: categoriesState.when(
         data: (state) {
@@ -144,7 +146,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
   }
 }
 
-class _CollectionCard extends StatelessWidget {
+class _CollectionCard extends ConsumerWidget {
   final Category collection;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -156,14 +158,15 @@ class _CollectionCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final role = ref.watch(currentRoleProvider);
     final coverPath = collection.cover?.coverMiniPath;
     final hasCover = coverPath != null && coverPath.isNotEmpty;
 
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: onEdit,
+        onTap: role.canManageRegistrations ? onEdit : null,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -211,19 +214,21 @@ class _CollectionCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.edit_outlined),
-                    tooltip: 'Editar',
-                    onPressed: onEdit,
-                  ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.delete_outline,
-                      color: AppTokens.accentRed,
+                  if (role.canManageRegistrations)
+                    PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'edit') {
+                          onEdit();
+                        } else if (value == 'delete') {
+                          onDelete();
+                        }
+                      },
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(value: 'edit', child: Text('Editar')),
+                        PopupMenuItem(value: 'delete', child: Text('Excluir')),
+                      ],
+                      icon: const Icon(Icons.more_vert),
                     ),
-                    tooltip: 'Excluir',
-                    onPressed: onDelete,
-                  ),
                 ],
               ),
             ),

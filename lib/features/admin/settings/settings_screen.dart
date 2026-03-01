@@ -8,6 +8,7 @@ import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/foundation.dart';
+import 'package:go_router/go_router.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -136,6 +137,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: 24),
+            if (ref.watch(currentRoleProvider) == UserRole.admin)
+              SectionCard(
+                title: 'Gerenciar Usuários',
+                child: Column(
+                  children: [
+                    const Text(
+                      'Controle quem pode acessar o painel de administração e quais permissões cada pessoa possui.',
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.people_outline),
+                        label: const Text('Configurar Usuários'),
+                        onPressed: () => context.push('/admin/settings/users'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             const SizedBox(height: 24),
             SectionCard(
               title: 'Integra\u00e7\u00e3o e Links',

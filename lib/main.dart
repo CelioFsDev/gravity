@@ -19,6 +19,7 @@ import 'package:catalogo_ja/features/admin/collections/collection_form_screen.da
 import 'package:catalogo_ja/features/admin/catalogs/catalogs_screen.dart';
 import 'package:catalogo_ja/features/admin/import/nuvemshop_import_screen.dart';
 import 'package:catalogo_ja/features/admin/settings/settings_screen.dart';
+import 'package:catalogo_ja/features/admin/users/user_management_screen.dart';
 import 'package:catalogo_ja/features/theme/theme_providers.dart';
 import 'package:catalogo_ja/features/public/catalog_home_page.dart';
 import 'package:catalogo_ja/features/public/product_detail_screen.dart';
@@ -221,6 +222,12 @@ class _MyAppState extends ConsumerState<MyApp> {
                 GoRoute(
                   path: '/admin/settings',
                   builder: (context, state) => const SettingsScreen(),
+                  routes: [
+                    GoRoute(
+                      path: 'users',
+                      builder: (context, state) => const UserManagementScreen(),
+                    ),
+                  ],
                 ),
               ],
             ),

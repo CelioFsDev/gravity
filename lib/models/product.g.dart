@@ -6,49 +6,6 @@ part of 'product.dart';
 // TypeAdapterGenerator
 // **************************************************************************
 
-List<ProductImage> _readProductImages(
-  dynamic rawImages, {
-  dynamic rawPhotos,
-}) {
-  final images = <ProductImage>[];
-
-  if (rawImages is List) {
-    for (final image in rawImages) {
-      if (image is ProductImage) {
-        images.add(image);
-      } else if (image is ProductPhoto) {
-        images.add(image.toProductImage());
-      } else if (image is String && image.isNotEmpty) {
-        images.add(ProductImage.local(path: image));
-      }
-    }
-  }
-
-  if (images.isNotEmpty) {
-    return images;
-  }
-
-  if (rawPhotos is List) {
-    for (final photo in rawPhotos) {
-      if (photo is ProductPhoto) {
-        images.add(photo.toProductImage());
-      } else if (photo is String && photo.isNotEmpty) {
-        images.add(ProductImage.local(path: photo));
-      }
-    }
-  }
-
-  return images;
-}
-
-List<ProductPhoto> _readProductPhotos(dynamic rawPhotos) {
-  if (rawPhotos is! List) {
-    return const [];
-  }
-
-  return rawPhotos.whereType<ProductPhoto>().toList();
-}
-
 class ProductPhotoAdapter extends TypeAdapter<ProductPhoto> {
   @override
   final int typeId = 11;
@@ -113,13 +70,13 @@ class ProductAdapter extends TypeAdapter<Product> {
       minWholesaleQty: fields[7] as int,
       sizes: (fields[8] as List).cast<String>(),
       colors: (fields[9] as List).cast<String>(),
-      images: _readProductImages(fields[10], rawPhotos: fields[24]),
+      images: (fields[10] as List).cast<ProductImage>(),
       mainImageIndex: fields[11] as int,
       isActive: fields[12] as bool,
       isOutOfStock: fields[13] as bool,
       promoEnabled: fields[14] as bool,
       createdAt: fields[15] as DateTime,
-      photos: _readProductPhotos(fields[24]),
+      photos: (fields[24] as List).cast<ProductPhoto>(),
       promoPercent: fields[16] as double,
       slug: fields[18] as String,
       description: fields[19] as String?,
