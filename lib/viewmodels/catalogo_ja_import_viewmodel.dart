@@ -1,28 +1,28 @@
 import 'dart:io';
-import 'package:gravity/core/services/gravity_package_service.dart';
+import 'package:catalogo_ja/core/services/catalogo_ja_package_service.dart';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:gravity/core/services/dto/gravity_export_dtos.dart';
-import 'package:gravity/core/services/export_import_service.dart';
-import 'package:gravity/viewmodels/products_viewmodel.dart';
-import 'package:gravity/viewmodels/categories_viewmodel.dart';
-import 'package:gravity/viewmodels/catalogs_viewmodel.dart';
-import 'package:gravity/viewmodels/catalog_public_viewmodel.dart';
+import 'package:catalogo_ja/core/services/dto/catalogo_ja_export_dtos.dart';
+import 'package:catalogo_ja/core/services/export_import_service.dart';
+import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/catalog_public_viewmodel.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-part 'gravity_import_viewmodel.g.dart';
+part 'catalogo_ja_import_viewmodel.g.dart';
 
-class GravityImportState {
+class CatalogoJaImportState {
   final int step; // 0: Pick File, 1: Preview/Mode, 2: Result
   final bool isLoading;
   final String? errorMessage;
-  final GravityExportPayload? payload;
+  final CatalogoJaExportPayload? payload;
   final ImportPreview? preview;
   final ImportMode selectedMode;
   final ImportResult? result;
   final String? extractDirPath; // Path to temp dir for ZIP imports
 
-  GravityImportState({
+  CatalogoJaImportState({
     this.step = 0,
     this.isLoading = false,
     this.errorMessage,
@@ -33,17 +33,17 @@ class GravityImportState {
     this.extractDirPath,
   });
 
-  GravityImportState copyWith({
+  CatalogoJaImportState copyWith({
     int? step,
     bool? isLoading,
     String? errorMessage,
-    GravityExportPayload? payload,
+    CatalogoJaExportPayload? payload,
     ImportPreview? preview,
     ImportMode? selectedMode,
     ImportResult? result,
     String? extractDirPath,
   }) {
-    return GravityImportState(
+    return CatalogoJaImportState(
       step: step ?? this.step,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage ?? this.errorMessage,
@@ -57,10 +57,10 @@ class GravityImportState {
 }
 
 @riverpod
-class GravityImportViewModel extends _$GravityImportViewModel {
+class CatalogoJaImportViewModel extends _$CatalogoJaImportViewModel {
   @override
-  GravityImportState build() {
-    return GravityImportState();
+  CatalogoJaImportState build() {
+    return CatalogoJaImportState();
   }
 
   void setMode(ImportMode mode) {
@@ -77,14 +77,28 @@ class GravityImportViewModel extends _$GravityImportViewModel {
 
       if (result != null && result.files.single.path != null) {
         final filePath = result.files.single.path!;
-        final isZip = filePath.toLowerCase().endsWith('.zip');
-
         final exportService = ref.read(exportImportServiceProvider);
-        GravityExportPayload payload;
+        CatalogoJaExportPayload payload;
         String? extractDir;
 
-        if (isZip) {
-          final packageService = ref.read(gravityPackageServiceProvider);
+        // More robust ZIP detection: Check extension OR check file header (PK)
+        bool isActuallyZip = filePath.toLowerCase().endsWith('.zip');
+        if (!isActuallyZip) {
+          try {
+            final file = File(filePath);
+            if (await file.exists()) {
+              final bytes = await file.openRead(0, 2).first;
+              if (bytes.length >= 2 && bytes[0] == 0x50 && bytes[1] == 0x4B) {
+                isActuallyZip = true;
+              }
+            }
+          } catch (_) {
+            // If checking header fails, we treat it based on extension
+          }
+        }
+
+        if (isActuallyZip) {
+          final packageService = ref.read(catalogoJaPackageServiceProvider);
           final (p, dir) = await packageService.preparePackage(File(filePath));
           payload = p;
           extractDir = dir.path;
@@ -121,7 +135,7 @@ class GravityImportViewModel extends _$GravityImportViewModel {
 
       if (state.extractDirPath != null) {
         // ZIP IMPORT
-        final packageService = ref.read(gravityPackageServiceProvider);
+        final packageService = ref.read(catalogoJaPackageServiceProvider);
         final report = await packageService.importPackageFromDir(
           payload: state.payload!,
           extractDir: Directory(state.extractDirPath!),
@@ -165,7 +179,7 @@ class GravityImportViewModel extends _$GravityImportViewModel {
         dir.deleteSync(recursive: true);
       }
     }
-    state = GravityImportState();
+    state = CatalogoJaImportState();
   }
 
   void _notifyChanges() {

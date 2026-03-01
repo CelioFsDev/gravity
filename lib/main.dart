@@ -1,35 +1,28 @@
-﻿import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gravity/core/auth/auth_controller.dart';
-import 'package:gravity/core/auth/auth_guards.dart';
-import 'package:gravity/core/auth/auth_user.dart';
-import 'package:gravity/features/auth/login_screen.dart';
-import 'package:gravity/features/auth/register_screen.dart';
-import 'package:gravity/firebase_options.dart';
+import 'package:catalogo_ja/firebase_options.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:go_router/go_router.dart';
-import 'package:gravity/models/product.dart';
-import 'package:gravity/models/category.dart';
-import 'package:gravity/models/catalog.dart';
-import 'package:gravity/models/settings.dart';
-import 'package:gravity/models/product_variant.dart';
-import 'package:gravity/features/admin/admin_shell_screen.dart';
-import 'package:gravity/features/admin/products/products_screen.dart';
-import 'package:gravity/features/admin/categories/categories_screen.dart';
-import 'package:gravity/features/admin/collections/collections_screen.dart';
-import 'package:gravity/features/admin/collections/collection_form_screen.dart';
-import 'package:gravity/features/admin/catalogs/catalogs_screen.dart';
-import 'package:gravity/features/admin/import/nuvemshop_import_screen.dart';
-import 'package:gravity/features/admin/settings/settings_screen.dart';
-import 'package:gravity/features/theme/theme_providers.dart';
-import 'package:gravity/features/public/catalog_home_page.dart';
-import 'package:gravity/core/auth/auth_repository.dart';
-import 'package:gravity/features/public/product_detail_screen.dart';
-import 'package:gravity/ui/theme/app_theme.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/models/catalog.dart';
+import 'package:catalogo_ja/models/settings.dart';
+import 'package:catalogo_ja/models/product_variant.dart';
+import 'package:catalogo_ja/features/admin/admin_shell_screen.dart';
+import 'package:catalogo_ja/features/admin/products/products_screen.dart';
+import 'package:catalogo_ja/features/admin/categories/categories_screen.dart';
+import 'package:catalogo_ja/features/admin/collections/collections_screen.dart';
+import 'package:catalogo_ja/features/admin/collections/collection_form_screen.dart';
+import 'package:catalogo_ja/features/admin/catalogs/catalogs_screen.dart';
+import 'package:catalogo_ja/features/admin/import/nuvemshop_import_screen.dart';
+import 'package:catalogo_ja/features/admin/settings/settings_screen.dart';
+import 'package:catalogo_ja/features/theme/theme_providers.dart';
+import 'package:catalogo_ja/features/public/catalog_home_page.dart';
+import 'package:catalogo_ja/features/public/product_detail_screen.dart';
+import 'package:catalogo_ja/ui/theme/app_theme.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -83,32 +76,25 @@ void main() async {
   runApp(const ProviderScope(child: MyApp()));
 }
 
-class MyApp extends ConsumerWidget {
+class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final mode = ref.watch(themeModeProvider);
-    final authState = ref.watch(authControllerProvider);
-    final user = authState.value;
-    final streamSource = ref.watch(authRepositoryProvider).authStateChanges();
+  ConsumerState<MyApp> createState() => _MyAppState();
+}
 
-    final router = GoRouter(
+class _MyAppState extends ConsumerState<MyApp> {
+  late final GoRouter _router;
+
+  @override
+  void initState() {
+    super.initState();
+    _router = GoRouter(
       initialLocation: '/admin/products',
-      refreshListenable: GoRouterRefreshStream(streamSource),
-      redirect: (context, state) => _authRedirect(user, state),
       routes: [
         GoRoute(
           path: '/',
           builder: (context, state) => const PublicHomeScreen(),
-        ),
-        GoRoute(
-          path: '/login',
-          builder: (context, state) => const LoginScreen(),
-        ),
-        GoRoute(
-          path: '/register',
-          builder: (context, state) => const RegisterScreen(),
         ),
         GoRoute(
           path: 'p/:productId',
@@ -168,7 +154,6 @@ class MyApp extends ConsumerWidget {
                 ),
               ],
             ),
-
             StatefulShellBranch(
               routes: [
                 GoRoute(
@@ -205,6 +190,17 @@ class MyApp extends ConsumerWidget {
         ),
       ],
     );
+  }
+
+  @override
+  void dispose() {
+    _router.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mode = ref.watch(themeModeProvider);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: ref.watch(themeModeProvider) == ThemeMode.dark
@@ -219,46 +215,15 @@ class MyApp extends ConsumerWidget {
               systemNavigationBarIconBrightness: Brightness.dark,
             ),
       child: MaterialApp.router(
-        title: 'Gravity',
+        title: 'CatalogoJa',
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
         themeMode: mode,
-        routerConfig: router,
+        routerConfig: _router,
         debugShowCheckedModeBanner: false,
       ),
     );
   }
-}
-
-class GoRouterRefreshStream extends ChangeNotifier {
-  GoRouterRefreshStream(Stream<dynamic> stream) {
-    _subscription = stream.listen((event) => notifyListeners());
-  }
-  late final StreamSubscription<dynamic> _subscription;
-  @override
-  void dispose() {
-    _subscription.cancel();
-    super.dispose();
-  }
-}
-
-String? _authRedirect(AuthUser? user, GoRouterState state) {
-  if (kBypassAuth) return null;
-  final path = state.uri.path;
-  if (!isLoggedIn(user)) {
-    if (path == '/login' ||
-        path == '/register' ||
-        path.startsWith('/c/') ||
-        path == '/') {
-      return null;
-    }
-    return '/login';
-  }
-  if (path == '/login' || path == '/register') {
-    return isAdmin(user) ? '/admin/products' : '/';
-  }
-  if (path.startsWith('/admin') && !isAdmin(user)) return '/';
-  return null;
 }
 
 class PublicHomeScreen extends ConsumerStatefulWidget {
@@ -285,7 +250,7 @@ class _PublicHomeScreenState extends ConsumerState<PublicHomeScreen> {
     final isDark = ref.watch(themeModeProvider) == ThemeMode.dark;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Catálogo'),
+        title: const Text('Cat\u00e1logo'),
         actions: [
           IconButton(
             icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
@@ -306,14 +271,14 @@ class _PublicHomeScreenState extends ConsumerState<PublicHomeScreen> {
                 child: Column(
                   children: [
                     Text(
-                      'Acesse seu catálogo',
+                      'Acesse seu cat\u00e1logo',
                       style: Theme.of(context).textTheme.headlineSmall,
                     ),
                     const SizedBox(height: 16),
                     TextField(
                       controller: _codeController,
                       decoration: const InputDecoration(
-                        labelText: 'Código do catálogo',
+                        labelText: 'C\u00f3digo do cat\u00e1logo',
                         prefixIcon: Icon(Icons.link),
                       ),
                       onSubmitted: (_) => _openCatalog(),
@@ -323,26 +288,8 @@ class _PublicHomeScreenState extends ConsumerState<PublicHomeScreen> {
                       width: double.infinity,
                       child: FilledButton(
                         onPressed: _openCatalog,
-                        child: const Text('Abrir catálogo'),
+                        child: const Text('Abrir cat\u00e1logo'),
                       ),
-                    ),
-                    const Divider(height: 48),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => context.go('/login'),
-                            child: const Text('Entrar'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: () => context.go('/register'),
-                            child: const Text('Criar conta'),
-                          ),
-                        ),
-                      ],
                     ),
                   ],
                 ),

@@ -1,4 +1,4 @@
-﻿import 'package:hive/hive.dart';
+import 'package:hive/hive.dart';
 
 part 'catalog.g.dart';
 
@@ -26,7 +26,7 @@ enum CatalogMode {
 
 extension CatalogModeExtension on CatalogMode {
   String get label =>
-      this == CatalogMode.atacado ? 'CATÁLOGO ATACADO' : 'CATÁLOGO VAREJO';
+      this == CatalogMode.atacado ? 'CAT\u00c1LOGO ATACADO' : 'CAT\u00c1LOGO VAREJO';
 }
 
 @HiveType(typeId: 6)

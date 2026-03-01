@@ -1,6 +1,6 @@
 import 'package:hive/hive.dart';
-import 'package:gravity/core/utils/price_calculator.dart';
-import 'package:gravity/models/product_variant.dart';
+import 'package:catalogo_ja/core/utils/price_calculator.dart';
+import 'package:catalogo_ja/models/product_variant.dart';
 
 part 'product.g.dart';
 
@@ -15,17 +15,27 @@ class ProductPhoto {
   @HiveField(2)
   final bool isPrimary;
 
+  @HiveField(3)
+  final String? photoType;
+
   const ProductPhoto({
     required this.path,
     this.colorKey,
     this.isPrimary = false,
+    this.photoType,
   });
 
-  ProductPhoto copyWith({String? path, String? colorKey, bool? isPrimary}) {
+  ProductPhoto copyWith({
+    String? path,
+    String? colorKey,
+    bool? isPrimary,
+    String? photoType,
+  }) {
     return ProductPhoto(
       path: path ?? this.path,
       colorKey: colorKey ?? this.colorKey,
       isPrimary: isPrimary ?? this.isPrimary,
+      photoType: photoType ?? this.photoType,
     );
   }
 }

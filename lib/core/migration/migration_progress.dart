@@ -1,4 +1,4 @@
-﻿class MigrationProgress {
+class MigrationProgress {
   final String stage; // ex: 'init', 'products', 'done'
   final int completed; // quantos itens processados
   final int total; // total de itens

@@ -1,9 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:gravity/core/widgets/admin_drawer_header.dart';
-import 'package:gravity/features/theme/theme_providers.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/core/widgets/admin_drawer_header.dart';
+import 'package:catalogo_ja/features/theme/theme_providers.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 
 class AdminShellScreen extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
@@ -12,10 +12,10 @@ class AdminShellScreen extends ConsumerWidget {
 
   static const _destinations = [
     _NavItem(icon: Icons.inventory, label: 'Produtos'),
-    _NavItem(icon: Icons.collections_bookmark, label: 'Coleções'),
+    _NavItem(icon: Icons.collections_bookmark, label: 'Cole\u00e7\u00f5es'),
     _NavItem(icon: Icons.category, label: 'Categorias'),
-    _NavItem(icon: Icons.menu_book, label: 'Catálogos'),
-    _NavItem(icon: Icons.cloud_download, label: 'Importações'),
+    _NavItem(icon: Icons.menu_book, label: 'Cat\u00e1logos'),
+    _NavItem(icon: Icons.cloud_download, label: 'Importa\u00e7\u00f5es'),
   ];
 
   @override
@@ -26,6 +26,9 @@ class AdminShellScreen extends ConsumerWidget {
       ref.read(themeModeProvider.notifier).state = isDark
           ? ThemeMode.light
           : ThemeMode.dark;
+    }
+    void onAdminNavigation(int index) {
+      navigationShell.goBranch(index, initialLocation: index == 0);
     }
 
     return LayoutBuilder(
@@ -62,7 +65,7 @@ class AdminShellScreen extends ConsumerWidget {
                     child: NavigationDrawer(
                       selectedIndex: navigationShell.currentIndex,
                       onDestinationSelected: (index) {
-                        navigationShell.goBranch(index);
+                        onAdminNavigation(index);
                         Navigator.of(context).pop();
                       },
                       children: [
@@ -70,8 +73,8 @@ class AdminShellScreen extends ConsumerWidget {
                         const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 16),
                           child: AdminDrawerHeader(
-                            title: 'Gravity Admin',
-                            subtitle: 'Catálogos automatizados',
+                            title: 'CatalogoJa Admin',
+                            subtitle: 'Cat\u00e1logos automatizados',
                             icon: Icons.auto_awesome_outlined,
                           ),
                         ),
@@ -105,6 +108,17 @@ class AdminShellScreen extends ConsumerWidget {
                             size: 20,
                           ),
                         ),
+                        ListTile(
+                          leading: const Icon(Icons.settings_outlined, size: 20),
+                          title: const Text(
+                            'Ajustes',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            context.push('/admin/settings');
+                          },
+                        ),
                       ],
                     ),
                   ),
@@ -113,61 +127,69 @@ class AdminShellScreen extends ConsumerWidget {
               ? Row(
                   children: [
                     Container(
+                      width: 280,
                       decoration: BoxDecoration(
                         border: Border(
-                          right: BorderSide(
-                            color: Theme.of(context).dividerColor,
-                          ),
+                          right: BorderSide(color: Theme.of(context).dividerColor),
                         ),
                       ),
-                      child: NavigationRail(
-                        minExtendedWidth: 240,
-                        extended: true,
-                        leading: const Padding(
-                          padding: EdgeInsets.symmetric(
-                            vertical: 32,
-                            horizontal: 16,
-                          ),
-                          child: AdminDrawerHeader(
-                            title: 'Gravity Admin',
-                            subtitle: 'Beta Version',
-                            icon: Icons.auto_awesome_outlined,
-                          ),
-                        ),
-                        trailing: Expanded(
-                          child: Align(
-                            alignment: Alignment.bottomCenter,
-                            child: Padding(
-                              padding: const EdgeInsets.only(bottom: 24),
-                              child: _ThemeToggleButton(
-                                isDark: isDark,
-                                onToggle: toggleTheme,
+                      child: SafeArea(
+                        child: NavigationDrawer(
+                          selectedIndex: navigationShell.currentIndex,
+                          onDestinationSelected: onAdminNavigation,
+                          children: [
+                            const SizedBox(height: AppTokens.space24),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 16),
+                              child: AdminDrawerHeader(
+                                title: 'CatalogoJa Admin',
+                                subtitle: 'Beta Version',
+                                icon: Icons.auto_awesome_outlined,
                               ),
                             ),
-                          ),
-                        ),
-                        destinations: _destinations
-                            .map(
-                              (item) => NavigationRailDestination(
-                                icon: Icon(item.icon, size: 22),
+                            const SizedBox(height: AppTokens.space24),
+                            ..._destinations.map(
+                              (item) => NavigationDrawerDestination(
+                                icon: Icon(item.icon),
                                 selectedIcon: Icon(
                                   item.icon,
                                   color: AppTokens.accentBlue,
-                                  size: 22,
                                 ),
-                                label: Text(
-                                  item.label,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
+                                label: Text(item.label),
                               ),
-                            )
-                            .toList(),
-                        selectedIndex: navigationShell.currentIndex,
-                        onDestinationSelected: (index) =>
-                            navigationShell.goBranch(index),
-                        indicatorColor: AppTokens.accentBlue.withOpacity(0.08),
+                            ),
+                            const Padding(
+                              padding: EdgeInsets.all(AppTokens.space16),
+                              child: Divider(),
+                            ),
+                            SwitchListTile.adaptive(
+                              title: const Text(
+                                'Modo noturno',
+                                style: TextStyle(fontSize: 14),
+                              ),
+                              value: isDark,
+                              onChanged: (_) => toggleTheme(),
+                              activeColor: AppTokens.accentBlue,
+                              secondary: Icon(
+                                isDark
+                                    ? Icons.dark_mode_outlined
+                                    : Icons.light_mode_outlined,
+                                size: 20,
+                              ),
+                            ),
+                            ListTile(
+                              leading: const Icon(
+                                Icons.settings_outlined,
+                                size: 20,
+                              ),
+                              title: const Text(
+                                'Ajustes',
+                                style: TextStyle(fontSize: 14),
+                              ),
+                              onTap: () => context.push('/admin/settings'),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     Expanded(child: navigationShell),
@@ -176,42 +198,6 @@ class AdminShellScreen extends ConsumerWidget {
               : navigationShell,
         );
       },
-    );
-  }
-}
-
-class _ThemeToggleButton extends StatelessWidget {
-  final bool isDark;
-  final VoidCallback onToggle;
-
-  const _ThemeToggleButton({required this.isDark, required this.onToggle});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onToggle,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-              size: 18,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              isDark ? 'Modo Claro' : 'Modo Escuro',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

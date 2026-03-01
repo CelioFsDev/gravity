@@ -1,11 +1,13 @@
-﻿import 'package:flutter/material.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
+import 'package:flutter/material.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 
 class AppCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
   final EdgeInsetsGeometry? margin;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final Decoration? decoration;
 
   const AppCard({
     super.key,
@@ -13,6 +15,8 @@ class AppCard extends StatelessWidget {
     this.padding,
     this.margin,
     this.onTap,
+    this.onLongPress,
+    this.decoration,
   });
 
   @override
@@ -24,19 +28,22 @@ class AppCard extends StatelessWidget {
 
     return Container(
       margin: margin,
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        boxShadow: const [AppTokens.shadowSm],
-        border: Border.all(
-          color: Theme.of(context).dividerColor.withOpacity(0.5),
-        ),
-      ),
+      decoration:
+          decoration ??
+          BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+            boxShadow: const [AppTokens.shadowSm],
+            border: Border.all(
+              color: Theme.of(context).dividerColor.withOpacity(0.5),
+            ),
+          ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(AppTokens.radiusMd),
           onTap: onTap,
+          onLongPress: onLongPress,
           child: content,
         ),
       ),

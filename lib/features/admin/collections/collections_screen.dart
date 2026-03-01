@@ -2,13 +2,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:gravity/models/category.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
-import 'package:gravity/ui/widgets/app_scaffold.dart';
-import 'package:gravity/ui/widgets/app_empty_state.dart';
-import 'package:gravity/ui/widgets/app_badge_pill.dart';
-import 'package:gravity/ui/widgets/app_search_field.dart';
-import 'package:gravity/viewmodels/categories_viewmodel.dart';
+import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
+import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
+import 'package:catalogo_ja/ui/widgets/app_badge_pill.dart';
+import 'package:catalogo_ja/ui/widgets/app_search_field.dart';
+import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
 
 class CollectionsScreen extends ConsumerStatefulWidget {
   const CollectionsScreen({super.key});
@@ -32,13 +32,13 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
     final categoriesState = ref.watch(categoriesViewModelProvider);
 
     return AppScaffold(
-      title: 'Coleções',
-      subtitle: 'Gerencie suas coleções e catálogos',
+      title: 'Cole\u00e7\u00f5es',
+      subtitle: 'Gerencie suas cole\u00e7\u00f5es e cat\u00e1logos',
       actions: [
         FilledButton.icon(
           onPressed: () => context.push('/admin/collections/new'),
           icon: const Icon(Icons.add),
-          label: const Text('Nova Coleção'),
+          label: const Text('Nova Cole\u00e7\u00e3o'),
         ),
       ],
       body: categoriesState.when(
@@ -58,10 +58,10 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
           if (collections.isEmpty && _searchQuery.isEmpty) {
             return AppEmptyState(
               icon: Icons.collections_bookmark_outlined,
-              title: 'Nenhuma coleção',
+              title: 'Nenhuma cole\u00e7\u00e3o',
               message:
-                  'Crie sua primeira coleção para organizar seus produtos.',
-              actionLabel: 'Criar Coleção',
+                  'Crie sua primeira cole\u00e7\u00e3o para organizar seus produtos.',
+              actionLabel: 'Criar Cole\u00e7\u00e3o',
               onAction: () => context.push('/admin/collections/new'),
             );
           }
@@ -74,7 +74,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                 ),
                 child: AppSearchField(
                   controller: _searchController,
-                  hintText: 'Buscar coleções...',
+                  hintText: 'Buscar cole\u00e7\u00f5es...',
                   onChanged: (value) => setState(() => _searchQuery = value),
                   onClear: () {
                     _searchController.clear();
@@ -92,7 +92,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                     AppTokens.space48,
                   ),
                   itemCount: collections.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 16),
+                  separatorBuilder: (_, _) => const SizedBox(height: 16),
                   itemBuilder: (context, index) {
                     final collection = collections[index];
                     return _CollectionCard(
@@ -118,9 +118,9 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Excluir Coleção?'),
+        title: const Text('Excluir Cole\u00e7\u00e3o?'),
         content: const Text(
-          'Esta ação não pode ser desfeita. Os produtos vinculados perderão esta associação.',
+          'Esta a\u00e7\u00e3o n\u00e3o pode ser desfeita. Os produtos vinculados perder\u00e3o esta associa\u00e7\u00e3o.',
         ),
         actions: [
           TextButton(
@@ -172,11 +172,7 @@ class _CollectionCard extends StatelessWidget {
               height: 120,
               width: double.infinity,
               child: hasCover
-                  ? Image.file(
-                      File(coverPath),
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _buildPlaceholder(context),
-                    )
+                  ? _buildCoverImage(coverPath, context)
                   : _buildPlaceholder(context),
             ),
             Padding(
@@ -259,6 +255,22 @@ class _CollectionCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCoverImage(String coverPath, BuildContext context) {
+    if (coverPath.startsWith('data:image') || coverPath.startsWith('http')) {
+      return Image.network(
+        coverPath,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => _buildPlaceholder(context),
+      );
+    }
+
+    return Image.file(
+      File(coverPath),
+      fit: BoxFit.cover,
+      errorBuilder: (_, _, _) => _buildPlaceholder(context),
     );
   }
 }

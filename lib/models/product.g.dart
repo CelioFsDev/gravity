@@ -20,19 +20,22 @@ class ProductPhotoAdapter extends TypeAdapter<ProductPhoto> {
       path: fields[0] as String,
       colorKey: fields[1] as String?,
       isPrimary: fields[2] as bool,
+      photoType: fields[3] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, ProductPhoto obj) {
     writer
-      ..writeByte(3)
+      ..writeByte(4)
       ..writeByte(0)
       ..write(obj.path)
       ..writeByte(1)
       ..write(obj.colorKey)
       ..writeByte(2)
-      ..write(obj.isPrimary);
+      ..write(obj.isPrimary)
+      ..writeByte(3)
+      ..write(obj.photoType);
   }
 
   @override

@@ -11,7 +11,7 @@ class NuvemshopApiClient {
     required this.storeId,
     required this.accessToken,
     this.baseUrl = 'https://api.nuvemshop.com.br',
-    this.userAgent = 'Gravity Importer (contato@gravity.local)',
+    this.userAgent = 'CatalogoJa Importer (contato@CatalogoJa.local)',
   });
 
   Future<List<String>> getProductImageUrlsBySku(String sku) async {

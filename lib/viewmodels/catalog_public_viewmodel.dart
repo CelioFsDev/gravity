@@ -1,9 +1,9 @@
-import 'package:gravity/data/repositories/catalogs_repository.dart';
-import 'package:gravity/data/repositories/categories_repository.dart';
-import 'package:gravity/data/repositories/products_repository.dart';
-import 'package:gravity/models/catalog.dart';
-import 'package:gravity/models/category.dart';
-import 'package:gravity/models/product.dart';
+import 'package:catalogo_ja/data/repositories/catalogs_repository.dart';
+import 'package:catalogo_ja/data/repositories/categories_repository.dart';
+import 'package:catalogo_ja/data/repositories/products_repository.dart';
+import 'package:catalogo_ja/models/catalog.dart';
+import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/models/product.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'catalog_public_viewmodel.g.dart';

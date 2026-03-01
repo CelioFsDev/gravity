@@ -1,5 +1,5 @@
-﻿import 'package:flutter/material.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
+import 'package:flutter/material.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 
 class AppEmptyState extends StatelessWidget {
   final IconData icon;

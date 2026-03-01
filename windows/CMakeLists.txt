@@ -1,10 +1,13 @@
-﻿# Project-level configuration.
+# Project-level configuration.
 cmake_minimum_required(VERSION 3.14)
-project(gravity LANGUAGES CXX)
+project(catalogo_ja LANGUAGES CXX)
+
+# Required for older third-party CMakeLists (e.g., Firebase C++ SDK) when using recent CMake versions.
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
-set(BINARY_NAME "gravity")
+set(BINARY_NAME "catalogo_ja")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.

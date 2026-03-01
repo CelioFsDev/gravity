@@ -1,16 +1,16 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:gravity/models/product.dart';
-import 'package:gravity/models/catalog.dart';
+import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/models/catalog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gravity/viewmodels/settings_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/settings_viewmodel.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
-import 'package:gravity/ui/widgets/app_badge_pill.dart';
-import 'package:gravity/ui/widgets/app_primary_button.dart';
-import 'package:gravity/ui/widgets/app_scaffold.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/widgets/app_badge_pill.dart';
+import 'package:catalogo_ja/ui/widgets/app_primary_button.dart';
+import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 
 class PublicProductDetailScreen extends ConsumerStatefulWidget {
   final Product product;
@@ -80,10 +80,10 @@ class _PublicProductDetailScreenState
 
     final message =
         '''
-Olá! Vi este produto no catálogo:
+Ol\u00e1! Vi este produto no cat\u00e1logo:
 *${widget.product.name}*
 REF: ${widget.product.ref}
-Preço: ${currency.format(price)}
+Pre\u00e7o: ${currency.format(price)}
 Cor: ${_selectedColor ?? 'N/A'}
 Tamanho: ${_selectedSize ?? 'N/A'}
 
@@ -346,7 +346,7 @@ Pode me ajudar?
       ),
       child: AppPrimaryButton(
         label: widget.product.isOutOfStock
-            ? 'PRODUTO INDISPONÍVEL'
+            ? 'PRODUTO INDISPON\u00cdVEL'
             : 'PEDIR NO WHATSAPP',
         icon: Icons.chat_outlined,
         onPressed: widget.product.isOutOfStock ? null : _orderViaWhatsApp,

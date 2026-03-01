@@ -1,4 +1,4 @@
-package com.example.gravity
+package com.catalogoja.app
 
 import io.flutter.embedding.android.FlutterActivity
 

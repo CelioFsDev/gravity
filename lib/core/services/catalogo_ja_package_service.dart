@@ -1,33 +1,59 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:archive/archive_io.dart';
-import 'package:gravity/core/services/dto/gravity_export_dtos.dart';
-import 'package:gravity/core/services/export_import_service.dart';
-import 'package:gravity/models/product.dart';
+import 'package:catalogo_ja/core/services/dto/catalogo_ja_export_dtos.dart';
+import 'package:catalogo_ja/core/services/export_import_service.dart';
+import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/models/category.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-part 'gravity_package_service.g.dart';
+typedef ProgressCallback = void Function(double progress, String message);
 
-class GravityPackageService {
+class CatalogoJaPackageService {
   final ExportImportService _exportImportService;
 
-  GravityPackageService(this._exportImportService);
+  CatalogoJaPackageService(this._exportImportService);
 
-  Future<File> exportPackage() async {
+  Future<File> exportPackage({ProgressCallback? onProgress}) async {
+    return _exportPackageBase(onProgress: onProgress);
+  }
+
+  Future<File> exportPackageForCatalog({
+    required List<Product> products,
+    required List<Category> collections,
+    ProgressCallback? onProgress,
+  }) async {
+    return _exportPackageBase(
+      products: products,
+      collections: collections,
+      onProgress: onProgress,
+    );
+  }
+
+  Future<File> _exportPackageBase({
+    List<Product>? products,
+    List<Category>? collections,
+    ProgressCallback? onProgress,
+  }) async {
     final tempDir = await getTemporaryDirectory();
     final packageDir = Directory(
       p.join(
         tempDir.path,
-        'gravity_export_${DateTime.now().millisecondsSinceEpoch}',
+        'CatalogoJa_export_${DateTime.now().millisecondsSinceEpoch}',
       ),
     );
     await packageDir.create(recursive: true);
 
     // 1. Get base payload
-    final jsonFile = await _exportImportService.exportToJsonFile();
-    final payload = await _exportImportService.parsePayload(jsonFile);
+    onProgress?.call(0.05, 'Analisando banco de dados...');
+    final payload = await _exportImportService.generatePayload(
+      products: products,
+      categories: collections,
+    );
+    onProgress?.call(0.10, 'Lendo dados do cat\u00e1logo...');
+    await Future.delayed(const Duration(milliseconds: 10));
 
     // 2. Process images and update payload
     final imagesDir = Directory(p.join(packageDir.path, 'images'));
@@ -39,15 +65,28 @@ class GravityPackageService {
     int imageCount = 0;
 
     final appDocDir = await getApplicationDocumentsDirectory();
+    final totalProducts = payload.products.length;
+    int currentProduct = 0;
 
     for (final product in payload.products) {
+      currentProduct++;
+      onProgress?.call(
+        0.10 + (0.55 * (currentProduct / totalProducts)),
+        'Processando produto $currentProduct de $totalProducts...',
+      );
+      if (currentProduct % 10 == 0) {
+        await Future.delayed(const Duration(milliseconds: 5));
+      }
       final newImages = <String>[];
+      final newPhotos = <ProductPhotoDTO>[];
 
       // Create product subdir for images
       final productImagesDir = Directory(p.join(imagesDir.path, product.id));
 
-      for (int i = 0; i < product.images.length; i++) {
-        final imagePath = product.images[i];
+      // Map paths from photos list (which is richer than images list)
+      for (int i = 0; i < product.photos.length; i++) {
+        final photo = product.photos[i];
+        final imagePath = photo.path;
 
         // Try absolute path first, then relative to app doc dir
         File file = File(imagePath);
@@ -72,13 +111,21 @@ class GravityPackageService {
           final targetPath = p.join(productImagesDir.path, relativeName);
 
           await file.copy(targetPath);
-          newImages.add('images/${product.id}/$relativeName');
+
+          final relativePackagePath = 'images/${product.id}/$relativeName';
+          newImages.add(relativePackagePath);
+          newPhotos.add(
+            ProductPhotoDTO(
+              path: relativePackagePath,
+              colorKey: photo.colorKey,
+              isPrimary: photo.isPrimary,
+            ),
+          );
           imageCount++;
         }
       }
 
       // Reconstruct product with relative paths
-      // Note: remoteImages and others are preserved from original payload
       updatedProducts.add(
         ProductDTO(
           id: product.id,
@@ -92,6 +139,7 @@ class GravityPackageService {
           promoEnabled: product.promoEnabled,
           promoPercent: product.promoPercent,
           images: newImages,
+          photos: newPhotos,
           remoteImages: product.remoteImages,
           mainImageIndex: product.mainImageIndex,
           categoryIds: product.categoryIds,
@@ -103,14 +151,89 @@ class GravityPackageService {
       );
     }
 
+    // 2.2 Process Collection Cover Images
+    final updatedCollections = <CategoryDTO>[];
+    final totalCollections = payload.collections.length;
+    int currentCol = 0;
+
+    for (final collection in payload.collections) {
+      currentCol++;
+      onProgress?.call(
+        0.65 + (0.15 * (currentCol / totalCollections)),
+        'Processando cole\u00e7\u00e3o $currentCol de $totalCollections...',
+      );
+      String? newMiniPath = collection.cover?.coverMiniPath;
+      String? newPagePath = collection.cover?.coverPagePath;
+
+      if (collection.cover != null) {
+        final collectionImagesDir = Directory(
+          p.join(imagesDir.path, 'collections', collection.id),
+        );
+
+        // Process Mini Cover
+        if (collection.cover!.coverMiniPath != null) {
+          final file = File(collection.cover!.coverMiniPath!);
+          if (file.existsSync()) {
+            if (!await collectionImagesDir.exists()) {
+              await collectionImagesDir.create(recursive: true);
+            }
+            final ext = p.extension(file.path);
+            final targetName = 'mini$ext';
+            await file.copy(p.join(collectionImagesDir.path, targetName));
+            newMiniPath = 'images/collections/${collection.id}/$targetName';
+            imageCount++;
+          }
+        }
+
+        // Process Page Cover
+        if (collection.cover!.coverPagePath != null) {
+          final file = File(collection.cover!.coverPagePath!);
+          if (file.existsSync()) {
+            if (!await collectionImagesDir.exists()) {
+              await collectionImagesDir.create(recursive: true);
+            }
+            final ext = p.extension(file.path);
+            final targetName = 'page$ext';
+            await file.copy(p.join(collectionImagesDir.path, targetName));
+            newPagePath = 'images/collections/${collection.id}/$targetName';
+            imageCount++;
+          }
+        }
+      }
+
+      updatedCollections.add(
+        CategoryDTO(
+          id: collection.id,
+          name: collection.name,
+          slug: collection.slug,
+          isActive: collection.isActive,
+          order: collection.order,
+          type: collection.type,
+          cover: collection.cover != null
+              ? CollectionCoverDTO(
+                  title: collection.cover!.title,
+                  mode: collection.cover!.mode,
+                  coverImagePath: collection
+                      .cover!
+                      .coverImagePath, // preserve original or placeholder
+                  coverMiniPath: newMiniPath,
+                  coverPagePath: newPagePath,
+                )
+              : null,
+          createdAt: collection.createdAt,
+          updatedAt: collection.updatedAt,
+        ),
+      );
+    }
+
     // 3. Create Update Payload
-    final newPayload = GravityExportPayload(
+    final newPayload = CatalogoJaExportPayload(
       app: payload.app,
       version: payload.version,
       exportedAt: payload.exportedAt,
       store: payload.store,
       categories: payload.categories,
-      collections: payload.collections,
+      collections: updatedCollections,
       products: updatedProducts,
     );
 
@@ -120,7 +243,7 @@ class GravityPackageService {
 
     // 5. Create Manifest
     final manifest = {
-      "format": "gravity-package",
+      "format": "CatalogoJa-package",
       "version": 1,
       "exportedAt": DateTime.now().toIso8601String(),
       "productsFile": "products.json",
@@ -134,11 +257,13 @@ class GravityPackageService {
     final zipFile = File(
       p.join(
         tempDir.path,
-        'gravity_export_${DateTime.now().millisecondsSinceEpoch}.zip',
+        'CatalogoJa_export_${DateTime.now().millisecondsSinceEpoch}.zip',
       ),
     );
 
     final archive = Archive();
+
+    onProgress?.call(0.85, 'Criando arquivo compactado...');
 
     // Add products.json
     final productsBytes = await productsJsonFile.readAsBytes();
@@ -162,22 +287,22 @@ class GravityPackageService {
       }
     }
 
+    onProgress?.call(0.95, 'Finalizando arquivo...');
     final zipBytes = ZipEncoder().encode(archive);
     await zipFile.writeAsBytes(zipBytes);
-
-    // Cleanup temp dir
-    // await packageDir.delete(recursive: true); // Optional, system cleans temp
 
     return zipFile;
   }
 
   /// Extracts the ZIP package and returns the payload and the extraction directory.
-  Future<(GravityExportPayload, Directory)> preparePackage(File zipFile) async {
+  Future<(CatalogoJaExportPayload, Directory)> preparePackage(
+    File zipFile,
+  ) async {
     final tempDir = await getTemporaryDirectory();
     final extractDir = Directory(
       p.join(
         tempDir.path,
-        'gravity_import_prepare_${DateTime.now().millisecondsSinceEpoch}',
+        'CatalogoJa_import_prepare_${DateTime.now().millisecondsSinceEpoch}',
       ),
     );
     await extractDir.create(recursive: true);
@@ -218,7 +343,7 @@ class GravityPackageService {
 
   /// Finalizes the import by restoring images and executing the database import.
   Future<ImportReport> importPackageFromDir({
-    required GravityExportPayload payload,
+    required CatalogoJaExportPayload payload,
     required Directory extractDir,
     required ImportMode mode,
   }) async {
@@ -233,15 +358,24 @@ class GravityPackageService {
 
     for (final product in payload.products) {
       final absoluteImages = <String>[];
+      final restoredPhotos = <ProductPhotoDTO>[];
 
-      for (final relativePath in product.images) {
-        final sourceFile = File(p.join(extractDir.path, relativePath));
+      for (final photo in product.photos) {
+        final sourceFile = File(p.join(extractDir.path, photo.path));
         if (await sourceFile.exists()) {
           final newName = '${product.id}_${p.basename(sourceFile.path)}';
           final targetFile = File(p.join(appImagesDir.path, newName));
 
           await sourceFile.copy(targetFile.path);
+
           absoluteImages.add(targetFile.path);
+          restoredPhotos.add(
+            ProductPhotoDTO(
+              path: targetFile.path,
+              colorKey: photo.colorKey,
+              isPrimary: photo.isPrimary,
+            ),
+          );
         }
       }
 
@@ -258,6 +392,7 @@ class GravityPackageService {
           promoEnabled: product.promoEnabled,
           promoPercent: product.promoPercent,
           images: absoluteImages,
+          photos: restoredPhotos,
           remoteImages: product.remoteImages,
           mainImageIndex: product.mainImageIndex,
           categoryIds: product.categoryIds,
@@ -269,14 +404,72 @@ class GravityPackageService {
       );
     }
 
+    // 4.2 Restore Collection Images
+    final restoredCollections = <CategoryDTO>[];
+    for (final collection in payload.collections) {
+      String? absMiniPath = collection.cover?.coverMiniPath;
+      String? absPagePath = collection.cover?.coverPagePath;
+
+      if (collection.cover != null) {
+        // Mini
+        if (collection.cover!.coverMiniPath != null) {
+          final sourceFile = File(
+            p.join(extractDir.path, collection.cover!.coverMiniPath!),
+          );
+          if (await sourceFile.exists()) {
+            final newName =
+                'coll_${collection.id}_mini${p.extension(sourceFile.path)}';
+            final targetFile = File(p.join(appImagesDir.path, newName));
+            await sourceFile.copy(targetFile.path);
+            absMiniPath = targetFile.path;
+          }
+        }
+        // Page
+        if (collection.cover!.coverPagePath != null) {
+          final sourceFile = File(
+            p.join(extractDir.path, collection.cover!.coverPagePath!),
+          );
+          if (await sourceFile.exists()) {
+            final newName =
+                'coll_${collection.id}_page${p.extension(sourceFile.path)}';
+            final targetFile = File(p.join(appImagesDir.path, newName));
+            await sourceFile.copy(targetFile.path);
+            absPagePath = targetFile.path;
+          }
+        }
+      }
+
+      restoredCollections.add(
+        CategoryDTO(
+          id: collection.id,
+          name: collection.name,
+          slug: collection.slug,
+          isActive: collection.isActive,
+          order: collection.order,
+          type: collection.type,
+          cover: collection.cover != null
+              ? CollectionCoverDTO(
+                  title: collection.cover!.title,
+                  mode: collection.cover!.mode,
+                  coverImagePath: collection.cover!.coverImagePath,
+                  coverMiniPath: absMiniPath,
+                  coverPagePath: absPagePath,
+                )
+              : null,
+          createdAt: collection.createdAt,
+          updatedAt: collection.updatedAt,
+        ),
+      );
+    }
+
     // 5. Execute Import
-    final importPayload = GravityExportPayload(
+    final importPayload = CatalogoJaExportPayload(
       app: payload.app,
       version: payload.version,
       exportedAt: payload.exportedAt,
       store: payload.store,
       categories: payload.categories,
-      collections: payload.collections,
+      collections: restoredCollections,
       products: restoredProducts,
     );
 
@@ -324,7 +517,8 @@ class ImportReport {
   });
 }
 
-@Riverpod(keepAlive: true)
-GravityPackageService gravityPackageService(GravityPackageServiceRef ref) {
-  return GravityPackageService(ref.read(exportImportServiceProvider));
-}
+final catalogoJaPackageServiceProvider = Provider<CatalogoJaPackageService>((
+  ref,
+) {
+  return CatalogoJaPackageService(ref.read(exportImportServiceProvider));
+});

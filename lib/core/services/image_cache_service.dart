@@ -14,6 +14,19 @@ ImageCacheService imageCacheService(ImageCacheServiceRef ref) {
 
 class ImageCacheService {
   static const String _imagesDirName = 'product_images';
+  static const Set<String> _supportedImageExtensions = {
+    '.jpg',
+    '.jpeg',
+    '.png',
+    '.webp',
+    '.gif',
+    '.bmp',
+    '.tif',
+    '.tiff',
+    '.heic',
+    '.heif',
+    '.avif',
+  };
 
   /// Downloads an image from [url] and saves it locally.
   /// Returns the absolute path of the saved file, or null if failed.
@@ -38,10 +51,8 @@ class ImageCacheService {
 
       // Try to keep extension from URL or semantic
       String extension = p.extension(uri.path).toLowerCase();
-      if (extension.isEmpty ||
-          !['.jpg', '.jpeg', '.png', '.webp'].contains(extension)) {
-        // Simple fallback or detection could be better, but acceptable for now
-        extension = '.jpg';
+      if (extension.isEmpty || !_supportedImageExtensions.contains(extension)) {
+        extension = _extensionFromContentType(response.headers['content-type']);
       }
 
       // We deduplicate by content hash? Or just random UUID?
@@ -79,5 +90,21 @@ class ImageCacheService {
     } catch (e) {
       return null;
     }
+  }
+
+  String _extensionFromContentType(String? contentType) {
+    final type = (contentType ?? '').toLowerCase();
+    if (type.contains('image/jpeg') || type.contains('image/jpg')) {
+      return '.jpg';
+    }
+    if (type.contains('image/png')) return '.png';
+    if (type.contains('image/webp')) return '.webp';
+    if (type.contains('image/gif')) return '.gif';
+    if (type.contains('image/bmp')) return '.bmp';
+    if (type.contains('image/tiff')) return '.tiff';
+    if (type.contains('image/heic')) return '.heic';
+    if (type.contains('image/heif')) return '.heif';
+    if (type.contains('image/avif')) return '.avif';
+    return '.jpg';
   }
 }

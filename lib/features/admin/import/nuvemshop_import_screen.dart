@@ -1,17 +1,22 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:gravity/core/importer/nuvemshop_api_client.dart';
-import 'package:gravity/core/importer/nuvemshop_csv_reader.dart';
-import 'package:gravity/core/importer/nuvemshop_forward_fill.dart';
-import 'package:gravity/core/importer/nuvemshop_import_service.dart';
-import 'package:gravity/core/services/image_cache_service.dart';
-import 'package:gravity/data/repositories/categories_repository.dart';
-import 'package:gravity/data/repositories/products_repository.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
-import 'package:gravity/ui/widgets/app_scaffold.dart';
-import 'package:gravity/ui/widgets/section_card.dart';
-import 'package:gravity/ui/widgets/app_primary_button.dart';
+import 'package:go_router/go_router.dart';
+import 'package:catalogo_ja/core/importer/nuvemshop_api_client.dart';
+import 'package:catalogo_ja/core/importer/nuvemshop_csv_reader.dart';
+import 'package:catalogo_ja/core/importer/nuvemshop_forward_fill.dart';
+import 'package:catalogo_ja/core/importer/nuvemshop_import_service.dart';
+import 'package:catalogo_ja/core/services/image_cache_service.dart';
+import 'package:catalogo_ja/data/repositories/categories_repository.dart';
+import 'package:catalogo_ja/data/repositories/products_repository.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
+import 'package:catalogo_ja/ui/widgets/section_card.dart';
+import 'package:catalogo_ja/ui/widgets/app_primary_button.dart';
+import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/catalog_public_viewmodel.dart';
 
 class NuvemshopImportScreen extends ConsumerStatefulWidget {
   const NuvemshopImportScreen({super.key});
@@ -48,9 +53,9 @@ class _NuvemshopImportScreenState extends ConsumerState<NuvemshopImportScreen> {
     final filled = forwardFill(table.rows, const [
       'Nome',
       'Categorias',
-      'Preço',
-      'Preço promocional',
-      'Descrição',
+      'Pre\u00e7o',
+      'Pre\u00e7o promocional',
+      'Descri\u00e7\u00e3o',
       'Tags',
     ]);
     setState(() {
@@ -65,7 +70,7 @@ class _NuvemshopImportScreenState extends ConsumerState<NuvemshopImportScreen> {
     setState(() {
       _loading = true;
       _progress = 0.0;
-      _statusText = 'Preparando importação...';
+      _statusText = 'Preparando importa\u00e7\u00e3o...';
     });
 
     final storeId = _storeIdController.text.trim();
@@ -87,20 +92,24 @@ class _NuvemshopImportScreenState extends ConsumerState<NuvemshopImportScreen> {
         onStatus: (status) => setState(() => _statusText = status),
       );
       debugPrint(
-        'Importação concluída: ${report.createdCount} criados, ${report.updatedCount} atualizados',
+        'Importa\u00e7\u00e3o conclu\u00edda: ${report.createdCount} criados, ${report.updatedCount} atualizados',
       );
       setState(() {
         _report = report;
         _statusText = report.warnings.isNotEmpty
-            ? 'Importação concluída com avisos.'
-            : 'Importação concluída.';
+            ? 'Importa\u00e7\u00e3o conclu\u00edda com avisos.'
+            : 'Importa\u00e7\u00e3o conclu\u00edda.';
       });
+      ref.invalidate(productsViewModelProvider);
+      ref.invalidate(categoriesViewModelProvider);
+      ref.invalidate(catalogsViewModelProvider);
+      ref.invalidate(catalogPublicProvider);
     } catch (e, stack) {
-      debugPrint('Erro na importação: $e\n$stack');
+      debugPrint('Erro na importa\u00e7\u00e3o: $e\n$stack');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erro na importação: $e'),
+            content: Text('Erro na importa\u00e7\u00e3o: $e'),
             duration: const Duration(seconds: 5),
             action: SnackBarAction(label: 'OK', onPressed: () {}),
           ),
@@ -169,11 +178,31 @@ class _NuvemshopImportScreenState extends ConsumerState<NuvemshopImportScreen> {
             SizedBox(
               width: double.infinity,
               child: AppPrimaryButton(
-                label: _loading ? 'Importando...' : 'Iniciar Importação',
+                label: _loading ? 'Importando...' : 'Iniciar Importa\u00e7\u00e3o',
                 onPressed: _selectedFile == null || _loading ? null : _import,
                 icon: Icons.cloud_download_outlined,
               ),
             ),
+            if (_report != null && !_loading) ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.inventory_2_outlined),
+                  label: const Text('Voltar para Produtos'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton.icon(
+                  onPressed: () => context.go('/admin/products'),
+                  icon: const Icon(Icons.menu),
+                  label: const Text('Voltar para o Menu'),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -200,7 +229,7 @@ class _NuvemshopImportScreenState extends ConsumerState<NuvemshopImportScreen> {
           Expanded(
             child: Text(
               'Importe o CSV exportado em Produtos > Lista de produtos > Exportar em sua Nuvemshop.\n\n'
-              'Importante: O preço de atacado não é exportado pela Nuvemshop. Após a importação, revise os valores no editor de produtos.',
+              'Importante: O pre\u00e7o de atacado n\u00e3o \u00e9 exportado pela Nuvemshop. Ap\u00f3s a importa\u00e7\u00e3o, revise os valores no editor de produtos.',
               style: Theme.of(
                 context,
               ).textTheme.bodySmall?.copyWith(height: 1.5),
@@ -291,7 +320,7 @@ class _NuvemshopImportScreenState extends ConsumerState<NuvemshopImportScreen> {
           Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              'Se preencher, o importador busca imagens pela API quando o CSV não tiver URL da imagem.',
+              'Se preencher, o importador busca imagens pela API quando o CSV n\u00e3o tiver URL da imagem.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
@@ -302,7 +331,7 @@ class _NuvemshopImportScreenState extends ConsumerState<NuvemshopImportScreen> {
 
   Widget _buildPreview(List<Map<String, String>> previewRows) {
     return SectionCard(
-      title: 'Prévia dos Dados',
+      title: 'Pr\u00e9via dos Dados',
       child: Column(
         children: previewRows.map((row) {
           return Container(
@@ -318,7 +347,7 @@ class _NuvemshopImportScreenState extends ConsumerState<NuvemshopImportScreen> {
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               subtitle: Text(
-                'SKU: ${row['SKU'] ?? '-'} | Preço: ${row['Preço'] ?? '-'}',
+                'SKU: ${row['SKU'] ?? '-'} | Pre\u00e7o: ${row['Pre\u00e7o'] ?? '-'}',
                 style: const TextStyle(fontSize: 11),
               ),
             ),
@@ -330,7 +359,7 @@ class _NuvemshopImportScreenState extends ConsumerState<NuvemshopImportScreen> {
 
   Widget _buildReport() {
     return SectionCard(
-      title: 'Relatório de Importação',
+      title: 'Relat\u00f3rio de Importa\u00e7\u00e3o',
       child: Column(
         children: [
           Row(
@@ -347,7 +376,7 @@ class _NuvemshopImportScreenState extends ConsumerState<NuvemshopImportScreen> {
                 AppTokens.accentBlue,
               ),
               _buildReportStat(
-                'Variações',
+                'Varia\u00e7\u00f5es',
                 _report!.variantsCount,
                 AppTokens.accentPurple,
               ),
@@ -359,9 +388,9 @@ class _NuvemshopImportScreenState extends ConsumerState<NuvemshopImportScreen> {
               alignment: Alignment.centerLeft,
               child: Text(
                 _report!.warnings.take(3).join('\n'),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.orange.shade800,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: Colors.orange.shade800),
               ),
             ),
           ],

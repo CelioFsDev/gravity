@@ -1,16 +1,18 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gravity/models/product.dart';
-import 'package:gravity/models/category.dart';
-import 'package:gravity/viewmodels/products_viewmodel.dart';
-import 'package:gravity/features/admin/products/product_form_screen.dart';
+import 'package:go_router/go_router.dart';
+import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
+import 'package:catalogo_ja/features/admin/products/product_form_screen.dart';
 import 'package:intl/intl.dart';
-import 'package:gravity/core/utils/price_calculator.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
-import 'package:gravity/ui/widgets/app_scaffold.dart';
-import 'package:gravity/ui/widgets/section_card.dart';
-import 'package:gravity/ui/widgets/app_badge_pill.dart';
+import 'package:catalogo_ja/core/utils/price_calculator.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
+import 'package:catalogo_ja/ui/widgets/section_card.dart';
+import 'package:catalogo_ja/ui/widgets/app_badge_pill.dart';
 
 class ProductDetailScreen extends ConsumerWidget {
   final Product product;
@@ -37,6 +39,17 @@ class ProductDetailScreen extends ConsumerWidget {
       subtitle: 'REF: ${updatedProduct.reference}',
       useAppBar: false,
       actions: [
+        IconButton(
+          tooltip: 'Voltar',
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              context.go('/admin/products');
+            }
+          },
+        ),
         IconButton(
           icon: const Icon(Icons.edit_outlined),
           onPressed: () {
@@ -116,7 +129,7 @@ class ProductDetailScreen extends ConsumerWidget {
                   AppBadgePill(label: 'Esgotado', color: AppTokens.accentRed),
                 if (updatedProduct.isOnSale)
                   AppBadgePill(
-                    label: 'Em Promoção',
+                    label: 'Em Promo\u00e7\u00e3o',
                     color: AppTokens.accentOrange,
                   ),
               ],
@@ -124,7 +137,7 @@ class ProductDetailScreen extends ConsumerWidget {
             const SizedBox(height: AppTokens.space16),
 
             SectionCard(
-              title: 'Informações Básicas',
+              title: 'Informa\u00e7\u00f5es B\u00e1sicas',
               child: Column(
                 children: [
                   _buildDetailRow(context, 'SKU', updatedProduct.sku),
@@ -137,7 +150,7 @@ class ProductDetailScreen extends ConsumerWidget {
                           (c) =>
                               c != null && c.type == CategoryType.productType,
                         )
-                        .map((c) => c!.name)
+                        .map((c) => c!.safeName)
                         .join(', '),
                   ),
                 ],
@@ -148,7 +161,7 @@ class ProductDetailScreen extends ConsumerWidget {
 
             // Pricing
             SectionCard(
-              title: 'Preços',
+              title: 'Pre\u00e7os',
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final cardWidth = constraints.maxWidth >= 720
@@ -183,7 +196,7 @@ class ProductDetailScreen extends ConsumerWidget {
                     ),
                     _buildInfoCard(
                       context,
-                      'Mín. Atacado',
+                      'M\u00edn. Atacado',
                       '${updatedProduct.minWholesaleQty} un',
                       Icons.shopping_bag_outlined,
                     ),
@@ -208,7 +221,7 @@ class ProductDetailScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Tamanhos Disponíveis',
+                    'Tamanhos Dispon\u00edveis',
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                   ),
                   const SizedBox(height: 8),
@@ -228,7 +241,7 @@ class ProductDetailScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'Cores Disponíveis',
+                    'Cores Dispon\u00edveis',
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
@@ -423,6 +436,38 @@ class ProductDetailScreen extends ConsumerWidget {
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
         alignment: Alignment.center,
         child: const Icon(Icons.image_not_supported_outlined, size: 48),
+      );
+    }
+
+    if (kIsWeb) {
+      return Image.network(
+        imagePath,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Container(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          alignment: Alignment.center,
+          child: const Icon(
+            Icons.broken_image_outlined,
+            size: 48,
+            color: AppTokens.accentRed,
+          ),
+        ),
+      );
+    }
+
+    if (imagePath.startsWith('http')) {
+      return Image.network(
+        imagePath,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Container(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          alignment: Alignment.center,
+          child: const Icon(
+            Icons.broken_image_outlined,
+            size: 48,
+            color: AppTokens.accentRed,
+          ),
+        ),
       );
     }
 

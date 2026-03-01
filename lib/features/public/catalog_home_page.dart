@@ -1,15 +1,15 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:gravity/models/catalog.dart';
-import 'package:gravity/models/product.dart';
-import 'package:gravity/viewmodels/catalog_public_viewmodel.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
-import 'package:gravity/ui/widgets/app_scaffold.dart';
-import 'package:gravity/ui/widgets/app_search_field.dart';
-import 'package:gravity/ui/widgets/app_product_card.dart';
-import 'package:gravity/ui/widgets/app_empty_state.dart';
-import 'package:gravity/models/category.dart';
+import 'package:catalogo_ja/models/catalog.dart';
+import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/viewmodels/catalog_public_viewmodel.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
+import 'package:catalogo_ja/ui/widgets/app_search_field.dart';
+import 'package:catalogo_ja/ui/widgets/app_product_card.dart';
+import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
+import 'package:catalogo_ja/models/category.dart';
 
 class CatalogHomePage extends ConsumerStatefulWidget {
   final String shareCode;
@@ -41,10 +41,10 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
       error: (e, s) => Scaffold(body: Center(child: Text('Erro: $e'))),
       data: (data) {
         if (data == null) {
-          return const Scaffold(body: Center(child: Text('Não encontrado')));
+          return const Scaffold(body: Center(child: Text('N\u00e3o encontrado')));
         }
         if (!data.catalog.active) {
-          return const Scaffold(body: Center(child: Text('Indisponível')));
+          return const Scaffold(body: Center(child: Text('Indispon\u00edvel')));
         }
 
         final filteredProducts = _getFilteredProducts(data.products);
@@ -139,7 +139,7 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
         itemCount: categories.length + 1,
-        separatorBuilder: (_, __) => const SizedBox(width: AppTokens.space8),
+        separatorBuilder: (_, _) => const SizedBox(width: AppTokens.space8),
         itemBuilder: (context, index) {
           final isAll = index == 0;
           final cat = isAll ? null : categories[index - 1];
@@ -172,25 +172,34 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
 
   Widget _buildGrid(List<Product> products, String layout, CatalogMode mode) {
     final isList = layout == 'list';
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = isList
+            ? 1
+            : (constraints.maxWidth / 260).floor().clamp(1, 6);
+        final cardWidth = constraints.maxWidth / crossAxisCount;
+        final childAspectRatio = isList ? 2.5 : (cardWidth / 340).clamp(0.62, 0.9);
 
-    return GridView.builder(
-      padding: const EdgeInsets.all(AppTokens.space24),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: isList ? 1 : 2,
-        childAspectRatio: isList ? 2.5 : 0.75,
-        crossAxisSpacing: AppTokens.space16,
-        mainAxisSpacing: AppTokens.space16,
-      ),
-      itemCount: products.length,
-      itemBuilder: (context, index) {
-        final product = products[index];
-        return AppProductCard(
-          product: product,
-          mode: mode,
-          onTap: () => context.push(
-            '/c/${widget.shareCode}/p/${product.id}',
-            extra: {'product': product, 'mode': mode},
+        return GridView.builder(
+          padding: const EdgeInsets.all(AppTokens.space24),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            childAspectRatio: childAspectRatio,
+            crossAxisSpacing: AppTokens.space16,
+            mainAxisSpacing: AppTokens.space16,
           ),
+          itemCount: products.length,
+          itemBuilder: (context, index) {
+            final product = products[index];
+            return AppProductCard(
+              product: product,
+              mode: mode,
+              onTap: () => context.push(
+                '/c/${widget.shareCode}/p/${product.id}',
+                extra: {'product': product, 'mode': mode},
+              ),
+            );
+          },
         );
       },
     );

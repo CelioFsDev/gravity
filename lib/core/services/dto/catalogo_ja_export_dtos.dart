@@ -1,7 +1,7 @@
-import 'package:gravity/models/category.dart';
-import 'package:gravity/models/product.dart';
+import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/models/product.dart';
 
-class GravityExportPayload {
+class CatalogoJaExportPayload {
   final String app;
   final int version;
   final String exportedAt;
@@ -11,7 +11,7 @@ class GravityExportPayload {
   collections; // Collections are Categories with type=collection
   final List<ProductDTO> products;
 
-  GravityExportPayload({
+  CatalogoJaExportPayload({
     required this.app,
     required this.version,
     required this.exportedAt,
@@ -33,9 +33,9 @@ class GravityExportPayload {
     };
   }
 
-  factory GravityExportPayload.fromJson(Map<String, dynamic> json) {
-    return GravityExportPayload(
-      app: json['app'] as String? ?? 'gravity',
+  factory CatalogoJaExportPayload.fromJson(Map<String, dynamic> json) {
+    return CatalogoJaExportPayload(
+      app: json['app'] as String? ?? 'CatalogoJa',
       version: json['version'] as int? ?? 1,
       exportedAt:
           json['exportedAt'] as String? ?? DateTime.now().toIso8601String(),
@@ -228,6 +228,40 @@ class CollectionCoverDTO {
   }
 }
 
+class ProductPhotoDTO {
+  final String path;
+  final String? colorKey;
+  final bool isPrimary;
+
+  ProductPhotoDTO({required this.path, this.colorKey, this.isPrimary = false});
+
+  factory ProductPhotoDTO.fromModel(ProductPhoto photo) {
+    return ProductPhotoDTO(
+      path: photo.path,
+      colorKey: photo.colorKey,
+      isPrimary: photo.isPrimary,
+    );
+  }
+
+  ProductPhoto toModel() {
+    return ProductPhoto(path: path, colorKey: colorKey, isPrimary: isPrimary);
+  }
+
+  Map<String, dynamic> toJson() => {
+    'path': path,
+    'colorKey': colorKey,
+    'isPrimary': isPrimary,
+  };
+
+  factory ProductPhotoDTO.fromJson(Map<String, dynamic> json) {
+    return ProductPhotoDTO(
+      path: json['path'] ?? '',
+      colorKey: json['colorKey'],
+      isPrimary: json['isPrimary'] ?? false,
+    );
+  }
+}
+
 class ProductDTO {
   final String id;
   final String name;
@@ -240,6 +274,7 @@ class ProductDTO {
   final bool promoEnabled;
   final double promoPercent;
   final List<String> images;
+  final List<ProductPhotoDTO> photos;
   final int mainImageIndex;
 
   // Relations
@@ -266,6 +301,7 @@ class ProductDTO {
     this.promoEnabled = false,
     this.promoPercent = 0,
     this.images = const [],
+    this.photos = const [],
     this.remoteImages = const [],
     this.mainImageIndex = 0,
     this.categoryIds,
@@ -288,6 +324,7 @@ class ProductDTO {
       promoEnabled: product.promoEnabled,
       promoPercent: product.promoPercent,
       images: product.images,
+      photos: product.photos.map((p) => ProductPhotoDTO.fromModel(p)).toList(),
       remoteImages: product.remoteImages,
       mainImageIndex: product.mainImageIndex,
       categoryIds: product.categoryIds,
@@ -311,6 +348,7 @@ class ProductDTO {
       sizes: sizes,
       colors: colors,
       images: images,
+      photos: photos.map((p) => p.toModel()).toList(),
       remoteImages: remoteImages,
       mainImageIndex: mainImageIndex,
       isActive: isActive,
@@ -335,6 +373,7 @@ class ProductDTO {
       'promoEnabled': promoEnabled,
       'promoPercent': promoPercent,
       'images': images,
+      'photos': photos.map((p) => p.toJson()).toList(),
       'remoteImages': remoteImages,
       'mainImageIndex': mainImageIndex,
       'categoryIds': categoryIds,
@@ -360,6 +399,11 @@ class ProductDTO {
       images:
           (json['images'] as List<dynamic>?)
               ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      photos:
+          (json['photos'] as List<dynamic>?)
+              ?.map((e) => ProductPhotoDTO.fromJson(e))
               .toList() ??
           [],
       remoteImages:

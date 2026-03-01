@@ -1,22 +1,23 @@
-﻿import 'dart:io';
+import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gravity/models/product.dart';
-import 'package:gravity/models/category.dart';
-import 'package:gravity/viewmodels/products_viewmodel.dart';
+import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
 import 'package:uuid/uuid.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:catalogo_ja/core/services/photo_classification_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/services.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
-import 'package:gravity/ui/widgets/app_scaffold.dart';
-import 'package:gravity/ui/widgets/section_card.dart';
-import 'package:gravity/ui/widgets/app_primary_button.dart';
-import 'package:gravity/models/category_type.dart';
-import 'package:gravity/features/admin/categories/widgets/category_create_modal.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
+import 'package:catalogo_ja/ui/widgets/section_card.dart';
+import 'package:catalogo_ja/ui/widgets/app_primary_button.dart';
+import 'package:catalogo_ja/features/admin/categories/widgets/category_create_modal.dart';
 import 'package:go_router/go_router.dart';
 
 class ProductFormScreen extends ConsumerStatefulWidget {
@@ -41,6 +42,20 @@ class _PhotoMetaResult {
 }
 
 class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
+  static const Set<String> _supportedImageExtensions = {
+    '.jpg',
+    '.jpeg',
+    '.png',
+    '.webp',
+    '.gif',
+    '.bmp',
+    '.tif',
+    '.tiff',
+    '.heic',
+    '.heif',
+    '.avif',
+  };
+
   final _formKey = GlobalKey<FormState>();
 
   // Controllers
@@ -104,6 +119,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         );
       }).toList();
     }
+    _photos = _prioritizePrimaryPhoto(_photos);
   }
 
   @override
@@ -138,9 +154,11 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedCollectionId == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('A coleção é obrigatória')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('A cole\u00e7\u00e3o \u00e9 obrigat\u00f3ria'),
+        ),
+      );
       return;
     }
 
@@ -183,6 +201,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       promoPercent: _isOnSale
           ? (int.tryParse(_discountController.text) ?? 0).toDouble()
           : 0.0,
+      description: widget.product?.description,
     );
 
     try {
@@ -203,46 +222,132 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     }
   }
 
-  Future<void> _addPhoto() async {
+  Future<void> _addPrimaryPhoto() async {
     try {
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: false,
-        type: FileType.any,
+        type: FileType.image,
       );
       if (result == null || result.files.isEmpty) return;
       final file = result.files.first;
-      final resolved = await _processPickedImage(file);
+
+      final classification = ref
+          .read(photoClassificationServiceProvider.notifier)
+          .classifyFileName(file.name);
+
+      final resolved = await _processPickedImage(
+        file,
+        classification: classification,
+      );
       if (resolved == null || !mounted) return;
 
-      final meta = await _showPhotoMetaDialog(context);
-      if (meta == null || !mounted) return;
-
       setState(() {
-        if (meta.isPrimary) {
-          _photos = _photos.map((p) => p.copyWith(isPrimary: false)).toList();
-        }
-        if (meta.isNewColor && meta.colorKey != null) {
-          final current = _parseColorOptions().toSet();
-          if (!current.contains(meta.colorKey)) {
-            final sep = _colorsController.text.trim().isEmpty ? '' : ', ';
-            _colorsController.text =
-                '${_colorsController.text.trim()}$sep${meta.colorKey}';
-          }
-        }
-        _photos.add(
-          ProductPhoto(
-            path: resolved,
-            colorKey: meta.colorKey,
-            isPrimary: meta.isPrimary || _photos.isEmpty,
-          ),
+        // Clear previous primary and set this one
+        _photos = _photos.map((p) => p.copyWith(isPrimary: false)).toList();
+        
+        final newPhoto = ProductPhoto(
+          path: resolved,
+          colorKey: classification?.colorName,
+          photoType: classification?.photoType ?? 'P',
+          isPrimary: true,
         );
+
+        // Replace existing primary if it exists
+        final existingIdx = _photos.indexWhere((p) => p.photoType == 'P');
+        if (existingIdx != -1) {
+          _photos[existingIdx] = newPhoto;
+        } else {
+          _photos.insert(0, newPhoto);
+        }
       });
-    } catch (e, stack) {
-      debugPrint('Error in _addPhoto: $e\n$stack');
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Erro ao selecionar foto: $e')));
+      }
+    }
+  }
+
+  Future<void> _addSecondaryPhotos() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.image,
+      );
+      if (result == null || result.files.isEmpty) return;
+
+      for (var file in result.files) {
+        final classification = ref
+            .read(photoClassificationServiceProvider.notifier)
+            .classifyFileName(file.name);
+
+        final resolved = await _processPickedImage(
+          file,
+          classification: classification,
+        );
+        if (resolved == null || !mounted) continue;
+
+        String? colorKey;
+        bool isPrimary = false;
+        String? photoType;
+
+        if (classification != null) {
+          photoType = classification.photoType;
+          colorKey = classification.colorName;
+          isPrimary = photoType == 'P';
+        } else {
+          final meta = await _showPhotoMetaDialog(context);
+          if (meta == null || !mounted) break;
+          colorKey = meta.colorKey;
+          isPrimary = meta.isPrimary;
+
+          if (meta.isNewColor && meta.colorKey != null) {
+            final current = _parseColorOptions().toSet();
+            if (!current.contains(meta.colorKey)) {
+              final sep = _colorsController.text.trim().isEmpty ? '' : ', ';
+              _colorsController.text =
+                  '${_colorsController.text.trim()}$sep${meta.colorKey}';
+            }
+          }
+        }
+
+        setState(() {
+          if (isPrimary) {
+            _photos = _photos.map((p) => p.copyWith(isPrimary: false)).toList();
+          }
+
+          final newPhoto = ProductPhoto(
+            path: resolved,
+            colorKey: colorKey,
+            photoType: photoType,
+            isPrimary: isPrimary,
+          );
+
+          if (photoType != null && photoType.startsWith('C')) {
+            _photos = ref
+                .read(photoClassificationServiceProvider.notifier)
+                .organizeColors(_photos, newPhoto);
+          } else if (photoType != null) {
+            // P, D1, D2 - Replace if same type exists
+            final existingIdx = _photos.indexWhere(
+              (p) => p.photoType == photoType,
+            );
+            if (existingIdx != -1) {
+              _photos[existingIdx] = newPhoto;
+            } else {
+              _photos.add(newPhoto);
+            }
+          } else {
+            _photos.add(newPhoto);
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao selecionar fotos: $e')));
       }
     }
   }
@@ -355,13 +460,18 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     return values;
   }
 
-  Future<String?> _processPickedImage(PlatformFile file) async {
+  Future<String?> _processPickedImage(
+    PlatformFile file, {
+    PhotoClassification? classification,
+  }) async {
     final ext = p.extension(file.name).toLowerCase();
-    if (!['.jpg', '.jpeg', '.png', '.webp'].contains(ext)) {
+    if (!_supportedImageExtensions.contains(ext)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Arquivo "${file.name}" ignorado (não é imagem).'),
+            content: Text(
+              'Arquivo "${file.name}" ignorado (n\u00e3o \u00e9 imagem).',
+            ),
           ),
         );
       }
@@ -377,7 +487,10 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       );
     }
 
-    final resolved = await _copyFileToPersistentStorage(file);
+    final resolved = await _copyFileToPersistentStorage(
+      file,
+      classification: classification,
+    );
     if (resolved == null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Falha ao processar "${file.name}".')),
@@ -388,13 +501,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
   List<ProductPhoto> _normalizePhotosForSave() {
     if (_photos.isEmpty) return const [];
-    final hasPrimary = _photos.any((p) => p.isPrimary);
-    if (hasPrimary) return List<ProductPhoto>.from(_photos);
-    final updated = <ProductPhoto>[];
-    for (var i = 0; i < _photos.length; i++) {
-      updated.add(_photos[i].copyWith(isPrimary: i == 0));
-    }
-    return updated;
+    return _prioritizePrimaryPhoto(_photos);
   }
 
   List<String> _imagesFromPhotos(List<ProductPhoto> photos) {
@@ -402,15 +509,45 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   }
 
   int _mainIndexFromPhotos(List<ProductPhoto> photos) {
+    final typePrimaryIndex = photos.indexWhere((p) => p.photoType == 'P');
+    if (typePrimaryIndex >= 0) return typePrimaryIndex;
     final index = photos.indexWhere((p) => p.isPrimary);
     return index >= 0 ? index : 0;
   }
 
-  void _setPrimaryPhoto(int index) {
+  List<ProductPhoto> _prioritizePrimaryPhoto(List<ProductPhoto> photos) {
+    if (photos.isEmpty) return const [];
+    final updated = List<ProductPhoto>.from(photos);
+
+    var primaryIndex = updated.indexWhere((p) => p.photoType == 'P');
+    primaryIndex = primaryIndex >= 0
+        ? primaryIndex
+        : updated.indexWhere((p) => p.isPrimary);
+    primaryIndex = primaryIndex >= 0 ? primaryIndex : 0;
+
+    for (var i = 0; i < updated.length; i++) {
+      updated[i] = updated[i].copyWith(isPrimary: i == primaryIndex);
+    }
+
+    if (primaryIndex > 0) {
+      final primary = updated.removeAt(primaryIndex);
+      updated.insert(0, primary);
+    }
+    return updated;
+  }
+
+  void _setPrimaryPhoto(String path) {
     setState(() {
-      _photos = _photos.asMap().entries.map((entry) {
-        return entry.value.copyWith(isPrimary: entry.key == index);
+      _photos = _photos.map((p) {
+        return p.copyWith(isPrimary: p.path == path);
       }).toList();
+
+      // Move primary to front of the list
+      final pIndex = _photos.indexWhere((p) => p.isPrimary);
+      if (pIndex > 0) {
+        final primary = _photos.removeAt(pIndex);
+        _photos.insert(0, primary);
+      }
     });
   }
 
@@ -426,7 +563,10 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     });
   }
 
-  Future<String?> _copyFileToPersistentStorage(PlatformFile file) async {
+  Future<String?> _copyFileToPersistentStorage(
+    PlatformFile file, {
+    PhotoClassification? classification,
+  }) async {
     try {
       // Windows/Desktop priority: use path if available
       if (!kIsWeb && file.path != null) {
@@ -436,10 +576,13 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           await imagesDir.create(recursive: true);
         }
 
-        final extension = p.extension(file.name).isNotEmpty
-            ? p.extension(file.name).toLowerCase()
-            : '.jpg';
-        final String fileName = '${const Uuid().v4()}$extension';
+        final extension =
+            p.extension(file.name).isNotEmpty
+                ? p.extension(file.name).toLowerCase()
+                : '.jpg';
+
+        final String fileName =
+            classification?.standardName ?? '${const Uuid().v4()}$extension';
         final String targetPath = p.join(imagesDir.path, fileName);
         final File targetFile = File(targetPath);
 
@@ -495,7 +638,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Atenção: O salvamento de fotos não é suportado no Navegador. Use a versão Windows Desktop.',
+              'Aten\u00e7\u00e3o: O salvamento de fotos n\u00e3o \u00e9 suportado no Navegador. Use a vers\u00e3o Windows Desktop.',
             ),
           ),
         );
@@ -543,7 +686,15 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       title: widget.product == null ? 'Novo Produto' : 'Editar Produto',
       subtitle: widget.product == null
           ? 'Preencha os dados do novo item'
-          : 'Atualize as informações do produto',
+          : 'Atualize as informa\u00e7\u00f5es do produto',
+      useAppBar: true,
+      actions: [
+        IconButton(
+          tooltip: 'Menu principal',
+          icon: const Icon(Icons.home_outlined),
+          onPressed: () => context.go('/admin/products'),
+        ),
+      ],
       body: Form(
         key: _formKey,
         child: Column(
@@ -556,13 +707,14 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                 children: [
                   const SizedBox(height: AppTokens.space24),
                   SectionCard(
-                    title: 'Informações Básicas',
+                    title: 'Informa\u00e7\u00f5es B\u00e1sicas',
                     child: Column(
                       children: [
                         _buildTextField(
                           _nameController,
                           'Nome do Produto',
-                          validator: (v) => v!.isEmpty ? 'Obrigatório' : null,
+                          validator: (v) =>
+                              v!.isEmpty ? 'Obrigat\u00f3rio' : null,
                         ),
                         const SizedBox(height: AppTokens.space16),
                         Row(
@@ -570,10 +722,10 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                             Expanded(
                               child: _buildTextField(
                                 _refController,
-                                'REF (Código)',
+                                'REF (C\u00f3digo)',
                                 validator: (v) {
                                   if (v == null || v.isEmpty) {
-                                    return 'Obrigatório';
+                                    return 'Obrigat\u00f3rio';
                                   }
                                   final state = ref
                                       .read(productsViewModelProvider)
@@ -585,7 +737,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                                               v.toUpperCase() &&
                                           p.id != widget.product?.id,
                                     );
-                                    if (exists) return 'Indisponível';
+                                    if (exists) return 'Indispon\u00edvel';
                                   }
                                   return null;
                                 },
@@ -603,7 +755,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   ),
                   const SizedBox(height: AppTokens.space24),
                   SectionCard(
-                    title: 'Organização',
+                    title: 'Organiza\u00e7\u00e3o',
                     child: _buildOrganizationSection(
                       context,
                       collections,
@@ -612,7 +764,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   ),
                   const SizedBox(height: AppTokens.space24),
                   SectionCard(
-                    title: 'Preços e Estoque',
+                    title: 'Pre\u00e7os e Estoque',
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -621,7 +773,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                             Expanded(
                               child: _buildTextField(
                                 _retailController,
-                                'Preço Varejo',
+                                'Pre\u00e7o Varejo',
                                 isPrice: true,
                               ),
                             ),
@@ -629,7 +781,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                             Expanded(
                               child: _buildTextField(
                                 _wholesaleController,
-                                'Preço Atacado',
+                                'Pre\u00e7o Atacado',
                                 isPrice: true,
                               ),
                             ),
@@ -638,12 +790,12 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                         const SizedBox(height: AppTokens.space16),
                         _buildTextField(
                           _minQtyController,
-                          'Quantidade Mínima para Atacado',
+                          'Quantidade M\u00ednima para Atacado',
                           isNumber: true,
                         ),
                         const SizedBox(height: AppTokens.space12),
                         Text(
-                          'O preço atacado será aplicado automaticamente no carrinho para quantidades maiores que o mínimo.',
+                          'O pre\u00e7o atacado ser\u00e1 aplicado automaticamente no carrinho para quantidades maiores que o m\u00ednimo.',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
@@ -651,7 +803,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   ),
                   const SizedBox(height: AppTokens.space24),
                   SectionCard(
-                    title: 'Variações (Opcional)',
+                    title: 'Varia\u00e7\u00f5es (Opcional)',
                     child: Column(
                       children: [
                         _buildTextField(
@@ -668,11 +820,11 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   ),
                   const SizedBox(height: AppTokens.space24),
                   SectionCard(
-                    title: 'Disponibilidade e Promoção',
+                    title: 'Disponibilidade e Promo\u00e7\u00e3o',
                     child: Column(
                       children: [
                         _buildSwitchTile(
-                          'Produto Ativo no Catálogo',
+                          'Produto Ativo no Cat\u00e1logo',
                           _isActive,
                           (v) => setState(() => _isActive = v),
                         ),
@@ -684,7 +836,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                         ),
                         const Divider(),
                         _buildSwitchTile(
-                          'Em Promoção',
+                          'Em Promo\u00e7\u00e3o',
                           _isOnSale,
                           (v) => setState(() => _isOnSale = v),
                         ),
@@ -710,50 +862,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                     ),
                   ),
                   const SizedBox(height: AppTokens.space24),
-                  SectionCard(
-                    title: 'Imagens do Produto',
-                    trailing: TextButton.icon(
-                      onPressed: _addPhoto,
-                      icon: const Icon(Icons.add_a_photo_outlined, size: 18),
-                      label: const Text('Adicionar'),
-                    ),
-                    child: _photos.isEmpty
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(AppTokens.space24),
-                              child: Column(
-                                children: [
-                                  Icon(
-                                    Icons.image_outlined,
-                                    size: 48,
-                                    color: AppTokens.textMuted.withOpacity(0.3),
-                                  ),
-                                  const SizedBox(height: AppTokens.space12),
-                                  Text(
-                                    'Nenhuma imagem adicionada',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodyMedium,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )
-                        : GridView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 3,
-                                  crossAxisSpacing: 12,
-                                  mainAxisSpacing: 12,
-                                  childAspectRatio: 1,
-                                ),
-                            itemCount: _photos.length,
-                            itemBuilder: (context, index) =>
-                                _buildPhotoTile(index, _photos[index]),
-                          ),
-                  ),
+                  const SizedBox(height: AppTokens.space24),
+                  _buildImagesSection(),
+                  const SizedBox(height: AppTokens.space24),
                   const SizedBox(height: AppTokens.space48),
                 ],
               ),
@@ -781,9 +892,115 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       child: SafeArea(
         top: false,
         child: AppPrimaryButton(
-          label: widget.product == null ? 'Criar Produto' : 'Salvar Alterações',
+          label: widget.product == null
+              ? 'Criar Produto'
+              : 'Salvar Altera\u00e7\u00f5es',
           onPressed: _save,
           icon: Icons.check_circle_outline,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImagesSection() {
+    final primaryIndex = _photos.indexWhere((p) => p.isPrimary);
+    final primaryPhoto = primaryIndex >= 0 ? _photos[primaryIndex] : null;
+    final secondaryPhotos = _photos.where((p) => !p.isPrimary).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Primary Photo
+        SectionCard(
+          title: 'Foto Principal (Capa)',
+          child: Column(
+            children: [
+              if (primaryPhoto != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: SizedBox(
+                    width: 140,
+                    height: 140,
+                    child: _buildPhotoTile(
+                      primaryPhoto,
+                      key: ValueKey('primary_${primaryPhoto.path}'),
+                    ),
+                  ),
+                ),
+              Center(
+                child: OutlinedButton.icon(
+                  onPressed: _addPrimaryPhoto,
+                  icon: Icon(
+                    primaryPhoto == null ? Icons.add_a_photo : Icons.refresh,
+                  ),
+                  label: Text(
+                    primaryPhoto == null ? 'Adicionar Capa' : 'Trocar Capa',
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppTokens.space24),
+        // Secondary Photos
+        SectionCard(
+          title: 'Detalhes e Cores',
+          child: SizedBox(
+            height: 110,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                _buildAddSecondaryTile(),
+                const SizedBox(width: 12),
+                ...secondaryPhotos.map((photo) {
+                  return Padding(
+                    key: ValueKey('secondary_${photo.path}'),
+                    padding: const EdgeInsets.only(right: 12),
+                    child: SizedBox(
+                      width: 110,
+                      child: _buildPhotoTile(
+                        photo,
+                        key: ValueKey('tile_${photo.path}'),
+                      ),
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAddSecondaryTile() {
+    return InkWell(
+      onTap: _addSecondaryPhotos,
+      borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+      child: Container(
+        width: 110,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+          border: Border.all(
+            color: Theme.of(context).dividerColor,
+            style: BorderStyle.solid,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.add_a_photo_outlined, color: AppTokens.accentBlue),
+            const SizedBox(height: 4),
+            Text(
+              'Adicionar',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -823,28 +1040,22 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     String? Function(String?)? validator,
     bool isPrice = false,
     bool isNumber = false,
+    int maxLines = 1,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
         ),
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
+          maxLines: maxLines,
           decoration: InputDecoration(
-            hintText: 'Digite aqui...',
-            prefixText: isPrice ? 'R\$ ' : null,
-            prefixStyle: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface,
-              fontWeight: FontWeight.bold,
-            ),
+            labelText: label,
+            floatingLabelBehavior: FloatingLabelBehavior.never,
             filled: true,
             fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
             contentPadding: const EdgeInsets.symmetric(
@@ -882,8 +1093,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     );
   }
 
-  Widget _buildPhotoTile(int index, ProductPhoto photo) {
+  Widget _buildPhotoTile(ProductPhoto photo, {Key? key}) {
     return Stack(
+      key: key,
       children: [
         Container(
           decoration: BoxDecoration(
@@ -894,13 +1106,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   : Theme.of(context).dividerColor,
               width: photo.isPrimary ? 2 : 1,
             ),
-            image: DecorationImage(
-              image: photo.path.startsWith('http')
-                  ? NetworkImage(photo.path)
-                  : FileImage(File(photo.path)) as ImageProvider,
-              fit: BoxFit.cover,
-            ),
           ),
+          clipBehavior: Clip.antiAlias,
+          child: _buildPhotoPreview(photo.path),
         ),
         if (photo.colorKey != null)
           Positioned(
@@ -939,7 +1147,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                 color: AppTokens.accentRed,
               ),
             ),
-            onPressed: () => _removePhoto(index),
+            onPressed: () => _removePhoto(_photos.indexOf(photo)),
           ),
         ),
         if (!photo.isPrimary)
@@ -949,7 +1157,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
             right: 0,
             child: Center(
               child: GestureDetector(
-                onTap: () => _setPrimaryPhoto(index),
+                onTap: () => _setPrimaryPhoto(photo.path),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -985,6 +1193,62 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     );
   }
 
+  Widget _buildPhotoPreview(String path) {
+    if (path.startsWith('data:')) {
+      final commaIndex = path.indexOf(',');
+      if (commaIndex != -1 && commaIndex + 1 < path.length) {
+        try {
+          final bytes = base64Decode(path.substring(commaIndex + 1));
+          return Image.memory(
+            bytes,
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+            errorBuilder: (_, _, _) => _buildPhotoPlaceholder(),
+          );
+        } catch (_) {
+          return _buildPhotoPlaceholder();
+        }
+      }
+      return _buildPhotoPlaceholder();
+    }
+
+    if (path.startsWith('http://') ||
+        path.startsWith('https://') ||
+        path.startsWith('blob:')) {
+      return Image.network(
+        path,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (_, _, _) => _buildPhotoPlaceholder(),
+      );
+    }
+
+    if (!kIsWeb) {
+      return Image.file(
+        File(path),
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (_, _, _) => _buildPhotoPlaceholder(),
+      );
+    }
+
+    return _buildPhotoPlaceholder();
+  }
+
+  Widget _buildPhotoPlaceholder() {
+    return Container(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.image_not_supported_outlined,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+    );
+  }
+
   Widget _buildPromoPreview() {
     final retail = _parsePrice(_retailController.text);
     final discount = int.tryParse(_discountController.text) ?? 0;
@@ -1010,7 +1274,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Preço Promocional: ${f.format(value)}',
+              'Pre\u00e7o Promocional: ${f.format(value)}',
               style: const TextStyle(
                 color: AppTokens.accentOrange,
                 fontWeight: FontWeight.bold,
@@ -1038,7 +1302,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
               child: DropdownButtonFormField<String>(
                 initialValue: _selectedCollectionId,
                 decoration: const InputDecoration(
-                  labelText: 'Coleção (Obrigatório)',
+                  labelText: 'Cole\u00e7\u00e3o (Obrigat\u00f3rio)',
                   filled: true,
                 ),
                 items: collections
@@ -1066,7 +1330,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                 }
               },
               icon: const Icon(Icons.add),
-              tooltip: 'Nova Coleção',
+              tooltip: 'Nova Cole\u00e7\u00e3o',
             ),
           ],
         ),
@@ -1101,7 +1365,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
             child: Text(
-              'Nenhuma categoria disponível.',
+              'Nenhuma categoria dispon\u00edvel.',
               style: TextStyle(color: Colors.grey),
             ),
           ),

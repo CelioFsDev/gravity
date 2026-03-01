@@ -1,21 +1,29 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'dart:typed_data';
 import 'dart:convert';
 
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:gravity/models/catalog.dart';
-import 'package:gravity/models/category.dart';
-import 'package:gravity/models/product.dart';
+import 'package:catalogo_ja/models/catalog.dart';
+import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/models/product.dart';
 import 'package:intl/intl.dart';
 
+enum CatalogPdfStyle {
+  classic,
+  clean,
+  compact,
+  editorial,
+  minimal,
+}
+
 class CatalogPdfService {
-  static const PdfColor _colorTextPrimary = PdfColors.black;
   static const PdfColor _colorPriceGreen = PdfColor(0.12, 0.42, 0.29);
   static const PdfColor _colorMuted = PdfColor(0.45, 0.45, 0.45);
   static const PdfColor _colorImageBg = PdfColor(0.953, 0.953, 0.953);
   static const PdfColor _colorSizePillBg = PdfColor(0.929, 0.929, 0.929);
   static const PdfPageFormat _defaultMobileFormat = PdfPageFormat(360, 640);
+
   static Future<Uint8List> generateCatalogPdf({
     required String catalogName,
     required List<Product> products,
@@ -29,11 +37,14 @@ class CatalogPdfService {
     bool includeCover = true,
     Map<String, Category>? collectionsMap,
     String? mainCoverCollectionId,
+    bool showPrice = true,
+    bool useLoosePhotos = false,
+    CatalogPdfStyle style = CatalogPdfStyle.classic,
   }) async {
     // Parameters kept for API compatibility.
     final _ = catalogName;
-    final __ = columnsCount;
-    final ___ = bannerImagePath;
+    final _ = columnsCount;
+    final _ = bannerImagePath;
 
     final pdf = pw.Document();
     final currencyFormat = NumberFormat.simpleCurrency(locale: 'pt_BR');
@@ -78,23 +89,69 @@ class CatalogPdfService {
         }
       }
 
-      pdf.addPage(
-        pw.Page(
-          pageFormat: pageFormat,
-          margin: const pw.EdgeInsets.symmetric(horizontal: 18, vertical: 18),
-          build: (context) => _buildProductPage(
-            product,
-            mode,
-            currencyFormat,
-            pageFormat,
-            collectionName: collectionName, // This might be stale if mixed?
-            // If mixed collections, maybe we shouldn't pass collectionName to footer?
-            // Or pass the current collection name?
-            // For now keeping original behavior or passing current name if available
-            defaultSubtitle: defaultSubtitle,
+      if (useLoosePhotos) {
+        final loosePhotoPaths = _extractLoosePhotoPaths(product);
+        if (loosePhotoPaths.isEmpty) {
+          pdf.addPage(
+            pw.Page(
+              pageFormat: pageFormat,
+              margin: const pw.EdgeInsets.symmetric(vertical: 18),
+              build: (context) => _buildProductPage(
+                product,
+                mode,
+                currencyFormat,
+                pageFormat,
+                collectionName: collectionName,
+                defaultSubtitle: defaultSubtitle,
+                showPrice: showPrice,
+                useLoosePhotos: true,
+                style: style,
+              ),
+            ),
+          );
+        } else {
+          for (final photoPath in loosePhotoPaths) {
+            pdf.addPage(
+              pw.Page(
+                pageFormat: pageFormat,
+                margin: const pw.EdgeInsets.symmetric(vertical: 18),
+                build: (context) => _buildProductPage(
+                  product,
+                  mode,
+                  currencyFormat,
+                  pageFormat,
+                  collectionName: collectionName,
+                  defaultSubtitle: defaultSubtitle,
+                  showPrice: showPrice,
+                  useLoosePhotos: true,
+                  forcedHeroPath: photoPath,
+                  style: style,
+                ),
+              ),
+            );
+          }
+        }
+      } else {
+        pdf.addPage(
+          pw.Page(
+            pageFormat: pageFormat,
+            margin: const pw.EdgeInsets.symmetric(
+              vertical: 18,
+            ), // No horizontal margin for full-bleed
+            build: (context) => _buildProductPage(
+              product,
+              mode,
+              currencyFormat,
+              pageFormat,
+              collectionName: collectionName,
+              defaultSubtitle: defaultSubtitle,
+              showPrice: showPrice,
+              useLoosePhotos: false,
+              style: style,
+            ),
           ),
-        ),
-      );
+        );
+      }
     }
 
     return pdf.save();
@@ -106,205 +163,415 @@ class CatalogPdfService {
     NumberFormat currencyFormat,
     PdfPageFormat pageFormat, {
     String? collectionName,
-    String defaultSubtitle = 'SELEÇÃO DE PRODUTOS',
+    String defaultSubtitle = 'SELE\u00c7\u00c3O DE PRODUTOS',
+    bool showPrice = true,
+    bool useLoosePhotos = false,
+    String? forcedHeroPath,
+    CatalogPdfStyle style = CatalogPdfStyle.classic,
   }) {
     final displayPrice = product.priceForMode(mode.name);
-    final primaryPhoto = _selectPrimaryPhoto(product.photos);
-    final heroPath = primaryPhoto?.path;
-    final activeColor = _selectActiveColor(product.photos, primaryPhoto);
-    final miniPhotos = _selectMiniPhotos(
-      product.photos,
-      activeColor,
-      primaryPhoto,
-    );
+    ProductPhoto? photoP;
+    List<MapEntry<String, String>> detailVariants;
+    List<MapEntry<String, String>> colorVariants;
 
-    final colors = _extractColorNames(product);
+    if (forcedHeroPath != null && forcedHeroPath.trim().isNotEmpty) {
+      photoP = ProductPhoto(path: forcedHeroPath);
+      detailVariants = const [];
+      colorVariants = const [];
+    } else if (useLoosePhotos) {
+      final pool = <ProductPhoto>[
+        ...product.photos,
+        ...product.images.map((path) => ProductPhoto(path: path)),
+      ];
+
+      photoP = _selectPrimaryPhoto(pool);
+      if (photoP != null) {
+        pool.remove(photoP);
+      }
+
+      detailVariants = pool
+          .take(2)
+          .map((p) => MapEntry('', p.path))
+          .toList();
+      colorVariants = pool
+          .skip(2)
+          .take(4)
+          .map((p) => MapEntry('', p.path))
+          .toList();
+    } else {
+      // 1. Organize photos by type
+      final photosD = <ProductPhoto>[];
+      final photosC = <ProductPhoto>[];
+      final otherPhotos = <ProductPhoto>[];
+
+      for (final photo in product.photos) {
+        final type = photo.photoType;
+        if (type == 'P') {
+          photoP = photo;
+        } else if (type == 'D1' || type == 'D2') {
+          photosD.add(photo);
+        } else if (type != null && type.startsWith('C')) {
+          photosC.add(photo);
+        } else if (photo.isPrimary && photoP == null) {
+          photoP = photo;
+        } else {
+          otherPhotos.add(photo);
+        }
+      }
+
+      // Fallback for legacy products
+      if (photoP == null && otherPhotos.isNotEmpty) {
+        photoP = otherPhotos.removeAt(0);
+      }
+
+      // If we still have space for D or C from otherPhotos
+      while (photosD.length < 2 && otherPhotos.isNotEmpty) {
+        photosD.add(otherPhotos.removeAt(0));
+      }
+      while (photosC.length < 4 && otherPhotos.isNotEmpty) {
+        photosC.add(otherPhotos.removeAt(0));
+      }
+
+      // Sort Colors by name (C1, C2...)
+      photosC.sort((a, b) => (a.photoType ?? '').compareTo(b.photoType ?? ''));
+
+      // Detail photos should maximize visual space; keep labels only for colors.
+      detailVariants = photosD.map((p) => MapEntry('', p.path)).toList();
+
+      colorVariants = photosC.map((p) {
+        final label = _resolveColorLabel(p);
+        return MapEntry(label, p.path);
+      }).toList();
+    }
+
+    final heroPath = photoP?.path;
     final sizesText = _extractSizesText(product);
-    final footerText =
+    final topHeaderText =
         (collectionName != null && collectionName.trim().isNotEmpty)
         ? collectionName.trim()
         : defaultSubtitle;
+
     final availableWidth = pageFormat.width - 36;
-    final mainPhotoHeight = _calcMainPhotoHeight(
-      availableWidth,
-      pageFormat.height,
-    );
-    final refStyle = pw.TextStyle(
-      fontSize: 12,
-      color: _colorMuted,
-      fontWeight: pw.FontWeight.normal,
-    );
+    final availableHeight = pageFormat.height - 36;
 
-    final formattedPrice = currencyFormat.format(displayPrice);
-    final originalPrice = (product.promoEnabled && product.promoPercent > 0)
-        ? (mode == CatalogMode.atacado
-              ? product.priceWholesale
-              : product.priceRetail)
-        : null;
-    final showPromo = originalPrice != null && originalPrice > displayPrice;
+    final bottomContentHeight = switch (style) {
+      CatalogPdfStyle.classic => 175.0,
+      CatalogPdfStyle.clean => 165.0,
+      CatalogPdfStyle.compact => 145.0,
+      CatalogPdfStyle.editorial => 190.0,
+      CatalogPdfStyle.minimal => 135.0,
+    };
+    final topHeaderHeight = switch (style) {
+      CatalogPdfStyle.classic => 35.0,
+      CatalogPdfStyle.clean => 28.0,
+      CatalogPdfStyle.compact => 24.0,
+      CatalogPdfStyle.editorial => 46.0,
+      CatalogPdfStyle.minimal => 0.0,
+    };
+    final spacing = switch (style) {
+      CatalogPdfStyle.classic => 15.0,
+      CatalogPdfStyle.clean => 12.0,
+      CatalogPdfStyle.compact => 8.0,
+      CatalogPdfStyle.editorial => 18.0,
+      CatalogPdfStyle.minimal => 10.0,
+    };
+    final mainRadius = switch (style) {
+      CatalogPdfStyle.classic => 0.0,
+      CatalogPdfStyle.clean => 8.0,
+      CatalogPdfStyle.compact => 6.0,
+      CatalogPdfStyle.editorial => 0.0,
+      CatalogPdfStyle.minimal => 12.0,
+    };
+    final productNameSize = switch (style) {
+      CatalogPdfStyle.classic => 15.0,
+      CatalogPdfStyle.clean => 14.0,
+      CatalogPdfStyle.compact => 13.0,
+      CatalogPdfStyle.editorial => 17.0,
+      CatalogPdfStyle.minimal => 14.0,
+    };
+    final priceSize = switch (style) {
+      CatalogPdfStyle.classic => 22.0,
+      CatalogPdfStyle.clean => 21.0,
+      CatalogPdfStyle.compact => 18.0,
+      CatalogPdfStyle.editorial => 24.0,
+      CatalogPdfStyle.minimal => 20.0,
+    };
+    final detailColumnWidth = switch (style) {
+      CatalogPdfStyle.classic => 85.0,
+      CatalogPdfStyle.clean => 82.0,
+      CatalogPdfStyle.compact => 72.0,
+      CatalogPdfStyle.editorial => 92.0,
+      CatalogPdfStyle.minimal => 78.0,
+    };
+    final showHeader = style != CatalogPdfStyle.minimal;
+    final infoFlex = switch (style) {
+      CatalogPdfStyle.classic => 4,
+      CatalogPdfStyle.clean => 5,
+      CatalogPdfStyle.compact => 6,
+      CatalogPdfStyle.editorial => 5,
+      CatalogPdfStyle.minimal => 6,
+    };
+    final colorFlex = switch (style) {
+      CatalogPdfStyle.classic => 6,
+      CatalogPdfStyle.clean => 5,
+      CatalogPdfStyle.compact => 4,
+      CatalogPdfStyle.editorial => 5,
+      CatalogPdfStyle.minimal => 4,
+    };
+    final nameMaxLines = style == CatalogPdfStyle.compact ? 1 : 2;
+    final mainPhotoHeight =
+        availableHeight - topHeaderHeight - bottomContentHeight - spacing;
 
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-      children: [
-        pw.Align(
-          alignment: pw.Alignment.center,
-          child: pw.Text(
-            mode.label,
-            style: pw.TextStyle(
-              fontSize: 11,
-              letterSpacing: 2,
-              color: _colorMuted,
-            ),
-          ),
-        ),
-        pw.SizedBox(height: 12),
-        pw.Stack(
-          children: [
-            if (heroPath != null)
-              _buildMainPhotoBox(
-                heroPath,
-                width: availableWidth,
-                height: mainPhotoHeight,
-                radius: 20,
-              )
-            else
-              _buildImagePlaceholder(
-                height: mainPhotoHeight,
-                width: availableWidth,
-                radius: 20,
-              ),
-            if (product.promoEnabled && product.promoPercent > 0)
-              pw.Positioned(
-                top: 12,
-                right: 12,
-                child: _buildPromoBadge(product.promoPercent),
-              ),
-          ],
-        ),
-        pw.SizedBox(height: 14),
-        pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Expanded(
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 18),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          // 1. Top Header
+          if (showHeader)
+            pw.Container(
+              height: topHeaderHeight,
+              alignment: pw.Alignment.centerLeft,
               child: pw.Text(
-                product.name.toUpperCase(),
-                maxLines: 2,
+                topHeaderText.toUpperCase(),
                 style: pw.TextStyle(
-                  fontSize: 15,
+                  fontSize: style == CatalogPdfStyle.editorial ? 12 : 11,
+                  letterSpacing: style == CatalogPdfStyle.compact ? 1.4 : 3,
                   fontWeight: pw.FontWeight.bold,
-                  letterSpacing: 1.1,
-                  color: _colorTextPrimary,
+                  color: PdfColors.black,
                 ),
               ),
             ),
-            pw.SizedBox(width: 8),
-            pw.Text(
-              'REF: ${product.reference}',
-              style: refStyle,
-              textAlign: pw.TextAlign.right,
-            ),
-          ],
-        ),
-        pw.SizedBox(height: 10),
-        pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.center,
-          children: [
-            pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
+          // 2. Main Photo Section + Details
+          pw.Container(
+            height: mainPhotoHeight,
+            width: availableWidth,
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
               children: [
-                if (showPromo)
-                  pw.Text(
-                    currencyFormat.format(originalPrice),
-                    style: pw.TextStyle(
-                      fontSize: 12,
-                      color: _colorMuted,
-                      decoration: pw.TextDecoration.lineThrough,
+                // MAIN PHOTO (P)
+                pw.Expanded(
+                  child: heroPath != null
+                      ? _buildMainPhotoBox(
+                          heroPath,
+                          height: mainPhotoHeight,
+                          radius: mainRadius,
+                        )
+                      : _buildImagePlaceholder(
+                          height: mainPhotoHeight,
+                          width: availableWidth,
+                          radius: mainRadius,
+                        ),
+                ),
+                // DETAILS (D1, D2)
+                if (detailVariants.isNotEmpty) ...[
+                  pw.SizedBox(width: 10),
+                  pw.Container(
+                    width: detailColumnWidth,
+                    child: pw.Column(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: detailVariants
+                          .map(
+                            (v) => pw.Expanded(
+                              child: _buildSwatchThumb(
+                                v.key,
+                                v.value,
+                                width: detailColumnWidth,
+                                expand: true,
+                              ),
+                            ),
+                          )
+                          .toList(),
                     ),
                   ),
-                pw.Text(
-                  formattedPrice,
-                  style: pw.TextStyle(
-                    fontSize: 21,
-                    fontWeight: pw.FontWeight.normal,
-                    color: _colorPriceGreen,
-                  ),
-                ),
+                ],
               ],
             ),
-            pw.Spacer(),
-            if (colors.isNotEmpty)
-              pw.Row(children: _buildColorDots(colors, activeColor))
-            else
-              pw.Text(
-                'sem cores',
-                style: pw.TextStyle(fontSize: 12, color: _colorMuted),
-              ),
-            pw.SizedBox(width: 10),
-            _buildSizePill(sizesText),
-          ],
-        ),
-        pw.SizedBox(height: 14),
-        if (miniPhotos.isNotEmpty)
-          _buildMiniPhotosRow(
-            miniPhotos,
-            height: pageFormat.height * 0.22,
-            width: availableWidth,
           ),
-        pw.Spacer(),
-        pw.Divider(color: PdfColors.grey300),
-        pw.SizedBox(height: 6),
-        pw.Text(
-          footerText.toUpperCase(),
-          style: pw.TextStyle(
-            fontSize: 11,
-            letterSpacing: 1.4,
-            color: _colorMuted,
+          pw.SizedBox(height: spacing),
+          // 3. Bottom Content (Info + Colors)
+          pw.Container(
+            height: bottomContentHeight,
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                // Info Section
+                pw.Expanded(
+                  flex: infoFlex,
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        product.name.toUpperCase(),
+                        maxLines: nameMaxLines,
+                        style: pw.TextStyle(
+                          fontSize: productNameSize,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.black,
+                          lineSpacing: 1.2,
+                        ),
+                      ),
+                      pw.SizedBox(height: 12),
+                      _buildSizePill(sizesText),
+                      pw.SizedBox(height: 12),
+                      pw.Text(
+                        'REF: ${product.reference}',
+                        style: pw.TextStyle(
+                          fontSize: 11,
+                          fontWeight: pw.FontWeight.normal,
+                          color: PdfColors.black,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      if (showPrice) ...[
+                        pw.SizedBox(height: 15),
+                        pw.Text(
+                          currencyFormat.format(displayPrice),
+                          style: pw.TextStyle(
+                            fontSize: priceSize,
+                            fontWeight: pw.FontWeight.bold,
+                            color: _colorPriceGreen,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                // Colors Section (C1-C4)
+                if (colorVariants.isNotEmpty)
+                  pw.Expanded(
+                    flex: colorFlex,
+                    child: pw.Container(
+                      alignment: pw.Alignment.topRight,
+                      child: _buildVariantThumbsLayout(colorVariants),
+                    ),
+                  ),
+              ],
+            ),
           ),
-          textAlign: pw.TextAlign.center,
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  static List<pw.Widget> _buildColorDots(
-    List<String> colors,
-    String? activeColor,
+  /// Builds the variant thumb layout based on quantity rules
+  static pw.Widget _buildVariantThumbsLayout(
+    List<MapEntry<String, String>> variants,
   ) {
-    return colors.take(5).map((color) {
-      final normalized = color.trim().toLowerCase();
-      final isActive =
-          activeColor != null && normalized == activeColor.trim().toLowerCase();
-      return pw.Container(
-        width: 16,
-        height: 16,
-        margin: const pw.EdgeInsets.only(left: 6),
-        decoration: pw.BoxDecoration(
-          color: _colorFromName(normalized),
-          borderRadius: pw.BorderRadius.circular(8),
-          border: pw.Border.all(
-            color: isActive ? PdfColors.black : PdfColors.grey400,
-            width: isActive ? 1.4 : 1,
+    final count = variants.length;
+
+    if (count == 4) {
+      // Caso 4: Grade 2x2 (Dividir o espaço)
+      return pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.end,
+        mainAxisSize: pw.MainAxisSize.min,
+        children: [
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.end,
+            mainAxisSize: pw.MainAxisSize.min,
+            children: [
+              _buildSwatchThumb(variants[0].key, variants[0].value, width: 44),
+              pw.SizedBox(width: 6),
+              _buildSwatchThumb(variants[1].key, variants[1].value, width: 44),
+            ],
           ),
-        ),
+          pw.SizedBox(height: 6),
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.end,
+            mainAxisSize: pw.MainAxisSize.min,
+            children: [
+              _buildSwatchThumb(variants[2].key, variants[2].value, width: 44),
+              pw.SizedBox(width: 6),
+              _buildSwatchThumb(variants[3].key, variants[3].value, width: 44),
+            ],
+          ),
+        ],
       );
-    }).toList();
+    } else if (count == 2) {
+      // Caso 2: Duas fotos grandes ocupando o espaço lateral
+      return pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.end,
+        mainAxisSize: pw.MainAxisSize.min,
+        children: [
+          _buildSwatchThumb(variants[0].key, variants[0].value, width: 85),
+          pw.SizedBox(width: 10),
+          _buildSwatchThumb(variants[1].key, variants[1].value, width: 85),
+        ],
+      );
+    } else {
+      // Casos 1 ou 3
+      final thumbWidth = (count == 3) ? 42.0 : 85.0;
+      return pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.end,
+        mainAxisSize: pw.MainAxisSize.min,
+        children: variants.asMap().entries.map((entry) {
+          return pw.Padding(
+            padding: pw.EdgeInsets.only(left: entry.key == 0 ? 0 : 8),
+            child: _buildSwatchThumb(
+              entry.value.key,
+              entry.value.value,
+              width: thumbWidth,
+            ),
+          );
+        }).toList(),
+      );
+    }
   }
 
-  static PdfColor _colorFromName(String name) {
-    if (name.contains('azul')) return PdfColors.blue700;
-    if (name.contains('rosa')) return PdfColors.pink400;
-    if (name.contains('vermelho')) return PdfColors.red400;
-    if (name.contains('marrom')) return PdfColors.brown500;
-    if (name.contains('preto')) return PdfColors.black;
-    if (name.contains('branco')) return PdfColors.grey200;
-    if (name.contains('verde')) return PdfColors.green600;
-    if (name.contains('amarelo')) return PdfColors.yellow600;
-    if (name.contains('cinza')) return PdfColors.grey500;
-    if (name.contains('bege')) return PdfColors.brown200;
-    if (name.contains('lilas') || name.contains('lilá')) {
-      return PdfColors.purple300;
-    }
-    return PdfColors.grey400;
+  /// Helper for a single variant swatch thumb
+  static pw.Widget _buildSwatchThumb(
+    String label,
+    String path, {
+    double? width,
+    bool small = false,
+    bool expand = false,
+  }) {
+    final thumbWidth = width ?? (small ? 42.0 : 56.0);
+    final thumbHeight = expand ? null : (thumbWidth * 1.3);
+
+    final imageContainer = pw.Container(
+      width: thumbWidth,
+      height: thumbHeight,
+      decoration: pw.BoxDecoration(
+        borderRadius: pw.BorderRadius.circular(10),
+        border: pw.Border.all(color: PdfColors.grey200, width: 0.5),
+      ),
+      child: pw.ClipRRect(
+        horizontalRadius: 10,
+        verticalRadius: 10,
+        child: _buildImageBox(
+          path,
+          height: thumbHeight ?? 200, // Large fallback for fit
+          width: thumbWidth,
+          radius: 10,
+        ),
+      ),
+    );
+
+    return pw.Column(
+      mainAxisSize: expand ? pw.MainAxisSize.max : pw.MainAxisSize.min,
+      children: [
+        expand ? pw.Expanded(child: imageContainer) : imageContainer,
+        if (label.trim().isNotEmpty) ...[
+          pw.SizedBox(height: 2),
+          pw.Container(
+            width: thumbWidth + 10,
+            child: pw.Text(
+              label.toUpperCase(),
+              style: pw.TextStyle(
+                fontSize: small ? 7 : 8,
+                letterSpacing: 0.5,
+                fontWeight: pw.FontWeight.bold,
+                color: PdfColors.grey800,
+              ),
+              textAlign: pw.TextAlign.center,
+              maxLines: 1,
+              overflow: pw.TextOverflow.clip,
+            ),
+          ),
+        ],
+      ],
+    );
   }
 
   static String _extractSizesText(Product product) {
@@ -322,109 +589,147 @@ class CatalogPdfService {
       sizes.addAll(product.sizes.map((s) => s.toUpperCase()));
     }
     if (sizes.isEmpty) return 'ÚNICO';
-    return sizes.join('/');
+
+    final sorted = _sortSizes(sizes);
+    return sorted.join('/');
   }
 
-  static List<String> _extractColorNames(Product product) {
-    final colors = <String>{};
-    for (final photo in product.photos) {
-      final key = photo.colorKey?.trim();
-      if (key != null && key.isNotEmpty) {
-        colors.add(key);
-      }
-    }
-    if (colors.isNotEmpty) return colors.toList();
+  static List<String> _sortSizes(Iterable<String> sizes) {
+    const order = [
+      'RN',
+      'PP',
+      'P',
+      'M',
+      'G',
+      'GG',
+      'XG',
+      'G1',
+      'G2',
+      'G3',
+      'G4',
+    ];
+    final list = sizes.toList();
+    list.sort((a, b) {
+      final numA = double.tryParse(a.replaceAll(',', '.'));
+      final numB = double.tryParse(b.replaceAll(',', '.'));
 
-    for (final variant in product.variants) {
-      for (final entry in variant.attributes.entries) {
-        final key = entry.key.toLowerCase();
-        if (key == 'cor' || key == 'color') {
-          final val = entry.value.trim();
-          if (val.isNotEmpty) colors.add(val);
-        }
-      }
-    }
-    if (colors.isEmpty) {
-      colors.addAll(product.colors.map((c) => c.trim()));
-    }
-    return colors.toList();
+      if (numA != null && numB != null) return numA.compareTo(numB);
+      if (numA != null) return -1;
+      if (numB != null) return 1;
+
+      final idxA = order.indexOf(a.toUpperCase());
+      final idxB = order.indexOf(b.toUpperCase());
+
+      if (idxA != -1 && idxB != -1) return idxA.compareTo(idxB);
+      if (idxA != -1) return -1;
+      if (idxB != -1) return 1;
+
+      return a.compareTo(b);
+    });
+    return list;
   }
 
   static ProductPhoto? _selectPrimaryPhoto(List<ProductPhoto> photos) {
     if (photos.isEmpty) return null;
+
+    // 1. Try by photoType 'P'
+    for (final photo in photos) {
+      if (photo.photoType == 'P') return photo;
+    }
+
+    // 2. Try by isPrimary flag
     for (final photo in photos) {
       if (photo.isPrimary) return photo;
     }
+
+    // 3. Fallback to any photo with colorKey (to avoid semi-empty thumbnails if possible)
     for (final photo in photos) {
       final key = photo.colorKey?.trim();
       if (key != null && key.isNotEmpty) return photo;
     }
+
     return photos.first;
   }
 
-  static String? _selectActiveColor(
-    List<ProductPhoto> photos,
-    ProductPhoto? primary,
-  ) {
-    if (photos.isEmpty) return null;
-    final primaryColor = primary?.colorKey?.trim();
-    if (primaryColor != null && primaryColor.isNotEmpty) {
-      return primaryColor;
+  static List<String> _extractLoosePhotoPaths(Product product) {
+    final result = <String>[];
+    final seen = <String>{};
+
+    for (final photo in product.photos) {
+      final path = photo.path.trim();
+      if (path.isNotEmpty && seen.add(path)) {
+        result.add(path);
+      }
     }
-    for (final photo in photos) {
-      final key = photo.colorKey?.trim();
-      if (key != null && key.isNotEmpty) return key;
+    for (final path in product.images) {
+      final value = path.trim();
+      if (value.isNotEmpty && seen.add(value)) {
+        result.add(value);
+      }
     }
-    return null;
+
+    return result;
   }
 
-  static List<ProductPhoto> _selectMiniPhotos(
-    List<ProductPhoto> photos,
-    String? activeColor,
-    ProductPhoto? primary,
-  ) {
-    if (photos.isEmpty) return const [];
-    final normalizedActive = activeColor?.toLowerCase();
-    final primaryPath = primary?.path;
-
-    List<ProductPhoto> pick(Iterable<ProductPhoto> source) {
-      final filtered = source
-          .where((p) => p.path.isNotEmpty && p.path != primaryPath)
-          .toList();
-      filtered.sort((a, b) {
-        final aScore = a.isPrimary ? 1 : 0;
-        final bScore = b.isPrimary ? 1 : 0;
-        return bScore.compareTo(aScore);
-      });
-      return filtered;
+  static String _resolveColorLabel(ProductPhoto photo) {
+    final explicit = photo.colorKey?.trim();
+    if (explicit != null && explicit.isNotEmpty) {
+      return explicit;
     }
 
-    final ordered = <ProductPhoto>[];
-    if (normalizedActive != null) {
-      ordered.addAll(
-        pick(
-          photos.where((p) => p.colorKey?.toLowerCase() == normalizedActive),
-        ),
-      );
-    }
-    if (ordered.length < 3) {
-      ordered.addAll(
-        pick(photos.where((p) => p.colorKey == null || p.colorKey!.isEmpty)),
-      );
-    }
-    if (ordered.length < 3) {
-      ordered.addAll(pick(photos));
+    final fromPath = _extractColorFromPath(photo.path);
+    if (fromPath != null && fromPath.isNotEmpty) {
+      return fromPath;
     }
 
-    final unique = <String>{};
-    final result = <ProductPhoto>[];
-    for (final photo in ordered) {
-      if (unique.add(photo.path)) {
-        result.add(photo);
-      }
-      if (result.length == 3) break;
+    final type = photo.photoType?.trim();
+    if (type != null && type.isNotEmpty) {
+      return type;
     }
-    return result;
+    return 'COR';
+  }
+
+  static String? _extractColorFromPath(String path) {
+    final fileName = path.split(RegExp(r'[\\/]')).last;
+    if (fileName.isEmpty) return null;
+
+    final base = fileName.replaceFirst(RegExp(r'\.[^.]+$'), '');
+
+    // Internal format: 106603__C1__PRETO
+    final internal = RegExp(
+      r'__c\d*__([a-z0-9_\-\s]+)$',
+      caseSensitive: false,
+    ).firstMatch(base);
+    if (internal != null) {
+      return _normalizeColorText(internal.group(1)!);
+    }
+
+    // External formats:
+    // 106603_cor_preto / 106603_cor_azul-marinho / 106603_preto
+    final byRef = RegExp(
+      r'^\d+[_\-\s]+(.+)$',
+      caseSensitive: false,
+    ).firstMatch(base);
+    if (byRef == null) return null;
+
+    var suffix = byRef.group(1) ?? '';
+    suffix = suffix.replaceFirst(
+      RegExp(r'^cor[_\-\s]+', caseSensitive: false),
+      '',
+    );
+    if (suffix.trim().isEmpty) return null;
+
+    return _normalizeColorText(suffix);
+  }
+
+  static String _normalizeColorText(String raw) {
+    final parts = raw
+        .split(RegExp(r'[_\-\s]+'))
+        .map((p) => p.trim())
+        .where((p) => p.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return raw.trim().toUpperCase();
+    return parts.join(' ').toUpperCase();
   }
 
   static pw.Widget _buildImageBox(
@@ -443,7 +748,7 @@ class CatalogPdfService {
           return pw.Container(
             height: height,
             width: width,
-            alignment: pw.Alignment.center,
+            alignment: pw.Alignment.centerLeft,
             decoration: pw.BoxDecoration(
               color: _colorImageBg,
               borderRadius: pw.BorderRadius.circular(radius),
@@ -485,7 +790,7 @@ class CatalogPdfService {
 
   static pw.Widget _buildMainPhotoBox(
     String path, {
-    required double width,
+    double? width,
     required double height,
     double radius = 0,
   }) {
@@ -748,83 +1053,21 @@ class CatalogPdfService {
 
   static pw.Widget _buildSizePill(String sizesText) {
     return pw.Container(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: pw.BoxDecoration(
         color: _colorSizePillBg,
-        borderRadius: pw.BorderRadius.circular(12),
+        borderRadius: pw.BorderRadius.circular(
+          2,
+        ), // Rectangular with slight radius
       ),
       child: pw.Text(
         sizesText,
         style: pw.TextStyle(
-          fontSize: 12,
+          fontSize: 10,
           fontWeight: pw.FontWeight.bold,
-          color: _colorMuted,
+          color: PdfColors.black,
         ),
       ),
-    );
-  }
-
-  static double _calcMainPhotoHeight(double width, double pageHeight) {
-    final ratioHeight = width * 4 / 3;
-    final maxHeight = pageHeight * 0.5;
-    return ratioHeight > maxHeight ? maxHeight : ratioHeight;
-  }
-
-  static pw.Widget _buildPromoBadge(double percent) {
-    final value = percent.round().clamp(1, 100);
-    return pw.Container(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: pw.BoxDecoration(
-        color: PdfColors.green600,
-        borderRadius: pw.BorderRadius.circular(20),
-        boxShadow: [
-          pw.BoxShadow(
-            blurRadius: 6,
-            color: PdfColors.orange,
-            offset: const PdfPoint(0, 2),
-          ),
-        ],
-      ),
-      child: pw.Text(
-        '-$value%',
-        style: pw.TextStyle(
-          fontSize: 18,
-          fontWeight: pw.FontWeight.bold,
-          color: PdfColors.white,
-          letterSpacing: 0.5,
-        ),
-      ),
-    );
-  }
-
-  static pw.Widget _buildMiniPhotosRow(
-    List<ProductPhoto> photos, {
-    required double height,
-    required double width,
-  }) {
-    final count = photos.length >= 3 ? 3 : photos.length;
-    if (count <= 0) return pw.SizedBox.shrink();
-    final gap = 10.0;
-    final totalGap = gap * (count - 1);
-    final itemWidth = (width - totalGap) / count;
-
-    return pw.Row(
-      children: List.generate(count, (index) {
-        final photo = photos[index];
-        final widget = _buildImageBox(
-          photo.path,
-          height: height,
-          width: itemWidth,
-          radius: 12,
-        );
-        if (index == count - 1) return widget;
-        return pw.Row(
-          children: [
-            widget,
-            pw.SizedBox(width: gap),
-          ],
-        );
-      }),
     );
   }
 }

@@ -1,16 +1,19 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:gravity/models/category.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
-import 'package:gravity/ui/widgets/app_primary_button.dart';
-import 'package:gravity/ui/widgets/app_scaffold.dart';
-import 'package:gravity/ui/widgets/section_card.dart';
-import 'package:gravity/viewmodels/categories_viewmodel.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/widgets/app_primary_button.dart';
+import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
+import 'package:catalogo_ja/ui/widgets/section_card.dart';
+import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
+import 'package:catalogo_ja/core/services/image_optimizer_service.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 class CollectionFormScreen extends ConsumerStatefulWidget {
@@ -92,18 +95,46 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
   Future<void> _pickImage(bool isMini) async {
     try {
       final result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'],
         allowMultiple: false,
+        withData: kIsWeb,
       );
 
-      if (result != null && result.files.single.path != null) {
-        final file = File(result.files.single.path!);
+      if (result == null || result.files.isEmpty) return;
+      final picked = result.files.single;
+      final optimizer = ref.read(imageOptimizerServiceProvider.notifier);
+
+      if (kIsWeb) {
+        final rawBytes = picked.bytes;
+        if (rawBytes == null || rawBytes.isEmpty) {
+          throw Exception('Arquivo invalido no navegador.');
+        }
+        final compressedBytes = await optimizer.compressBytes(rawBytes);
+        final bytesToUse = compressedBytes ?? rawBytes;
+        final dataUrl =
+            'data:${_mimeTypeFromFileName(picked.name)};base64,${base64Encode(bytesToUse)}';
+
+        setState(() {
+          if (isMini) {
+            _coverMiniPath = dataUrl;
+          } else {
+            _coverPagePath = dataUrl;
+          }
+        });
+        return;
+      }
+
+      if (picked.path != null) {
+        final file = File(picked.path!);
         if (!await file.exists()) return;
 
-        // Copy to app storage
+        final compressedFile = await optimizer.compressImage(file);
+        final fileToSave = compressedFile ?? file;
+
         final appDir = await getApplicationDocumentsDirectory();
-        final fileName = '${const Uuid().v4()}${p.extension(file.path)}';
-        final savedImage = await file.copy('${appDir.path}/$fileName');
+        final fileName = '${const Uuid().v4()}${p.extension(fileToSave.path)}';
+        final savedImage = await fileToSave.copy('${appDir.path}/$fileName');
 
         setState(() {
           if (isMini) {
@@ -126,7 +157,7 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
     if (!_formKey.currentState!.validate()) return;
     if (_coverMiniPath == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('A mini capa é obrigatória.')),
+        const SnackBar(content: Text('A mini capa \u00e9 obrigat\u00f3ria.')),
       );
       return;
     }
@@ -182,8 +213,8 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      title: _isEdit ? 'Editar Coleção' : 'Nova Coleção',
-      subtitle: 'Crie a coleção e defina as capas do catálogo',
+      title: _isEdit ? 'Editar Cole\u00e7\u00e3o' : 'Nova Cole\u00e7\u00e3o',
+      subtitle: 'Crie a cole\u00e7\u00e3o e defina as capas do cat\u00e1logo',
       body: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -192,40 +223,40 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
             children: [
               const SizedBox(height: AppTokens.space24),
 
-              // Seção A - Dados da Coleção
+              // Se\u00e7\u00e3o A - Dados da Cole\u00e7\u00e3o
               SectionCard(
-                title: 'Dados da Coleção',
+                title: 'Dados da Cole\u00e7\u00e3o',
                 child: Column(
                   children: [
                     TextFormField(
                       controller: _nameController,
                       decoration: const InputDecoration(
-                        labelText: 'Nome da Coleção',
-                        hintText: 'Ex: Verão 2026',
+                        labelText: 'Nome da Cole\u00e7\u00e3o',
+                        hintText: 'Ex: Ver\u00e3o 2026',
                         filled: true,
                       ),
                       validator: (v) =>
-                          v == null || v.trim().isEmpty ? 'Obrigatório' : null,
+                          v == null || v.trim().isEmpty ? 'Obrigat\u00f3rio' : null,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _slugController,
                       decoration: const InputDecoration(
-                        labelText: 'Slug (URL amigável)',
+                        labelText: 'Slug (URL amig\u00e1vel)',
                         hintText: 'ex: verao-2026',
                         filled: true,
-                        helperText: 'Identificador único na URL',
+                        helperText: 'Identificador \u00fanico na URL',
                       ),
                       onChanged: (_) => _slugTouched = true,
                       validator: (v) =>
-                          v == null || v.trim().isEmpty ? 'Obrigatório' : null,
+                          v == null || v.trim().isEmpty ? 'Obrigat\u00f3rio' : null,
                     ),
                     const SizedBox(height: 16),
                     SwitchListTile.adaptive(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Coleção Ativa'),
+                      title: const Text('Cole\u00e7\u00e3o Ativa'),
                       subtitle: const Text(
-                        'Exibir esta coleção no catálogo e permitir vendas',
+                        'Exibir esta cole\u00e7\u00e3o no cat\u00e1logo e permitir vendas',
                       ),
                       value: _isActive,
                       activeColor: AppTokens.accentBlue,
@@ -237,16 +268,16 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
 
               const SizedBox(height: AppTokens.space24),
 
-              // Seção C - Capas da Coleção
+              // Se\u00e7\u00e3o C - Capas da Cole\u00e7\u00e3o
               SectionCard(
-                title: 'Capas da Coleção',
+                title: 'Capas da Cole\u00e7\u00e3o',
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildCoverSection(
                       title: 'Mini Capa',
                       subtitle:
-                          'Obrigatória. Usada no topo do catálogo (1365×420).',
+                          'Obrigat\u00f3ria. Usada no topo do cat\u00e1logo (1365\u00c3—420).',
                       path: _coverMiniPath,
                       onPick: () => _pickImage(true),
                       onRemove: () => setState(() => _coverMiniPath = null),
@@ -257,7 +288,7 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
                     _buildCoverSection(
                       title: 'Imagem Editorial',
                       subtitle:
-                          'Opcional. Preenche o restante da página de abertura.',
+                          'Opcional. Preenche o restante da p\u00e1gina de abertura.',
                       path: _coverPagePath,
                       onPick: () => _pickImage(false),
                       onRemove: () => setState(() => _coverPagePath = null),
@@ -279,7 +310,7 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
           color: Theme.of(context).cardColor,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: Colors.black.withOpacity(0.05),
               blurRadius: 10,
               offset: const Offset(0, -4),
             ),
@@ -300,7 +331,7 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
               const SizedBox(width: 16),
               Expanded(
                 child: AppPrimaryButton(
-                  label: 'Salvar Coleção',
+                  label: 'Salvar Cole\u00e7\u00e3o',
                   onPressed: _save,
                 ),
               ),
@@ -321,7 +352,7 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
     required double height,
   }) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -363,41 +394,68 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
                 ),
               )
             else
-              OutlinedButton.icon(
-                onPressed: onRemove,
-                icon: const Icon(
-                  Icons.delete_outline,
-                  size: 18,
-                  color: AppTokens.accentRed,
-                ),
-                label: const Text('Remover'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTokens.accentRed,
-                  side: const BorderSide(color: AppTokens.accentRed),
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextButton.icon(
+                    onPressed: onPick,
+                    icon: const Icon(Icons.refresh, size: 18),
+                    label: const Text('Alterar'),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: onRemove,
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      size: 18,
+                      color: AppTokens.accentRed,
+                    ),
+                    tooltip: 'Remover Imagem',
+                  ),
+                ],
               ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         if (path != null)
-          Container(
-            height: height,
-            decoration: BoxDecoration(
-              border: Border.all(color: Theme.of(context).dividerColor),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.file(
-                File(path),
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const Center(
-                  child: Icon(
-                    Icons.broken_image,
-                    size: 48,
-                    color: AppTokens.textMuted,
+          GestureDetector(
+            onTap: onPick,
+            child: Container(
+              height: height,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                border: Border.all(color: Theme.of(context).dividerColor),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: _buildImageFromPath(path),
                   ),
-                ),
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.0),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.35),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.refresh,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           )
@@ -405,12 +463,12 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
           GestureDetector(
             onTap: onPick,
             child: Container(
-              height: height / 2, // Smaller placeholder
+              height: height * 0.62,
               width: double.infinity,
               decoration: BoxDecoration(
                 color: Theme.of(
                   context,
-                ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                ).colorScheme.surfaceContainerHighest.withOpacity(0.5),
                 border: Border.all(
                   color: Theme.of(context).dividerColor,
                   style: BorderStyle.solid,
@@ -418,27 +476,83 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
               alignment: Alignment.center,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.add_photo_alternate_outlined,
-                    size: 32,
-                    color: AppTokens.textMuted.withValues(alpha: 0.5),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Clique para selecionar',
-                    style: TextStyle(
-                      color: AppTokens.textMuted.withValues(alpha: 0.5),
-                      fontSize: 12,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.add_photo_alternate_outlined,
+                      size: 32,
+                      color: AppTokens.textMuted.withOpacity(0.5),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    Text(
+                      'Clique para selecionar',
+                      style: TextStyle(
+                        color: AppTokens.textMuted.withOpacity(0.5),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
       ],
     );
   }
+
+  Widget _buildImageFromPath(String path) {
+    if (path.startsWith('data:image') || path.startsWith('http')) {
+      return Image.network(
+        path,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (_, _, _) => const Center(
+          child: Icon(
+            Icons.broken_image,
+            size: 48,
+            color: AppTokens.textMuted,
+          ),
+        ),
+      );
+    }
+
+    return Image.file(
+      File(path),
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      errorBuilder: (_, _, _) => const Center(
+        child: Icon(
+          Icons.broken_image,
+          size: 48,
+          color: AppTokens.textMuted,
+        ),
+      ),
+    );
+  }
+
+  String _mimeTypeFromFileName(String fileName) {
+    final ext = p.extension(fileName).toLowerCase();
+    switch (ext) {
+      case '.jpg':
+      case '.jpeg':
+        return 'image/jpeg';
+      case '.png':
+        return 'image/png';
+      case '.webp':
+        return 'image/webp';
+      case '.gif':
+        return 'image/gif';
+      case '.bmp':
+        return 'image/bmp';
+      default:
+        return 'application/octet-stream';
+    }
+  }
 }
+

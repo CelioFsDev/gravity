@@ -1,7 +1,8 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:gravity/core/services/product_transfer_service.dart';
-import 'package:gravity/viewmodels/product_import_viewmodel.dart';
+import 'package:go_router/go_router.dart';
+import 'package:catalogo_ja/core/services/product_transfer_service.dart';
+import 'package:catalogo_ja/viewmodels/product_import_viewmodel.dart';
 
 class ProductImportScreen extends ConsumerWidget {
   const ProductImportScreen({super.key});
@@ -14,7 +15,7 @@ class ProductImportScreen extends ConsumerWidget {
     // If done, show success
     if (state.isDone) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Importação Concluída')),
+        appBar: AppBar(title: const Text('Importa\u00e7\u00e3o Conclu\u00edda')),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -28,6 +29,14 @@ class ProductImportScreen extends ConsumerWidget {
               ElevatedButton(
                 onPressed: () => Navigator.of(context).pop(),
                 child: const Text('Voltar para Produtos'),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () {
+                  viewModel.reset();
+                  context.go('/admin/products');
+                },
+                child: const Text('Voltar para o Menu'),
               ),
             ],
           ),
@@ -66,7 +75,7 @@ class ProductImportScreen extends ConsumerWidget {
                   FilledButton(
                     onPressed: details.onStepContinue,
                     child: Text(
-                      isLastStep ? 'Finalizar Importação' : 'Próximo',
+                      isLastStep ? 'Finalizar Importa\u00e7\u00e3o' : 'Pr\u00f3ximo',
                     ),
                   ),
                 const SizedBox(width: 16),
@@ -128,7 +137,7 @@ class ProductImportScreen extends ConsumerWidget {
                       SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'O preço atacado não vem da Nuvemshop. Após importar, revise o atacado conforme sua política.',
+                          'O pre\u00e7o atacado n\u00e3o vem da Nuvemshop. Ap\u00f3s importar, revise o atacado conforme sua pol\u00edtica.',
                         ),
                       ),
                     ],
@@ -187,7 +196,7 @@ class ProductImportScreen extends ConsumerWidget {
                   'Selecione todas as imagens dos produtos de uma vez.',
                 ),
                 const Text(
-                  'O sistema vinculará automaticamente se o nome do arquivo começar com o SKU ou a Referência do produto.',
+                  'O sistema vincular\u00e1 automaticamente se o nome do arquivo come\u00e7ar com o SKU ou a Refer\u00eancia do produto.',
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(

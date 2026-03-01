@@ -1,5 +1,5 @@
-import 'package:gravity/data/repositories/settings_repository.dart';
-import 'package:gravity/models/settings.dart';
+import 'package:catalogo_ja/data/repositories/settings_repository.dart';
+import 'package:catalogo_ja/models/settings.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class SettingsViewModel extends Notifier<AppSettings> {

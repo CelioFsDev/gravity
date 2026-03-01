@@ -1,10 +1,10 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:gravity/models/product.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
-import 'package:gravity/ui/widgets/app_card.dart';
-import 'package:gravity/ui/widgets/app_badge_pill.dart';
+import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/widgets/app_card.dart';
+import 'package:catalogo_ja/ui/widgets/app_badge_pill.dart';
 import 'package:intl/intl.dart';
 
 class AppProductListTile extends StatelessWidget {
@@ -14,7 +14,10 @@ class AppProductListTile extends StatelessWidget {
   final VoidCallback? onDelete;
   final VoidCallback? onDuplicate;
   final VoidCallback? onTogglePromo;
+  final VoidCallback? onGoMainMenu;
   final Widget? trailing;
+  final bool isSelected;
+  final VoidCallback? onLongPress;
 
   const AppProductListTile({
     super.key,
@@ -24,7 +27,10 @@ class AppProductListTile extends StatelessWidget {
     this.onDelete,
     this.onDuplicate,
     this.onTogglePromo,
+    this.onGoMainMenu,
     this.trailing,
+    this.isSelected = false,
+    this.onLongPress,
   });
 
   @override
@@ -36,8 +42,29 @@ class AppProductListTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: AppTokens.space12),
       padding: const EdgeInsets.all(AppTokens.space12),
       onTap: onTap,
+      onLongPress: onLongPress,
+      decoration: isSelected
+          ? BoxDecoration(
+              color: Theme.of(
+                context,
+              ).colorScheme.primaryContainer.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.primary,
+                width: 2,
+              ),
+            )
+          : null,
       child: Row(
         children: [
+          if (isSelected || onLongPress != null) ...[
+            Checkbox(
+              value: isSelected,
+              onChanged: (_) => onTap(),
+              shape: const CircleBorder(),
+            ),
+            const SizedBox(width: 8),
+          ],
           // Thumbnail
           Container(
             width: 64,
@@ -49,14 +76,17 @@ class AppProductListTile extends StatelessWidget {
             clipBehavior: Clip.antiAlias,
             child: _buildImage(primaryImage),
           ),
-          const SizedBox(width: AppTokens.space16),
+          const SizedBox(width: AppTokens.space8),
 
           // Info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                Wrap(
+                  spacing: AppTokens.space8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
                       product.ref,
@@ -65,14 +95,11 @@ class AppProductListTile extends StatelessWidget {
                         color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
-                    const SizedBox(width: AppTokens.space8),
                     if (product.promoEnabled)
                       const AppBadgePill(
                         label: 'PROMO',
                         color: AppTokens.accentRed,
                       ),
-                    if (product.isOutOfStock)
-                      const SizedBox(width: AppTokens.space4),
                     if (product.isOutOfStock)
                       const AppBadgePill(
                         label: 'ESGOTADO',
@@ -92,13 +119,25 @@ class AppProductListTile extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   'Varejo: ${currency.format(product.effectivePriceRetail)} • Atacado: ${currency.format(product.effectivePriceWholesale)}',
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
 
-          if (trailing != null) trailing!,
+          if (trailing != null) ...[
+            trailing!,
+          ],
+          if (trailing == null && onGoMainMenu != null)
+            IconButton(
+              tooltip: 'Menu principal',
+              onPressed: onGoMainMenu,
+              icon: const Icon(Icons.home_outlined),
+            ),
           if (trailing == null && (onEdit != null || onDelete != null))
             _buildAdminMenu(context),
           if (trailing == null && onEdit == null && onDelete == null)

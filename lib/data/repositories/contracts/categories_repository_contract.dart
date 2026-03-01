@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:gravity/models/category.dart';
+import 'package:catalogo_ja/models/category.dart';
 
 abstract class CategoriesRepositoryContract {
   Future<List<Category>> getCategories();

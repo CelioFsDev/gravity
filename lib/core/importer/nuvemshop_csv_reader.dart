@@ -81,11 +81,11 @@ class NuvemshopCsvReader {
       headerIndex = allLines.indexWhere((l) => l.trim().isNotEmpty);
     }
 
-    if (headerIndex == -1) throw Exception('CSV sem conteúdo legível');
+    if (headerIndex == -1) throw Exception('CSV sem conte\u00fado leg\u00edvel');
 
     final headerLine = allLines[headerIndex];
     debugPrint(
-      'Linha de cabeçalho detectada (index $headerIndex): "$headerLine"',
+      'Linha de cabe\u00e7alho detectada (index $headerIndex): "$headerLine"',
     );
 
     final delimiter = _detectDelimiterForLine(headerLine);
@@ -94,14 +94,13 @@ class NuvemshopCsvReader {
     // Re-join from header onwards to ensure multi-line fields (quotes) are handled correctly
     final contentFromHeader = allLines.sublist(headerIndex).join('\n');
 
-    final rows = CsvToListConverter(
+    final rows = CsvDecoder(
       fieldDelimiter: delimiter,
-      shouldParseNumbers: false,
-      eol: '\n',
+      dynamicTyping: false,
     ).convert(contentFromHeader).where((row) => row.isNotEmpty).toList();
 
     if (rows.isEmpty) {
-      throw Exception('CSV vazio após processamento');
+      throw Exception('CSV vazio ap\u00f3s processamento');
     }
 
     // Clean headers - don't filter out empty ones to keep indices consistent
@@ -139,30 +138,30 @@ class NuvemshopCsvReader {
   static String _normalize(String value) {
     var normalized = value.toLowerCase().trim();
     const replacements = {
-      'á': 'a',
-      'à': 'a',
-      'â': 'a',
-      'ã': 'a',
-      'ä': 'a',
-      'é': 'e',
-      'è': 'e',
-      'ê': 'e',
-      'ë': 'e',
-      'í': 'i',
-      'ì': 'i',
-      'î': 'i',
-      'ï': 'i',
-      'ó': 'o',
-      'ò': 'o',
-      'ô': 'o',
-      'õ': 'o',
-      'ö': 'o',
-      'ú': 'u',
-      'ù': 'u',
-      'û': 'u',
-      'ü': 'u',
-      'ç': 'c',
-      'ñ': 'n',
+      '\u00e1': 'a',
+      '\u00e0': 'a',
+      '\u00e2': 'a',
+      '\u00e3': 'a',
+      '\u00e4': 'a',
+      '\u00e9': 'e',
+      '\u00e8': 'e',
+      '\u00ea': 'e',
+      '\u00eb': 'e',
+      '\u00ed': 'i',
+      '\u00ec': 'i',
+      '\u00ee': 'i',
+      '\u00ef': 'i',
+      '\u00f3': 'o',
+      '\u00f2': 'o',
+      '\u00f4': 'o',
+      '\u00f5': 'o',
+      '\u00f6': 'o',
+      '\u00fa': 'u',
+      '\u00f9': 'u',
+      '\u00fb': 'u',
+      '\u00fc': 'u',
+      '\u00e7': 'c',
+      '\u00f1': 'n',
     };
     replacements.forEach((from, to) {
       normalized = normalized.replaceAll(from, to);

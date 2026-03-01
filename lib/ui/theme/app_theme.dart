@@ -1,6 +1,6 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:gravity/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 
 class AppTheme {
   static ThemeData light() {

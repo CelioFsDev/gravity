@@ -1,73 +1,75 @@
-Ôªø# Gravity
+# CatalogoJa
 
-## Vis√£o geral
-Gravity √© um painel administrativo e vitrine p√∫blica focado em cat√°logos digitais. A base do app √© em Flutter 3.10 + Riverpod, combinando armazenamento local (Hive) com Firebase Auth para permitir controle de acesso, m√©tricas e compartilhamento via web/WhatsApp mesmo sem conex√£o cheia.
+## Vis„o geral
+CatalogoJa È um painel administrativo e vitrine p˙blica focado em cat·logos digitais. A base do app È em Flutter 3.10 + Riverpod, combinando armazenamento local (Hive) com Firebase Auth para permitir controle de acesso, mÈtricas e compartilhamento via web/WhatsApp mesmo sem conex„o cheia.
 
 ## Recursos principais
 
 ### Painel administrativo completo
-- O AdminShellScreen monta o StatefulShellRoute do GoRouter com NavigationRail + Drawer para Dashboard, Pedidos, Produtos, Categorias, Cat√°logos, Promo√ß√µes (placeholder), Vendedoras e Configura√ß√µes.
-- OrdersScreen exibe KPIs (pedidos do dia, faturamento, ticket m√©dio), busca livre, filtros por status, per√≠odo, ordena√ß√£o e permite atualizar status do pedido em linha. Cada registro pode abrir o WhatsApp com dados do cliente.
-- ProductsScreen mostra cards responsivos, filtros por nome/categoria/status, KPIs r√°pidos e a√ß√µes para ver, editar, excluir, criar produtos ou importar via CSV/arquivos de imagem.
-- CategoriesScreen oferece busca, ordena√ß√£o (manual ou A-Z), drag-and-drop e di√°logos para criar/editar/excluir categorias com redistribui√ß√£o autom√°tica dos produtos.
-- CatalogsScreen e o CatalogEditorScreen cuidam da cria√ß√£o de cat√°logos (slug, modo varejo/atacado, layout fotogr√°fico, exig√™ncia de dados, an√∫ncio, banners, link p√∫blico, c√≥digo de compartilhamento) e exp√µem a√ß√µes para copiar link, compartilhar PDF/link, editar ou deletar.
-- SellersScreen gerencia vendedoras com campos obrigat√≥rios de WhatsApp, status ativo/inativo, confirma√ß√£o para exclus√£o e altern√¢ncia r√°pida via switch.
-- SettingsScreen controla modo escuro (via 	hemeModeProvider), nome da loja, WhatsApp padr√£o, URL p√∫blica e salva tudo em Hive para uso em gera√ß√£o de links e mensagens autom√°ticas.
+- O AdminShellScreen monta o StatefulShellRoute do GoRouter com NavigationRail + Drawer para Dashboard, Pedidos, Produtos, Categorias, Cat·logos, PromoÁıes (placeholder), Vendedoras e ConfiguraÁıes.
+- OrdersScreen exibe KPIs (pedidos do dia, faturamento, ticket mÈdio), busca livre, filtros por status, perÌodo, ordenaÁ„o e permite atualizar status do pedido em linha. Cada registro pode abrir o WhatsApp com dados do cliente.
+- ProductsScreen mostra cards responsivos, filtros por nome/categoria/status, KPIs r·pidos e aÁıes para ver, editar, excluir, criar produtos ou importar via CSV/arquivos de imagem.
+- CategoriesScreen oferece busca, ordenaÁ„o (manual ou A-Z), drag-and-drop e di·logos para criar/editar/excluir categorias com redistribuiÁ„o autom·tica dos produtos.
+- CatalogsScreen e o CatalogEditorScreen cuidam da criaÁ„o de cat·logos (slug, modo varejo/atacado, layout fotogr·fico, exigÍncia de dados, an˙ncio, banners, link p˙blico, cÛdigo de compartilhamento) e expıem aÁıes para copiar link, compartilhar PDF/link, editar ou deletar.
+- SellersScreen gerencia vendedoras com campos obrigatÛrios de WhatsApp, status ativo/inativo, confirmaÁ„o para exclus„o e altern‚ncia r·pida via switch.
+- SettingsScreen controla modo escuro (via 	hemeModeProvider), nome da loja, WhatsApp padr„o, URL p˙blica e salva tudo em Hive para uso em geraÁ„o de links e mensagens autom·ticas.
 
-### Cat√°logos e compartilhamento
-- CatalogShareHelper combina CatalogPdfService (gera√ß√£o estilizada em PDF com fotos, pre√ßo, pix e parcelamento) e WhatsAppShareService (envio de link, PDF ou pedido via WhatsApp usando share_plus e url_launcher).
-- O link p√∫blico segue o padr√£o /c/{shareCode} e usa AppSettings.publicBaseUrl (ou https://gravity.app) para montar a URL.
-- H√° bot√µes na tela do cat√°logo para regenerar c√≥digo, copiar link com o Clipboard, salvar PDF nos downloads e enviar o arquivo diretamente ao WhatsApp do contato.
+### Cat·logos e compartilhamento
+- CatalogShareHelper combina CatalogPdfService (geraÁ„o estilizada em PDF com fotos, preÁo, pix e parcelamento) e WhatsAppShareService (envio de link, PDF ou pedido via WhatsApp usando share_plus e url_launcher).
+- O link p˙blico segue o padr„o /c/{shareCode} e usa AppSettings.publicBaseUrl (ou https://CatalogoJa.app) para montar a URL.
+- H· botıes na tela do cat·logo para regenerar cÛdigo, copiar link com o Clipboard, salvar PDF nos downloads e enviar o arquivo diretamente ao WhatsApp do contato.
 
-### Vitrine p√∫blica e checkout
-- CatalogHomePage consome catalogPublicProvider, exibe chips de categoria, mensagem de an√∫ncio e layout flex√≠vel (grid/list/carrossel) com controle de tamanho, estoque e promo√ß√£o.
-- ProductQuickAddSheet permite selecionar tamanho (quando houver), quantidade e adiciona o item ao carrinho global (CartViewModel), que calcula total e mant√©m itens usando OrderItem.
+### Vitrine p˙blica e checkout
+- CatalogHomePage consome catalogPublicProvider, exibe chips de categoria, mensagem de an˙ncio e layout flexÌvel (grid/list/carrossel) com controle de tamanho, estoque e promoÁ„o.
+- ProductQuickAddSheet permite selecionar tamanho (quando houver), quantidade e adiciona o item ao carrinho global (CartViewModel), que calcula total e mantÈm itens usando OrderItem.
 - CartSidePanel lista itens, ajusta quantidade e leva ao CheckoutSheet, que valida nome/WhatsApp, mostra total e dispara CheckoutViewModel.submitOrder, salvando o pedido em Hive e abrindo o WhatsApp com o resumo.
 
 ### Infraestrutura e arquitetura
-- **Estado**: Riverpod + iverpod_annotation geram os ViewModels (dashboard, orders, products, catalogs, categories, sellers, settings, cart, checkout, product_import etc.) que consomem reposit√≥rios baseados em Hive.
-- **Persist√™ncia**: Hive abre boxes (orders, categories, products, catalogs, sellers, settings) com adaptadores para cada model (Order, OrderStatus, OrderItem, Category, Product, Catalog, CatalogBanner, Seller, AppSettings). Os reposit√≥rios exp√µem streams para manter a UI reativa.
-- **Autentica√ß√£o**: FirebaseAuthRepository (com op√ß√£o de LocalAuthRepository para dev/offline) e AuthController fazem login e registro por e-mail/senha. _authRedirect garante que apenas admins acessem /admin/* e redireciona para /login, /register ou / conforme o estado.
-- **Navega√ß√£o**: GoRouter (com GoRouterRefreshStream ligado ao uthStateChanges) define rotas p√∫blicas (/, /login, /register, /c/{shareCode}) e um fluxo protegido /admin/*. O MaterialApp.router usa temas definidos com GoogleFonts.inter e ThemeMode global.
-- **Servi√ßos utilit√°rios**: CatalogPdfService gera PDFs com pdf e printing, WhatsAppShareService dispara mensagens e arquivos, CatalogShareHelper orquestra op√ß√µes de compartilhamento, e widgets responsivos (ResponsiveScaffold/ResponsiveContainer) garantem boa apar√™ncia em diferentes larguras.
-- **Firebase + offline**: main.dart inicializa Hive, registra adaptadores, abre boxes e s√≥ ent√£o chama Firebase.initializeApp em 	ry/catch, permitindo iniciar o app mesmo sem conex√£o completa.
+- **Estado**: Riverpod + 
+iverpod_annotation geram os ViewModels (dashboard, orders, products, catalogs, categories, sellers, settings, cart, checkout, product_import etc.) que consomem repositÛrios baseados em Hive.
+- **PersistÍncia**: Hive abre boxes (orders, categories, products, catalogs, sellers, settings) com adaptadores para cada model (Order, OrderStatus, OrderItem, Category, Product, Catalog, CatalogBanner, Seller, AppSettings). Os repositÛrios expıem streams para manter a UI reativa.
+- **AutenticaÁ„o**: FirebaseAuthRepository (com opÁ„o de LocalAuthRepository para dev/offline) e AuthController fazem login e registro por e-mail/senha. _authRedirect garante que apenas admins acessem /admin/* e redireciona para /login, /register ou / conforme o estado.
+- **NavegaÁ„o**: GoRouter (com GoRouterRefreshStream ligado ao uthStateChanges) define rotas p˙blicas (/, /login, /register, /c/{shareCode}) e um fluxo protegido /admin/*. O MaterialApp.router usa temas definidos com GoogleFonts.inter e ThemeMode global.
+- **ServiÁos utilit·rios**: CatalogPdfService gera PDFs com pdf e printing, WhatsAppShareService dispara mensagens e arquivos, CatalogShareHelper orquestra opÁıes de compartilhamento, e widgets responsivos (ResponsiveScaffold/ResponsiveContainer) garantem boa aparÍncia em diferentes larguras.
+- **Firebase + offline**: main.dart inicializa Hive, registra adaptadores, abre boxes e sÛ ent„o chama Firebase.initializeApp em 	ry/catch, permitindo iniciar o app mesmo sem conex„o completa.
 
 ## Estrutura de dados e fluxo
-- **Modelos**: AppSettings, Order, OrderItem, OrderStatus, Category, Product, Catalog (com enum CatalogMode), CatalogBanner, Seller. Cada um possui m√©todos copyWith e map para serializa√ß√£o e combina√ß√µes (ex: pre√ßos de varejo/atacado, tamanhos, cores, imagens, flags de estoque/promo√ß√£o).
-- **ViewModels/reposit√≥rios**: Os viewmodels observam reposit√≥rios (ordersRepository, productsRepository, catalogsRepository, etc.) gerados por Hive e atualizam a UI automaticamente. Os reposit√≥rios tamb√©m oferecem m√©todos s√≠ncronos/ass√≠ncronos quando necess√°rio (ex: CatalogsViewModel.deleteCatalog valida dono, CheckoutViewModel grava pedidos e notifica DashboardViewModel para recarregar KPIs).
-- **Build runner**: Como o projeto usa iverpod_annotation e hive_generator, √© necess√°rio regenerar os arquivos .g.dart sempre que os modelos/viewmodels mudam.
+- **Modelos**: AppSettings, Order, OrderItem, OrderStatus, Category, Product, Catalog (com enum CatalogMode), CatalogBanner, Seller. Cada um possui mÈtodos copyWith e map para serializaÁ„o e combinaÁıes (ex: preÁos de varejo/atacado, tamanhos, cores, imagens, flags de estoque/promoÁ„o).
+- **ViewModels/repositÛrios**: Os viewmodels observam repositÛrios (ordersRepository, productsRepository, catalogsRepository, etc.) gerados por Hive e atualizam a UI automaticamente. Os repositÛrios tambÈm oferecem mÈtodos sÌncronos/assÌncronos quando necess·rio (ex: CatalogsViewModel.deleteCatalog valida dono, CheckoutViewModel grava pedidos e notifica DashboardViewModel para recarregar KPIs).
+- **Build runner**: Como o projeto usa 
+iverpod_annotation e hive_generator, È necess·rio regenerar os arquivos .g.dart sempre que os modelos/viewmodels mudam.
 
 ## Estrutura de pastas
-- lib/core: widgets responsivos, widgets auxiliares (catalog share/pdf/WhatsApp), autentica√ß√£o, migra√ß√£o e configura√ß√£o.
-- lib/data: contratos e reposit√≥rios Hive para cada entidade.
-- lib/models: classes anotadas com Hive para orders, produtos, cat√°logos, categorias, vendedores e configura√ß√µes.
-- lib/viewmodels: l√≥gica reativa (cart, checkout, dashboards, importa√ß√£o de produtos etc.).
-- lib/features: telas divididas em dmin (dashboard, pedidos, produtos, categorias, cat√°logos, vendedoras, configura√ß√µes), uth (login/registro), public (front-end do cliente) e 	heme (modo escuro).
+- lib/core: widgets responsivos, widgets auxiliares (catalog share/pdf/WhatsApp), autenticaÁ„o, migraÁ„o e configuraÁ„o.
+- lib/data: contratos e repositÛrios Hive para cada entidade.
+- lib/models: classes anotadas com Hive para orders, produtos, cat·logos, categorias, vendedores e configuraÁıes.
+- lib/viewmodels: lÛgica reativa (cart, checkout, dashboards, importaÁ„o de produtos etc.).
+- lib/features: telas divididas em dmin (dashboard, pedidos, produtos, categorias, cat·logos, vendedoras, configuraÁıes), uth (login/registro), public (front-end do cliente) e 	heme (modo escuro).
 - 	est: testes de unidade para DashboardViewModel e um template widget_test.
 
-## Execu√ß√£o local
-1. Instale o SDK do Flutter 3.10.7 (ou compat√≠vel com environment.sdk do pubspec.yaml).
+## ExecuÁ„o local
+1. Instale o SDK do Flutter 3.10.7 (ou compatÌvel com environment.sdk do pubspec.yaml).
 2. lutter pub get
 3. Gere os arquivos anotados:
    `ash
    flutter pub run build_runner build --delete-conflicting-outputs
    `
-4. Conecte um dispositivo ou use lutter run -d windows (o app j√° tem pastas para Android, iOS, web e windows).
-5. Para desenvolvimento r√°pido, lutter run abre automaticamente /admin/orders e o controlador de rotas garante bloqueio de acesso.
+4. Conecte um dispositivo ou use lutter run -d windows (o app j· tem pastas para Android, iOS, web e windows).
+5. Para desenvolvimento r·pido, lutter run abre automaticamente /admin/orders e o controlador de rotas garante bloqueio de acesso.
 
-## Firebase e configura√ß√µes
-- irebase_options.dart j√° cont√©m as op√ß√µes compiladas do Firebase (Firestore/Auth) e √© usado em main.dart. Ajuste com lutterfire configure se trocar de projeto.
-- H√° um arquivo de servi√ßo (catalogo-fc9b5-firebase-adminsdk-fbsvc-b3b763c964.json) e regras em irestore.rules para controlar o acesso remoto, mas os dados de fato ficam armazenados em Hive at√© que uma sincroniza√ß√£o seja implementada.
-- SettingsScreen grava o defaultWhatsapp, publicBaseUrl, storeName e defaultMessageTemplate em Hive; esses valores s√£o reutilizados ao compartilhar cat√°logos e ao enviar pedidos via WhatsApp.
+## Firebase e configuraÁıes
+- irebase_options.dart j· contÈm as opÁıes compiladas do Firebase (Firestore/Auth) e È usado em main.dart. Ajuste com lutterfire configure se trocar de projeto.
+- H· um arquivo de serviÁo (catalogo-fc9b5-firebase-adminsdk-fbsvc-b3b763c964.json) e regras em irestore.rules para controlar o acesso remoto, mas os dados de fato ficam armazenados em Hive atÈ que uma sincronizaÁ„o seja implementada.
+- SettingsScreen grava o defaultWhatsapp, publicBaseUrl, storeName e defaultMessageTemplate em Hive; esses valores s„o reutilizados ao compartilhar cat·logos e ao enviar pedidos via WhatsApp.
 
 ## Testes e qualidade
-- lutter test test/dashboard_viewmodel_test.dart valida que os KPIs do dashboard s√£o calculados corretamente para diferentes status de pedidos.
-- 	est/widget_test.dart √© o template padr√£o do Flutter e pode ser adaptado para validar widgets cr√≠ticos.
+- lutter test test/dashboard_viewmodel_test.dart valida que os KPIs do dashboard s„o calculados corretamente para diferentes status de pedidos.
+- 	est/widget_test.dart È o template padr„o do Flutter e pode ser adaptado para validar widgets crÌticos.
 
-## Dicas e pr√≥ximos passos
-- Ao criar cat√°logos p√∫blicos, salve-os antes de copiar o link: apenas ap√≥s o salvamento o shareCode √© gerado.
-- Use a importa√ß√£o por CSV/ imagens para popular produtos em massa (os arquivos s√£o vinculados pelos SKUs).
-- A tela de pedidos j√° permite enviar WhatsApp diretamente ao cliente e alterar status; para registrar faturamento, cuide de marcar como confirmado/pago/enviado/entregue.
-- O bot√£o de compartilhamento abre o CatalogShareHelper, que permite exportar PDFs, copiar links e for√ßar gera√ß√£o de novo c√≥digo.
-- Teste o compartilhar de pedidos com o WhatsApp padr√£o configurado no settings para manter o fluxo de vendas automatizado.
-- Para habilitar o modo offline completo, crie uma implementa√ß√£o com LocalAuthRepository e sincronize manualmente com Firestore.
+## Dicas e prÛximos passos
+- Ao criar cat·logos p˙blicos, salve-os antes de copiar o link: apenas apÛs o salvamento o shareCode È gerado.
+- Use a importaÁ„o por CSV/ imagens para popular produtos em massa (os arquivos s„o vinculados pelos SKUs).
+- A tela de pedidos j· permite enviar WhatsApp diretamente ao cliente e alterar status; para registrar faturamento, cuide de marcar como confirmado/pago/enviado/entregue.
+- O bot„o de compartilhamento abre o CatalogShareHelper, que permite exportar PDFs, copiar links e forÁar geraÁ„o de novo cÛdigo.
+- Teste o compartilhar de pedidos com o WhatsApp padr„o configurado no settings para manter o fluxo de vendas automatizado.
+- Para habilitar o modo offline completo, crie uma implementaÁ„o com LocalAuthRepository e sincronize manualmente com Firestore.

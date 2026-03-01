@@ -1,9 +1,7 @@
-﻿import 'package:gravity/core/auth/auth_controller.dart';
-import 'package:gravity/core/auth/auth_guards.dart';
-import 'package:gravity/data/repositories/catalogs_repository.dart';
-import 'package:gravity/models/catalog.dart';
-import 'package:gravity/viewmodels/catalog_public_viewmodel.dart';
-import 'package:gravity/viewmodels/catalogs_viewmodel.dart';
+import 'package:catalogo_ja/data/repositories/catalogs_repository.dart';
+import 'package:catalogo_ja/models/catalog.dart';
+import 'package:catalogo_ja/viewmodels/catalog_public_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
 
@@ -179,38 +177,16 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
       if (isTaken) {
         state = state.copyWith(
           isSaving: false,
-          slugError: 'Esta URL já está em uso.',
+          slugError: 'Esta URL j\u00e1 est\u00e1 em uso.',
         );
         return false;
       }
 
-      final user = ref.read(currentUserProvider);
       var toSave = state.catalog;
-      if (!isLoggedIn(user)) {
-        state = state.copyWith(
-          isSaving: false,
-          slugError: 'Usuário não autenticado.',
-        );
-        return false;
-      }
-      if (user != null &&
-          toSave.ownerUid.isNotEmpty &&
-          toSave.ownerUid != user.uid) {
-        state = state.copyWith(
-          isSaving: false,
-          slugError: 'Sem permissão para editar este catálogo.',
-        );
-        return false;
-      }
       if (toSave.shareCode.isEmpty) {
         toSave = toSave.copyWith(shareCode: _generateShareCode());
       }
-      toSave = toSave.copyWith(
-        updatedAt: DateTime.now(),
-        ownerUid: toSave.ownerUid.isEmpty && user != null
-            ? user.uid
-            : toSave.ownerUid,
-      );
+      toSave = toSave.copyWith(updatedAt: DateTime.now());
 
       await repository.addCatalog(toSave);
 
