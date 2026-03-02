@@ -4,6 +4,7 @@ import 'dart:convert';
 
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/product.dart';
@@ -208,20 +209,32 @@ class CatalogPdfService {
       }
     }
 
-    // Pré-carregar imagens locais em paralelo
+    // Pré-carregar imagens locais em blocos (batches) para não sobrecarregar I/O
     if (localPaths.isNotEmpty) {
-      await Future.wait(
-        localPaths.map((path) async {
-          try {
-            final file = File(path);
-            if (await file.exists()) {
-              _imageCache[path] = await file.readAsBytes();
+      const maxConcurrent = 8;
+      final pathsList = localPaths.toList();
+      for (var i = 0; i < pathsList.length; i += maxConcurrent) {
+        final batch = pathsList.skip(i).take(maxConcurrent);
+        await Future.wait(
+          batch.map((path) async {
+            try {
+              final file = File(path);
+              if (await file.exists()) {
+                // Comprime imagens locais antes de guardar na RAM
+                final result = await FlutterImageCompress.compressWithFile(
+                  path,
+                  minWidth: 800,
+                  minHeight: 800,
+                  quality: 60,
+                );
+                _imageCache[path] = result ?? await file.readAsBytes();
+              }
+            } catch (e) {
+              print('Erro ao ler imagem local para PDF: $path - $e');
             }
-          } catch (e) {
-            print('Erro ao ler imagem local para PDF: $path - $e');
-          }
-        }),
-      );
+          }),
+        );
+      }
     }
 
     // Decodificar imagens de memória (base64) em paralelo
@@ -232,7 +245,19 @@ class CatalogPdfService {
             if (uri.startsWith('data:')) {
               final commaIndex = uri.indexOf(',');
               if (commaIndex != -1) {
-                _imageCache[uri] = base64Decode(uri.substring(commaIndex + 1));
+                final bytes = base64Decode(uri.substring(commaIndex + 1));
+                try {
+                  final compressed =
+                      await FlutterImageCompress.compressWithList(
+                        bytes,
+                        minWidth: 800,
+                        minHeight: 800,
+                        quality: 60,
+                      );
+                  _imageCache[uri] = compressed;
+                } catch (e) {
+                  _imageCache[uri] = bytes;
+                }
               }
             }
           } catch (e) {
@@ -266,7 +291,19 @@ class CatalogPdfService {
                   await for (final chunk in response) {
                     builder.add(chunk);
                   }
-                  _imageCache[url] = builder.takeBytes();
+                  final bytes = builder.takeBytes();
+                  try {
+                    final compressed =
+                        await FlutterImageCompress.compressWithList(
+                          bytes,
+                          minWidth: 800,
+                          minHeight: 800,
+                          quality: 60,
+                        );
+                    _imageCache[url] = compressed;
+                  } catch (e) {
+                    _imageCache[url] = bytes;
+                  }
                 }
               } catch (e) {
                 print('Erro ao baixar imagem para PDF: $url - $e');
