@@ -10,6 +10,7 @@ import 'package:catalogo_ja/core/services/catalog_pdf_service.dart';
 import 'package:catalogo_ja/viewmodels/settings_viewmodel.dart';
 import 'package:catalogo_ja/core/services/whatsapp_share_service.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
+import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/product.dart';
@@ -179,8 +180,15 @@ class CatalogShareHelper {
           ),
         );
 
-        final dateStr = DateFormat('dd-MM-yyyy').format(DateTime.now());
-        final fileName = 'VITORIANA-$dateStr.PDF';
+        final settings = ref.read(settingsRepositoryProvider).getSettings();
+        final storeName = settings.storeName
+            .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')
+            .toUpperCase();
+        final phone = settings.whatsappNumber.replaceAll(RegExp(r'[^0-9]'), '');
+        final safeStoreName = storeName.isEmpty ? 'CATALOGO' : storeName;
+        final fileName = phone.isNotEmpty
+            ? '$safeStoreName-$phone.PDF'
+            : '$safeStoreName.PDF';
         String? savedPath;
         if (!kIsWeb) {
           savedPath = await _writePdfToDevice(pdfBytes, fileName);
@@ -406,8 +414,15 @@ class CatalogShareHelper {
             collectionIdOverride: options.collectionId,
           ),
         );
-        final dateStr = DateFormat('dd-MM-yyyy').format(DateTime.now());
-        final filename = 'VITORIANA-$dateStr.PDF';
+        final settings = ref.read(settingsRepositoryProvider).getSettings();
+        final storeName = settings.storeName
+            .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')
+            .toUpperCase();
+        final phone = settings.whatsappNumber.replaceAll(RegExp(r'[^0-9]'), '');
+        final safeStoreName = storeName.isEmpty ? 'CATALOGO' : storeName;
+        final filename = phone.isNotEmpty
+            ? '$safeStoreName-$phone.PDF'
+            : '$safeStoreName.PDF';
         final filePath = p.join(documentsDirectory.path, filename);
         final file = File(filePath);
         await file.writeAsBytes(pdfBytes);
@@ -634,8 +649,20 @@ class CatalogShareHelper {
     bool showPrice = true;
     bool useLoosePhotos = false;
     CatalogPdfStyle selectedPdfStyle = CatalogPdfStyle.classic;
-    String selectedCoverType =
-        'collection'; // Default to collection/custom if available
+    String selectedCoverType = 'collection';
+    if (availableCollections.length != 1) {
+      selectedCoverType = 'standard';
+    } else {
+      final cover = availableCollections.first.cover;
+      final hasImage =
+          cover != null &&
+          ((cover.coverImagePath?.isNotEmpty ?? false) ||
+              (cover.coverMiniPath?.isNotEmpty ?? false) ||
+              (cover.coverPagePath?.isNotEmpty ?? false));
+      if (!hasImage) {
+        selectedCoverType = 'standard';
+      }
+    }
     String? selectedCollectionId = availableCollections.isNotEmpty
         ? availableCollections.first.id
         : null;
