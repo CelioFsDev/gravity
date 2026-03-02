@@ -379,9 +379,40 @@ Pode me ajudar?
     }
 
     final isRemote = path.startsWith('http') || path.startsWith('data:');
-    final image = kIsWeb || isRemote
-        ? Image.network(path, fit: BoxFit.cover)
-        : Image.file(File(path), fit: BoxFit.cover);
+    final image = isRemote
+        ? Image.network(
+            path,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => Container(
+              color: AppTokens.bg,
+              child: const Icon(
+                Icons.image_not_supported,
+                size: 64,
+                color: AppTokens.textMuted,
+              ),
+            ),
+          )
+        : !kIsWeb
+        ? Image.file(
+            File(path),
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => Container(
+              color: AppTokens.bg,
+              child: const Icon(
+                Icons.image_not_supported,
+                size: 64,
+                color: AppTokens.textMuted,
+              ),
+            ),
+          )
+        : Container(
+            color: AppTokens.bg,
+            child: const Icon(
+              Icons.image_not_supported,
+              size: 64,
+              color: AppTokens.textMuted,
+            ),
+          );
 
     return image;
   }

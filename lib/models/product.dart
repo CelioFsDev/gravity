@@ -43,9 +43,14 @@ class ProductPhoto {
   }
 
   ProductImage toProductImage() {
+    final isRemote =
+        path.startsWith('http://') ||
+        path.startsWith('https://') ||
+        path.startsWith('data:') ||
+        path.startsWith('blob:');
     return ProductImage(
       id: 'legacy_${path.hashCode}',
-      sourceType: path.startsWith('http')
+      sourceType: isRemote
           ? ProductImageSource.networkUrl
           : ProductImageSource.localPath,
       uri: path,

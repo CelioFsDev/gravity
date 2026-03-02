@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,10 +18,12 @@ class FirebaseAuthRepository implements AuthRepository {
   bool _initialized = false;
 
   Future<void> _ensureInitialized() async {
-    if (!_initialized) {
-      await GoogleSignIn.instance.initialize(serverClientId: _serverClientId);
-      _initialized = true;
-    }
+    if (_initialized) return;
+
+    await GoogleSignIn.instance.initialize(
+      serverClientId: _serverClientId,
+    );
+    _initialized = true;
   }
 
   @override
@@ -32,32 +35,36 @@ class FirebaseAuthRepository implements AuthRepository {
   @override
   Future<UserCredential> signInWithGoogle() async {
     try {
+      if (kIsWeb) {
+        final provider = GoogleAuthProvider();
+        provider.addScope('email');
+        provider.addScope('profile');
+        return await _auth.signInWithPopup(provider);
+      }
+
       await _ensureInitialized();
 
-      // Para a versão 7.2.0+, o método correto é authenticate()
       final googleUser = await GoogleSignIn.instance.authenticate();
-
       final googleAuth = googleUser.authentication;
       final idToken = googleAuth.idToken;
 
       if (idToken == null) {
-        throw StateError('Google Sign-In não retornou um ID token válido.');
+        throw StateError('Google Sign-In nao retornou um ID token valido.');
       }
 
-      final OAuthCredential credential = GoogleAuthProvider.credential(
-        idToken: idToken,
-      );
-
+      final credential = GoogleAuthProvider.credential(idToken: idToken);
       return _auth.signInWithCredential(credential);
     } catch (e) {
-      print('ERRO NO GOOGLE SIGN-IN: $e');
+      debugPrint('ERRO NO GOOGLE SIGN-IN: $e');
       rethrow;
     }
   }
 
   @override
   Future<void> signOut() async {
-    await GoogleSignIn.instance.signOut();
+    if (!kIsWeb) {
+      await GoogleSignIn.instance.signOut();
+    }
     await _auth.signOut();
   }
 }

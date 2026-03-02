@@ -613,11 +613,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         // Fallback for Web or byte-only results
         debugPrint('Processing from bytes (length: ${file.bytes!.length})');
         if (kIsWeb) {
-          // On Web, we can't save to a local File path.
-          // However, we can return a data URL or just a placeholder for now
-          // For this app, persistence on Web would require a different approach (e.g. IndexedDB via Hive)
-          // If you need real persistence, run as a Windows Desktop app.
-          return 'web_placeholder_${const Uuid().v4()}';
+          final mimeType = _inferMimeType(file.name);
+          final encoded = base64Encode(file.bytes!);
+          return 'data:$mimeType;base64,$encoded';
         }
 
         final baseDir = await getApplicationDocumentsDirectory();
@@ -657,6 +655,33 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     } catch (e, stack) {
       debugPrint('Error copying file: $e\n$stack');
       return null;
+    }
+  }
+
+  String _inferMimeType(String fileName) {
+    switch (p.extension(fileName).toLowerCase()) {
+      case '.png':
+        return 'image/png';
+      case '.webp':
+        return 'image/webp';
+      case '.gif':
+        return 'image/gif';
+      case '.bmp':
+        return 'image/bmp';
+      case '.svg':
+        return 'image/svg+xml';
+      case '.avif':
+        return 'image/avif';
+      case '.heic':
+      case '.heif':
+        return 'image/heic';
+      case '.tif':
+      case '.tiff':
+        return 'image/tiff';
+      case '.jpg':
+      case '.jpeg':
+      default:
+        return 'image/jpeg';
     }
   }
 

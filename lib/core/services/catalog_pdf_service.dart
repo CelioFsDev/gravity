@@ -19,8 +19,8 @@ class CatalogPdfService {
   static const PdfColor _colorSizePillBg = PdfColor(0.929, 0.929, 0.929);
   static const PdfPageFormat _defaultMobileFormat = PdfPageFormat(360, 640);
 
-  // Cache para imagens baixadas durante a sessão de geração do PDF
-  static final Map<String, Uint8List> _networkImageCache = {};
+  // Cache unificado de imagens (rede + local + memória) durante a geração
+  static final Map<String, Uint8List> _imageCache = {};
 
   static Future<Uint8List> generateCatalogPdf({
     required String catalogName,
@@ -60,8 +60,34 @@ class CatalogPdfService {
 
     String? currentCollectionId;
 
-    // Pré-carregar imagens de rede para evitar problemas durante a montagem
-    await _preloadNetworkImages(products);
+    // Pré-carregar TODAS as imagens dos produtos (rede + local + memória) em paralelo
+    await _preloadImages(products);
+
+    // Pré-carregar imagens da capa e do banner (arquivos locais)
+    final coverPaths = <String>{
+      if (bannerImagePath != null && bannerImagePath.isNotEmpty)
+        bannerImagePath,
+      if (collectionCover?.coverImagePath?.isNotEmpty == true)
+        collectionCover!.coverImagePath!,
+      if (collectionCover?.coverMiniPath?.isNotEmpty == true)
+        collectionCover!.coverMiniPath!,
+      if (collectionCover?.coverPagePath?.isNotEmpty == true)
+        collectionCover!.coverPagePath!,
+    };
+    await Future.wait(
+      coverPaths
+          .where((p) => !_imageCache.containsKey(p))
+          .map((p) async {
+            try {
+              final file = File(p);
+              if (await file.exists()) {
+                _imageCache[p] = await file.readAsBytes();
+              }
+            } catch (e) {
+              print('Erro ao pré-carregar imagem da capa: $p - $e');
+            }
+          }),
+    );
 
     for (final product in products) {
       // Check for collection change
@@ -157,44 +183,103 @@ class CatalogPdfService {
 
     final result = await pdf.save();
     // Limpar cache após salvar para liberar memória
-    _networkImageCache.clear();
+    _imageCache.clear();
     return result;
   }
 
-  static Future<void> _preloadNetworkImages(List<Product> products) async {
-    final urls = <String>{};
+  static Future<void> _preloadImages(List<Product> products) async {
+    // Coletar todas as imagens únicas por tipo
+    final networkUrls = <String>{};
+    final localPaths = <String>{};
+    final memoryUris = <String>{};
+
     for (final product in products) {
       for (final img in product.images) {
-        if (img.sourceType == ProductImageSource.networkUrl) {
-          urls.add(img.uri);
+        final uri = img.uri.trim();
+        if (uri.isEmpty) continue;
+        switch (img.sourceType) {
+          case ProductImageSource.networkUrl:
+            if (!_imageCache.containsKey(uri)) networkUrls.add(uri);
+          case ProductImageSource.localPath:
+            if (!_imageCache.containsKey(uri)) localPaths.add(uri);
+          case ProductImageSource.memory:
+            if (!_imageCache.containsKey(uri)) memoryUris.add(uri);
+          default:
+            break;
         }
       }
     }
 
-    if (urls.isEmpty) return;
-
-    final client = HttpClient();
-    for (final url in urls) {
-      if (_networkImageCache.containsKey(url)) continue;
-      try {
-        final request = await client
-            .getUrl(Uri.parse(url))
-            .timeout(const Duration(seconds: 5));
-        final response = await request.close().timeout(
-          const Duration(seconds: 5),
-        );
-        if (response.statusCode == 200) {
-          final builder = BytesBuilder();
-          await for (final chunk in response) {
-            builder.add(chunk);
+    // Pré-carregar imagens locais em paralelo
+    if (localPaths.isNotEmpty) {
+      await Future.wait(
+        localPaths.map((path) async {
+          try {
+            final file = File(path);
+            if (await file.exists()) {
+              _imageCache[path] = await file.readAsBytes();
+            }
+          } catch (e) {
+            print('Erro ao ler imagem local para PDF: $path - $e');
           }
-          _networkImageCache[url] = builder.takeBytes();
+        }),
+      );
+    }
+
+    // Decodificar imagens de memória (base64) em paralelo
+    if (memoryUris.isNotEmpty) {
+      await Future.wait(
+        memoryUris.map((uri) async {
+          try {
+            if (uri.startsWith('data:')) {
+              final commaIndex = uri.indexOf(',');
+              if (commaIndex != -1) {
+                _imageCache[uri] = base64Decode(uri.substring(commaIndex + 1));
+              }
+            }
+          } catch (e) {
+            print('Erro ao decodificar imagem em memória para PDF: $e');
+          }
+        }),
+      );
+    }
+
+    // Baixar imagens de rede em paralelo (máx. 8 simultâneas)
+    if (networkUrls.isNotEmpty) {
+      const maxConcurrent = 8;
+      final urls = networkUrls.toList();
+      final client = HttpClient()
+        ..connectionTimeout = const Duration(seconds: 10);
+
+      try {
+        for (var i = 0; i < urls.length; i += maxConcurrent) {
+          final batch = urls.skip(i).take(maxConcurrent);
+          await Future.wait(
+            batch.map((url) async {
+              try {
+                final request = await client
+                    .getUrl(Uri.parse(url))
+                    .timeout(const Duration(seconds: 10));
+                final response = await request.close().timeout(
+                  const Duration(seconds: 10),
+                );
+                if (response.statusCode == 200) {
+                  final builder = BytesBuilder();
+                  await for (final chunk in response) {
+                    builder.add(chunk);
+                  }
+                  _imageCache[url] = builder.takeBytes();
+                }
+              } catch (e) {
+                print('Erro ao baixar imagem para PDF: $url - $e');
+              }
+            }),
+          );
         }
-      } catch (e) {
-        print('Erro ao baixar imagem para PDF: $url - $e');
+      } finally {
+        client.close();
       }
     }
-    client.close();
   }
 
   static pw.Widget _buildProductPage(
@@ -694,23 +779,8 @@ class CatalogPdfService {
     double radius = 0,
   }) {
     try {
-      Uint8List? bytes;
-
-      if (img.sourceType == ProductImageSource.networkUrl) {
-        bytes = _networkImageCache[img.uri];
-      } else if (img.sourceType == ProductImageSource.localPath) {
-        final file = File(img.uri);
-        if (file.existsSync()) {
-          bytes = file.readAsBytesSync();
-        }
-      } else if (img.sourceType == ProductImageSource.memory) {
-        if (img.uri.startsWith('data:')) {
-          final commaIndex = img.uri.indexOf(',');
-          if (commaIndex != -1) {
-            bytes = base64Decode(img.uri.substring(commaIndex + 1));
-          }
-        }
-      }
+      // Todas as imagens já foram pré-carregadas em _imageCache
+      final bytes = _imageCache[img.uri];
 
       if (bytes != null) {
         final image = pw.MemoryImage(bytes);

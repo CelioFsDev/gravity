@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -440,7 +441,31 @@ class ProductDetailScreen extends ConsumerWidget {
       );
     }
 
-    if (kIsWeb || image.sourceType == ProductImageSource.networkUrl) {
+    if (image.uri.startsWith('data:')) {
+      final commaIndex = image.uri.indexOf(',');
+      if (commaIndex != -1 && commaIndex + 1 < image.uri.length) {
+        try {
+          return Image.memory(
+            base64Decode(image.uri.substring(commaIndex + 1)),
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => Container(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              alignment: Alignment.center,
+              child: const Icon(
+                Icons.broken_image_outlined,
+                size: 48,
+                color: AppTokens.accentRed,
+              ),
+            ),
+          );
+        } catch (_) {}
+      }
+    }
+
+    if (image.sourceType == ProductImageSource.networkUrl ||
+        image.uri.startsWith('http://') ||
+        image.uri.startsWith('https://') ||
+        image.uri.startsWith('blob:')) {
       return Image.network(
         image.uri,
         fit: BoxFit.cover,
@@ -452,6 +477,18 @@ class ProductDetailScreen extends ConsumerWidget {
             size: 48,
             color: AppTokens.accentRed,
           ),
+        ),
+      );
+    }
+
+    if (kIsWeb) {
+      return Container(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        alignment: Alignment.center,
+        child: const Icon(
+          Icons.image_not_supported_outlined,
+          size: 48,
+          color: AppTokens.accentRed,
         ),
       );
     }

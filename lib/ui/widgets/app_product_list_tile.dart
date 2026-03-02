@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:catalogo_ja/models/product_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -213,9 +214,41 @@ class AppProductListTile extends StatelessWidget {
       return const Icon(Icons.image_not_supported);
     }
 
-    return kIsWeb || path.startsWith('http')
-        ? Image.network(path, fit: BoxFit.cover)
-        : Image.file(File(path), fit: BoxFit.cover);
+    if (path.startsWith('data:')) {
+      final commaIndex = path.indexOf(',');
+      if (commaIndex != -1 && commaIndex + 1 < path.length) {
+        try {
+          return Image.memory(
+            base64Decode(path.substring(commaIndex + 1)),
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => const Icon(Icons.image_not_supported),
+          );
+        } catch (_) {
+          return const Icon(Icons.image_not_supported);
+        }
+      }
+      return const Icon(Icons.image_not_supported);
+    }
+
+    if (path.startsWith('http://') ||
+        path.startsWith('https://') ||
+        path.startsWith('blob:')) {
+      return Image.network(
+        path,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => const Icon(Icons.image_not_supported),
+      );
+    }
+
+    if (!kIsWeb) {
+      return Image.file(
+        File(path),
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => const Icon(Icons.image_not_supported),
+      );
+    }
+
+    return const Icon(Icons.image_not_supported);
   }
 
   ProductImage? _resolvePrimaryImage(Product product) {

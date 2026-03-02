@@ -1,0 +1,20 @@
+{
+    "hosting": {
+        "site": "catalogo-ja-89aae-3e4ff",
+        "public": "build/web",
+        "ignore": [
+            "firebase.json",
+            "**/.*",
+            "**/node_modules/**"
+        ],
+        "rewrites": [
+            {
+                "source": "**",
+                "destination": "/index.html"
+            }
+        ]
+    },
+    "firestore": {
+        "rules": "firestore.rules"
+    }
+}

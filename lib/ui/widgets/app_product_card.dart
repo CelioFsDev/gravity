@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/catalog.dart';
@@ -111,8 +113,16 @@ class AppProductCard extends StatelessWidget {
     }
 
     final Widget imageWidget;
+    final isDataUrl = img.uri.startsWith('data:');
+    final isRemote =
+        img.sourceType == ProductImageSource.networkUrl ||
+        img.uri.startsWith('http://') ||
+        img.uri.startsWith('https://') ||
+        img.uri.startsWith('blob:');
 
-    if (img.sourceType == ProductImageSource.networkUrl) {
+    if (isDataUrl) {
+      imageWidget = _buildDataUrlImage(img.uri);
+    } else if (isRemote) {
       imageWidget = CachedNetworkImage(
         imageUrl: img.uri,
         fit: BoxFit.cover,
@@ -132,7 +142,7 @@ class AppProductCard extends StatelessWidget {
           fit: BoxFit.cover,
         ),
       );
-    } else if (img.sourceType == ProductImageSource.localPath) {
+    } else if (img.sourceType == ProductImageSource.localPath && !kIsWeb) {
       imageWidget = Image.file(
         File(img.uri),
         fit: BoxFit.cover,
@@ -154,5 +164,32 @@ class AppProductCard extends StatelessWidget {
       ),
       child: imageWidget,
     );
+  }
+
+  Widget _buildDataUrlImage(String uri) {
+    final commaIndex = uri.indexOf(',');
+    if (commaIndex == -1 || commaIndex + 1 >= uri.length) {
+      return SvgPicture.asset(
+        'assets/branding/placeholders/catalogoja_placeholder_produto_1024x1024.svg',
+        fit: BoxFit.cover,
+      );
+    }
+
+    try {
+      final bytes = base64Decode(uri.substring(commaIndex + 1));
+      return Image.memory(
+        bytes,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => SvgPicture.asset(
+          'assets/branding/placeholders/catalogoja_placeholder_produto_1024x1024.svg',
+          fit: BoxFit.cover,
+        ),
+      );
+    } catch (_) {
+      return SvgPicture.asset(
+        'assets/branding/placeholders/catalogoja_placeholder_produto_1024x1024.svg',
+        fit: BoxFit.cover,
+      );
+    }
   }
 }
