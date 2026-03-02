@@ -6,6 +6,7 @@ import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/ui/widgets/section_card.dart';
 import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
+import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
@@ -138,7 +139,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            if (ref.watch(currentRoleProvider) == UserRole.admin)
+            if (ref
+                .watch(currentRoleProvider)
+                .canManageUsers(
+                  ref.watch(authViewModelProvider).valueOrNull?.email,
+                ))
               SectionCard(
                 title: 'Gerenciar Usuários',
                 child: Column(

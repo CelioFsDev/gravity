@@ -28,6 +28,7 @@ import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/features/auth/login_screen.dart';
 import 'package:catalogo_ja/features/splash/splash_screen.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
+import 'package:catalogo_ja/core/auth/user_role.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -226,6 +227,17 @@ class _MyAppState extends ConsumerState<MyApp> {
                     GoRoute(
                       path: 'users',
                       builder: (context, state) => const UserManagementScreen(),
+                      redirect: (context, state) {
+                        final role = ref.read(currentRoleProvider);
+                        final email = ref
+                            .read(authViewModelProvider)
+                            .valueOrNull
+                            ?.email;
+                        if (!role.canManageUsers(email)) {
+                          return '/admin/settings';
+                        }
+                        return null;
+                      },
                     ),
                   ],
                 ),

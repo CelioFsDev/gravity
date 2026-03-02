@@ -19,6 +19,9 @@ enum UserRole {
 
   final String label;
   const UserRole(this.label);
+
+  /// Emails that have Super Admin privileges (can manage users)
+  static const superAdminEmails = {'ti.vitoriana@gmail.com'};
 }
 
 @riverpod
@@ -26,14 +29,18 @@ class CurrentRole extends _$CurrentRole {
   @override
   UserRole build() {
     final authUser = ref.watch(authViewModelProvider).valueOrNull;
-    if (authUser == null) return UserRole.viewer;
+    final email = authUser?.email;
+    if (email == null) return UserRole.viewer;
 
-    // Fetch the role asynchronously when login changes.
-    // For now returning admin by default as a safety.
-    // Replace this logic with fetching from UserRepository.
-    _fetchUserRole(authUser.email ?? '');
+    // Trigger async fetch
+    _fetchUserRole(email);
 
-    return UserRole.admin;
+    // If it's the super admin email, we can trust it's an admin if configured
+    if (UserRole.superAdminEmails.contains(email)) {
+      return UserRole.admin;
+    }
+
+    return UserRole.viewer;
   }
 
   Future<void> _fetchUserRole(String email) async {
@@ -80,8 +87,12 @@ extension UserRoleGuards on UserRole {
   /// Import and export operations
   bool get canImportData => this == UserRole.admin;
 
-  /// Sensitive settings (Public Link, Store Info, User Management)
+  /// Sensitive settings (Public Link, Store Info)
   bool get canEditSettings => this == UserRole.admin;
+
+  /// Full User Management (Limited to specific Super Admin emails)
+  bool canManageUsers(String? email) =>
+      this == UserRole.admin && UserRole.superAdminEmails.contains(email);
 
   /// Global access to Admin Panel screens
   bool get canAccessAdmin => this != UserRole.viewer;

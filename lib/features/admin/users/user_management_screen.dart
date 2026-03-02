@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/data/repositories/user_repository.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
+import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/ui/widgets/section_card.dart';
@@ -13,11 +14,14 @@ class UserManagementScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final userRepository = ref.watch(userRepositoryProvider);
     final currentRole = ref.watch(currentRoleProvider);
+    final currentEmail = ref.watch(authViewModelProvider).valueOrNull?.email;
 
-    if (currentRole != UserRole.admin) {
+    if (!currentRole.canManageUsers(currentEmail)) {
       return const AppScaffold(
         title: 'Gerenciar Usuários',
-        body: Center(child: Text('Acesso restrito para administradores.')),
+        body: Center(
+          child: Text('Acesso restrito ao Administrador Geral (TI).'),
+        ),
       );
     }
 
