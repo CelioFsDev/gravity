@@ -508,7 +508,11 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         currentPhotos = _prioritizePrimaryPhoto(currentPhotos);
 
         await productsRepo.updateProduct(
-          product.copyWith(photos: currentPhotos),
+          product.copyWith(
+            photos: currentPhotos,
+            images: currentPhotos.map((p) => p.toProductImage()).toList(),
+            mainImageIndex: _mainImageIndexFromPhotos(currentPhotos),
+          ),
         );
       }
 

@@ -48,38 +48,47 @@ class PhotoClassificationService extends _$PhotoClassificationService {
     // 1. Missing Primary
     final hasPrimary = photos.any((p) => p.photoType == typePrimary);
     if (!hasPrimary) {
-      issues.add(PhotoValidationIssue(
-        message: 'Foto Principal (P) n\u00e3o encontrada.',
-        isCritical: true,
-        photoType: typePrimary,
-      ));
+      issues.add(
+        PhotoValidationIssue(
+          message: 'Foto Principal (P) n\u00e3o encontrada.',
+          isCritical: true,
+          photoType: typePrimary,
+        ),
+      );
     }
 
     // 2. Missing Details (Optional)
     final hasD1 = photos.any((p) => p.photoType == typeDetail1);
     if (!hasD1) {
-      issues.add(PhotoValidationIssue(
-        message: 'Foto Detalhe 1 (D1) n\u00e3o encontrada.',
-        photoType: typeDetail1,
-      ));
+      issues.add(
+        PhotoValidationIssue(
+          message: 'Foto Detalhe 1 (D1) n\u00e3o encontrada.',
+          photoType: typeDetail1,
+        ),
+      );
     }
 
     final hasD2 = photos.any((p) => p.photoType == typeDetail2);
     if (!hasD2) {
-      issues.add(PhotoValidationIssue(
-        message: 'Foto Detalhe 2 (D2) n\u00e3o encontrada.',
-        photoType: typeDetail2,
-      ));
+      issues.add(
+        PhotoValidationIssue(
+          message: 'Foto Detalhe 2 (D2) n\u00e3o encontrada.',
+          photoType: typeDetail2,
+        ),
+      );
     }
 
     // 3. Unidentified Colors
     for (final photo in photos) {
       if (photo.photoType != null && photo.photoType!.startsWith('C')) {
         if (photo.colorKey == null || photo.colorKey!.trim().isEmpty) {
-          issues.add(PhotoValidationIssue(
-            message: 'Foto de cor (${photo.photoType}) sem identificacao de nome.',
-            photoType: photo.photoType,
-          ));
+          issues.add(
+            PhotoValidationIssue(
+              message:
+                  'Foto de cor (${photo.photoType}) sem identificacao de nome.',
+              photoType: photo.photoType,
+            ),
+          );
         }
       }
     }
@@ -165,14 +174,19 @@ class PhotoClassificationService extends _$PhotoClassificationService {
     return normalized;
   }
 
-  String buildInternalName(String ref, String photoType, String? colorName, String extension) {
+  String buildInternalName(
+    String ref,
+    String photoType,
+    String? colorName,
+    String extension,
+  ) {
     // {REF}__P.jpg
     // {REF}__C{N}__{COR}.jpg
-    // Note: {N} needs to be determined by the context (existing photos), 
+    // Note: {N} needs to be determined by the context (existing photos),
     // but the pattern provided in requirements is {REF}__C{N}__{COR}.jpg
     // For now, let's use a placeholder for {N} or return the base pattern.
     // The requirement 4.1 says: {REF}__C{N}__{COR}.jpg
-    
+
     if (photoType == typeColor) {
       return '${ref}__C{N}__$colorName.$extension';
     } else {
@@ -182,15 +196,24 @@ class PhotoClassificationService extends _$PhotoClassificationService {
 
   /// Reorganizes colors to ensure PRETO is C1, and others are C2-C4.
   /// Max 4 colors.
-  List<ProductPhoto> organizeColors(List<ProductPhoto> existingPhotos, ProductPhoto newPhoto) {
+  List<ProductPhoto> organizeColors(
+    List<ProductPhoto> existingPhotos,
+    ProductPhoto newPhoto,
+  ) {
     if (newPhoto.photoType != typeColor) return existingPhotos;
 
-    final colorPhotos = existingPhotos.where((p) => p.photoType != null && p.photoType!.startsWith('C')).toList();
-    final nonColorPhotos = existingPhotos.where((p) => p.photoType == null || !p.photoType!.startsWith('C')).toList();
+    final colorPhotos = existingPhotos
+        .where((p) => p.photoType != null && p.photoType!.startsWith('C'))
+        .toList();
+    final nonColorPhotos = existingPhotos
+        .where((p) => p.photoType == null || !p.photoType!.startsWith('C'))
+        .toList();
 
     // Check if color already exists (by name)
     final newColorName = _getColorNameFromPath(newPhoto.path);
-    final existingColorIdx = colorPhotos.indexWhere((p) => _getColorNameFromPath(p.path) == newColorName);
+    final existingColorIdx = colorPhotos.indexWhere(
+      (p) => _getColorNameFromPath(p.path) == newColorName,
+    );
 
     if (existingColorIdx != -1) {
       colorPhotos[existingColorIdx] = newPhoto;
@@ -226,11 +249,7 @@ class PhotoClassificationService extends _$PhotoClassificationService {
       final idx = entry.key + 1;
       final photo = entry.value;
       final type = 'C$idx';
-      final newPath = _updatePathWithCorrectC(photo.path, type);
-      return photo.copyWith(
-        photoType: type,
-        path: newPath,
-      );
+      return photo.copyWith(photoType: type);
     }).toList();
 
     return [...nonColorPhotos, ...organizedColors];
@@ -245,17 +264,5 @@ class PhotoClassificationService extends _$PhotoClassificationService {
       return lastPart.split('.').first;
     }
     return '';
-  }
-
-  String _updatePathWithCorrectC(String path, String newType) {
-    // 106603__C2__ROSA.jpg -> 106603__C1__ROSA.jpg
-    final directory = p.dirname(path);
-    final fileName = p.basename(path);
-    final parts = fileName.split('__');
-    if (parts.length >= 3) {
-      parts[1] = newType;
-      return p.join(directory, parts.join('__'));
-    }
-    return path;
   }
 }
