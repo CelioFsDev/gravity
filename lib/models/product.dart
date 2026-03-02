@@ -227,8 +227,10 @@ class Product {
     return sorted.first;
   }
 
-  List<ProductImage> get detailImages =>
-      images.where((i) => i.label?.startsWith('detalhe') ?? false).toList();
+  List<ProductImage> get detailImages => images.where((i) {
+    final l = i.label?.toLowerCase().trim() ?? '';
+    return l.startsWith('detalhe') || l == 'd1' || l == 'd2';
+  }).toList();
 
   List<ProductImage> get colorImages => images
       .where((i) => (i.label?.startsWith('cor') ?? false) || i.colorTag != null)

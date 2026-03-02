@@ -75,18 +75,16 @@ class CatalogPdfService {
         collectionCover!.coverPagePath!,
     };
     await Future.wait(
-      coverPaths
-          .where((p) => !_imageCache.containsKey(p))
-          .map((p) async {
-            try {
-              final file = File(p);
-              if (await file.exists()) {
-                _imageCache[p] = await file.readAsBytes();
-              }
-            } catch (e) {
-              print('Erro ao pré-carregar imagem da capa: $p - $e');
-            }
-          }),
+      coverPaths.where((p) => !_imageCache.containsKey(p)).map((p) async {
+        try {
+          final file = File(p);
+          if (await file.exists()) {
+            _imageCache[p] = await file.readAsBytes();
+          }
+        } catch (e) {
+          print('Erro ao pré-carregar imagem da capa: $p - $e');
+        }
+      }),
     );
 
     for (final product in products) {
@@ -310,7 +308,8 @@ class CatalogPdfService {
           .map((img) => MapEntry('', img))
           .toList();
       colorVariants = product.colorImages.take(4).map((img) {
-        final label = img.colorTag ?? _resolveColorLabelLegacy(img.uri);
+        final rawLabel = img.colorTag ?? _resolveColorLabelLegacy(img.uri);
+        final label = _stripColorPrefix(rawLabel);
         return MapEntry(label, img);
       }).toList();
     }
@@ -540,19 +539,19 @@ class CatalogPdfService {
             mainAxisAlignment: pw.MainAxisAlignment.end,
             mainAxisSize: pw.MainAxisSize.min,
             children: [
-              _buildSwatchThumb(variants[0].key, variants[0].value, width: 44),
-              pw.SizedBox(width: 6),
-              _buildSwatchThumb(variants[1].key, variants[1].value, width: 44),
+              _buildSwatchThumb(variants[0].key, variants[0].value, width: 22),
+              pw.SizedBox(width: 4),
+              _buildSwatchThumb(variants[1].key, variants[1].value, width: 22),
             ],
           ),
-          pw.SizedBox(height: 6),
+          pw.SizedBox(height: 4),
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.end,
             mainAxisSize: pw.MainAxisSize.min,
             children: [
-              _buildSwatchThumb(variants[2].key, variants[2].value, width: 44),
-              pw.SizedBox(width: 6),
-              _buildSwatchThumb(variants[3].key, variants[3].value, width: 44),
+              _buildSwatchThumb(variants[2].key, variants[2].value, width: 22),
+              pw.SizedBox(width: 4),
+              _buildSwatchThumb(variants[3].key, variants[3].value, width: 22),
             ],
           ),
         ],
@@ -563,20 +562,20 @@ class CatalogPdfService {
         mainAxisAlignment: pw.MainAxisAlignment.end,
         mainAxisSize: pw.MainAxisSize.min,
         children: [
-          _buildSwatchThumb(variants[0].key, variants[0].value, width: 85),
-          pw.SizedBox(width: 10),
-          _buildSwatchThumb(variants[1].key, variants[1].value, width: 85),
+          _buildSwatchThumb(variants[0].key, variants[0].value, width: 42),
+          pw.SizedBox(width: 6),
+          _buildSwatchThumb(variants[1].key, variants[1].value, width: 42),
         ],
       );
     } else {
       // Casos 1 ou 3
-      final thumbWidth = (count == 3) ? 42.0 : 85.0;
+      final thumbWidth = (count == 3) ? 21.0 : 42.0;
       return pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.end,
         mainAxisSize: pw.MainAxisSize.min,
         children: variants.asMap().entries.map((entry) {
           return pw.Padding(
-            padding: pw.EdgeInsets.only(left: entry.key == 0 ? 0 : 8),
+            padding: pw.EdgeInsets.only(left: entry.key == 0 ? 0 : 6),
             child: _buildSwatchThumb(
               entry.value.key,
               entry.value.value,
@@ -770,6 +769,14 @@ class CatalogPdfService {
       return fromPath;
     }
     return 'COR';
+  }
+
+  /// Remove prefixo "C1", "C2", "C3", "C4" do label de cor.
+  /// Ex: "C1 Azul" -> "Azul", "C2 ROSA" -> "ROSA", "Preto" -> "Preto"
+  static String _stripColorPrefix(String label) {
+    return label
+        .replaceFirst(RegExp(r'^C[1-4]\s+', caseSensitive: false), '')
+        .trim();
   }
 
   static pw.Widget _buildImageWidget(

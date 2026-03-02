@@ -724,7 +724,7 @@ class CatalogShareHelper {
                                 const SizedBox(width: 8),
                                 _buildOptionCard(
                                   context,
-                                  label: 'Sem PreÃ§o',
+                                  label: 'Sem Pre\u00e7o',
                                   isSelected: !showPrice,
                                   onTap: () =>
                                       setState(() => showPrice = false),
