@@ -11,21 +11,33 @@ class UserRepository {
   Future<UserRole> getUserRole(String email) async {
     try {
       final doc = await _firestore.collection('users').doc(email).get();
-      if (!doc.exists) {
-        // If the collection is empty, the first one to log in is Admin
-        final allUsers = await _firestore.collection('users').limit(1).get();
-        if (allUsers.docs.isEmpty) {
-          await setUserRole(email, UserRole.admin);
-          return UserRole.admin;
-        }
-        return UserRole.viewer;
+
+      // Se o usuário já existe no banco, apenas retorna o cargo dele
+      if (doc.exists) {
+        final roleStr = doc.data()?['role'] as String?;
+        return UserRole.values.firstWhere(
+          (e) => e.name == roleStr,
+          orElse: () => UserRole.viewer,
+        );
       }
 
-      final roleStr = doc.data()?['role'] as String?;
-      return UserRole.values.firstWhere(
-        (e) => e.name == roleStr,
-        orElse: () => UserRole.viewer,
-      );
+      // Se o usuário NÃO existe (primeiro login dele):
+      UserRole assignedRole = UserRole.viewer;
+
+      // 1. Verificar se é um e-mail de Super Admin (TI)
+      if (UserRole.superAdminEmails.contains(email)) {
+        assignedRole = UserRole.admin;
+      } else {
+        // 2. Se a coleção de usuários estiver vazia, o primeiro a logar vira Admin (dono do app)
+        final allUsers = await _firestore.collection('users').limit(1).get();
+        if (allUsers.docs.isEmpty) {
+          assignedRole = UserRole.admin;
+        }
+      }
+
+      // Salva o novo usuário no Firestore para que o TI possa vê-lo na lista
+      await setUserRole(email, assignedRole);
+      return assignedRole;
     } catch (e) {
       return UserRole.viewer;
     }
