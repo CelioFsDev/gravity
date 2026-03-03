@@ -323,7 +323,7 @@ class CatalogPdfService {
     NumberFormat currencyFormat,
     PdfPageFormat pageFormat, {
     String? collectionName,
-    String defaultSubtitle = 'SELE\u00c7\u00c3O DE PRODUTOS',
+    String defaultSubtitle = 'SELEÇÃO DE PRODUTOS',
     bool showPrice = true,
     bool useLoosePhotos = false,
     String? forcedHeroPath,
@@ -360,120 +360,455 @@ class CatalogPdfService {
     final availableWidth = pageFormat.width - 36;
     final availableHeight = pageFormat.height - 36;
 
-    final bottomContentHeight = switch (style) {
-      CatalogPdfStyle.classic => 175.0,
-      CatalogPdfStyle.clean => 165.0,
-      CatalogPdfStyle.compact => 145.0,
-      CatalogPdfStyle.editorial => 190.0,
-      CatalogPdfStyle.minimal => 135.0,
-    };
-    final topHeaderHeight = switch (style) {
-      CatalogPdfStyle.classic => 35.0,
-      CatalogPdfStyle.clean => 28.0,
-      CatalogPdfStyle.compact => 24.0,
-      CatalogPdfStyle.editorial => 46.0,
-      CatalogPdfStyle.minimal => 0.0,
-    };
-    final spacing = switch (style) {
-      CatalogPdfStyle.classic => 15.0,
-      CatalogPdfStyle.clean => 12.0,
-      CatalogPdfStyle.compact => 8.0,
-      CatalogPdfStyle.editorial => 18.0,
-      CatalogPdfStyle.minimal => 10.0,
-    };
-    final mainRadius = switch (style) {
-      CatalogPdfStyle.classic => 0.0,
-      CatalogPdfStyle.clean => 8.0,
-      CatalogPdfStyle.compact => 6.0,
-      CatalogPdfStyle.editorial => 0.0,
-      CatalogPdfStyle.minimal => 12.0,
-    };
-    final productNameSize = switch (style) {
-      CatalogPdfStyle.classic => 15.0,
-      CatalogPdfStyle.clean => 14.0,
-      CatalogPdfStyle.compact => 13.0,
-      CatalogPdfStyle.editorial => 17.0,
-      CatalogPdfStyle.minimal => 14.0,
-    };
-    final priceSize = switch (style) {
-      CatalogPdfStyle.classic => 22.0,
-      CatalogPdfStyle.clean => 21.0,
-      CatalogPdfStyle.compact => 18.0,
-      CatalogPdfStyle.editorial => 24.0,
-      CatalogPdfStyle.minimal => 20.0,
-    };
-    final detailColumnWidth = switch (style) {
-      CatalogPdfStyle.classic => 85.0,
-      CatalogPdfStyle.clean => 82.0,
-      CatalogPdfStyle.compact => 72.0,
-      CatalogPdfStyle.editorial => 92.0,
-      CatalogPdfStyle.minimal => 78.0,
-    };
-    final showHeader = style != CatalogPdfStyle.minimal;
-    final infoFlex = switch (style) {
-      CatalogPdfStyle.classic => 4,
-      CatalogPdfStyle.clean => 5,
-      CatalogPdfStyle.compact => 6,
-      CatalogPdfStyle.editorial => 5,
-      CatalogPdfStyle.minimal => 6,
-    };
-    final colorFlex = switch (style) {
-      CatalogPdfStyle.classic => 6,
-      CatalogPdfStyle.clean => 5,
-      CatalogPdfStyle.compact => 4,
-      CatalogPdfStyle.editorial => 5,
-      CatalogPdfStyle.minimal => 4,
-    };
-    final nameMaxLines = style == CatalogPdfStyle.compact ? 1 : 2;
-    final mainPhotoHeight =
-        availableHeight - topHeaderHeight - bottomContentHeight - spacing;
+    switch (style) {
+      case CatalogPdfStyle.editorial:
+        return _buildEditorialLayout(
+          product,
+          showPrice,
+          displayPrice,
+          photoP,
+          detailVariants,
+          colorVariants,
+          sizesText,
+          topHeaderText,
+          pageFormat,
+          currencyFormat,
+        );
+      case CatalogPdfStyle.minimal:
+        return _buildMinimalLayout(
+          product,
+          showPrice,
+          displayPrice,
+          photoP,
+          detailVariants,
+          colorVariants,
+          sizesText,
+          topHeaderText,
+          availableWidth,
+          availableHeight,
+          currencyFormat,
+        );
+      case CatalogPdfStyle.compact:
+        return _buildCompactLayout(
+          product,
+          showPrice,
+          displayPrice,
+          photoP,
+          detailVariants,
+          colorVariants,
+          sizesText,
+          topHeaderText,
+          availableWidth,
+          availableHeight,
+          currencyFormat,
+        );
+      case CatalogPdfStyle.clean:
+        return _buildCleanLayout(
+          product,
+          showPrice,
+          displayPrice,
+          photoP,
+          detailVariants,
+          colorVariants,
+          sizesText,
+          topHeaderText,
+          availableWidth,
+          availableHeight,
+          currencyFormat,
+        );
+      case CatalogPdfStyle.classic:
+      default:
+        return _buildClassicLayout(
+          product,
+          showPrice,
+          displayPrice,
+          photoP,
+          detailVariants,
+          colorVariants,
+          sizesText,
+          topHeaderText,
+          availableWidth,
+          availableHeight,
+          currencyFormat,
+        );
+    }
+  }
 
+  static pw.Widget _buildEditorialLayout(
+    Product product,
+    bool showPrice,
+    double displayPrice,
+    ProductImage? photoP,
+    List<MapEntry<String, ProductImage>> detailVariants,
+    List<MapEntry<String, ProductImage>> colorVariants,
+    String sizesText,
+    String topHeaderText,
+    PdfPageFormat pageFormat,
+    NumberFormat currencyFormat,
+  ) {
+    return pw.Container(
+      width: pageFormat.width,
+      height: pageFormat.height,
+      color: PdfColors.white,
+      child: pw.Stack(
+        children: [
+          // Full bleed image
+          pw.Positioned.fill(
+            child: photoP != null
+                ? _buildImageWidget(
+                    photoP,
+                    height: pageFormat.height,
+                    radius: 0,
+                  )
+                : _buildImagePlaceholder(
+                    height: pageFormat.height,
+                    width: pageFormat.width,
+                    radius: 0,
+                  ),
+          ),
+          // Gradient or solid overlay at bottom
+          pw.Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: pw.Container(
+              height: 240,
+              decoration: pw.BoxDecoration(
+                gradient: pw.LinearGradient(
+                  begin: pw.Alignment.topCenter,
+                  end: pw.Alignment.bottomCenter,
+                  colors: [PdfColor(0, 0, 0, 0.0), PdfColor(0, 0, 0, 0.9)],
+                ),
+              ),
+              child: pw.Padding(
+                padding: const pw.EdgeInsets.all(24),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  mainAxisAlignment: pw.MainAxisAlignment.end,
+                  children: [
+                    pw.Text(
+                      product.name.toUpperCase(),
+                      style: pw.TextStyle(
+                        color: PdfColors.white,
+                        fontSize: 24,
+                        fontWeight: pw.FontWeight.bold,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    pw.SizedBox(height: 8),
+                    if (showPrice)
+                      pw.Text(
+                        currencyFormat.format(displayPrice),
+                        style: pw.TextStyle(
+                          color: PdfColors.white,
+                          fontSize: 32,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                    pw.SizedBox(height: 14),
+                    pw.Text(
+                      'REF: ${product.reference}   •   $sizesText',
+                      style: pw.TextStyle(
+                        color: PdfColors.white,
+                        fontSize: 13,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _buildMinimalLayout(
+    Product product,
+    bool showPrice,
+    double displayPrice,
+    ProductImage? photoP,
+    List<MapEntry<String, ProductImage>> detailVariants,
+    List<MapEntry<String, ProductImage>> colorVariants,
+    String sizesText,
+    String topHeaderText,
+    double availableWidth,
+    double availableHeight,
+    NumberFormat currencyFormat,
+  ) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.all(36),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        mainAxisAlignment: pw.MainAxisAlignment.center,
+        children: [
+          pw.Expanded(
+            child: photoP != null
+                ? _buildImageWidget(
+                    photoP,
+                    height: availableHeight * 0.75,
+                    width: availableWidth - 36,
+                    radius: 12,
+                  )
+                : _buildImagePlaceholder(
+                    height: availableHeight * 0.75,
+                    width: availableWidth - 36,
+                    radius: 12,
+                  ),
+          ),
+          pw.SizedBox(height: 32),
+          pw.Text(
+            product.name,
+            textAlign: pw.TextAlign.center,
+            style: pw.TextStyle(
+              fontSize: 18,
+              color: PdfColors.grey800,
+              letterSpacing: 2,
+            ),
+          ),
+          pw.SizedBox(height: 16),
+          if (showPrice)
+            pw.Text(
+              currencyFormat.format(displayPrice),
+              textAlign: pw.TextAlign.center,
+              style: pw.TextStyle(
+                fontSize: 22,
+                color: PdfColors.black,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _buildCompactLayout(
+    Product product,
+    bool showPrice,
+    double displayPrice,
+    ProductImage? photoP,
+    List<MapEntry<String, ProductImage>> detailVariants,
+    List<MapEntry<String, ProductImage>> colorVariants,
+    String sizesText,
+    String topHeaderText,
+    double availableWidth,
+    double availableHeight,
+    NumberFormat currencyFormat,
+  ) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          pw.Container(
+            height: 24,
+            alignment: pw.Alignment.centerLeft,
+            child: pw.Text(
+              topHeaderText.toUpperCase(),
+              style: pw.TextStyle(
+                fontSize: 9,
+                letterSpacing: 2,
+                fontWeight: pw.FontWeight.bold,
+                color: PdfColors.grey600,
+              ),
+            ),
+          ),
+          pw.Expanded(
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Expanded(
+                  flex: 6,
+                  child: photoP != null
+                      ? _buildImageWidget(
+                          photoP,
+                          height: availableHeight - 40,
+                          radius: 4,
+                        )
+                      : _buildImagePlaceholder(
+                          height: availableHeight - 40,
+                          width: availableWidth,
+                          radius: 4,
+                        ),
+                ),
+                pw.SizedBox(width: 14),
+                pw.Expanded(
+                  flex: 4,
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        product.name.toUpperCase(),
+                        maxLines: 2,
+                        style: pw.TextStyle(
+                          fontSize: 16,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.black,
+                        ),
+                      ),
+                      pw.SizedBox(height: 8),
+                      _buildSizePill(sizesText),
+                      pw.SizedBox(height: 8),
+                      pw.Text(
+                        'REF: ${product.reference}',
+                        style: pw.TextStyle(
+                          fontSize: 10,
+                          color: PdfColors.grey700,
+                        ),
+                      ),
+                      if (showPrice) ...[
+                        pw.SizedBox(height: 16),
+                        pw.Text(
+                          currencyFormat.format(displayPrice),
+                          style: pw.TextStyle(
+                            fontSize: 20,
+                            fontWeight: pw.FontWeight.bold,
+                            color: _colorPriceGreen,
+                          ),
+                        ),
+                      ],
+                      pw.SizedBox(height: 24),
+                      if (detailVariants.isNotEmpty) ...[
+                        pw.Text(
+                          'DETALHES',
+                          style: pw.TextStyle(
+                            fontSize: 9,
+                            color: PdfColors.grey600,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        pw.SizedBox(height: 8),
+                        // Just stack them vertically
+                        ...detailVariants.map(
+                          (v) => pw.Container(
+                            margin: const pw.EdgeInsets.only(bottom: 8),
+                            child: _buildSwatchThumb(v.key, v.value, width: 80),
+                          ),
+                        ),
+                        pw.SizedBox(height: 8),
+                      ],
+                      if (colorVariants.isNotEmpty) ...[
+                        pw.Text(
+                          'CORES',
+                          style: pw.TextStyle(
+                            fontSize: 9,
+                            color: PdfColors.grey600,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        pw.SizedBox(height: 8),
+                        pw.Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: colorVariants
+                              .map(
+                                (v) => _buildSwatchThumb(
+                                  v.key,
+                                  v.value,
+                                  width: 36,
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _buildCleanLayout(
+    Product product,
+    bool showPrice,
+    double displayPrice,
+    ProductImage? photoP,
+    List<MapEntry<String, ProductImage>> detailVariants,
+    List<MapEntry<String, ProductImage>> colorVariants,
+    String sizesText,
+    String topHeaderText,
+    double availableWidth,
+    double availableHeight,
+    NumberFormat currencyFormat,
+  ) {
+    return _buildClassicLayout(
+      product,
+      showPrice,
+      displayPrice,
+      photoP,
+      detailVariants,
+      colorVariants,
+      sizesText,
+      topHeaderText,
+      availableWidth,
+      availableHeight,
+      currencyFormat,
+      isClean: true,
+    );
+  }
+
+  static pw.Widget _buildClassicLayout(
+    Product product,
+    bool showPrice,
+    double displayPrice,
+    ProductImage? photoP,
+    List<MapEntry<String, ProductImage>> detailVariants,
+    List<MapEntry<String, ProductImage>> colorVariants,
+    String sizesText,
+    String topHeaderText,
+    double availableWidth,
+    double availableHeight,
+    NumberFormat currencyFormat, {
+    bool isClean = false,
+  }) {
+    final mainPhotoHeight = availableHeight - 35 - 175 - 15;
+    final radius = isClean ? 12.0 : 0.0;
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 18),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
-          // 1. Top Header
-          if (showHeader)
-            pw.Container(
-              height: topHeaderHeight,
-              alignment: pw.Alignment.centerLeft,
-              child: pw.Text(
-                topHeaderText.toUpperCase(),
-                style: pw.TextStyle(
-                  fontSize: style == CatalogPdfStyle.editorial ? 12 : 11,
-                  letterSpacing: style == CatalogPdfStyle.compact ? 1.4 : 3,
-                  fontWeight: pw.FontWeight.bold,
-                  color: PdfColors.black,
-                ),
+          pw.Container(
+            height: 35,
+            alignment: pw.Alignment.centerLeft,
+            child: pw.Text(
+              topHeaderText.toUpperCase(),
+              style: pw.TextStyle(
+                fontSize: 11,
+                letterSpacing: 3,
+                fontWeight: pw.FontWeight.bold,
+                color: PdfColors.black,
               ),
             ),
-          // 2. Main Photo Section + Details
+          ),
           pw.Container(
             height: mainPhotoHeight,
             width: availableWidth,
             child: pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.stretch,
               children: [
-                // MAIN PHOTO (P)
                 pw.Expanded(
                   child: photoP != null
                       ? _buildImageWidget(
                           photoP,
                           height: mainPhotoHeight,
-                          radius: mainRadius,
+                          radius: radius,
                         )
                       : _buildImagePlaceholder(
                           height: mainPhotoHeight,
                           width: availableWidth,
-                          radius: mainRadius,
+                          radius: radius,
                         ),
                 ),
-                // DETAILS (D1, D2)
                 if (detailVariants.isNotEmpty) ...[
                   pw.SizedBox(width: 10),
                   pw.Container(
-                    width: detailColumnWidth,
+                    width: 85,
                     child: pw.Column(
                       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                       children: detailVariants
@@ -482,7 +817,7 @@ class CatalogPdfService {
                               child: _buildSwatchThumb(
                                 v.key,
                                 v.value,
-                                width: detailColumnWidth,
+                                width: 85,
                                 expand: true,
                               ),
                             ),
@@ -494,27 +829,31 @@ class CatalogPdfService {
               ],
             ),
           ),
-          pw.SizedBox(height: spacing),
-          // 3. Bottom Content (Info + Colors)
+          pw.SizedBox(height: 15),
           pw.Container(
-            height: bottomContentHeight,
+            height: 175,
+            padding: isClean ? const pw.EdgeInsets.all(16) : pw.EdgeInsets.zero,
+            decoration: isClean
+                ? pw.BoxDecoration(
+                    color: PdfColors.grey100,
+                    borderRadius: pw.BorderRadius.circular(12),
+                  )
+                : null,
             child: pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                // Info Section
                 pw.Expanded(
-                  flex: infoFlex,
+                  flex: 5,
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
                       pw.Text(
                         product.name.toUpperCase(),
-                        maxLines: nameMaxLines,
+                        maxLines: 2,
                         style: pw.TextStyle(
-                          fontSize: productNameSize,
+                          fontSize: 15,
                           fontWeight: pw.FontWeight.bold,
                           color: PdfColors.black,
-                          lineSpacing: 1.2,
                         ),
                       ),
                       pw.SizedBox(height: 12),
@@ -524,7 +863,6 @@ class CatalogPdfService {
                         'REF: ${product.reference}',
                         style: pw.TextStyle(
                           fontSize: 11,
-                          fontWeight: pw.FontWeight.normal,
                           color: PdfColors.black,
                           letterSpacing: 0.5,
                         ),
@@ -534,7 +872,7 @@ class CatalogPdfService {
                         pw.Text(
                           currencyFormat.format(displayPrice),
                           style: pw.TextStyle(
-                            fontSize: priceSize,
+                            fontSize: 22,
                             fontWeight: pw.FontWeight.bold,
                             color: _colorPriceGreen,
                           ),
@@ -543,10 +881,9 @@ class CatalogPdfService {
                     ],
                   ),
                 ),
-                // Colors Section (C1-C4)
                 if (colorVariants.isNotEmpty)
                   pw.Expanded(
-                    flex: colorFlex,
+                    flex: 5,
                     child: pw.Container(
                       alignment: pw.Alignment.topRight,
                       child: _buildVariantThumbsLayout(colorVariants),
