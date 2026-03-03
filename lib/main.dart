@@ -1,3 +1,4 @@
+import 'package:catalogo_ja/features/admin/users/create_email_password_user_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -251,6 +252,24 @@ class _MyAppState extends ConsumerState<MyApp> {
                         }
                         return null;
                       },
+                      routes: [
+                        GoRoute(
+                          path: 'create-login',
+                          builder: (context, state) =>
+                              const CreateEmailPasswordUserScreen(),
+                          redirect: (context, state) {
+                            final role = ref.read(currentRoleProvider);
+                            final email = ref
+                                .read(authViewModelProvider)
+                                .valueOrNull
+                                ?.email;
+                            if (!role.canManageUsers(email)) {
+                              return '/admin/settings';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),

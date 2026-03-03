@@ -7,6 +7,10 @@ abstract class AuthRepository {
   Stream<User?> get authStateChanges;
   User? get currentUser;
   Future<UserCredential> signInWithGoogle();
+  Future<UserCredential> signInWithEmailAndPassword(
+    String email,
+    String password,
+  );
   Future<void> signOut();
 }
 
@@ -20,9 +24,7 @@ class FirebaseAuthRepository implements AuthRepository {
   Future<void> _ensureInitialized() async {
     if (_initialized) return;
 
-    await GoogleSignIn.instance.initialize(
-      serverClientId: _serverClientId,
-    );
+    await GoogleSignIn.instance.initialize(serverClientId: _serverClientId);
     _initialized = true;
   }
 
@@ -58,6 +60,17 @@ class FirebaseAuthRepository implements AuthRepository {
       debugPrint('ERRO NO GOOGLE SIGN-IN: $e');
       rethrow;
     }
+  }
+
+  @override
+  Future<UserCredential> signInWithEmailAndPassword(
+    String email,
+    String password,
+  ) async {
+    return _auth.signInWithEmailAndPassword(
+      email: email.trim().toLowerCase(),
+      password: password,
+    );
   }
 
   @override

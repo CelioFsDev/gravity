@@ -4,6 +4,8 @@ import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 
 part 'user_role.g.dart';
 
+String _normalizeEmail(String? email) => email?.trim().toLowerCase() ?? '';
+
 enum UserRole {
   /// God Mode: Full access to everything
   admin('Administrador'),
@@ -29,8 +31,8 @@ class CurrentRole extends _$CurrentRole {
   @override
   UserRole build() {
     final authUser = ref.watch(authViewModelProvider).valueOrNull;
-    final email = authUser?.email;
-    if (email == null) return UserRole.viewer;
+    final email = _normalizeEmail(authUser?.email);
+    if (email.isEmpty) return UserRole.viewer;
 
     // Trigger async fetch
     _fetchUserRole(email);
@@ -92,7 +94,8 @@ extension UserRoleGuards on UserRole {
 
   /// Full User Management (Limited to specific Super Admin emails)
   bool canManageUsers(String? email) =>
-      this == UserRole.admin && UserRole.superAdminEmails.contains(email);
+      this == UserRole.admin &&
+      UserRole.superAdminEmails.contains(_normalizeEmail(email));
 
   /// Global access to Admin Panel screens
   bool get canAccessAdmin => this != UserRole.viewer;

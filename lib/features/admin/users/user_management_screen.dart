@@ -1,17 +1,78 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:catalogo_ja/data/repositories/user_repository.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
-import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
+import 'package:catalogo_ja/data/repositories/user_repository.dart';
+import 'package:catalogo_ja/data/repositories/user_sync_repository.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/ui/widgets/section_card.dart';
+import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-class UserManagementScreen extends ConsumerWidget {
+class UserManagementScreen extends ConsumerStatefulWidget {
   const UserManagementScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<UserManagementScreen> createState() =>
+      _UserManagementScreenState();
+}
+
+class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
+  bool _isSyncing = false;
+
+  Future<void> _syncUsers() async {
+    setState(() => _isSyncing = true);
+
+    try {
+      final result = await ref.read(userSyncRepositoryProvider).syncAuthUsers();
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Sincronização concluída. '
+            '${result.created} novos, ${result.updated} atualizados.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_syncErrorMessage(error)),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSyncing = false);
+      }
+    }
+  }
+
+  String _syncErrorMessage(Object error) {
+    if (error is! FirebaseFunctionsException) {
+      return 'Erro ao sincronizar usuários.';
+    }
+
+    switch (error.code) {
+      case 'permission-denied':
+        return 'Apenas o administrador geral pode sincronizar usuários.';
+      case 'unauthenticated':
+        return 'Sessão expirada. Entre novamente.';
+      case 'unavailable':
+        return 'Serviço indisponível. Verifique a conexão.';
+      default:
+        return error.message ?? 'Erro ao sincronizar usuários.';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final userRepository = ref.watch(userRepositoryProvider);
     final currentRole = ref.watch(currentRoleProvider);
     final currentEmail = ref.watch(authViewModelProvider).valueOrNull?.email;
@@ -19,16 +80,21 @@ class UserManagementScreen extends ConsumerWidget {
     if (!currentRole.canManageUsers(currentEmail)) {
       return const AppScaffold(
         title: 'Gerenciar Usuários',
-        body: Center(
-          child: Text('Acesso restrito ao Administrador Geral (TI).'),
-        ),
+        body: Center(child: Text('Acesso restrito ao administrador geral.')),
       );
     }
 
     return AppScaffold(
       title: 'Gerenciar Usuários',
-      subtitle: 'Defina quem pode editar seu catálogo',
+      subtitle: 'Controle de acessos e perfis da equipe',
       maxWidth: 800,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.person_add_outlined),
+          tooltip: 'Novo Usuário',
+          onPressed: () => context.push('/admin/settings/users/create-login'),
+        ),
+      ],
       body: StreamBuilder<List<Map<String, dynamic>>>(
         stream: userRepository.getUsersStream(),
         builder: (context, snapshot) {
@@ -50,24 +116,60 @@ class UserManagementScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 SectionCard(
-                  title: 'Adicionar Novo Usuário',
-                  child: _AddUserForm(),
+                  title: 'Ações de Administrador',
+                  child: Column(
+                    children: [
+                      _AdminActionTile(
+                        icon: Icons.badge_outlined,
+                        title: 'Cadastrar Novo Acesso',
+                        subtitle:
+                            'Cria login oficial (email/senha) no Firebase Auth.',
+                        onTap: () =>
+                            context.push('/admin/settings/users/create-login'),
+                      ),
+                      const Divider(height: 32),
+                      _AdminActionTile(
+                        icon: Icons.sync_outlined,
+                        title: 'Sincronizar Logins Externos',
+                        subtitle:
+                            'Busca usuários criados via Google e atualiza permissões.',
+                        loading: _isSyncing,
+                        onTap: _isSyncing ? null : _syncUsers,
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Usuários Cadastrados',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                const SizedBox(height: 32),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.people_outline,
+                      size: 20,
+                      color: Colors.grey,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'USUÁRIOS CADASTRADOS (${users.length})',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 if (users.isEmpty)
                   const Center(
                     child: Padding(
-                      padding: EdgeInsets.all(32.0),
-                      child: Text('Nenhum usuário cadastrado.'),
+                      padding: EdgeInsets.all(32),
+                      child: Text('Nenhum usuário encontrado.'),
                     ),
                   )
                 else
                   ...users.map((user) => _UserRow(user: user)),
+                const SizedBox(height: 48),
               ],
             ),
           );
@@ -77,122 +179,111 @@ class UserManagementScreen extends ConsumerWidget {
   }
 }
 
-class _AddUserForm extends ConsumerStatefulWidget {
-  @override
-  ConsumerState<_AddUserForm> createState() => _AddUserFormState();
-}
+class _AdminActionTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+  final bool loading;
 
-class _AddUserFormState extends ConsumerState<_AddUserForm> {
-  final _emailController = TextEditingController();
-  UserRole _selectedRole = UserRole.seller;
-  bool _isLoading = false;
-
-  @override
-  void dispose() {
-    _emailController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _addUser() async {
-    final email = _emailController.text.trim().toLowerCase();
-    if (email.isEmpty || !email.contains('@')) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('E-mail inválido')));
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    try {
-      await ref.read(userRepositoryProvider).setUserRole(email, _selectedRole);
-      _emailController.clear();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Usuário adicionado com sucesso!')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao adicionar usuário: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
+  const _AdminActionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.onTap,
+    this.loading = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        TextField(
-          controller: _emailController,
-          decoration: const InputDecoration(
-            labelText: 'E-mail do Usuário',
-            hintText: 'exemplo@gmail.com',
-            prefixIcon: Icon(Icons.email_outlined),
-          ),
-          keyboardType: TextInputType.emailAddress,
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primary.withAlpha(20),
+          borderRadius: BorderRadius.circular(8),
         ),
-        const SizedBox(height: 16),
-        DropdownButtonFormField<UserRole>(
-          value: _selectedRole,
-          decoration: const InputDecoration(
-            labelText: 'Permissão',
-            prefixIcon: Icon(Icons.admin_panel_settings_outlined),
-          ),
-          items: UserRole.values.map((role) {
-            return DropdownMenuItem(value: role, child: Text(role.label));
-          }).toList(),
-          onChanged: (val) {
-            if (val != null) setState(() => _selectedRole = val);
-          },
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: _isLoading ? null : _addUser,
-            icon: _isLoading
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.person_add_outlined),
-            label: const Text('Adicionar Permissão'),
-          ),
-        ),
-      ],
+        child: Icon(icon, color: Theme.of(context).colorScheme.primary),
+      ),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+      subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
+      trailing: loading
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.chevron_right, size: 20),
+      onTap: onTap,
     );
   }
 }
 
 class _UserRow extends ConsumerWidget {
-  final Map<String, dynamic> user;
   const _UserRow({required this.user});
+
+  final Map<String, dynamic> user;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final email = user['email'] as String;
     final roleStr = user['role'] as String;
     final role = UserRole.values.firstWhere(
-      (e) => e.name == roleStr,
+      (item) => item.name == roleStr,
       orElse: () => UserRole.viewer,
     );
 
     return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Theme.of(context).dividerColor.withAlpha(50)),
+      ),
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
-        title: Text(email, style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text('Cargo: ${role.label}'),
+        title: Text(
+          email,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+        ),
+        subtitle: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.secondary.withAlpha(30),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                role.label.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.secondary,
+                ),
+              ),
+            ),
+          ],
+        ),
         trailing: PopupMenuButton<UserRole>(
           onSelected: (newRole) {
             ref.read(userRepositoryProvider).setUserRole(email, newRole);
           },
-          itemBuilder: (context) => UserRole.values.map((r) {
-            return PopupMenuItem(value: r, child: Text(r.label));
+          itemBuilder: (context) => UserRole.values.map((item) {
+            return PopupMenuItem(
+              value: item,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.shield_outlined,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(item.label),
+                ],
+              ),
+            );
           }).toList(),
           icon: const Icon(Icons.more_vert),
         ),
