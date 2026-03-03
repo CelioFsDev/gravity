@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' as io;
 
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/core/services/dto/catalogo_ja_export_dtos.dart';
@@ -107,26 +107,37 @@ class ExportImportService {
     );
   }
 
-  /// Generates the CatalogoJa_export.json file and returns it.
-  Future<File> exportToJsonFile() async {
+  /// Generates the CatalogoJa_export.json bytes.
+  Future<Uint8List> exportToJsonBytes() async {
     final payload = await generatePayload();
     final jsonString = jsonEncode(payload.toJson());
+    return Uint8List.fromList(utf8.encode(jsonString));
+  }
+
+  /// Generates the CatalogoJa_export.json file and returns it.
+  Future<io.File?> exportToJsonFile() async {
+    if (kIsWeb) return null;
+    final bytes = await exportToJsonBytes();
 
     final directory = await getApplicationDocumentsDirectory();
-    final file = File('${directory.path}/CatalogoJa_export.json');
-    await file.writeAsString(jsonString);
+    final file = io.File('${directory.path}/CatalogoJa_export.json');
+    await file.writeAsBytes(bytes);
 
     return file;
   }
 
   /// Parses the JSON content of a file into a payload.
-  Future<CatalogoJaExportPayload> parsePayload(File file) async {
-    try {
-      if (!await file.exists()) {
-        throw Exception('Arquivo n\u00e3o encontrado no caminho especificado.');
-      }
+  Future<CatalogoJaExportPayload> parsePayload(io.File file) async {
+    if (!await file.exists()) {
+      throw Exception('Arquivo n\u00e3o encontrado no caminho especificado.');
+    }
+    final bytes = await file.readAsBytes();
+    return parsePayloadFromBytes(bytes);
+  }
 
-      final bytes = await file.readAsBytes();
+  /// Parses the JSON content from bytes into a payload.
+  Future<CatalogoJaExportPayload> parsePayloadFromBytes(Uint8List bytes) async {
+    try {
       String jsonString;
       try {
         jsonString = utf8.decode(bytes);
@@ -162,7 +173,7 @@ class ExportImportService {
           'O arquivo n\u00e3o parece ser um JSON v\u00e1lido ou est\u00e1 corrompido.',
         );
       }
-      throw Exception('Erro ao ler arquivo de exporta\u00e7\u00e3o: $e');
+      throw Exception('Erro ao ler dados de exporta\u00e7\u00e3o: $e');
     }
   }
 

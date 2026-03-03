@@ -246,7 +246,7 @@ class CatalogShareHelper {
       final availableCollections = await _getRelevantCollections(ref, catalog);
 
       // 3. Export data package
-      final packageFile = await _runWithLoadingDialog(
+      final bytes = await _runWithLoadingDialog(
         context,
         () => ref
             .read(catalogoJaPackageServiceProvider)
@@ -260,8 +260,8 @@ class CatalogShareHelper {
       final safeCatalogName = _sanitizeFileNamePart(catalog.name);
       final fileName = 'CatalogoJa_${safeCatalogName}_$dateStr.zip';
 
-      await WhatsAppShareService.shareXFile(
-        filePath: packageFile.path,
+      await WhatsAppShareService.shareFile(
+        bytes: bytes,
         fileName: fileName,
         text: 'Confira o pacote de dados do catálogo ${catalog.name}!',
         mimeType: 'application/zip',
