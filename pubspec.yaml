@@ -40,6 +40,7 @@ dependencies:
   firebase_auth: ^5.4.4
   cloud_firestore: ^5.6.2
   google_sign_in: ^7.2.0
+  firebase_crashlytics: ^4.3.0
   # Media
   http: ^1.2.2
   flutter_image_compress: ^2.4.0
@@ -56,6 +57,7 @@ dev_dependencies:
   hive_generator: ^2.0.1
   build_runner: ^2.4.13
   flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.4
 
 flutter_launcher_icons:
   android: true
@@ -63,6 +65,15 @@ flutter_launcher_icons:
   image_path: assets/branding/icons/catalogoja_icons_glass_1024x1024.png
   adaptive_icon_background: '#060C1C'
   adaptive_icon_foreground: assets/branding/icons/catalogoja_icon_foreground.png
+
+flutter_native_splash:
+  color: "#060C1C"
+  image: assets/branding/logo/catalogoja_logo_master_2048x2048.png
+  android_12:
+    image: assets/branding/logo/catalogoja_logo_master_2048x2048.png
+    color: "#060C1C"
+  android: true
+  ios: true
 
 flutter:
   uses-material-design: true

@@ -29,9 +29,13 @@ import 'package:catalogo_ja/features/auth/login_screen.dart';
 import 'package:catalogo_ja/features/splash/splash_screen.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart' hide Category;
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
   // Initialize Hive
   await Hive.initFlutter();
@@ -71,17 +75,26 @@ void main() async {
         options: DefaultFirebaseOptions.currentPlatform,
       );
     }
-  } on FirebaseException catch (e) {
-    if (e.code == 'duplicate-app') {
-      debugPrint('Firebase initialized (recovered from duplicate-app error)');
-    } else {
-      debugPrint('Firebase init failed (Offline Mode Active): $e');
-    }
   } catch (e) {
-    debugPrint('Firebase init failed (Offline Mode Active): $e');
+    debugPrint('Firebase initialization warning: $e');
+  }
+
+  // Configuração do Crashlytics
+  if (!kIsWeb) {
+    FlutterError.onError = (errorDetails) {
+      FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
+    };
+    // Pass ALL errors to Crashlytics
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
   }
 
   runApp(const ProviderScope(child: MyApp()));
+
+  // Remove a splash nativa logo que o app está pronto
+  FlutterNativeSplash.remove();
 }
 
 class MyApp extends ConsumerStatefulWidget {
@@ -273,7 +286,7 @@ class _MyAppState extends ConsumerState<MyApp> {
               systemNavigationBarIconBrightness: Brightness.dark,
             ),
       child: MaterialApp.router(
-        title: 'CatalogoJa',
+        title: 'Catálogo Já',
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
         themeMode: mode,

@@ -9,6 +9,7 @@ import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
 import 'package:uuid/uuid.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:catalogo_ja/core/services/photo_classification_service.dart';
+import 'package:catalogo_ja/core/services/image_optimizer_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
@@ -365,9 +366,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
   /// Adiciona fotos de detalhe (D1 / D2) sem mostrar o diálogo de meta.
   Future<void> _addDetailPhotos() async {
-    final currentDetails = _photos.where(
-      (p) => p.photoType == 'D1' || p.photoType == 'D2',
-    ).length;
+    final currentDetails = _photos
+        .where((p) => p.photoType == 'D1' || p.photoType == 'D2')
+        .length;
     if (currentDetails >= 2) return;
 
     try {
@@ -381,18 +382,16 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         final resolved = await _processPickedImage(file);
         if (resolved == null || !mounted) break;
 
-        final existingDetails = _photos.where(
-          (p) => p.photoType == 'D1' || p.photoType == 'D2',
-        ).length;
+        final existingDetails = _photos
+            .where((p) => p.photoType == 'D1' || p.photoType == 'D2')
+            .length;
         if (existingDetails >= 2) break;
 
         final nextType = existingDetails == 0 ? 'D1' : 'D2';
         setState(() {
-          _photos.add(ProductPhoto(
-            path: resolved,
-            photoType: nextType,
-            isPrimary: false,
-          ));
+          _photos.add(
+            ProductPhoto(path: resolved, photoType: nextType, isPrimary: false),
+          );
         });
       }
     } catch (e) {
@@ -406,12 +405,15 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
   /// Adiciona fotos de cor (C1 – C4) solicitando o nome da cor.
   Future<void> _addColorPhotos() async {
-    final currentColors = _photos.where(
-      (p) => p.photoType != null &&
-          p.photoType != 'P' &&
-          p.photoType != 'D1' &&
-          p.photoType != 'D2',
-    ).length;
+    final currentColors = _photos
+        .where(
+          (p) =>
+              p.photoType != null &&
+              p.photoType != 'P' &&
+              p.photoType != 'D1' &&
+              p.photoType != 'D2',
+        )
+        .length;
     if (currentColors >= 4) return;
 
     try {
@@ -714,7 +716,6 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         final String fileName =
             classification?.standardName ?? '${const Uuid().v4()}$extension';
         final String targetPath = p.join(imagesDir.path, fileName);
-        final File targetFile = File(targetPath);
 
         debugPrint('Reading from path: ${file.path}');
         final sourceFile = File(file.path!);
@@ -722,11 +723,17 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           debugPrint('Error: Source file does not exist');
           return null;
         }
-        final bytes = await sourceFile.readAsBytes();
-        await targetFile.writeAsBytes(bytes);
 
-        if (await targetFile.exists()) {
-          debugPrint('Successfully saved to: $targetPath');
+        // Usa o serviço centralizado para comprimir a imagem
+        final optimizer = ref.read(imageOptimizerServiceProvider.notifier);
+        final compressedFile = await optimizer.compressImage(sourceFile);
+        final fileToSave = compressedFile ?? sourceFile;
+
+        // No Windows, o copy funciona melhor que o move se o arquivo estiver sendo usado
+        await fileToSave.copy(targetPath);
+
+        if (await File(targetPath).exists()) {
+          debugPrint('Successfully saved (optimized) to: $targetPath');
           return targetPath;
         }
       } else if (file.bytes != null) {
@@ -743,6 +750,11 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         if (!await imagesDir.exists()) {
           await imagesDir.create(recursive: true);
         }
+
+        final optimizer = ref.read(imageOptimizerServiceProvider.notifier);
+        final compressedBytes = await optimizer.compressBytes(file.bytes!);
+        final bytesToSave = compressedBytes ?? file.bytes!;
+
         final extension = p.extension(file.name).isNotEmpty
             ? p.extension(file.name).toLowerCase()
             : '.jpg';
@@ -750,7 +762,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           imagesDir.path,
           '${const Uuid().v4()}$extension',
         );
-        await File(targetPath).writeAsBytes(file.bytes!);
+
+        await File(targetPath).writeAsBytes(bytesToSave);
         return targetPath;
       } else {
         debugPrint('Error: Both path and bytes are null');
@@ -1060,17 +1073,23 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
   Widget _buildImagesSection() {
     // Detect primary by type 'P' first, fallback to isPrimary flag
-    final photoP = _photos.where((p) => p.photoType == 'P').firstOrNull
-        ?? _photos.where((p) => p.isPrimary).firstOrNull;
+    final photoP =
+        _photos.where((p) => p.photoType == 'P').firstOrNull ??
+        _photos.where((p) => p.isPrimary).firstOrNull;
 
-    final detailPhotos = _photos.where((p) =>
-        p.photoType == 'D1' || p.photoType == 'D2').toList();
+    final detailPhotos = _photos
+        .where((p) => p.photoType == 'D1' || p.photoType == 'D2')
+        .toList();
 
-    final colorPhotos = _photos.where((p) =>
-        p.photoType != null &&
-        p.photoType != 'P' &&
-        p.photoType != 'D1' &&
-        p.photoType != 'D2').toList();
+    final colorPhotos = _photos
+        .where(
+          (p) =>
+              p.photoType != null &&
+              p.photoType != 'P' &&
+              p.photoType != 'D1' &&
+              p.photoType != 'D2',
+        )
+        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1099,7 +1118,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                     photoP == null ? Icons.add_a_photo : Icons.refresh,
                   ),
                   label: Text(
-                    photoP == null ? 'Adicionar Foto Principal' : 'Trocar Foto Principal',
+                    photoP == null
+                        ? 'Adicionar Foto Principal'
+                        : 'Trocar Foto Principal',
                   ),
                 ),
               ),
@@ -1142,8 +1163,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                         label: '+ Detalhe',
                         onTap: _addDetailPhotos,
                       ),
-                    if (detailPhotos.isNotEmpty)
-                      const SizedBox(width: 12),
+                    if (detailPhotos.isNotEmpty) const SizedBox(width: 12),
                     ...detailPhotos.map((photo) {
                       return Padding(
                         key: ValueKey('detail_${photo.path}'),
@@ -1184,12 +1204,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   scrollDirection: Axis.horizontal,
                   children: [
                     if (colorPhotos.length < 4)
-                      _buildAddTile(
-                        label: '+ Cor',
-                        onTap: _addColorPhotos,
-                      ),
-                    if (colorPhotos.isNotEmpty)
-                      const SizedBox(width: 12),
+                      _buildAddTile(label: '+ Cor', onTap: _addColorPhotos),
+                    if (colorPhotos.isNotEmpty) const SizedBox(width: 12),
                     ...colorPhotos.map((photo) {
                       return Padding(
                         key: ValueKey('color_${photo.path}'),

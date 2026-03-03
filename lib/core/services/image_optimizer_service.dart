@@ -15,8 +15,8 @@ class ImageOptimizerService extends _$ImageOptimizerService {
 
   Future<File?> compressImage(
     File file, {
-    int quality = 80,
-    int maxWidth = 1200,
+    int quality = 70,
+    int maxWidth = 1024,
   }) async {
     // flutter_image_compress uses native code, skip on web
     if (kIsWeb) return null;
@@ -47,8 +47,8 @@ class ImageOptimizerService extends _$ImageOptimizerService {
 
   Future<Uint8List?> compressBytes(
     Uint8List bytes, {
-    int quality = 80,
-    int maxWidth = 1200,
+    int quality = 70,
+    int maxWidth = 1024,
   }) async {
     // flutter_image_compress uses native code, skip on web
     if (kIsWeb) return null;
