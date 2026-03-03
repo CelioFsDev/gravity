@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+﻿import 'dart:io' as io;
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -21,6 +21,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:catalogo_ja/core/services/catalogo_ja_package_service.dart';
 import 'package:catalogo_ja/core/services/app_logger.dart';
+import 'package:printing/printing.dart';
 
 class CatalogShareHelper {
   static Future<void> showShareOptions({
@@ -132,7 +133,9 @@ class CatalogShareHelper {
               file.bytes,
               file.fileName,
             );
-            savedPaths.add(savedPath);
+            if (savedPath != null) {
+              savedPaths.add(savedPath);
+            }
           }
         }
 
@@ -282,10 +285,11 @@ class CatalogShareHelper {
     }
   }
 
-  static Future<String> _writePdfToDevice(
+  static Future<String?> _writePdfToDevice(
     Uint8List bytes,
     String fileName,
   ) async {
+    if (kIsWeb) return null;
     final baseDirectory =
         await getDownloadsDirectory() ??
         await getApplicationDocumentsDirectory();
@@ -294,7 +298,7 @@ class CatalogShareHelper {
     }
 
     final filePath = p.join(baseDirectory.path, fileName);
-    final file = File(filePath);
+    final file = io.File(filePath);
     await file.writeAsBytes(bytes, flush: true);
     return file.path;
   }
@@ -385,16 +389,22 @@ class CatalogShareHelper {
           );
         }
         for (final pdf in files) {
-          final filePath = p.join(documentsDirectory.path, pdf.fileName);
-          final file = File(filePath);
-          await file.writeAsBytes(pdf.bytes);
+          if (kIsWeb) {
+            await Printing.sharePdf(bytes: pdf.bytes, filename: pdf.fileName);
+          } else {
+            final filePath = p.join(documentsDirectory.path, pdf.fileName);
+            final file = io.File(filePath);
+            await file.writeAsBytes(pdf.bytes);
+          }
         }
 
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                '${files.length} PDFs salvos em ${documentsDirectory.path}',
+                kIsWeb
+                    ? '${files.length} PDFs enviados para download'
+                    : '${files.length} PDFs salvos em ${documentsDirectory.path}',
               ),
             ),
           );
@@ -423,13 +433,24 @@ class CatalogShareHelper {
         final filename = phone.isNotEmpty
             ? '$safeStoreName-$phone.PDF'
             : '$safeStoreName.PDF';
-        final filePath = p.join(documentsDirectory.path, filename);
-        final file = File(filePath);
-        await file.writeAsBytes(pdfBytes);
+
+        if (kIsWeb) {
+          await Printing.sharePdf(bytes: pdfBytes, filename: filename);
+        } else {
+          final filePath = p.join(documentsDirectory.path, filename);
+          final file = io.File(filePath);
+          await file.writeAsBytes(pdfBytes);
+        }
 
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Cat\u00e1logo salvo em ${file.path}')),
+            SnackBar(
+              content: Text(
+                kIsWeb
+                    ? 'Cat\u00e1logo enviado para download'
+                    : 'Cat\u00e1logo salvo no dispositivo',
+              ),
+            ),
           );
         }
       }

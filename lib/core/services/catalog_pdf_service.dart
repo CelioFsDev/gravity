@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:io' as io;
 import 'dart:typed_data';
 import 'dart:convert';
 
@@ -11,6 +11,7 @@ import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/product_image.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
 
 enum CatalogPdfStyle { classic, clean, compact, editorial, minimal }
 
@@ -76,18 +77,20 @@ class CatalogPdfService {
       if (collectionCover?.coverPagePath?.isNotEmpty == true)
         collectionCover!.coverPagePath!,
     };
-    await Future.wait(
-      coverPaths.where((p) => !_imageCache.containsKey(p)).map((p) async {
-        try {
-          final file = File(p);
-          if (await file.exists()) {
-            _imageCache[p] = await file.readAsBytes();
+    if (!kIsWeb) {
+      await Future.wait(
+        coverPaths.where((p) => !_imageCache.containsKey(p)).map((p) async {
+          try {
+            final file = io.File(p);
+            if (await file.exists()) {
+              _imageCache[p] = await file.readAsBytes();
+            }
+          } catch (e) {
+            print('Erro ao pré-carregar imagem da capa: $p - $e');
           }
-        } catch (e) {
-          print('Erro ao pré-carregar imagem da capa: $p - $e');
-        }
-      }),
-    );
+        }),
+      );
+    }
 
     for (final product in products) {
       // Check for collection change
@@ -217,21 +220,21 @@ class CatalogPdfService {
 
     const int maxConcurrent = 5; // Reduzido para maior estabilidade
 
-    // 1. Processar imagens locais
-    if (localPaths.isNotEmpty) {
+    // 1. Processar imagens locais (Apenas Mobile)
+    if (localPaths.isNotEmpty && !kIsWeb) {
       final pathsList = localPaths.toList();
       for (var i = 0; i < pathsList.length; i += maxConcurrent) {
         final batch = pathsList.skip(i).take(maxConcurrent);
         await Future.wait(
           batch.map((path) async {
             try {
-              final file = File(path);
+              final file = io.File(path);
               if (await file.exists()) {
                 final result = await FlutterImageCompress.compressWithFile(
                   path,
                   minWidth: 700,
                   minHeight: 700,
-                  quality: 40, // Qualidade reduzida para economizar memória
+                  quality: 40,
                 );
                 _imageCache[path] = result ?? await file.readAsBytes();
               }
@@ -273,47 +276,33 @@ class CatalogPdfService {
       }
     }
 
-    // 3. Processar imagens de rede (Batch com timeout global)
+    // 3. Processar imagens de rede (Usa http para compatibilidade Web)
     if (networkUrls.isNotEmpty) {
       final urls = networkUrls.toList();
-      final client = HttpClient()
-        ..connectionTimeout = const Duration(seconds: 5);
+      for (var i = 0; i < urls.length; i += maxConcurrent) {
+        final batch = urls.skip(i).take(maxConcurrent);
+        await Future.wait(
+          batch.map((url) async {
+            try {
+              final response = await http
+                  .get(Uri.parse(url))
+                  .timeout(const Duration(seconds: 15));
 
-      try {
-        for (var i = 0; i < urls.length; i += maxConcurrent) {
-          final batch = urls.skip(i).take(maxConcurrent);
-          await Future.wait(
-            batch.map((url) async {
-              try {
-                final request = await client
-                    .getUrl(Uri.parse(url))
-                    .timeout(const Duration(seconds: 8));
-                final response = await request.close().timeout(
-                  const Duration(seconds: 8),
+              if (response.statusCode == 200) {
+                final bytes = response.bodyBytes;
+                final compressed = await FlutterImageCompress.compressWithList(
+                  bytes,
+                  minWidth: 700,
+                  minHeight: 700,
+                  quality: 40,
                 );
-
-                if (response.statusCode == 200) {
-                  final builder = BytesBuilder();
-                  await response.forEach(builder.add);
-                  final bytes = builder.takeBytes();
-
-                  final compressed =
-                      await FlutterImageCompress.compressWithList(
-                        bytes,
-                        minWidth: 700,
-                        minHeight: 700,
-                        quality: 40,
-                      );
-                  _imageCache[url] = compressed;
-                }
-              } catch (e) {
-                debugPrint('Erro ao baixar imagem: $url - $e');
+                _imageCache[url] = compressed;
               }
-            }),
-          );
-        }
-      } finally {
-        client.close();
+            } catch (e) {
+              debugPrint('Erro ao baixar imagem: $url - $e');
+            }
+          }),
+        );
       }
     }
   }
