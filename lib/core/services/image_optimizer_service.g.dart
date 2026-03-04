@@ -7,7 +7,7 @@ part of 'image_optimizer_service.dart';
 // **************************************************************************
 
 String _$imageOptimizerServiceHash() =>
-    r'4752e33ebea6409403b1ff3bf7ace07656ef4125';
+    r'ff9542ae96af9c2366d3b85d3ff1776fe835ca06';
 
 /// See also [ImageOptimizerService].
 @ProviderFor(ImageOptimizerService)

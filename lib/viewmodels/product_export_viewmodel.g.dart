@@ -7,7 +7,7 @@ part of 'product_export_viewmodel.dart';
 // **************************************************************************
 
 String _$productExportViewModelHash() =>
-    r'2186dfbe2faefdaaa98c6e1286bd57ae8d7bdede';
+    r'afe4205f113f235d338ecd32571eb8a53db19ed2';
 
 /// See also [ProductExportViewModel].
 @ProviderFor(ProductExportViewModel)

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:catalogo_ja/data/repositories/user_repository.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
@@ -28,35 +29,54 @@ enum UserRole {
 
 @riverpod
 class CurrentRole extends _$CurrentRole {
+  String? _lastFetchedEmail;
+  UserRole _cachedRole = UserRole.viewer;
+
   @override
   UserRole build() {
     final authUser = ref.watch(authViewModelProvider).valueOrNull;
     final email = _normalizeEmail(authUser?.email);
-    if (email.isEmpty) return UserRole.viewer;
 
-    // Trigger async fetch
-    _fetchUserRole(email);
+    if (email.isEmpty) {
+      _lastFetchedEmail = null;
+      _cachedRole = UserRole.viewer;
+      return UserRole.viewer;
+    }
 
-    // If it's the super admin email, we can trust it's an admin if configured
+    // Super admins have immediate access — no DB round-trip needed
     if (UserRole.superAdminEmails.contains(email)) {
+      _cachedRole = UserRole.admin;
       return UserRole.admin;
     }
 
-    return UserRole.viewer;
+    // Only re-fetch from DB if the user email changed
+    if (_lastFetchedEmail != email) {
+      _lastFetchedEmail = email;
+      _cachedRole = UserRole.viewer; // reset while fetching for new user
+      _fetchUserRole(email);
+    }
+
+    // Return cached role (stable across rebuilds)
+    return _cachedRole;
   }
 
   Future<void> _fetchUserRole(String email) async {
     if (email.isEmpty) return;
     try {
       final role = await ref.read(userRepositoryProvider).getUserRole(email);
+      _cachedRole = role;
       state = role;
-    } catch (_) {
-      // Default to viewer if fetching fails.
-      state = UserRole.viewer;
+    } catch (e) {
+      debugPrint('Error fetching user role for $email: $e');
+      // Don't downgrade an already-known role on transient errors
+      if (_cachedRole == UserRole.viewer) {
+        state = UserRole.viewer;
+      }
     }
   }
 
   void setRole(UserRole role) {
+    _cachedRole = role;
     state = role;
   }
 }
@@ -81,9 +101,9 @@ extension UserRoleGuards on UserRole {
       this == UserRole.seller;
 
   /// Sharing and viewing reports
-  bool get canShareCatalog =>
-      true; // Everyone including Viewer can share? No, usually not viewer.
-  // Actually as per user: Seller can share.
+  bool get canShareCatalog => true;
+
+  /// Actually as per user: Seller can share.
   bool get canShare => this != UserRole.viewer;
 
   /// Import and export operations
