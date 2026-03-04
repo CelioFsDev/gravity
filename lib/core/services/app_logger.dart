@@ -12,7 +12,8 @@ enum AppEvent {
   productUpdated('product_updated'),
   productDeleted('product_deleted'),
   login('login'),
-  logout('logout');
+  logout('logout'),
+  registration('registration');
 
   final String name;
   const AppEvent(this.name);

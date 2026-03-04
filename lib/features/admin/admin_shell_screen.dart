@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:catalogo_ja/core/widgets/admin_drawer_header.dart';
 import 'package:catalogo_ja/features/theme/theme_providers.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
+import 'package:catalogo_ja/core/auth/user_role.dart';
 
 class AdminShellScreen extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
@@ -27,9 +29,14 @@ class AdminShellScreen extends ConsumerWidget {
           ? ThemeMode.light
           : ThemeMode.dark;
     }
+
     void onAdminNavigation(int index) {
       navigationShell.goBranch(index, initialLocation: index == 0);
     }
+
+    final authUser = ref.watch(authViewModelProvider).valueOrNull;
+    final currentRole = ref.watch(currentRoleProvider);
+    final canManageUsers = currentRole.canManageUsers(authUser?.email);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -45,6 +52,12 @@ class AdminShellScreen extends ConsumerWidget {
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   actions: [
+                    if (canManageUsers)
+                      IconButton(
+                        tooltip: 'Gerenciar Usuários',
+                        icon: const Icon(Icons.people_alt_outlined),
+                        onPressed: () => context.push('/admin/settings/users'),
+                      ),
                     IconButton(
                       tooltip: isDark ? 'Modo claro' : 'Modo noturno',
                       icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
@@ -109,7 +122,10 @@ class AdminShellScreen extends ConsumerWidget {
                           ),
                         ),
                         ListTile(
-                          leading: const Icon(Icons.settings_outlined, size: 20),
+                          leading: const Icon(
+                            Icons.settings_outlined,
+                            size: 20,
+                          ),
                           title: const Text(
                             'Ajustes',
                             style: TextStyle(fontSize: 14),
@@ -119,6 +135,18 @@ class AdminShellScreen extends ConsumerWidget {
                             context.push('/admin/settings');
                           },
                         ),
+                        if (canManageUsers)
+                          ListTile(
+                            leading: const Icon(Icons.people_outline, size: 20),
+                            title: const Text(
+                              'Usuários',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                            onTap: () {
+                              Navigator.of(context).pop();
+                              context.push('/admin/settings/users');
+                            },
+                          ),
                       ],
                     ),
                   ),
@@ -130,7 +158,9 @@ class AdminShellScreen extends ConsumerWidget {
                       width: 280,
                       decoration: BoxDecoration(
                         border: Border(
-                          right: BorderSide(color: Theme.of(context).dividerColor),
+                          right: BorderSide(
+                            color: Theme.of(context).dividerColor,
+                          ),
                         ),
                       ),
                       child: SafeArea(
@@ -188,6 +218,19 @@ class AdminShellScreen extends ConsumerWidget {
                               ),
                               onTap: () => context.push('/admin/settings'),
                             ),
+                            if (canManageUsers)
+                              ListTile(
+                                leading: const Icon(
+                                  Icons.people_outline,
+                                  size: 20,
+                                ),
+                                title: const Text(
+                                  'Usuários',
+                                  style: TextStyle(fontSize: 14),
+                                ),
+                                onTap: () =>
+                                    context.push('/admin/settings/users'),
+                              ),
                           ],
                         ),
                       ),

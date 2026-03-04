@@ -6,7 +6,7 @@ admin.initializeApp();
 
 const db = admin.firestore();
 const auth = admin.auth();
-const SUPER_ADMIN_EMAILS = new Set(['ti.vitoriana@gmail.com']);
+const SUPER_ADMIN_EMAILS = new Set(['ti.vitoriana@gmail.com', 'celiofs.dev@gmail.com']);
 const VALID_ROLES = new Set(['admin', 'operator', 'seller', 'viewer']);
 
 function normalizeEmail(email) {
@@ -24,10 +24,20 @@ exports.syncAuthUsers = onCall(
     }
 
     const requesterEmail = normalizeEmail(request.auth.token.email);
-    if (!SUPER_ADMIN_EMAILS.has(requesterEmail)) {
+
+    // Allow if in hardcoded super admin list OR has admin role in Firestore
+    let isAuthorized = SUPER_ADMIN_EMAILS.has(requesterEmail);
+    if (!isAuthorized) {
+      const doc = await db.collection('users').doc(requesterEmail).get();
+      if (doc.exists && doc.data().role === 'admin') {
+        isAuthorized = true;
+      }
+    }
+
+    if (!isAuthorized) {
       throw new HttpsError(
         'permission-denied',
-        'Apenas o administrador geral pode sincronizar usuarios.',
+        'Apenas administradores podem sincronizar usuarios.',
       );
     }
 
@@ -123,10 +133,20 @@ exports.createEmailPasswordUser = onCall(
     }
 
     const requesterEmail = normalizeEmail(request.auth.token.email);
-    if (!SUPER_ADMIN_EMAILS.has(requesterEmail)) {
+
+    // Allow if in hardcoded super admin list OR has admin role in Firestore
+    let isAuthorized = SUPER_ADMIN_EMAILS.has(requesterEmail);
+    if (!isAuthorized) {
+      const doc = await db.collection('users').doc(requesterEmail).get();
+      if (doc.exists && doc.data().role === 'admin') {
+        isAuthorized = true;
+      }
+    }
+
+    if (!isAuthorized) {
       throw new HttpsError(
         'permission-denied',
-        'Apenas o administrador geral pode cadastrar usuarios.',
+        'Apenas administradores podem cadastrar usuarios.',
       );
     }
 

@@ -3,6 +3,7 @@ import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -237,6 +238,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                           onPressed: _handleGoogleLogin,
                                         ),
                                 ],
+                              ),
+                            ),
+                            const SizedBox(height: AppTokens.space12),
+                            TextButton(
+                              onPressed: () => context.push('/register'),
+                              child: const Text(
+                                'Não tem uma conta? Registre-se agora',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppTokens.accentBlue,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ],

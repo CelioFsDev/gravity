@@ -24,7 +24,10 @@ enum UserRole {
   const UserRole(this.label);
 
   /// Emails that have Super Admin privileges (can manage users)
-  static const superAdminEmails = {'ti.vitoriana@gmail.com'};
+  static const superAdminEmails = {
+    'ti.vitoriana@gmail.com',
+    'celiofs.dev@gmail.com',
+  };
 }
 
 @riverpod
@@ -113,9 +116,7 @@ extension UserRoleGuards on UserRole {
   bool get canEditSettings => this == UserRole.admin;
 
   /// Full User Management (Limited to specific Super Admin emails)
-  bool canManageUsers(String? email) =>
-      this == UserRole.admin &&
-      UserRole.superAdminEmails.contains(_normalizeEmail(email));
+  bool canManageUsers(String? email) => this == UserRole.admin;
 
   /// Global access to Admin Panel screens
   bool get canAccessAdmin => this != UserRole.viewer;

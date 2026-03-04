@@ -1,4 +1,5 @@
 import 'package:catalogo_ja/features/admin/users/create_email_password_user_screen.dart';
+import 'package:catalogo_ja/features/auth/register_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -119,20 +120,23 @@ class _MyAppState extends ConsumerState<MyApp> {
       redirect: (context, state) {
         final authState = ref.read(authViewModelProvider);
         final user = authState.valueOrNull;
-        final isLoggingIn = state.matchedLocation == '/login';
+        final isAuthRoute =
+            state.matchedLocation == '/login' ||
+            state.matchedLocation == '/register';
         final isSplash = state.matchedLocation == '/splash';
         final isPublicArea =
             state.matchedLocation == '/' ||
+            state.matchedLocation == '/register' ||
             state.matchedLocation.startsWith('/c/') ||
             state.matchedLocation.startsWith('/p/');
 
         if (isPublicArea || isSplash) return null;
 
         if (user == null) {
-          return isLoggingIn ? null : '/login';
+          return isAuthRoute ? null : '/login';
         }
 
-        if (isLoggingIn) {
+        if (isAuthRoute) {
           return '/admin/products';
         }
 
@@ -146,6 +150,10 @@ class _MyAppState extends ConsumerState<MyApp> {
         GoRoute(
           path: '/login',
           builder: (context, state) => const LoginScreen(),
+        ),
+        GoRoute(
+          path: '/register',
+          builder: (context, state) => const PublicRegisterScreen(),
         ),
         GoRoute(
           path: '/',
@@ -378,8 +386,20 @@ class _PublicHomeScreenState extends ConsumerState<PublicHomeScreen> {
                       width: double.infinity,
                       child: FilledButton(
                         onPressed: _openCatalog,
-                        child: const Text('Abrir cat\u00e1logo'),
+                        child: const Text('Abrir catálogo'),
                       ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Divider(height: 1),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => context.push('/login'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Theme.of(context).colorScheme.primary,
+                      ),
+                      icon: const Icon(Icons.admin_panel_settings_outlined),
+                      label: const Text('ACESSO ADMINISTRATIVO'),
                     ),
                   ],
                 ),

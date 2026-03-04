@@ -63,6 +63,35 @@ class AuthViewModel extends StreamNotifier<User?> {
     }
   }
 
+  Future<void> signUpWithEmailAndPassword(String email, String password) async {
+    state = const AsyncValue.loading();
+    try {
+      final credential = await _repository.signUpWithEmailAndPassword(
+        email,
+        password,
+      );
+      final user = credential.user;
+
+      if (user != null) {
+        _logger.log(
+          AppEvent.registration,
+          parameters: {
+            'uid': user.uid,
+            'email': user.email,
+            'provider': 'password',
+          },
+        );
+      }
+    } catch (e, stack) {
+      _logger.logError(
+        'Erro no cadastro com email e senha',
+        error: e,
+        stackTrace: stack,
+      );
+      state = AsyncValue.error(e, stack);
+    }
+  }
+
   Future<void> signOut() async {
     try {
       await _repository.signOut();
