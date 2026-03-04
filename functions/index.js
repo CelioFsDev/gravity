@@ -71,6 +71,8 @@ exports.syncAuthUsers = onCall(
           authUid: userRecord.uid,
           disabled: !!userRecord.disabled,
           email,
+          displayName: userRecord.displayName || '',
+          photoURL: userRecord.photoURL || '',
           lastRefreshAt: admin.firestore.FieldValue.serverTimestamp(),
           providerIds: (userRecord.providerData || [])
             .map((provider) => provider.providerId)
@@ -201,6 +203,8 @@ exports.createEmailPasswordUser = onCall(
         createdBy: requesterEmail,
         disabled: false,
         email,
+        displayName: '',
+        photoURL: '',
         lastRefreshAt: admin.firestore.FieldValue.serverTimestamp(),
         providerIds: ['password'],
         role,

@@ -66,6 +66,8 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
         return 'Sessão expirada. Entre novamente.';
       case 'unavailable':
         return 'Serviço indisponível. Verifique a conexão.';
+      case 'not-found':
+        return 'As funções do Firebase não foram encontradas. Você as publicou via terminal (firebase deploy)?';
       default:
         return error.message ?? 'Erro ao sincronizar usuários.';
     }
@@ -228,65 +230,280 @@ class _UserRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final email = user['email'] as String;
-    final roleStr = user['role'] as String;
+    final displayName = user['displayName'] as String? ?? '';
+    final photoURL = user['photoURL'] as String? ?? '';
+    final roleStr = user['role'] as String? ?? 'viewer';
+    final providerIds = List<String>.from(user['providerIds'] ?? []);
+
     final role = UserRole.values.firstWhere(
       (item) => item.name == roleStr,
       orElse: () => UserRole.viewer,
     );
 
+    final bool isDisabled = user['disabled'] as bool? ?? false;
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Theme.of(context).dividerColor.withAlpha(50)),
-      ),
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        title: Text(
-          email,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: isDisabled
+              ? Colors.red.withAlpha(50)
+              : Theme.of(context).dividerColor.withAlpha(50),
         ),
-        subtitle: Row(
+      ),
+      color: isDisabled ? Colors.red.withAlpha(5) : null,
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Stack(
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.secondary.withAlpha(30),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                role.label.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.secondary,
+            CircleAvatar(
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.primary.withAlpha(30),
+              backgroundImage: photoURL.isNotEmpty
+                  ? NetworkImage(photoURL)
+                  : null,
+              child: photoURL.isEmpty
+                  ? Text(
+                      (displayName.isNotEmpty ? displayName : email)[0]
+                          .toUpperCase(),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+                  : null,
+            ),
+            if (isDisabled)
+              Positioned(
+                right: -2,
+                bottom: -2,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.block, size: 14, color: Colors.red),
                 ),
               ),
+          ],
+        ),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                displayName.isNotEmpty ? displayName : email,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (isDisabled)
+              Container(
+                margin: const EdgeInsets.only(left: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  'BLOQUEADO',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (displayName.isNotEmpty)
+              Text(
+                email,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.secondary.withAlpha(30),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    role.label.toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ...providerIds.map(
+                  (id) => Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Icon(
+                      id == 'google.com' ? Icons.g_mobiledata : Icons.password,
+                      size: 16,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
-        trailing: PopupMenuButton<UserRole>(
-          onSelected: (newRole) {
-            ref.read(userRepositoryProvider).setUserRole(email, newRole);
+        trailing: PopupMenuButton<String>(
+          onSelected: (value) {
+            if (value == 'edit') _showEditDialog(context, ref);
+            if (value == 'delete') _showDeleteDialog(context, ref);
           },
-          itemBuilder: (context) => UserRole.values.map((item) {
-            return PopupMenuItem(
-              value: item,
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: 'edit',
               child: Row(
                 children: [
-                  Icon(
-                    Icons.shield_outlined,
-                    size: 18,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(item.label),
+                  Icon(Icons.edit_outlined, size: 18),
+                  SizedBox(width: 8),
+                  Text('Alterar Perfil'),
                 ],
               ),
-            );
-          }).toList(),
+            ),
+            const PopupMenuItem(
+              value: 'delete',
+              child: Row(
+                children: [
+                  Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text('Excluir Registro', style: TextStyle(color: Colors.red)),
+                ],
+              ),
+            ),
+          ],
           icon: const Icon(Icons.more_vert),
         ),
+      ),
+    );
+  }
+
+  void _showEditDialog(BuildContext context, WidgetRef ref) {
+    final nameController = TextEditingController(
+      text: user['displayName'] as String? ?? '',
+    );
+    UserRole selectedRole = UserRole.values.firstWhere(
+      (item) => item.name == (user['role'] as String? ?? 'viewer'),
+      orElse: () => UserRole.viewer,
+    );
+    bool isSuspended = user['disabled'] as bool? ?? false;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Alterar Perfil'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Nome de Exibição',
+                  prefixIcon: Icon(Icons.person_outline),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SwitchListTile(
+                title: const Text('Acesso Bloqueado'),
+                subtitle: const Text('Impede o usuário de entrar no app'),
+                activeColor: Colors.red,
+                value: isSuspended,
+                onChanged: (val) => setState(() => isSuspended = val),
+              ),
+              const Divider(),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Nível de Acesso',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+              ),
+              const SizedBox(height: 8),
+              ...UserRole.values.map(
+                (r) => RadioListTile<UserRole>(
+                  title: Text(r.label),
+                  value: r,
+                  groupValue: selectedRole,
+                  contentPadding: EdgeInsets.zero,
+                  onChanged: (val) {
+                    if (val != null) setState(() => selectedRole = val);
+                  },
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('CANCELAR'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                ref
+                    .read(userRepositoryProvider)
+                    .updateUserData(user['email'] as String, {
+                      'displayName': nameController.text.trim(),
+                      'role': selectedRole.name,
+                      'disabled': isSuspended,
+                    });
+                Navigator.pop(context);
+              },
+              child: const Text('SALVAR'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Excluir Registro?'),
+        content: Text(
+          'Deseja remover o registro de ${user['email']}? Isso removerá as permissões, mas não excluirá a conta de autenticação do usuário.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCELAR'),
+          ),
+          TextButton(
+            onPressed: () {
+              ref
+                  .read(userRepositoryProvider)
+                  .deleteUser(user['email'] as String);
+              Navigator.pop(context);
+            },
+            child: const Text('EXCLUIR', style: TextStyle(color: Colors.red)),
+          ),
+        ],
       ),
     );
   }

@@ -10,7 +10,10 @@ service cloud.firestore {
     }
 
     function isSuperAdmin() {
-      return isSignedIn() && currentUserEmail() == 'ti.vitoriana@gmail.com';
+      return isSignedIn() && (
+        currentUserEmail() == 'ti.vitoriana@gmail.com' || 
+        currentUserEmail() == 'celiofs.dev@gmail.com'
+      );
     }
 
     function userDocExists() {
@@ -39,12 +42,12 @@ service cloud.firestore {
     }
 
     match /users/{userEmail} {
-      allow read: if isSuperAdmin() || isSelf(userEmail);
-      allow create: if isSuperAdmin()
+      allow read: if isAdmin() || isSelf(userEmail);
+      allow create: if isAdmin()
         || (isSelf(userEmail) && request.resource.data.role == 'viewer');
-      allow update: if isSuperAdmin()
+      allow update: if isAdmin()
         || (isSelf(userEmail) && request.resource.data.role == resource.data.role);
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
 
     match /products/{productId} {

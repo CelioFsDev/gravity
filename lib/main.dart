@@ -1,6 +1,8 @@
 import 'package:catalogo_ja/features/admin/users/create_email_password_user_screen.dart';
 import 'package:catalogo_ja/features/auth/register_screen.dart';
+import 'package:catalogo_ja/features/admin/profile/profile_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,6 +36,18 @@ import 'package:catalogo_ja/core/auth/user_role.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart' hide Category;
+
+/// Provider that checks if the user is disabled, manually defined to avoid build issues.
+final currentUserStatusProvider = StreamProvider<bool>((ref) {
+  final user = ref.watch(authViewModelProvider).valueOrNull;
+  if (user == null || user.email == null) return Stream.value(false);
+  final email = user.email!.trim().toLowerCase();
+  return FirebaseFirestore.instance
+      .collection('users')
+      .doc(email)
+      .snapshots()
+      .map((doc) => doc.data()?['disabled'] as bool? ?? false);
+});
 
 void main() async {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
@@ -120,6 +134,16 @@ class _MyAppState extends ConsumerState<MyApp> {
       redirect: (context, state) {
         final authState = ref.read(authViewModelProvider);
         final user = authState.valueOrNull;
+
+        // Forced status check (manual provider call to avoid generator lag)
+        final isDisabled =
+            ref.read(currentUserStatusProvider).valueOrNull ?? false;
+
+        if (isDisabled && user != null) {
+          ref.read(authViewModelProvider.notifier).signOut();
+          return '/login';
+        }
+
         final isAuthRoute =
             state.matchedLocation == '/login' ||
             state.matchedLocation == '/register';
@@ -246,6 +270,10 @@ class _MyAppState extends ConsumerState<MyApp> {
                   path: '/admin/settings',
                   builder: (context, state) => const SettingsScreen(),
                   routes: [
+                    GoRoute(
+                      path: 'profile',
+                      builder: (context, state) => const ProfileScreen(),
+                    ),
                     GoRoute(
                       path: 'users',
                       builder: (context, state) => const UserManagementScreen(),

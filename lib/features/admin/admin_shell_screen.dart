@@ -38,6 +38,17 @@ class AdminShellScreen extends ConsumerWidget {
     final currentRole = ref.watch(currentRoleProvider);
     final canManageUsers = currentRole.canManageUsers(authUser?.email);
 
+    String _getEffectiveTitle(BuildContext context) {
+      final location = GoRouterState.of(context).matchedLocation;
+      if (location.startsWith('/admin/settings/users')) return 'Usu\u00e1rios';
+      if (location.startsWith('/admin/settings/profile')) return 'Meu Perfil';
+      if (location.startsWith('/admin/settings')) return 'Ajustes';
+      if (navigationShell.currentIndex < _destinations.length) {
+        return _destinations[navigationShell.currentIndex].label;
+      }
+      return '';
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= 900;
@@ -48,7 +59,7 @@ class AdminShellScreen extends ConsumerWidget {
                   elevation: 0,
                   scrolledUnderElevation: 0,
                   title: Text(
-                    _destinations[navigationShell.currentIndex].label,
+                    _getEffectiveTitle(context),
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   actions: [
@@ -122,6 +133,17 @@ class AdminShellScreen extends ConsumerWidget {
                           ),
                         ),
                         ListTile(
+                          leading: const Icon(Icons.person_outline, size: 20),
+                          title: const Text(
+                            'Meu Perfil',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            context.push('/admin/settings/profile');
+                          },
+                        ),
+                        ListTile(
                           leading: const Icon(
                             Icons.settings_outlined,
                             size: 20,
@@ -139,7 +161,7 @@ class AdminShellScreen extends ConsumerWidget {
                           ListTile(
                             leading: const Icon(Icons.people_outline, size: 20),
                             title: const Text(
-                              'Usuários',
+                              'Usu\u00e1rios',
                               style: TextStyle(fontSize: 14),
                             ),
                             onTap: () {
@@ -147,6 +169,22 @@ class AdminShellScreen extends ConsumerWidget {
                               context.push('/admin/settings/users');
                             },
                           ),
+                        const Divider(),
+                        ListTile(
+                          leading: const Icon(
+                            Icons.logout,
+                            size: 20,
+                            color: Colors.red,
+                          ),
+                          title: const Text(
+                            'Sair do Aplicativo',
+                            style: TextStyle(fontSize: 14, color: Colors.red),
+                          ),
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            ref.read(authViewModelProvider.notifier).signOut();
+                          },
+                        ),
                       ],
                     ),
                   ),
@@ -218,6 +256,18 @@ class AdminShellScreen extends ConsumerWidget {
                               ),
                               onTap: () => context.push('/admin/settings'),
                             ),
+                            ListTile(
+                              leading: const Icon(
+                                Icons.person_outline,
+                                size: 20,
+                              ),
+                              title: const Text(
+                                'Meu Perfil',
+                                style: TextStyle(fontSize: 14),
+                              ),
+                              onTap: () =>
+                                  context.push('/admin/settings/profile'),
+                            ),
                             if (canManageUsers)
                               ListTile(
                                 leading: const Icon(
@@ -225,12 +275,30 @@ class AdminShellScreen extends ConsumerWidget {
                                   size: 20,
                                 ),
                                 title: const Text(
-                                  'Usuários',
+                                  'Usu\u00e1rios',
                                   style: TextStyle(fontSize: 14),
                                 ),
                                 onTap: () =>
                                     context.push('/admin/settings/users'),
                               ),
+                            const Divider(),
+                            ListTile(
+                              leading: const Icon(
+                                Icons.logout,
+                                size: 20,
+                                color: Colors.red,
+                              ),
+                              title: const Text(
+                                'Sair do Aplicativo',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.red,
+                                ),
+                              ),
+                              onTap: () => ref
+                                  .read(authViewModelProvider.notifier)
+                                  .signOut(),
+                            ),
                           ],
                         ),
                       ),

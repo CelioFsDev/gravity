@@ -1,11 +1,13 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
 import 'package:catalogo_ja/data/repositories/admin_user_account_repository.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/ui/widgets/section_card.dart';
-import 'package:cloud_functions/cloud_functions.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class CreateEmailPasswordUserScreen extends ConsumerStatefulWidget {
   const CreateEmailPasswordUserScreen({super.key});
@@ -109,24 +111,27 @@ class _CreateEmailPasswordUserScreenState
   }
 
   String _functionErrorMessage(Object error) {
-    if (error is! FirebaseFunctionsException) {
-      return 'Falha ao criar login. Tente novamente.';
+    if (error is FirebaseAuthException) {
+      switch (error.code) {
+        case 'email-already-in-use':
+          return 'J\u00e1 existe um login com esse email.';
+        case 'invalid-email':
+          return 'O formato do e-mail é inv\u00e1lido.';
+        case 'weak-password':
+          return 'A senha fornecida é muito fraca.';
+        default:
+          return error.message ?? 'Erro na autentica\u00e7\u00e3o.';
+      }
     }
 
-    switch (error.code) {
-      case 'already-exists':
-        return 'Já existe um login autenticável com esse email.';
-      case 'invalid-argument':
-        return error.message ?? 'Email ou senha inválidos.';
-      case 'permission-denied':
-        return 'Apenas o administrador geral pode criar logins.';
-      case 'unauthenticated':
-        return 'Sessão expirada. Entre novamente.';
-      case 'unavailable':
-        return 'Serviço indisponível. Verifique a conexão.';
-      default:
-        return error.message ?? 'Falha ao criar login no Firebase.';
+    if (error is FirebaseException) {
+      if (error.code == 'permission-denied') {
+        return 'Voc\u00ea não tem permiss\u00e3o para criar este usu\u00e1rio.';
+      }
+      return error.message ?? 'Erro no banco de dados.';
     }
+
+    return 'Falha ao criar o usu\u00e1rio. Tente novamente.';
   }
 
   @override

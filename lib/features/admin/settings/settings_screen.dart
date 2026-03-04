@@ -8,7 +8,6 @@ import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -277,27 +276,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ],
               ),
             ),
-            if (kDebugMode) ...[
-              const SizedBox(height: 24),
-              SectionCard(
-                title: '🧪 Depura\u00e7\u00e3o: Simular Perfil',
-                child: Column(
-                  children: UserRole.values.map((role) {
-                    final current = ref.watch(currentRoleProvider);
-                    return RadioListTile<UserRole>(
-                      title: Text(role.label),
-                      value: role,
-                      groupValue: current,
-                      onChanged: (value) {
-                        if (value != null) {
-                          ref.read(currentRoleProvider.notifier).setRole(value);
-                        }
-                      },
-                    );
-                  }).toList(),
-                ),
-              ),
-            ],
             const SizedBox(height: 32),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),

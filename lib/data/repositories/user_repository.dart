@@ -40,13 +40,22 @@ class UserRepository {
 
   /// Sets or updates a user's role by email.
   Future<void> setUserRole(String email, UserRole role) async {
-    final normalizedEmail = _normalizeEmail(email);
+    await updateUserData(email, {'role': role.name});
+  }
 
+  /// Generic update for user document
+  Future<void> updateUserData(String email, Map<String, dynamic> data) async {
+    final normalizedEmail = _normalizeEmail(email);
     await _firestore.collection('users').doc(normalizedEmail).set({
-      'email': normalizedEmail,
-      'role': role.name,
+      ...data,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+  }
+
+  /// Delete a user document (note: this doesn't delete from Auth)
+  Future<void> deleteUser(String email) async {
+    final normalizedEmail = _normalizeEmail(email);
+    await _firestore.collection('users').doc(normalizedEmail).delete();
   }
 
   /// Streams the list of all users with their roles.
@@ -54,12 +63,7 @@ class UserRepository {
     return _firestore.collection('users').orderBy('email').snapshots().map((
       snapshot,
     ) {
-      return snapshot.docs.map((doc) {
-        return {
-          'email': (doc.data()['email'] as String?) ?? doc.id,
-          'role': doc.data()['role'],
-        };
-      }).toList();
+      return snapshot.docs.map((doc) => doc.data()).toList();
     });
   }
 }

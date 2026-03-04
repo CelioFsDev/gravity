@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:catalogo_ja/data/repositories/user_repository.dart';
@@ -46,35 +47,49 @@ class CurrentRole extends _$CurrentRole {
       return UserRole.viewer;
     }
 
-    // Super admins have immediate access — no DB round-trip needed
+    // Super admins have immediate access
     if (UserRole.superAdminEmails.contains(email)) {
       _cachedRole = UserRole.admin;
-      return UserRole.admin;
     }
 
-    // Only re-fetch from DB if the user email changed
+    // Only re-fetch if the user email changed
     if (_lastFetchedEmail != email) {
       _lastFetchedEmail = email;
-      _cachedRole = UserRole.viewer; // reset while fetching for new user
       _fetchUserRole(email);
     }
 
-    // Return cached role (stable across rebuilds)
     return _cachedRole;
   }
 
   Future<void> _fetchUserRole(String email) async {
     if (email.isEmpty) return;
     try {
-      final role = await ref.read(userRepositoryProvider).getUserRole(email);
-      _cachedRole = role;
-      state = role;
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(email)
+          .get();
+
+      if (doc.exists) {
+        final data = doc.data()!;
+        final roleStr = data['role'] as String? ?? 'viewer';
+
+        final role = UserRole.values.firstWhere(
+          (item) => item.name == roleStr,
+          orElse: () => UserRole.viewer,
+        );
+
+        _cachedRole = role;
+        state = role;
+      } else {
+        // Auto-create doc for super admins if missing
+        if (UserRole.superAdminEmails.contains(email)) {
+          await ref
+              .read(userRepositoryProvider)
+              .setUserRole(email, UserRole.admin);
+        }
+      }
     } catch (e) {
       debugPrint('Error fetching user role for $email: $e');
-      // Don't downgrade an already-known role on transient errors
-      if (_cachedRole == UserRole.viewer) {
-        state = UserRole.viewer;
-      }
     }
   }
 
@@ -120,4 +135,19 @@ extension UserRoleGuards on UserRole {
 
   /// Global access to Admin Panel screens
   bool get canAccessAdmin => this != UserRole.viewer;
+}
+
+/// Provider to check if the current user is disabled/suspended
+@riverpod
+Stream<bool> currentUserStatus(ref) {
+  // Use a generic ProviderRef to avoid generator issues if not running
+  final user = ref.watch(authViewModelProvider).valueOrNull;
+  if (user == null || user.email == null) return Stream.value(false);
+
+  final email = _normalizeEmail(user.email);
+  return FirebaseFirestore.instance
+      .collection('users')
+      .doc(email)
+      .snapshots()
+      .map((doc) => doc.data()?['disabled'] as bool? ?? false);
 }
