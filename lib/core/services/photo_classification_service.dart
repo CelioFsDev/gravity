@@ -194,7 +194,7 @@ class PhotoClassificationService extends _$PhotoClassificationService {
       final suffix = colorName != null ? '__$colorName' : '';
       // Garante que se o tipo for apenas 'C', usamos o placeholder {N} para ser preenchido pela organização
       final typeStr = photoType == 'C' ? 'C{N}' : photoType;
-      return '${ref}__${typeStr}$suffix.$extension';
+      return '${ref}__$typeStr$suffix.$extension';
     } else {
       return '${ref}__$photoType.$extension';
     }

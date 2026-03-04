@@ -800,22 +800,38 @@ class CatalogShareHelper {
                             ),
                             const SizedBox(height: 24),
 
-                            // STYLE SECTION
                             _buildSubHeader(context, 'Estilo do Layout'),
                             const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
+                            GridView.count(
+                              crossAxisCount: 2,
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              mainAxisSpacing: 8,
+                              crossAxisSpacing: 8,
+                              childAspectRatio: 2.2,
                               children: CatalogPdfStyle.values.map((style) {
                                 final isSelected = selectedPdfStyle == style;
-                                return ChoiceChip(
-                                  label: Text(_pdfStyleLabel(style)),
-                                  selected: isSelected,
-                                  onSelected: (_) =>
+                                return _buildStyleOption(
+                                  context,
+                                  style: style,
+                                  isSelected: isSelected,
+                                  onTap: () =>
                                       setState(() => selectedPdfStyle = style),
                                 );
                               }).toList(),
                             ),
+                            if (selectedPdfStyle == CatalogPdfStyle.editorial)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(
+                                  'Atenção: O estilo Editorial funciona melhor com imagens em alta resolução.',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: theme.colorScheme.error,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ),
                             const SizedBox(height: 24),
 
                             // COVER SECTION
@@ -1283,6 +1299,210 @@ Future<List<_GeneratedPdfFile>> _generatePerProductPdfFiles(
   }
 
   return files;
+}
+
+Widget _buildStylePreview(CatalogPdfStyle style, bool isSelected) {
+  return Container(
+    width: 42,
+    height: 56,
+    padding: const EdgeInsets.all(4),
+    decoration: BoxDecoration(
+      color: isSelected ? Colors.white.withOpacity(0.2) : Colors.white,
+      borderRadius: BorderRadius.circular(4),
+      border: Border.all(
+        color: isSelected
+            ? Colors.white.withOpacity(0.5)
+            : Colors.grey.withOpacity(0.3),
+        width: 0.5,
+      ),
+    ),
+    child: _getPreviewLayout(style, isSelected),
+  );
+}
+
+Widget _getPreviewLayout(CatalogPdfStyle style, bool isSelected) {
+  final blockColor = isSelected ? Colors.white : Colors.grey.shade300;
+  final accentColor = isSelected ? Colors.white70 : Colors.grey.shade400;
+
+  switch (style) {
+    case CatalogPdfStyle.classic:
+      return Row(
+        children: [
+          Expanded(flex: 2, child: Container(color: blockColor)),
+          const SizedBox(width: 2),
+          Expanded(
+            child: Column(
+              children: [
+                Expanded(child: Container(color: accentColor)),
+                const SizedBox(height: 2),
+                Expanded(child: Container(color: accentColor)),
+              ],
+            ),
+          ),
+        ],
+      );
+    case CatalogPdfStyle.clean:
+      return Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: Container(
+              decoration: BoxDecoration(
+                color: blockColor,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+          const SizedBox(width: 2),
+          Expanded(
+            child: Column(
+              children: [
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: accentColor,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: accentColor,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    case CatalogPdfStyle.compact:
+      return Column(
+        children: List.generate(
+          3,
+          (index) => Padding(
+            padding: const EdgeInsets.only(bottom: 2),
+            child: Row(
+              children: [
+                Container(width: 10, height: 10, color: blockColor),
+                const SizedBox(width: 2),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: 3,
+                        width: double.infinity,
+                        color: accentColor,
+                      ),
+                      const SizedBox(height: 1),
+                      Container(height: 2, width: 12, color: accentColor),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    case CatalogPdfStyle.editorial:
+      return Stack(
+        children: [
+          Positioned.fill(child: Container(color: blockColor)),
+          Positioned(
+            bottom: 4,
+            left: 2,
+            right: 2,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(height: 4, width: 24, color: accentColor),
+                const SizedBox(height: 1),
+                Container(
+                  height: 3,
+                  width: 16,
+                  color: accentColor.withOpacity(0.5),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    case CatalogPdfStyle.minimal:
+      return Center(child: Container(width: 14, height: 14, color: blockColor));
+  }
+}
+
+Widget _buildStyleOption(
+  BuildContext context, {
+  required CatalogPdfStyle style,
+  required bool isSelected,
+  required VoidCallback onTap,
+}) {
+  final theme = Theme.of(context);
+  return InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(12),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: isSelected
+            ? theme.colorScheme.primary
+            : theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isSelected ? theme.colorScheme.primary : theme.dividerColor,
+          width: isSelected ? 2 : 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          _buildStylePreview(style, isSelected),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _pdfStyleLabel(style),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: isSelected ? theme.colorScheme.onPrimary : null,
+                  ),
+                ),
+                Text(
+                  _pdfStyleDescription(style),
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: isSelected
+                        ? theme.colorScheme.onPrimary.withOpacity(0.8)
+                        : theme.textTheme.bodySmall?.color,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+String _pdfStyleDescription(CatalogPdfStyle style) {
+  return switch (style) {
+    CatalogPdfStyle.classic => 'Tradicional comercial',
+    CatalogPdfStyle.clean => 'Moderno e arredondado',
+    CatalogPdfStyle.compact => 'Otimizado (Lista)',
+    CatalogPdfStyle.editorial => 'Estilo Revista Premium',
+    CatalogPdfStyle.minimal => 'Foco total no produto',
+  };
 }
 
 String _pdfStyleLabel(CatalogPdfStyle style) {
