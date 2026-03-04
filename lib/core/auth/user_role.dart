@@ -47,21 +47,22 @@ class CurrentRole extends _$CurrentRole {
       return UserRole.viewer;
     }
 
-    // Super admins have immediate access
-    if (UserRole.superAdminEmails.contains(email)) {
+    // Force super admins to be admin in memory immediately
+    final isSuperAdmin = UserRole.superAdminEmails.contains(email);
+    if (isSuperAdmin) {
       _cachedRole = UserRole.admin;
     }
 
     // Only re-fetch if the user email changed
     if (_lastFetchedEmail != email) {
       _lastFetchedEmail = email;
-      _fetchUserRole(email);
+      _fetchUserRole(email, forceAdmin: isSuperAdmin);
     }
 
     return _cachedRole;
   }
 
-  Future<void> _fetchUserRole(String email) async {
+  Future<void> _fetchUserRole(String email, {bool forceAdmin = false}) async {
     if (email.isEmpty) return;
     try {
       final doc = await FirebaseFirestore.instance
@@ -73,19 +74,29 @@ class CurrentRole extends _$CurrentRole {
         final data = doc.data()!;
         final roleStr = data['role'] as String? ?? 'viewer';
 
-        final role = UserRole.values.firstWhere(
+        var role = UserRole.values.firstWhere(
           (item) => item.name == roleStr,
           orElse: () => UserRole.viewer,
         );
+
+        // Even if DB says otherwise, if it's a super admin, force it
+        if (forceAdmin) {
+          role = UserRole.admin;
+          // Sync DB if it was wrong
+          if (roleStr != 'admin') {
+            await ref.read(userRepositoryProvider).setUserRole(email, role);
+          }
+        }
 
         _cachedRole = role;
         state = role;
       } else {
         // Auto-create doc for super admins if missing
-        if (UserRole.superAdminEmails.contains(email)) {
+        if (forceAdmin) {
           await ref
               .read(userRepositoryProvider)
               .setUserRole(email, UserRole.admin);
+          state = UserRole.admin;
         }
       }
     } catch (e) {
