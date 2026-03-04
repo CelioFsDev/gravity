@@ -88,7 +88,8 @@ class CatalogoJaPackageService {
           final ext = p.extension(imagePath).isEmpty
               ? '.jpg'
               : p.extension(imagePath);
-          final relativeName = '${i.toString().padLeft(2, '0')}$ext';
+          final baseName = p.basenameWithoutExtension(imagePath);
+          final relativeName = '${i.toString().padLeft(2, '0')}__$baseName$ext';
           final relativePackagePath = 'images/${product.id}/$relativeName';
 
           archive.addFile(
@@ -100,6 +101,7 @@ class CatalogoJaPackageService {
               path: relativePackagePath,
               colorKey: photo.colorKey,
               isPrimary: photo.isPrimary,
+              photoType: photo.photoType,
             ),
           );
           imageCount++;
@@ -349,6 +351,7 @@ class CatalogoJaPackageService {
               path: targetFile.path,
               colorKey: photo.colorKey,
               isPrimary: photo.isPrimary,
+              photoType: photo.photoType,
             ),
           );
         }

@@ -383,11 +383,15 @@ class CatalogPdfService {
 
       detailVariants = details.take(2).map((img) => MapEntry('', img)).toList();
 
-      colorVariants = product.colorImages.take(4).map((img) {
+      final uniqueColors = <String, MapEntry<String, ProductImage>>{};
+      for (final img in product.colorImages) {
         final rawLabel = img.colorTag ?? _resolveColorLabelLegacy(img.uri);
         final label = _stripColorPrefix(rawLabel);
-        return MapEntry(label, img);
-      }).toList();
+        if (label.isNotEmpty && !uniqueColors.containsKey(label)) {
+          uniqueColors[label] = MapEntry(label, img);
+        }
+      }
+      colorVariants = uniqueColors.values.take(4).toList();
     }
 
     final sizesText = _extractSizesText(product);
@@ -675,13 +679,13 @@ class CatalogPdfService {
                       return pw.Column(
                         mainAxisSize: pw.MainAxisSize.min,
                         children: [
-                          _buildSwatchThumb(v.key, v.value, width: 32),
+                          _buildSwatchThumb(v.key, v.value, width: 42),
                           pw.SizedBox(height: 4),
                           pw.Text(
                             v.key.toUpperCase(),
                             style: pw.TextStyle(
                               color: PdfColors.white,
-                              fontSize: 6,
+                              fontSize: 7,
                               fontWeight: pw.FontWeight.bold,
                             ),
                           ),
@@ -818,12 +822,12 @@ class CatalogPdfService {
                 return pw.Column(
                   mainAxisSize: pw.MainAxisSize.min,
                   children: [
-                    _buildSwatchThumb(v.key, v.value, width: 22),
+                    _buildSwatchThumb(v.key, v.value, width: 36),
                     pw.SizedBox(height: 2),
                     pw.Text(
                       v.key.toUpperCase(),
                       style: pw.TextStyle(
-                        fontSize: 5,
+                        fontSize: 6,
                         color: PdfColors.grey700,
                       ),
                     ),
@@ -1177,19 +1181,19 @@ class CatalogPdfService {
             mainAxisAlignment: pw.MainAxisAlignment.end,
             mainAxisSize: pw.MainAxisSize.min,
             children: [
-              _buildSwatchThumb(variants[0].key, variants[0].value, width: 22),
-              pw.SizedBox(width: 4),
-              _buildSwatchThumb(variants[1].key, variants[1].value, width: 22),
+              _buildSwatchThumb(variants[0].key, variants[0].value, width: 45),
+              pw.SizedBox(width: 8),
+              _buildSwatchThumb(variants[1].key, variants[1].value, width: 45),
             ],
           ),
-          pw.SizedBox(height: 4),
+          pw.SizedBox(height: 8),
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.end,
             mainAxisSize: pw.MainAxisSize.min,
             children: [
-              _buildSwatchThumb(variants[2].key, variants[2].value, width: 22),
-              pw.SizedBox(width: 4),
-              _buildSwatchThumb(variants[3].key, variants[3].value, width: 22),
+              _buildSwatchThumb(variants[2].key, variants[2].value, width: 45),
+              pw.SizedBox(width: 8),
+              _buildSwatchThumb(variants[3].key, variants[3].value, width: 45),
             ],
           ),
         ],
@@ -1200,20 +1204,20 @@ class CatalogPdfService {
         mainAxisAlignment: pw.MainAxisAlignment.end,
         mainAxisSize: pw.MainAxisSize.min,
         children: [
-          _buildSwatchThumb(variants[0].key, variants[0].value, width: 42),
-          pw.SizedBox(width: 6),
-          _buildSwatchThumb(variants[1].key, variants[1].value, width: 42),
+          _buildSwatchThumb(variants[0].key, variants[0].value, width: 65),
+          pw.SizedBox(width: 10),
+          _buildSwatchThumb(variants[1].key, variants[1].value, width: 65),
         ],
       );
     } else {
       // Casos 1 ou 3
-      final thumbWidth = (count == 3) ? 21.0 : 42.0;
+      final thumbWidth = (count == 3) ? 45.0 : 65.0;
       return pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.end,
         mainAxisSize: pw.MainAxisSize.min,
         children: variants.asMap().entries.map((entry) {
           return pw.Padding(
-            padding: pw.EdgeInsets.only(left: entry.key == 0 ? 0 : 6),
+            padding: pw.EdgeInsets.only(left: entry.key == 0 ? 0 : 10),
             child: _buildSwatchThumb(
               entry.value.key,
               entry.value.value,
@@ -1266,7 +1270,7 @@ class CatalogPdfService {
             child: pw.Text(
               label.toUpperCase(),
               style: pw.TextStyle(
-                fontSize: small ? 7 : 8,
+                fontSize: small ? 8 : 9,
                 letterSpacing: 0.5,
                 fontWeight: pw.FontWeight.bold,
                 color: PdfColors.grey800,

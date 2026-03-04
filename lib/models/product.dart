@@ -220,21 +220,43 @@ class Product {
 
   ProductImage? get mainImage {
     if (images.isEmpty) return null;
-    final main = images.where((i) => i.label == 'principal').toList();
+    // Check for 'P' label (from form) or 'principal' (legacy import)
+    final main = images.where((i) {
+      final l = i.label?.trim() ?? '';
+      return l == 'P' || l == 'p' || l.toLowerCase() == 'principal';
+    }).toList();
     if (main.isNotEmpty) return main.first;
+    // Fallback: highest-priority order
     final sorted = List<ProductImage>.from(images)
       ..sort((a, b) => a.order.compareTo(b.order));
     return sorted.first;
   }
 
   List<ProductImage> get detailImages => images.where((i) {
-    final l = i.label?.toLowerCase().trim() ?? '';
-    return l.startsWith('detalhe') || l == 'd1' || l == 'd2';
+    final l = i.label?.trim() ?? '';
+    final lLower = l.toLowerCase();
+    // Handles: 'D1', 'D2' (from form), 'd1', 'd2' (case-insensitive), 'detalhe' (legacy)
+    return l == 'D1' ||
+        l == 'D2' ||
+        lLower == 'd1' ||
+        lLower == 'd2' ||
+        lLower.startsWith('detalhe');
   }).toList();
 
-  List<ProductImage> get colorImages => images
-      .where((i) => (i.label?.startsWith('cor') ?? false) || i.colorTag != null)
-      .toList();
+  List<ProductImage> get colorImages => images.where((i) {
+    final l = i.label?.trim() ?? '';
+    final lLower = l.toLowerCase();
+    // Handles: 'C1'–'C4' (from form), 'c1'–'c4' (case-insensitive),
+    //          'cor...' prefix (legacy), colorTag not null (from import)
+    final isColorSlot =
+        (l == 'C1' || l == 'C2' || l == 'C3' || l == 'C4') ||
+        (lLower == 'c1' ||
+            lLower == 'c2' ||
+            lLower == 'c3' ||
+            lLower == 'c4') ||
+        lLower.startsWith('cor');
+    return isColorSlot || i.colorTag != null;
+  }).toList();
 
   Map<String, List<int>> get imageIndicesByColor {
     final result = <String, List<int>>{};
