@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/models/product_image.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
 import 'package:uuid/uuid.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:catalogo_ja/core/services/photo_classification_service.dart';
+import 'package:catalogo_ja/core/services/image_optimizer_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
@@ -19,6 +21,8 @@ import 'package:catalogo_ja/ui/widgets/section_card.dart';
 import 'package:catalogo_ja/ui/widgets/app_primary_button.dart';
 import 'package:catalogo_ja/features/admin/categories/widgets/category_create_modal.dart';
 import 'package:go_router/go_router.dart';
+import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
+import 'package:catalogo_ja/core/error/app_failure.dart';
 
 class ProductFormScreen extends ConsumerStatefulWidget {
   final Product? product; // null for Create, non-null for Edit
@@ -112,10 +116,12 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     } else if (pr != null && pr.images.isNotEmpty) {
       final safeIndex = pr.mainImageIndex.clamp(0, pr.images.length - 1);
       _photos = pr.images.asMap().entries.map((entry) {
+        final img = entry.value;
         return ProductPhoto(
-          path: entry.value,
-          colorKey: null,
-          isPrimary: entry.key == safeIndex,
+          path: img.uri,
+          colorKey: img.colorTag,
+          isPrimary: entry.key == safeIndex || img.label == 'principal',
+          photoType: img.label,
         );
       }).toList();
     }
@@ -215,9 +221,15 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Erro ao salvar: $e')));
+        final failure = e is AppFailure
+            ? e
+            : e.toAppFailure(action: 'save', entity: 'Product');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(failure.message),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
       }
     }
   }
@@ -244,7 +256,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       setState(() {
         // Clear previous primary and set this one
         _photos = _photos.map((p) => p.copyWith(isPrimary: false)).toList();
-        
+
         final newPhoto = ProductPhoto(
           path: resolved,
           colorKey: classification?.colorName,
@@ -348,6 +360,127 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Erro ao selecionar fotos: $e')));
+      }
+    }
+  }
+
+  /// Adiciona fotos de detalhe (D1 / D2) sem mostrar o diálogo de meta.
+  Future<void> _addDetailPhotos() async {
+    final currentDetails = _photos
+        .where((p) => p.photoType == 'D1' || p.photoType == 'D2')
+        .length;
+    if (currentDetails >= 2) return;
+
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: currentDetails == 0,
+        type: FileType.image,
+      );
+      if (result == null || result.files.isEmpty) return;
+
+      for (var file in result.files) {
+        final resolved = await _processPickedImage(file);
+        if (resolved == null || !mounted) break;
+
+        final existingDetails = _photos
+            .where((p) => p.photoType == 'D1' || p.photoType == 'D2')
+            .length;
+        if (existingDetails >= 2) break;
+
+        final nextType = existingDetails == 0 ? 'D1' : 'D2';
+        setState(() {
+          _photos.add(
+            ProductPhoto(path: resolved, photoType: nextType, isPrimary: false),
+          );
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao adicionar foto de detalhe: $e')),
+        );
+      }
+    }
+  }
+
+  /// Adiciona fotos de cor (C1 – C4) solicitando o nome da cor.
+  Future<void> _addColorPhotos() async {
+    final currentColors = _photos
+        .where(
+          (p) =>
+              p.photoType != null &&
+              p.photoType != 'P' &&
+              p.photoType != 'D1' &&
+              p.photoType != 'D2',
+        )
+        .length;
+    if (currentColors >= 4) return;
+
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: false,
+        type: FileType.image,
+      );
+      if (result == null || result.files.isEmpty) return;
+      final file = result.files.first;
+
+      // Try to auto-classify first
+      final classification = ref
+          .read(photoClassificationServiceProvider.notifier)
+          .classifyFileName(file.name);
+
+      final resolved = await _processPickedImage(
+        file,
+        classification: classification,
+      );
+      if (resolved == null || !mounted) return;
+
+      String? colorKey = classification?.colorName;
+      String? photoType = classification?.photoType;
+
+      // If auto-classification didn't give a color type, ask the user
+      if (photoType == null || !photoType.startsWith('C')) {
+        final meta = await _showPhotoMetaDialog(context);
+        if (meta == null || !mounted) return;
+        colorKey = meta.colorKey;
+
+        if (meta.isNewColor && meta.colorKey != null) {
+          final current = _parseColorOptions().toSet();
+          if (!current.contains(meta.colorKey)) {
+            final sep = _colorsController.text.trim().isEmpty ? '' : ', ';
+            _colorsController.text =
+                '${_colorsController.text.trim()}$sep${meta.colorKey}';
+          }
+        }
+
+        // Determine next Cx slot
+        final usedTypes = _photos
+            .where((p) => p.photoType?.startsWith('C') ?? false)
+            .map((p) => p.photoType!)
+            .toSet();
+        final slots = ['C1', 'C2', 'C3', 'C4'];
+        photoType = slots.firstWhere(
+          (s) => !usedTypes.contains(s),
+          orElse: () => 'C4',
+        );
+      }
+
+      setState(() {
+        final newPhoto = ProductPhoto(
+          path: resolved,
+          colorKey: colorKey,
+          photoType: photoType,
+          isPrimary: false,
+        );
+        _photos = ref
+            .read(photoClassificationServiceProvider.notifier)
+            .organizeColors(_photos, newPhoto);
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao adicionar foto de cor: $e')),
+        );
       }
     }
   }
@@ -504,8 +637,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     return _prioritizePrimaryPhoto(_photos);
   }
 
-  List<String> _imagesFromPhotos(List<ProductPhoto> photos) {
-    return photos.map((p) => p.path).toList();
+  List<ProductImage> _imagesFromPhotos(List<ProductPhoto> photos) {
+    return photos.map((p) => p.toProductImage()).toList();
   }
 
   int _mainIndexFromPhotos(List<ProductPhoto> photos) {
@@ -576,15 +709,13 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           await imagesDir.create(recursive: true);
         }
 
-        final extension =
-            p.extension(file.name).isNotEmpty
-                ? p.extension(file.name).toLowerCase()
-                : '.jpg';
+        final extension = p.extension(file.name).isNotEmpty
+            ? p.extension(file.name).toLowerCase()
+            : '.jpg';
 
         final String fileName =
             classification?.standardName ?? '${const Uuid().v4()}$extension';
         final String targetPath = p.join(imagesDir.path, fileName);
-        final File targetFile = File(targetPath);
 
         debugPrint('Reading from path: ${file.path}');
         final sourceFile = File(file.path!);
@@ -592,22 +723,26 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           debugPrint('Error: Source file does not exist');
           return null;
         }
-        final bytes = await sourceFile.readAsBytes();
-        await targetFile.writeAsBytes(bytes);
 
-        if (await targetFile.exists()) {
-          debugPrint('Successfully saved to: $targetPath');
+        // Usa o serviço centralizado para comprimir a imagem
+        final optimizer = ref.read(imageOptimizerServiceProvider.notifier);
+        final compressedFile = await optimizer.compressImage(sourceFile);
+        final fileToSave = compressedFile ?? sourceFile;
+
+        // No Windows, o copy funciona melhor que o move se o arquivo estiver sendo usado
+        await fileToSave.copy(targetPath);
+
+        if (await File(targetPath).exists()) {
+          debugPrint('Successfully saved (optimized) to: $targetPath');
           return targetPath;
         }
       } else if (file.bytes != null) {
         // Fallback for Web or byte-only results
         debugPrint('Processing from bytes (length: ${file.bytes!.length})');
         if (kIsWeb) {
-          // On Web, we can't save to a local File path.
-          // However, we can return a data URL or just a placeholder for now
-          // For this app, persistence on Web would require a different approach (e.g. IndexedDB via Hive)
-          // If you need real persistence, run as a Windows Desktop app.
-          return 'web_placeholder_${const Uuid().v4()}';
+          final mimeType = _inferMimeType(file.name);
+          final encoded = base64Encode(file.bytes!);
+          return 'data:$mimeType;base64,$encoded';
         }
 
         final baseDir = await getApplicationDocumentsDirectory();
@@ -615,6 +750,11 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         if (!await imagesDir.exists()) {
           await imagesDir.create(recursive: true);
         }
+
+        final optimizer = ref.read(imageOptimizerServiceProvider.notifier);
+        final compressedBytes = await optimizer.compressBytes(file.bytes!);
+        final bytesToSave = compressedBytes ?? file.bytes!;
+
         final extension = p.extension(file.name).isNotEmpty
             ? p.extension(file.name).toLowerCase()
             : '.jpg';
@@ -622,7 +762,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           imagesDir.path,
           '${const Uuid().v4()}$extension',
         );
-        await File(targetPath).writeAsBytes(file.bytes!);
+
+        await File(targetPath).writeAsBytes(bytesToSave);
         return targetPath;
       } else {
         debugPrint('Error: Both path and bytes are null');
@@ -650,9 +791,37 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     }
   }
 
+  String _inferMimeType(String fileName) {
+    switch (p.extension(fileName).toLowerCase()) {
+      case '.png':
+        return 'image/png';
+      case '.webp':
+        return 'image/webp';
+      case '.gif':
+        return 'image/gif';
+      case '.bmp':
+        return 'image/bmp';
+      case '.svg':
+        return 'image/svg+xml';
+      case '.avif':
+        return 'image/avif';
+      case '.heic':
+      case '.heif':
+        return 'image/heic';
+      case '.tif':
+      case '.tiff':
+        return 'image/tiff';
+      case '.jpg':
+      case '.jpeg':
+      default:
+        return 'image/jpeg';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final productsState = ref.watch(productsViewModelProvider);
+    productsState.showSnackbarOnError(context);
     final categories = productsState.hasValue
         ? productsState.value!.categories
         : <Category>[];
@@ -903,27 +1072,42 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   }
 
   Widget _buildImagesSection() {
-    final primaryIndex = _photos.indexWhere((p) => p.isPrimary);
-    final primaryPhoto = primaryIndex >= 0 ? _photos[primaryIndex] : null;
-    final secondaryPhotos = _photos.where((p) => !p.isPrimary).toList();
+    // Detect primary by type 'P' first, fallback to isPrimary flag
+    final photoP =
+        _photos.where((p) => p.photoType == 'P').firstOrNull ??
+        _photos.where((p) => p.isPrimary).firstOrNull;
+
+    final detailPhotos = _photos
+        .where((p) => p.photoType == 'D1' || p.photoType == 'D2')
+        .toList();
+
+    final colorPhotos = _photos
+        .where(
+          (p) =>
+              p.photoType != null &&
+              p.photoType != 'P' &&
+              p.photoType != 'D1' &&
+              p.photoType != 'D2',
+        )
+        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Primary Photo
+        // --- 1. Foto Principal ---
         SectionCard(
-          title: 'Foto Principal (Capa)',
+          title: 'Foto Principal',
           child: Column(
             children: [
-              if (primaryPhoto != null)
+              if (photoP != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: SizedBox(
                     width: 140,
                     height: 140,
                     child: _buildPhotoTile(
-                      primaryPhoto,
-                      key: ValueKey('primary_${primaryPhoto.path}'),
+                      photoP,
+                      key: ValueKey('primary_${photoP.path}'),
                     ),
                   ),
                 ),
@@ -931,42 +1115,114 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                 child: OutlinedButton.icon(
                   onPressed: _addPrimaryPhoto,
                   icon: Icon(
-                    primaryPhoto == null ? Icons.add_a_photo : Icons.refresh,
+                    photoP == null ? Icons.add_a_photo : Icons.refresh,
                   ),
                   label: Text(
-                    primaryPhoto == null ? 'Adicionar Capa' : 'Trocar Capa',
+                    photoP == null
+                        ? 'Adicionar Foto Principal'
+                        : 'Trocar Foto Principal',
                   ),
+                ),
+              ),
+              if (photoP == null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    'Foto frontal do produto — aparece como capa no catálogo.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppTokens.space24),
+
+        // --- 2. Fotos de Detalhes ---
+        SectionCard(
+          title: 'Fotos de Detalhes (D1 / D2)',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Fotos secundárias do produto (ex: costas, lateral). Máx. 2.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 110,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    if (detailPhotos.length < 2)
+                      _buildAddTile(
+                        label: '+ Detalhe',
+                        onTap: _addDetailPhotos,
+                      ),
+                    if (detailPhotos.isNotEmpty) const SizedBox(width: 12),
+                    ...detailPhotos.map((photo) {
+                      return Padding(
+                        key: ValueKey('detail_${photo.path}'),
+                        padding: const EdgeInsets.only(right: 12),
+                        child: SizedBox(
+                          width: 110,
+                          child: _buildPhotoTile(
+                            photo,
+                            key: ValueKey('tile_d_${photo.path}'),
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
                 ),
               ),
             ],
           ),
         ),
         const SizedBox(height: AppTokens.space24),
-        // Secondary Photos
+
+        // --- 3. Fotos de Cores ---
         SectionCard(
-          title: 'Detalhes e Cores',
-          child: SizedBox(
-            height: 110,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                _buildAddSecondaryTile(),
-                const SizedBox(width: 12),
-                ...secondaryPhotos.map((photo) {
-                  return Padding(
-                    key: ValueKey('secondary_${photo.path}'),
-                    padding: const EdgeInsets.only(right: 12),
-                    child: SizedBox(
-                      width: 110,
-                      child: _buildPhotoTile(
-                        photo,
-                        key: ValueKey('tile_${photo.path}'),
-                      ),
-                    ),
-                  );
-                }),
-              ],
-            ),
+          title: 'Fotos de Cores (C1 – C4)',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Fotos de variações de cor. Máx. 4 (aparecem como miniaturas no catálogo).',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 110,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    if (colorPhotos.length < 4)
+                      _buildAddTile(label: '+ Cor', onTap: _addColorPhotos),
+                    if (colorPhotos.isNotEmpty) const SizedBox(width: 12),
+                    ...colorPhotos.map((photo) {
+                      return Padding(
+                        key: ValueKey('color_${photo.path}'),
+                        padding: const EdgeInsets.only(right: 12),
+                        child: SizedBox(
+                          width: 110,
+                          child: _buildPhotoTile(
+                            photo,
+                            key: ValueKey('tile_c_${photo.path}'),
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -974,8 +1230,12 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   }
 
   Widget _buildAddSecondaryTile() {
+    return _buildAddTile(label: '+ Foto', onTap: _addSecondaryPhotos);
+  }
+
+  Widget _buildAddTile({required String label, required VoidCallback onTap}) {
     return InkWell(
-      onTap: _addSecondaryPhotos,
+      onTap: onTap,
       borderRadius: BorderRadius.circular(AppTokens.radiusMd),
       child: Container(
         width: 110,

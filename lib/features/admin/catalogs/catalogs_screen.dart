@@ -4,9 +4,11 @@ import 'package:catalogo_ja/core/services/catalog_share_helper.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
+import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
 import 'package:catalogo_ja/features/admin/catalogs/catalog_editor_screen.dart';
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
+import 'package:catalogo_ja/core/auth/user_role.dart';
 import 'package:intl/intl.dart';
 
 class CatalogsScreen extends ConsumerWidget {
@@ -21,13 +23,15 @@ class CatalogsScreen extends ConsumerWidget {
       title: 'Cat\u00e1logos',
       subtitle: 'Gerencie seus cat\u00e1logos digitais',
       actions: [
-        IconButton(
-          icon: const Icon(Icons.add),
-          onPressed: () => _openNew(context),
-          tooltip: 'Novo Cat\u00e1logo',
-        ),
+        if (ref.watch(currentRoleProvider).canEditCatalog)
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () => _openNew(context),
+            tooltip: 'Novo Catálogo',
+          ),
       ],
-      body: state.when(
+      body: state.whenStandard(
+        onRetry: () => ref.invalidate(catalogsViewModelProvider),
         data: (catalogs) => _CatalogsContent(
           catalogs: catalogs,
           onCreate: () => _openNew(context),
@@ -39,8 +43,6 @@ class CatalogsScreen extends ConsumerWidget {
           onEdit: (catalog) => _openEdit(context, catalog),
           onDelete: (catalog) => notifier.deleteCatalog(catalog.id),
         ),
-        error: (e, _) => Center(child: Text('Erro: $e')),
-        loading: () => const Center(child: CircularProgressIndicator()),
       ),
     );
   }
@@ -58,7 +60,7 @@ class CatalogsScreen extends ConsumerWidget {
   }
 }
 
-class _CatalogsContent extends StatelessWidget {
+class _CatalogsContent extends ConsumerWidget {
   final List<Catalog> catalogs;
   final VoidCallback onCreate;
   final ValueChanged<Catalog> onShare;
@@ -74,15 +76,15 @@ class _CatalogsContent extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (catalogs.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
         child: AppEmptyState(
           icon: Icons.collections_bookmark_outlined,
-          title: 'Nenhum cat\u00e1logo ainda',
-          message: 'Crie um cat\u00e1logo para gerar PDF e compartilhar.',
-          actionLabel: 'Criar cat\u00e1logo',
+          title: 'Nenhum catálogo ainda',
+          message: 'Crie um catálogo para gerar PDF e compartilhar.',
+          actionLabel: 'Criar catálogo',
           onAction: onCreate,
         ),
       );
@@ -97,11 +99,12 @@ class _CatalogsContent extends StatelessWidget {
       separatorBuilder: (_, _) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
         final catalog = catalogs[index];
+        final role = ref.watch(currentRoleProvider);
         return CatalogCard(
           catalog: catalog,
           onShare: () => onShare(catalog),
-          onEdit: () => onEdit(catalog),
-          onDelete: () => onDelete(catalog),
+          onEdit: role.canEditCatalog ? () => onEdit(catalog) : null,
+          onDelete: role.canEditCatalog ? () => onDelete(catalog) : null,
         );
       },
     );
@@ -111,15 +114,15 @@ class _CatalogsContent extends StatelessWidget {
 class CatalogCard extends StatelessWidget {
   final Catalog catalog;
   final VoidCallback onShare;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
   const CatalogCard({
     super.key,
     required this.catalog,
     required this.onShare,
-    required this.onEdit,
-    required this.onDelete,
+    this.onEdit,
+    this.onDelete,
   });
 
   @override
@@ -133,90 +136,127 @@ class CatalogCard extends StatelessWidget {
         border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
         title: Text(
           catalog.name,
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
         ),
         subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Row(
+          padding: const EdgeInsets.only(top: 8),
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 4,
             children: [
-              const Icon(Icons.shopping_bag_outlined, size: 14),
-              const SizedBox(width: 4),
-              Text(
+              _buildInfoChip(
+                context,
+                Icons.shopping_bag_outlined,
                 '${catalog.productIds.length} produtos',
-                style: Theme.of(context).textTheme.bodySmall,
               ),
-              const SizedBox(width: 12),
-              const Icon(Icons.calendar_today_outlined, size: 14),
-              const SizedBox(width: 4),
-              Text(date, style: Theme.of(context).textTheme.bodySmall),
+              _buildInfoChip(context, Icons.calendar_today_outlined, date),
+              if (catalog.isPublic)
+                _buildInfoChip(
+                  context,
+                  Icons.public,
+                  'P\u00fablico',
+                  color: AppTokens.accentBlue,
+                ),
             ],
           ),
         ),
-        trailing: Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: PopupMenuButton<_CatalogAction>(
-            tooltip: 'A\u00e7\u00f5es',
-            onSelected: (value) {
-              switch (value) {
-                case _CatalogAction.share:
-                  onShare();
-                  break;
-                case _CatalogAction.edit:
-                  onEdit();
-                  break;
-                case _CatalogAction.delete:
-                  onDelete();
-                  break;
-              }
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(
-                value: _CatalogAction.share,
-                child: Row(
-                  children: [
-                    Icon(Icons.share_outlined, size: 18),
-                    SizedBox(width: 12),
-                    Text('Compartilhar'),
-                  ],
-                ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton.filledTonal(
+              onPressed: onShare,
+              icon: const Icon(Icons.share_outlined, size: 20),
+              tooltip: 'Compartilhar',
+              style: IconButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                foregroundColor: Theme.of(context).colorScheme.primary,
               ),
-              PopupMenuItem(
-                value: _CatalogAction.edit,
-                child: Row(
-                  children: [
-                    Icon(Icons.edit_outlined, size: 18),
-                    SizedBox(width: 12),
-                    Text('Editar'),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: _CatalogAction.delete,
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.delete_outline,
-                      size: 18,
-                      color: AppTokens.accentRed,
+            ),
+            if (onEdit != null || onDelete != null) ...[
+              const SizedBox(width: 4),
+              PopupMenuButton<_CatalogAction>(
+                tooltip: 'Mais ações',
+                onSelected: (value) {
+                  switch (value) {
+                    case _CatalogAction.share:
+                      onShare();
+                      break;
+                    case _CatalogAction.edit:
+                      onEdit?.call();
+                      break;
+                    case _CatalogAction.delete:
+                      onDelete?.call();
+                      break;
+                  }
+                },
+                itemBuilder: (context) => [
+                  if (onEdit != null)
+                    const PopupMenuItem(
+                      value: _CatalogAction.edit,
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit_outlined, size: 18),
+                          SizedBox(width: 12),
+                          Text('Editar Detalhes'),
+                        ],
+                      ),
                     ),
-                    SizedBox(width: 12),
-                    Text(
-                      'Excluir',
-                      style: TextStyle(color: AppTokens.accentRed),
+                  if (onDelete != null)
+                    const PopupMenuItem(
+                      value: _CatalogAction.delete,
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.delete_outline,
+                            size: 18,
+                            color: AppTokens.accentRed,
+                          ),
+                          SizedBox(width: 12),
+                          Text(
+                            'Excluir Catálogo',
+                            style: TextStyle(color: AppTokens.accentRed),
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
+                ],
               ),
             ],
-          ),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _buildInfoChip(
+    BuildContext context,
+    IconData icon,
+    String label, {
+    Color? color,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          size: 14,
+          color: color ?? Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: color ?? Theme.of(context).colorScheme.onSurfaceVariant,
+            fontWeight: color != null ? FontWeight.bold : null,
+          ),
+        ),
+      ],
     );
   }
 }

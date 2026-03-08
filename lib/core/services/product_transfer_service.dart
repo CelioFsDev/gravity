@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/core/services/export_import_service.dart';
@@ -65,14 +65,13 @@ class ProductTransferService {
   ) async {
     try {
       final service = ref.read(exportImportServiceProvider);
-      final file = await _runWithLoadingDialog(
+      final bytes = await _runWithLoadingDialog(
         context,
-        () => service.exportToJsonFile(),
+        () => service.exportToJsonBytes(),
       );
 
       final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
       final fileName = 'CatalogoJa_backup_$timestamp.json';
-      final bytes = await file.readAsBytes();
 
       await WhatsAppShareService.shareFile(
         bytes: bytes,
@@ -90,6 +89,7 @@ class ProductTransferService {
   }
 
   static Future<void> saveTemplateCsv(BuildContext context) async {
+    if (kIsWeb) return;
     try {
       final csv = const CsvEncoder().convert([_csvHeader]);
       final dir =
@@ -123,17 +123,51 @@ class ProductTransferService {
     final archive = Archive();
     final imageNamesBySku = <String, List<String>>{};
 
+    final appDocDir = kIsWeb ? null : await getApplicationDocumentsDirectory();
+
     for (final product in products) {
       final imageNames = <String>[];
       for (var i = 0; i < product.images.length; i++) {
-        final path = product.images[i];
-        final file = File(path);
-        if (!await file.exists()) continue;
-        final ext = p.extension(path).toLowerCase();
+        final path = product.images[i].uri;
+        Uint8List? bytes;
+
+        if (path.startsWith('data:')) {
+          try {
+            final commaIndex = path.indexOf(',');
+            if (commaIndex != -1) {
+              bytes = base64Decode(path.substring(commaIndex + 1));
+            }
+          } catch (_) {}
+        } else if (!kIsWeb) {
+          try {
+            var file = File(path);
+            if (file.existsSync()) {
+              bytes = await file.readAsBytes();
+            } else if (appDocDir != null) {
+              file = File(p.join(appDocDir.path, p.basename(path)));
+              if (file.existsSync()) {
+                bytes = await file.readAsBytes();
+              } else {
+                file = File(
+                  p.join(appDocDir.path, 'product_images', p.basename(path)),
+                );
+                if (file.existsSync()) {
+                  bytes = await file.readAsBytes();
+                }
+              }
+            }
+          } catch (_) {}
+        }
+
+        if (bytes == null) continue;
+
+        final ext = p.extension(path).isEmpty
+            ? '.jpg'
+            : p.extension(path).toLowerCase();
         final skuSafe = _sanitizeSku(product.sku);
         final fileName = '${skuSafe.isNotEmpty ? skuSafe : product.id}_$i$ext';
         final entryName = '$_imagesDirName/$fileName';
-        final bytes = await file.readAsBytes();
+
         archive.addFile(ArchiveFile(entryName, bytes.length, bytes));
         imageNames.add(fileName);
       }
@@ -170,8 +204,8 @@ class ProductTransferService {
     final csvBytes = utf8.encode(csv);
     archive.addFile(ArchiveFile(_csvFileName, csvBytes.length, csvBytes));
 
-    final zipBytes = ZipEncoder().encode(archive) ?? <int>[];
-    return Uint8List.fromList(zipBytes);
+    final zipBits = ZipEncoder().encode(archive);
+    return Uint8List.fromList(zipBits);
   }
 
   static String _sanitizeSku(String sku) {

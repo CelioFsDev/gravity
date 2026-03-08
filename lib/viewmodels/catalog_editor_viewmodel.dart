@@ -2,6 +2,7 @@ import 'package:catalogo_ja/data/repositories/catalogs_repository.dart';
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/viewmodels/catalog_public_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
+import 'package:catalogo_ja/core/utils/string_utils.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
 
@@ -205,6 +206,5 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
     }
   }
 
-  String _generateShareCode() =>
-      const Uuid().v4().split('-').first.toLowerCase();
+  String _generateShareCode() => StringUtils.generateBase62(10);
 }

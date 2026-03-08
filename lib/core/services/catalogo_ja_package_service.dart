@@ -1,6 +1,7 @@
 import 'dart:convert';
-import 'dart:io';
-import 'package:archive/archive_io.dart';
+import 'dart:io' as io;
+import 'package:archive/archive.dart';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:catalogo_ja/core/services/dto/catalogo_ja_export_dtos.dart';
 import 'package:catalogo_ja/core/services/export_import_service.dart';
 import 'package:catalogo_ja/models/product.dart';
@@ -16,11 +17,11 @@ class CatalogoJaPackageService {
 
   CatalogoJaPackageService(this._exportImportService);
 
-  Future<File> exportPackage({ProgressCallback? onProgress}) async {
+  Future<Uint8List> exportPackage({ProgressCallback? onProgress}) async {
     return _exportPackageBase(onProgress: onProgress);
   }
 
-  Future<File> exportPackageForCatalog({
+  Future<Uint8List> exportPackageForCatalog({
     required List<Product> products,
     required List<Category> collections,
     ProgressCallback? onProgress,
@@ -32,20 +33,11 @@ class CatalogoJaPackageService {
     );
   }
 
-  Future<File> _exportPackageBase({
+  Future<Uint8List> _exportPackageBase({
     List<Product>? products,
     List<Category>? collections,
     ProgressCallback? onProgress,
   }) async {
-    final tempDir = await getTemporaryDirectory();
-    final packageDir = Directory(
-      p.join(
-        tempDir.path,
-        'CatalogoJa_export_${DateTime.now().millisecondsSinceEpoch}',
-      ),
-    );
-    await packageDir.create(recursive: true);
-
     // 1. Get base payload
     onProgress?.call(0.05, 'Analisando banco de dados...');
     final payload = await _exportImportService.generatePayload(
@@ -55,16 +47,10 @@ class CatalogoJaPackageService {
     onProgress?.call(0.10, 'Lendo dados do cat\u00e1logo...');
     await Future.delayed(const Duration(milliseconds: 10));
 
-    // 2. Process images and update payload
-    final imagesDir = Directory(p.join(packageDir.path, 'images'));
-    if (!await imagesDir.exists()) {
-      await imagesDir.create();
-    }
-
+    final archive = Archive();
     final updatedProducts = <ProductDTO>[];
     int imageCount = 0;
 
-    final appDocDir = await getApplicationDocumentsDirectory();
     final totalProducts = payload.products.length;
     int currentProduct = 0;
 
@@ -77,48 +63,45 @@ class CatalogoJaPackageService {
       if (currentProduct % 10 == 0) {
         await Future.delayed(const Duration(milliseconds: 5));
       }
-      final newImages = <String>[];
       final newPhotos = <ProductPhotoDTO>[];
 
-      // Create product subdir for images
-      final productImagesDir = Directory(p.join(imagesDir.path, product.id));
-
-      // Map paths from photos list (which is richer than images list)
+      // Map paths from photos list
       for (int i = 0; i < product.photos.length; i++) {
         final photo = product.photos[i];
         final imagePath = photo.path;
+        Uint8List? fileBytes;
 
-        // Try absolute path first, then relative to app doc dir
-        File file = File(imagePath);
-        if (!file.existsSync()) {
-          file = File(p.join(appDocDir.path, p.basename(imagePath)));
-        }
-
-        // Final fallback: try to find if it's already in product_images subdir
-        if (!file.existsSync()) {
-          file = File(
-            p.join(appDocDir.path, 'product_images', p.basename(imagePath)),
-          );
-        }
-
-        if (file.existsSync()) {
-          if (!await productImagesDir.exists()) {
-            await productImagesDir.create();
+        if (imagePath.startsWith('data:')) {
+          try {
+            final commaIndex = imagePath.indexOf(',');
+            if (commaIndex != -1) {
+              fileBytes = base64Decode(imagePath.substring(commaIndex + 1));
+            }
+          } catch (e) {
+            debugPrint('Error decoding base64 image: $e');
           }
+        } else if (!kIsWeb) {
+          fileBytes = await _readLocalFile(imagePath);
+        }
 
-          final ext = p.extension(imagePath);
-          final relativeName = '${i.toString().padLeft(2, '0')}$ext';
-          final targetPath = p.join(productImagesDir.path, relativeName);
-
-          await file.copy(targetPath);
-
+        if (fileBytes != null) {
+          final ext = p.extension(imagePath).isEmpty
+              ? '.jpg'
+              : p.extension(imagePath);
+          final baseName = p.basenameWithoutExtension(imagePath);
+          final relativeName = '${i.toString().padLeft(2, '0')}__$baseName$ext';
           final relativePackagePath = 'images/${product.id}/$relativeName';
-          newImages.add(relativePackagePath);
+
+          archive.addFile(
+            ArchiveFile(relativePackagePath, fileBytes.length, fileBytes),
+          );
+
           newPhotos.add(
             ProductPhotoDTO(
               path: relativePackagePath,
               colorKey: photo.colorKey,
               isPrimary: photo.isPrimary,
+              photoType: photo.photoType,
             ),
           );
           imageCount++;
@@ -138,7 +121,9 @@ class CatalogoJaPackageService {
           isOutOfStock: product.isOutOfStock,
           promoEnabled: product.promoEnabled,
           promoPercent: product.promoPercent,
-          images: newImages,
+          images: newPhotos
+              .map((p) => ProductImageDTO.fromModel(p.toProductImage()))
+              .toList(),
           photos: newPhotos,
           remoteImages: product.remoteImages,
           mainImageIndex: product.mainImageIndex,
@@ -166,36 +151,32 @@ class CatalogoJaPackageService {
       String? newPagePath = collection.cover?.coverPagePath;
 
       if (collection.cover != null) {
-        final collectionImagesDir = Directory(
-          p.join(imagesDir.path, 'collections', collection.id),
-        );
-
         // Process Mini Cover
         if (collection.cover!.coverMiniPath != null) {
-          final file = File(collection.cover!.coverMiniPath!);
-          if (file.existsSync()) {
-            if (!await collectionImagesDir.exists()) {
-              await collectionImagesDir.create(recursive: true);
-            }
-            final ext = p.extension(file.path);
+          final bytes = await _readImageBytes(collection.cover!.coverMiniPath!);
+          if (bytes != null) {
+            final ext = p.extension(collection.cover!.coverMiniPath!).isEmpty
+                ? '.jpg'
+                : p.extension(collection.cover!.coverMiniPath!);
             final targetName = 'mini$ext';
-            await file.copy(p.join(collectionImagesDir.path, targetName));
-            newMiniPath = 'images/collections/${collection.id}/$targetName';
+            final relPath = 'images/collections/${collection.id}/$targetName';
+            archive.addFile(ArchiveFile(relPath, bytes.length, bytes));
+            newMiniPath = relPath;
             imageCount++;
           }
         }
 
         // Process Page Cover
         if (collection.cover!.coverPagePath != null) {
-          final file = File(collection.cover!.coverPagePath!);
-          if (file.existsSync()) {
-            if (!await collectionImagesDir.exists()) {
-              await collectionImagesDir.create(recursive: true);
-            }
-            final ext = p.extension(file.path);
+          final bytes = await _readImageBytes(collection.cover!.coverPagePath!);
+          if (bytes != null) {
+            final ext = p.extension(collection.cover!.coverPagePath!).isEmpty
+                ? '.jpg'
+                : p.extension(collection.cover!.coverPagePath!);
             final targetName = 'page$ext';
-            await file.copy(p.join(collectionImagesDir.path, targetName));
-            newPagePath = 'images/collections/${collection.id}/$targetName';
+            final relPath = 'images/collections/${collection.id}/$targetName';
+            archive.addFile(ArchiveFile(relPath, bytes.length, bytes));
+            newPagePath = relPath;
             imageCount++;
           }
         }
@@ -213,9 +194,7 @@ class CatalogoJaPackageService {
               ? CollectionCoverDTO(
                   title: collection.cover!.title,
                   mode: collection.cover!.mode,
-                  coverImagePath: collection
-                      .cover!
-                      .coverImagePath, // preserve original or placeholder
+                  coverImagePath: collection.cover!.coverImagePath,
                   coverMiniPath: newMiniPath,
                   coverPagePath: newPagePath,
                 )
@@ -237,11 +216,14 @@ class CatalogoJaPackageService {
       products: updatedProducts,
     );
 
-    // 4. Save products.json
-    final productsJsonFile = File(p.join(packageDir.path, 'products.json'));
-    await productsJsonFile.writeAsString(jsonEncode(newPayload.toJson()));
+    // 4. Add products.json to archive
+    final productsJson = jsonEncode(newPayload.toJson());
+    final productsBytes = utf8.encode(productsJson);
+    archive.addFile(
+      ArchiveFile('products.json', productsBytes.length, productsBytes),
+    );
 
-    // 5. Create Manifest
+    // 5. Add Manifest to archive
     final manifest = {
       "format": "CatalogoJa-package",
       "version": 1,
@@ -250,56 +232,54 @@ class CatalogoJaPackageService {
       "imagesRoot": "images/",
       "counts": {"products": updatedProducts.length, "images": imageCount},
     };
-    final manifestFile = File(p.join(packageDir.path, 'manifest.json'));
-    await manifestFile.writeAsString(jsonEncode(manifest));
-
-    // 6. Zip it (Add files manually to ensure relative paths)
-    final zipFile = File(
-      p.join(
-        tempDir.path,
-        'CatalogoJa_export_${DateTime.now().millisecondsSinceEpoch}.zip',
-      ),
-    );
-
-    final archive = Archive();
-
-    onProgress?.call(0.85, 'Criando arquivo compactado...');
-
-    // Add products.json
-    final productsBytes = await productsJsonFile.readAsBytes();
-    archive.addFile(
-      ArchiveFile('products.json', productsBytes.length, productsBytes),
-    );
-
-    // Add manifest.json
-    final manifestBytes = await manifestFile.readAsBytes();
+    final manifestBytes = utf8.encode(jsonEncode(manifest));
     archive.addFile(
       ArchiveFile('manifest.json', manifestBytes.length, manifestBytes),
     );
 
-    // Add images recursively
-    final entities = imagesDir.listSync(recursive: true);
-    for (final entity in entities) {
-      if (entity is File) {
-        final relativePath = p.relative(entity.path, from: packageDir.path);
-        final bytes = await entity.readAsBytes();
-        archive.addFile(ArchiveFile(relativePath, bytes.length, bytes));
-      }
-    }
-
     onProgress?.call(0.95, 'Finalizando arquivo...');
-    final zipBytes = ZipEncoder().encode(archive);
-    await zipFile.writeAsBytes(zipBytes);
+    final zipEnabledBits = ZipEncoder().encode(archive);
+    return Uint8List.fromList(zipEnabledBits);
+  }
 
-    return zipFile;
+  Future<Uint8List?> _readLocalFile(String path) async {
+    if (kIsWeb) return null;
+    try {
+      final file = io.File(path);
+      if (file.existsSync()) return await file.readAsBytes();
+
+      final appDocDir = await getApplicationDocumentsDirectory();
+      final file2 = io.File(p.join(appDocDir.path, p.basename(path)));
+      if (file2.existsSync()) return await file2.readAsBytes();
+
+      final file3 = io.File(
+        p.join(appDocDir.path, 'product_images', p.basename(path)),
+      );
+      if (file3.existsSync()) return await file3.readAsBytes();
+    } catch (e) {
+      debugPrint('Error reading local file $path: $e');
+    }
+    return null;
+  }
+
+  Future<Uint8List?> _readImageBytes(String path) async {
+    if (path.startsWith('data:')) {
+      final commaIndex = path.indexOf(',');
+      if (commaIndex != -1) {
+        return base64Decode(path.substring(commaIndex + 1));
+      }
+      return null;
+    }
+    if (!kIsWeb) return _readLocalFile(path);
+    return null;
   }
 
   /// Extracts the ZIP package and returns the payload and the extraction directory.
-  Future<(CatalogoJaExportPayload, Directory)> preparePackage(
-    File zipFile,
+  Future<(CatalogoJaExportPayload, io.Directory)> preparePackage(
+    io.File zipFile,
   ) async {
     final tempDir = await getTemporaryDirectory();
-    final extractDir = Directory(
+    final extractDir = io.Directory(
       p.join(
         tempDir.path,
         'CatalogoJa_import_prepare_${DateTime.now().millisecondsSinceEpoch}',
@@ -315,24 +295,24 @@ class CatalogoJaPackageService {
       final filename = file.name;
       if (file.isFile) {
         final data = file.content as List<int>;
-        File(p.join(extractDir.path, filename))
+        io.File(p.join(extractDir.path, filename))
           ..createSync(recursive: true)
           ..writeAsBytesSync(data);
       } else {
-        Directory(
+        io.Directory(
           p.join(extractDir.path, filename),
         ).createSync(recursive: true);
       }
     }
 
     // 2. Validate Manifest
-    final manifestFile = File(p.join(extractDir.path, 'manifest.json'));
+    final manifestFile = io.File(p.join(extractDir.path, 'manifest.json'));
     if (!await manifestFile.exists()) {
       throw Exception('Invalid package: manifest.json missing');
     }
 
     // 3. Read Products
-    final productsFile = File(p.join(extractDir.path, 'products.json'));
+    final productsFile = io.File(p.join(extractDir.path, 'products.json'));
     if (!await productsFile.exists()) {
       throw Exception('Invalid package: products.json missing');
     }
@@ -344,12 +324,11 @@ class CatalogoJaPackageService {
   /// Finalizes the import by restoring images and executing the database import.
   Future<ImportReport> importPackageFromDir({
     required CatalogoJaExportPayload payload,
-    required Directory extractDir,
+    required io.Directory extractDir,
     required ImportMode mode,
   }) async {
-    // 4. Restore Images
     final appDocDir = await getApplicationDocumentsDirectory();
-    final appImagesDir = Directory(p.join(appDocDir.path, 'product_images'));
+    final appImagesDir = io.Directory(p.join(appDocDir.path, 'product_images'));
     if (!await appImagesDir.exists()) {
       await appImagesDir.create(recursive: true);
     }
@@ -357,23 +336,22 @@ class CatalogoJaPackageService {
     final restoredProducts = <ProductDTO>[];
 
     for (final product in payload.products) {
-      final absoluteImages = <String>[];
       final restoredPhotos = <ProductPhotoDTO>[];
 
       for (final photo in product.photos) {
-        final sourceFile = File(p.join(extractDir.path, photo.path));
+        final sourceFile = io.File(p.join(extractDir.path, photo.path));
         if (await sourceFile.exists()) {
           final newName = '${product.id}_${p.basename(sourceFile.path)}';
-          final targetFile = File(p.join(appImagesDir.path, newName));
+          final targetFile = io.File(p.join(appImagesDir.path, newName));
 
           await sourceFile.copy(targetFile.path);
 
-          absoluteImages.add(targetFile.path);
           restoredPhotos.add(
             ProductPhotoDTO(
               path: targetFile.path,
               colorKey: photo.colorKey,
               isPrimary: photo.isPrimary,
+              photoType: photo.photoType,
             ),
           );
         }
@@ -391,7 +369,9 @@ class CatalogoJaPackageService {
           isOutOfStock: product.isOutOfStock,
           promoEnabled: product.promoEnabled,
           promoPercent: product.promoPercent,
-          images: absoluteImages,
+          images: restoredPhotos
+              .map((p) => ProductImageDTO.fromModel(p.toProductImage()))
+              .toList(),
           photos: restoredPhotos,
           remoteImages: product.remoteImages,
           mainImageIndex: product.mainImageIndex,
@@ -413,26 +393,26 @@ class CatalogoJaPackageService {
       if (collection.cover != null) {
         // Mini
         if (collection.cover!.coverMiniPath != null) {
-          final sourceFile = File(
+          final sourceFile = io.File(
             p.join(extractDir.path, collection.cover!.coverMiniPath!),
           );
           if (await sourceFile.exists()) {
             final newName =
                 'coll_${collection.id}_mini${p.extension(sourceFile.path)}';
-            final targetFile = File(p.join(appImagesDir.path, newName));
+            final targetFile = io.File(p.join(appImagesDir.path, newName));
             await sourceFile.copy(targetFile.path);
             absMiniPath = targetFile.path;
           }
         }
         // Page
         if (collection.cover!.coverPagePath != null) {
-          final sourceFile = File(
+          final sourceFile = io.File(
             p.join(extractDir.path, collection.cover!.coverPagePath!),
           );
           if (await sourceFile.exists()) {
             final newName =
                 'coll_${collection.id}_page${p.extension(sourceFile.path)}';
-            final targetFile = File(p.join(appImagesDir.path, newName));
+            final targetFile = io.File(p.join(appImagesDir.path, newName));
             await sourceFile.copy(targetFile.path);
             absPagePath = targetFile.path;
           }
@@ -462,7 +442,6 @@ class CatalogoJaPackageService {
       );
     }
 
-    // 5. Execute Import
     final importPayload = CatalogoJaExportPayload(
       app: payload.app,
       version: payload.version,
@@ -489,7 +468,7 @@ class CatalogoJaPackageService {
   }
 
   @Deprecated('Use preparePackage and importPackageFromDir instead')
-  Future<ImportReport> importPackage(File zipFile) async {
+  Future<ImportReport> importPackage(io.File zipFile) async {
     final (payload, dir) = await preparePackage(zipFile);
     return importPackageFromDir(
       payload: payload,

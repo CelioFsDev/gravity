@@ -5,6 +5,8 @@ import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/viewmodels/catalog_public_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
+import 'package:catalogo_ja/core/error/app_failure.dart';
+import 'package:catalogo_ja/core/services/app_logger.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'products_viewmodel.g.dart';
@@ -111,18 +113,21 @@ class ProductsState {
 class ProductsViewModel extends _$ProductsViewModel {
   @override
   FutureOr<ProductsState> build() async {
-    final productRepository = ref.watch(productsRepositoryProvider);
-    final categoryRepository = ref.watch(categoriesRepositoryProvider);
-    final products = await productRepository.getProducts();
-    final categories = await categoryRepository.getCategories();
+    try {
+      final productRepository = ref.watch(productsRepositoryProvider);
+      final categoryRepository = ref.watch(categoriesRepositoryProvider);
+      final products = await productRepository.getProducts();
+      final categories = await categoryRepository.getCategories();
 
-    // Create initial state
-    return _applyFilters(
-      ProductsState.initial().copyWith(
-        allProducts: products,
-        categories: categories,
-      ),
-    );
+      return _applyFilters(
+        ProductsState.initial().copyWith(
+          allProducts: products,
+          categories: categories,
+        ),
+      );
+    } catch (e) {
+      throw e.toAppFailure(action: 'build', entity: 'Products');
+    }
   }
 
   // Actions
@@ -193,83 +198,161 @@ class ProductsViewModel extends _$ProductsViewModel {
 
   Future<void> deleteSelected() async {
     if (state.value == null || state.value!.selectedProductIds.isEmpty) return;
-    final repository = ref.read(productsRepositoryProvider);
-    for (final id in state.value!.selectedProductIds) {
-      await repository.deleteProduct(id);
-    }
-    await refresh();
-    _notifyChanges();
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      try {
+        final repository = ref.read(productsRepositoryProvider);
+        for (final id in state.value!.selectedProductIds) {
+          await repository.deleteProduct(id);
+        }
+        await refresh();
+        _notifyChanges();
+        return state.value!;
+      } catch (e) {
+        throw e.toAppFailure(action: 'deleteSelected', entity: 'Products');
+      }
+    });
   }
 
   Future<void> updateStatusSelected(bool active) async {
     if (state.value == null || state.value!.selectedProductIds.isEmpty) return;
-    final repository = ref.read(productsRepositoryProvider);
-    for (final id in state.value!.selectedProductIds) {
-      final product = state.value!.allProducts.firstWhere((p) => p.id == id);
-      await repository.updateProduct(product.copyWith(isActive: active));
-    }
-    await refresh();
-    _notifyChanges();
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      try {
+        final repository = ref.read(productsRepositoryProvider);
+        for (final id in state.value!.selectedProductIds) {
+          final product = state.value!.allProducts.firstWhere(
+            (p) => p.id == id,
+          );
+          await repository.updateProduct(product.copyWith(isActive: active));
+        }
+        await refresh();
+        _notifyChanges();
+        return state.value!;
+      } catch (e) {
+        throw e.toAppFailure(
+          action: 'updateStatusSelected',
+          entity: 'Products',
+        );
+      }
+    });
   }
 
   Future<void> updateCategorySelected(String categoryId) async {
     if (state.value == null || state.value!.selectedProductIds.isEmpty) return;
-    final repository = ref.read(productsRepositoryProvider);
-    for (final id in state.value!.selectedProductIds) {
-      final product = state.value!.allProducts.firstWhere((p) => p.id == id);
-      // Logic: replace or toggle? Let's say we replace/add it.
-      // If product already has this category, do nothing. Else add.
-      if (!product.categoryIds.contains(categoryId)) {
-        final updatedIds = List<String>.from(product.categoryIds)
-          ..add(categoryId);
-        await repository.updateProduct(
-          product.copyWith(categoryIds: updatedIds),
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      try {
+        final repository = ref.read(productsRepositoryProvider);
+        for (final id in state.value!.selectedProductIds) {
+          final product = state.value!.allProducts.firstWhere(
+            (p) => p.id == id,
+          );
+          if (!product.categoryIds.contains(categoryId)) {
+            final updatedIds = List<String>.from(product.categoryIds)
+              ..add(categoryId);
+            await repository.updateProduct(
+              product.copyWith(categoryIds: updatedIds),
+            );
+          }
+        }
+        await refresh();
+        _notifyChanges();
+        return state.value!;
+      } catch (e) {
+        throw e.toAppFailure(
+          action: 'updateCategorySelected',
+          entity: 'Products',
         );
       }
-    }
-    await refresh();
-    _notifyChanges();
+    });
   }
 
   Future<void> deleteProduct(String id) async {
-    final repository = ref.read(productsRepositoryProvider);
-    await repository.deleteProduct(id);
-    await refresh();
-    _notifyChanges();
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      try {
+        final repository = ref.read(productsRepositoryProvider);
+        await repository.deleteProduct(id);
+        await refresh();
+        _notifyChanges();
+        ref
+            .read(appLoggerProvider.notifier)
+            .log(AppEvent.productDeleted, parameters: {'productId': id});
+        return state.value!;
+      } catch (e) {
+        throw e.toAppFailure(action: 'deleteProduct', entity: 'Product');
+      }
+    });
   }
 
   Future<void> addProduct(Product product) async {
-    final repository = ref.read(productsRepositoryProvider);
-    await repository.addProduct(product);
-    await refresh();
-    _notifyChanges();
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      try {
+        final repository = ref.read(productsRepositoryProvider);
+        await repository.addProduct(product);
+        await refresh();
+        _notifyChanges();
+        ref
+            .read(appLoggerProvider.notifier)
+            .log(
+              AppEvent.productCreated,
+              parameters: {'productId': product.id, 'name': product.name},
+            );
+        return state.value!;
+      } catch (e) {
+        throw e.toAppFailure(action: 'addProduct', entity: 'Product');
+      }
+    });
   }
 
   Future<void> updateProduct(Product product) async {
-    final repository = ref.read(productsRepositoryProvider);
-    await repository.updateProduct(product);
-    await refresh();
-    _notifyChanges();
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      try {
+        final repository = ref.read(productsRepositoryProvider);
+        await repository.updateProduct(product);
+        await refresh();
+        _notifyChanges();
+        ref
+            .read(appLoggerProvider.notifier)
+            .log(
+              AppEvent.productUpdated,
+              parameters: {'productId': product.id},
+            );
+        return state.value!;
+      } catch (e) {
+        throw e.toAppFailure(action: 'updateProduct', entity: 'Product');
+      }
+    });
   }
 
   Future<int> reorganizePhotosPriority() async {
-    final repository = ref.read(productsRepositoryProvider);
-    final products = await repository.getProducts();
-    var updatedCount = 0;
+    try {
+      final repository = ref.read(productsRepositoryProvider);
+      final products = await repository.getProducts();
+      var updatedCount = 0;
 
-    for (final product in products) {
-      final reorganized = _prioritizePrimaryPhoto(product.photos);
-      if (!_samePhotoOrderAndPrimary(product.photos, reorganized)) {
-        await repository.updateProduct(product.copyWith(photos: reorganized));
-        updatedCount++;
+      for (final product in products) {
+        final reorganized = _prioritizePrimaryPhoto(product.photos);
+        if (!_samePhotoOrderAndPrimary(product.photos, reorganized)) {
+          await repository.updateProduct(product.copyWith(photos: reorganized));
+          updatedCount++;
+        }
       }
-    }
 
-    if (updatedCount > 0) {
-      await refresh();
-      _notifyChanges();
+      if (updatedCount > 0) {
+        await refresh();
+        _notifyChanges();
+      }
+      return updatedCount;
+    } catch (e) {
+      throw e.toAppFailure(
+        action: 'reorganizePhotosPriority',
+        entity: 'Photos',
+      );
     }
-    return updatedCount;
   }
 
   List<ProductPhoto> _prioritizePrimaryPhoto(List<ProductPhoto> photos) {
@@ -313,7 +396,6 @@ class ProductsViewModel extends _$ProductsViewModel {
   }
 
   void _notifyChanges() {
-    // Notify other viewmodels that products changed
     ref.invalidate(categoriesViewModelProvider);
     ref.invalidate(catalogsViewModelProvider);
     ref.invalidate(catalogPublicProvider);
@@ -323,15 +405,19 @@ class ProductsViewModel extends _$ProductsViewModel {
     final previous = state.value ?? ProductsState.initial();
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
-      final repository = ref.read(productsRepositoryProvider);
-      final categoriesRepository = ref.read(categoriesRepositoryProvider);
-      final products = await repository.getProducts();
-      final categories = await categoriesRepository.getCategories();
-      final updated = previous.copyWith(
-        allProducts: products,
-        categories: categories,
-      );
-      return _applyFilters(updated);
+      try {
+        final repository = ref.read(productsRepositoryProvider);
+        final categoriesRepository = ref.read(categoriesRepositoryProvider);
+        final products = await repository.getProducts();
+        final categories = await categoriesRepository.getCategories();
+        final updated = previous.copyWith(
+          allProducts: products,
+          categories: categories,
+        );
+        return _applyFilters(updated);
+      } catch (e) {
+        throw e.toAppFailure(action: 'refresh', entity: 'Products');
+      }
     });
   }
 
@@ -412,7 +498,6 @@ class ProductsViewModel extends _$ProductsViewModel {
       }
     });
 
-    // Calc KPIs (Always based on allProducts)
     final total = currentState.allProducts.length;
     final active = currentState.allProducts.where((p) => p.isActive).length;
     final outOfStock = currentState.allProducts

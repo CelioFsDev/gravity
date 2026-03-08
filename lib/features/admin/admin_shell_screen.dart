@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:catalogo_ja/core/widgets/admin_drawer_header.dart';
 import 'package:catalogo_ja/features/theme/theme_providers.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
+import 'package:catalogo_ja/core/auth/user_role.dart';
 
 class AdminShellScreen extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
@@ -27,8 +29,24 @@ class AdminShellScreen extends ConsumerWidget {
           ? ThemeMode.light
           : ThemeMode.dark;
     }
+
     void onAdminNavigation(int index) {
       navigationShell.goBranch(index, initialLocation: index == 0);
+    }
+
+    final authUser = ref.watch(authViewModelProvider).valueOrNull;
+    final currentRole = ref.watch(currentRoleProvider);
+    final canManageUsers = currentRole.canManageUsers(authUser?.email);
+
+    String _getEffectiveTitle(BuildContext context) {
+      final location = GoRouterState.of(context).matchedLocation;
+      if (location.startsWith('/admin/settings/users')) return 'Usu\u00e1rios';
+      if (location.startsWith('/admin/settings/profile')) return 'Meu Perfil';
+      if (location.startsWith('/admin/settings')) return 'Ajustes';
+      if (navigationShell.currentIndex < _destinations.length) {
+        return _destinations[navigationShell.currentIndex].label;
+      }
+      return '';
     }
 
     return LayoutBuilder(
@@ -41,10 +59,16 @@ class AdminShellScreen extends ConsumerWidget {
                   elevation: 0,
                   scrolledUnderElevation: 0,
                   title: Text(
-                    _destinations[navigationShell.currentIndex].label,
+                    _getEffectiveTitle(context),
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   actions: [
+                    if (canManageUsers)
+                      IconButton(
+                        tooltip: 'Gerenciar Usuários',
+                        icon: const Icon(Icons.people_alt_outlined),
+                        onPressed: () => context.push('/admin/settings/users'),
+                      ),
                     IconButton(
                       tooltip: isDark ? 'Modo claro' : 'Modo noturno',
                       icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
@@ -109,7 +133,21 @@ class AdminShellScreen extends ConsumerWidget {
                           ),
                         ),
                         ListTile(
-                          leading: const Icon(Icons.settings_outlined, size: 20),
+                          leading: const Icon(Icons.person_outline, size: 20),
+                          title: const Text(
+                            'Meu Perfil',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            context.push('/admin/settings/profile');
+                          },
+                        ),
+                        ListTile(
+                          leading: const Icon(
+                            Icons.settings_outlined,
+                            size: 20,
+                          ),
                           title: const Text(
                             'Ajustes',
                             style: TextStyle(fontSize: 14),
@@ -117,6 +155,34 @@ class AdminShellScreen extends ConsumerWidget {
                           onTap: () {
                             Navigator.of(context).pop();
                             context.push('/admin/settings');
+                          },
+                        ),
+                        if (canManageUsers)
+                          ListTile(
+                            leading: const Icon(Icons.people_outline, size: 20),
+                            title: const Text(
+                              'Usu\u00e1rios',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                            onTap: () {
+                              Navigator.of(context).pop();
+                              context.push('/admin/settings/users');
+                            },
+                          ),
+                        const Divider(),
+                        ListTile(
+                          leading: const Icon(
+                            Icons.logout,
+                            size: 20,
+                            color: Colors.red,
+                          ),
+                          title: const Text(
+                            'Sair do Aplicativo',
+                            style: TextStyle(fontSize: 14, color: Colors.red),
+                          ),
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            ref.read(authViewModelProvider.notifier).signOut();
                           },
                         ),
                       ],
@@ -130,7 +196,9 @@ class AdminShellScreen extends ConsumerWidget {
                       width: 280,
                       decoration: BoxDecoration(
                         border: Border(
-                          right: BorderSide(color: Theme.of(context).dividerColor),
+                          right: BorderSide(
+                            color: Theme.of(context).dividerColor,
+                          ),
                         ),
                       ),
                       child: SafeArea(
@@ -187,6 +255,49 @@ class AdminShellScreen extends ConsumerWidget {
                                 style: TextStyle(fontSize: 14),
                               ),
                               onTap: () => context.push('/admin/settings'),
+                            ),
+                            ListTile(
+                              leading: const Icon(
+                                Icons.person_outline,
+                                size: 20,
+                              ),
+                              title: const Text(
+                                'Meu Perfil',
+                                style: TextStyle(fontSize: 14),
+                              ),
+                              onTap: () =>
+                                  context.push('/admin/settings/profile'),
+                            ),
+                            if (canManageUsers)
+                              ListTile(
+                                leading: const Icon(
+                                  Icons.people_outline,
+                                  size: 20,
+                                ),
+                                title: const Text(
+                                  'Usu\u00e1rios',
+                                  style: TextStyle(fontSize: 14),
+                                ),
+                                onTap: () =>
+                                    context.push('/admin/settings/users'),
+                              ),
+                            const Divider(),
+                            ListTile(
+                              leading: const Icon(
+                                Icons.logout,
+                                size: 20,
+                                color: Colors.red,
+                              ),
+                              title: const Text(
+                                'Sair do Aplicativo',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.red,
+                                ),
+                              ),
+                              onTap: () => ref
+                                  .read(authViewModelProvider.notifier)
+                                  .signOut(),
                             ),
                           ],
                         ),

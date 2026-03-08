@@ -1,7 +1,10 @@
-import 'dart:typed_data';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 
 class WhatsAppShareService {
   static Future<void> shareCatalog({
@@ -36,13 +39,23 @@ class WhatsAppShareService {
       }
     }
 
-    await Share.shareXFiles([
-      XFile.fromData(
-        Uint8List.fromList(bytes),
-        name: fileName,
-        mimeType: effectiveMimeType,
-      ),
-    ], text: text);
+    if (kIsWeb) {
+      await Share.shareXFiles([
+        XFile.fromData(
+          Uint8List.fromList(bytes),
+          name: fileName,
+          mimeType: effectiveMimeType,
+        ),
+      ], text: text);
+    } else {
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File(p.join(tempDir.path, fileName));
+      await tempFile.writeAsBytes(bytes, flush: true);
+
+      await Share.shareXFiles([
+        XFile(tempFile.path, mimeType: effectiveMimeType),
+      ], text: text);
+    }
   }
 
   static Future<void> shareFiles({
@@ -62,13 +75,20 @@ class WhatsAppShareService {
           effectiveMimeType = 'application/json';
         }
       }
-      xfiles.add(
-        XFile.fromData(
-          Uint8List.fromList(file.bytes),
-          name: file.fileName,
-          mimeType: effectiveMimeType,
-        ),
-      );
+      if (kIsWeb) {
+        xfiles.add(
+          XFile.fromData(
+            Uint8List.fromList(file.bytes),
+            name: file.fileName,
+            mimeType: effectiveMimeType,
+          ),
+        );
+      } else {
+        final tempDir = await getTemporaryDirectory();
+        final tempFile = File(p.join(tempDir.path, file.fileName));
+        await tempFile.writeAsBytes(file.bytes, flush: true);
+        xfiles.add(XFile(tempFile.path, mimeType: effectiveMimeType));
+      }
     }
     await Share.shareXFiles(xfiles, text: text);
   }

@@ -4,6 +4,7 @@ import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/core/error/app_failure.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'catalog_public_viewmodel.g.dart';
@@ -25,38 +26,38 @@ Future<PublicCatalogData?> catalogPublic(
   CatalogPublicRef ref,
   String shareCode,
 ) async {
-  final catalogRepo = ref.watch(catalogsRepositoryProvider);
-  final productRepo = ref.watch(productsRepositoryProvider);
+  try {
+    final catalogRepo = ref.watch(catalogsRepositoryProvider);
+    final productRepo = ref.watch(productsRepositoryProvider);
 
-  final categoriesRepo = ref.watch(categoriesRepositoryProvider);
-  final catalog = await catalogRepo.getByShareCode(shareCode.toLowerCase());
-  if (catalog == null) return null;
+    final categoriesRepo = ref.watch(categoriesRepositoryProvider);
+    final catalog = await catalogRepo.getByShareCode(shareCode.toLowerCase());
+    if (catalog == null) return null;
 
-  final allProducts = await productRepo.getProducts();
-  final allCategories = await categoriesRepo.getCategories();
+    final allProducts = await productRepo.getProducts();
+    final allCategories = await categoriesRepo.getCategories();
 
-  // Filter products: must be in catalog.productIds AND active
-  final catalogProducts = allProducts.where((p) {
-    return catalog.productIds.contains(p.id) && p.isActive;
-  }).toList();
+    final catalogProducts = allProducts.where((p) {
+      return catalog.productIds.contains(p.id) && p.isActive;
+    }).toList();
 
-  // Sort or maintain order? Usually existing order or manual sort.
-  // Prompt doesn't specify sort order for public, but usually it follows product list order or add date.
-  // Let's assume order of productIds? Or just retrieval order.
+    final usedCategoryIds = catalogProducts
+        .expand((p) => p.categoryIds)
+        .toSet();
+    final usedCategories = allCategories
+        .where(
+          (c) =>
+              c.type == CategoryType.productType &&
+              usedCategoryIds.contains(c.id),
+        )
+        .toList();
 
-  // Also filter categories that are used by these products
-  final usedCategoryIds = catalogProducts.expand((p) => p.categoryIds).toSet();
-  final usedCategories = allCategories
-      .where(
-        (c) =>
-            c.type == CategoryType.productType &&
-            usedCategoryIds.contains(c.id),
-      )
-      .toList();
-
-  return PublicCatalogData(
-    catalog: catalog,
-    products: catalogProducts,
-    categories: usedCategories,
-  );
+    return PublicCatalogData(
+      catalog: catalog,
+      products: catalogProducts,
+      categories: usedCategories,
+    );
+  } catch (e) {
+    throw e.toAppFailure(action: 'fetch', entity: 'PublicCatalog');
+  }
 }

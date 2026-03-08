@@ -5,27 +5,49 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function currentUserEmail() {
+      return request.auth.token.email;
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        currentUserEmail() == 'ti.vitoriana@gmail.com' || 
+        currentUserEmail() == 'celiofs.dev@gmail.com'
+      );
+    }
+
+    function userDocExists() {
+      return isSignedIn()
+        && currentUserEmail() != null
+        && exists(/databases/$(database)/documents/users/$(currentUserEmail()));
+    }
+
     function userDoc() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return get(/databases/$(database)/documents/users/$(currentUserEmail()));
     }
 
     function isAdmin() {
-      return isSignedIn() && userDoc().data.role == 'admin';
+      return isSuperAdmin()
+        || (userDocExists() && userDoc().data.role == 'admin');
     }
 
-    function isSelf(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+    function isSelf(userEmail) {
+      return isSignedIn()
+        && currentUserEmail() != null
+        && currentUserEmail() == userEmail;
     }
 
     function isOwner(resourceData) {
       return isSignedIn() && resourceData.ownerUid == request.auth.uid;
     }
 
-    match /users/{userId} {
-      allow read: if isSelf(userId);
-      allow create: if isSelf(userId) && request.resource.data.role == 'user';
-      allow update: if isSelf(userId) && request.resource.data.role == resource.data.role;
-      allow delete: if false;
+    match /users/{userEmail} {
+      allow read: if isAdmin() || isSelf(userEmail);
+      allow create: if isAdmin()
+        || (isSelf(userEmail) && request.resource.data.role == 'viewer');
+      allow update: if isAdmin()
+        || (isSelf(userEmail) && request.resource.data.role == resource.data.role);
+      allow delete: if isAdmin();
     }
 
     match /products/{productId} {

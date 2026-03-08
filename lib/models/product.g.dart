@@ -70,7 +70,7 @@ class ProductAdapter extends TypeAdapter<Product> {
       minWholesaleQty: fields[7] as int,
       sizes: (fields[8] as List).cast<String>(),
       colors: (fields[9] as List).cast<String>(),
-      images: (fields[10] as List).cast<String>(),
+      images: (fields[10] as List).cast<ProductImage>(),
       mainImageIndex: fields[11] as int,
       isActive: fields[12] as bool,
       isOutOfStock: fields[13] as bool,

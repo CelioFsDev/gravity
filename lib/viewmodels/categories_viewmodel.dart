@@ -2,6 +2,7 @@ import 'package:catalogo_ja/data/repositories/categories_repository.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
+import 'package:catalogo_ja/core/error/app_failure.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
 
@@ -39,15 +40,18 @@ class CategoryDeleteResult {
 class CategoriesViewModel extends _$CategoriesViewModel {
   @override
   FutureOr<CategoriesState> build() async {
-    return _fetchData();
+    try {
+      return await _fetchData();
+    } catch (e) {
+      throw e.toAppFailure(action: 'build', entity: 'Categories');
+    }
   }
 
   Future<CategoriesState> _fetchData() async {
     final categoriesRepository = ref.watch(categoriesRepositoryProvider);
     final productRepository = ref.watch(productsRepositoryProvider);
     final allCategories = await categoriesRepository.getCategories();
-    final allProducts = await productRepository
-        .getProducts(); // optimization: get counts only if possible, but currently we fetch all
+    final allProducts = await productRepository.getProducts();
 
     // Count products
     final counts = <String, int>{};
@@ -59,7 +63,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
 
     // Initial sort
     var sorted = List<Category>.from(allCategories);
-    _applySort(sorted, CategorySortOption.manual); // Default
+    _applySort(sorted, CategorySortOption.manual);
 
     return CategoriesState(categories: sorted, productCounts: counts);
   }
@@ -69,29 +73,22 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     if (!hasData) {
       state = const AsyncLoading();
     }
-    state = await AsyncValue.guard(_fetchData);
+    state = await AsyncValue.guard(() async {
+      try {
+        return await _fetchData();
+      } catch (e) {
+        throw e.toAppFailure(action: 'refresh', entity: 'Categories');
+      }
+    });
   }
 
   // Actions
   void setSearchQuery(String query) {
-    // Local filtering usually, but let's implement if needed.
-    // For now, let's keep it simple: Filter in UI or here?
-    // Requirement says: "Barra com busca". Let's update state and filter in UI or re-fetch.
-    // Let's filter in logic to be consistent.
     if (state.value == null) return;
     final current = state.value!;
-
-    // Note: If we just filter the list, we lose the "real" order for reordering.
-    // Reordering usually requires the full list.
-    // If search is active, disable reordering.
-
     state = AsyncData(
       CategoriesState(
-        categories:
-            current.categories, // We keep full list in "categories" for now?
-        // Actually, let's store filtered list in a separate field or just filter on the fly.
-        // Let's assume the state holds the list to display.
-        // If search is empty, show all. If not, show filtered.
+        categories: current.categories,
         productCounts: current.productCounts,
         sortOption: current.sortOption,
         searchQuery: query,
@@ -140,40 +137,42 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     CollectionCover? cover,
     String? id,
   }) async {
-    final categoriesRepo = ref.read(categoriesRepositoryProvider);
-    final currentCategories = await categoriesRepo.getCategories();
+    try {
+      final categoriesRepo = ref.read(categoriesRepositoryProvider);
+      final currentCategories = await categoriesRepo.getCategories();
 
-    // Check duplicate
-    if (currentCategories.any(
-      (c) =>
-          c.safeName.trim().toLowerCase() == name.trim().toLowerCase() &&
-          c.type == type,
-    )) {
-      return 'Categoria j\u00e1 existe';
+      if (currentCategories.any(
+        (c) =>
+            c.safeName.trim().toLowerCase() == name.trim().toLowerCase() &&
+            c.type == type,
+      )) {
+        return 'Categoria j\u00e1 existe';
+      }
+
+      final maxOrder = currentCategories.isNotEmpty
+          ? currentCategories
+                .map((c) => c.order)
+                .reduce((a, b) => a > b ? a : b)
+          : -1;
+
+      final newCat = Category(
+        id: id ?? const Uuid().v4(),
+        name: name.trim(),
+        order: maxOrder + 1,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        type: type,
+        cover: cover,
+        slug: Category.generateSlug(name),
+      );
+
+      await categoriesRepo.addCategory(newCat);
+      await _refresh();
+      ref.invalidate(productsViewModelProvider);
+      return null;
+    } catch (e) {
+      throw e.toAppFailure(action: 'addCategory', entity: 'Category');
     }
-
-    final maxOrder = currentCategories.isNotEmpty
-        ? currentCategories.map((c) => c.order).reduce((a, b) => a > b ? a : b)
-        : -1;
-
-    final newCat = Category(
-      id: id ?? const Uuid().v4(),
-      name: name.trim(),
-      order: maxOrder + 1,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-      type: type,
-      cover: cover,
-      slug: Category.generateSlug(name),
-    );
-
-    await categoriesRepo.addCategory(newCat);
-    await _refresh();
-
-    // Notify other viewmodels that categories changed
-    ref.invalidate(productsViewModelProvider);
-
-    return null; // Success
   }
 
   Future<String?> addCollection({
@@ -184,55 +183,58 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     bool isActive = true,
     String? id,
   }) async {
-    final categoriesRepo = ref.read(categoriesRepositoryProvider);
-    final currentCategories = await categoriesRepo.getCategories();
+    try {
+      final categoriesRepo = ref.read(categoriesRepositoryProvider);
+      final currentCategories = await categoriesRepo.getCategories();
 
-    // Check slug uniqueness
-    if (currentCategories.any(
-      (c) =>
-          c.type == CategoryType.collection &&
-          c.safeSlug.trim().toLowerCase() == slug.trim().toLowerCase(),
-    )) {
-      return 'Slug j\u00e1 existe';
+      if (currentCategories.any(
+        (c) =>
+            c.type == CategoryType.collection &&
+            c.safeSlug.trim().toLowerCase() == slug.trim().toLowerCase(),
+      )) {
+        return 'Slug j\u00e1 existe';
+      }
+
+      if (currentCategories.any(
+        (c) =>
+            c.type == CategoryType.collection &&
+            c.safeName.trim().toLowerCase() == name.trim().toLowerCase(),
+      )) {
+        return 'Cole\u00e7\u00e3o j\u00e1 existe';
+      }
+
+      if (coverMiniPath.trim().isEmpty) {
+        return 'Mini capa \u00e9 obrigat\u00f3ria';
+      }
+
+      final maxOrder = currentCategories.isNotEmpty
+          ? currentCategories
+                .map((c) => c.order)
+                .reduce((a, b) => a > b ? a : b)
+          : -1;
+
+      final newCollection = Category(
+        id: id ?? const Uuid().v4(),
+        name: name.trim(),
+        slug: slug.trim(),
+        isActive: isActive,
+        order: maxOrder + 1,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        type: CategoryType.collection,
+        cover: CollectionCover(
+          coverMiniPath: coverMiniPath,
+          coverPagePath: coverPagePath,
+        ),
+      );
+
+      await categoriesRepo.addCategory(newCollection);
+      await _refresh();
+      ref.invalidate(productsViewModelProvider);
+      return null;
+    } catch (e) {
+      throw e.toAppFailure(action: 'addCollection', entity: 'Collection');
     }
-
-    // Check name uniqueness among collections
-    if (currentCategories.any(
-      (c) =>
-          c.type == CategoryType.collection &&
-          c.safeName.trim().toLowerCase() == name.trim().toLowerCase(),
-    )) {
-      return 'Cole\u00e7\u00e3o j\u00e1 existe';
-    }
-
-    // Validation: Mini cover is mandatory
-    if (coverMiniPath.trim().isEmpty) {
-      return 'Mini capa \u00e9 obrigat\u00f3ria';
-    }
-
-    final maxOrder = currentCategories.isNotEmpty
-        ? currentCategories.map((c) => c.order).reduce((a, b) => a > b ? a : b)
-        : -1;
-
-    final newCollection = Category(
-      id: id ?? const Uuid().v4(),
-      name: name.trim(),
-      slug: slug.trim(),
-      isActive: isActive,
-      order: maxOrder + 1,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-      type: CategoryType.collection,
-      cover: CollectionCover(
-        coverMiniPath: coverMiniPath,
-        coverPagePath: coverPagePath,
-      ),
-    );
-
-    await categoriesRepo.addCategory(newCollection);
-    await _refresh();
-    ref.invalidate(productsViewModelProvider);
-    return null;
   }
 
   Future<String?> updateCategory(
@@ -240,31 +242,31 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     String newName, {
     CollectionCover? cover,
   }) async {
-    final categoriesRepo = ref.read(categoriesRepositoryProvider);
-    final currentCategories = await categoriesRepo.getCategories();
+    try {
+      final categoriesRepo = ref.read(categoriesRepositoryProvider);
+      final currentCategories = await categoriesRepo.getCategories();
 
-    // Check duplicate (exclude self)
-    if (currentCategories.any(
-      (c) =>
-          c.id != id &&
-          c.safeName.trim().toLowerCase() == newName.trim().toLowerCase(),
-    )) {
-      return 'Nome j\u00e1 em uso';
+      if (currentCategories.any(
+        (c) =>
+            c.id != id &&
+            c.safeName.trim().toLowerCase() == newName.trim().toLowerCase(),
+      )) {
+        return 'Nome j\u00e1 em uso';
+      }
+
+      final cat = currentCategories.firstWhere((c) => c.id == id);
+      final updated = cat.copyWith(
+        name: newName.trim(),
+        updatedAt: DateTime.now(),
+        cover: cover,
+      );
+      await categoriesRepo.updateCategory(updated);
+      await _refresh();
+      ref.invalidate(productsViewModelProvider);
+      return null;
+    } catch (e) {
+      throw e.toAppFailure(action: 'updateCategory', entity: 'Category');
     }
-
-    final cat = currentCategories.firstWhere((c) => c.id == id);
-    final updated = cat.copyWith(
-      name: newName.trim(),
-      updatedAt: DateTime.now(),
-      cover: cover,
-    );
-    await categoriesRepo.updateCategory(updated);
-    await _refresh();
-
-    // Notify other viewmodels
-    ref.invalidate(productsViewModelProvider);
-
-    return null;
   }
 
   Future<String?> updateCollection({
@@ -275,50 +277,47 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     String? coverPagePath,
     required bool isActive,
   }) async {
-    final categoriesRepo = ref.read(categoriesRepositoryProvider);
-    final currentCategories = await categoriesRepo.getCategories();
+    try {
+      final categoriesRepo = ref.read(categoriesRepositoryProvider);
+      final currentCategories = await categoriesRepo.getCategories();
 
-    // Check slug uniqueness (exclude self)
-    if (currentCategories.any(
-      (c) =>
-          c.id != id &&
-          c.type == CategoryType.collection &&
-          c.safeSlug.trim().toLowerCase() == slug.trim().toLowerCase(),
-    )) {
-      return 'Slug j\u00e1 existe';
+      if (currentCategories.any(
+        (c) =>
+            c.id != id &&
+            c.type == CategoryType.collection &&
+            c.safeSlug.trim().toLowerCase() == slug.trim().toLowerCase(),
+      )) {
+        return 'Slug j\u00e1 existe';
+      }
+
+      if (coverMiniPath.trim().isEmpty) {
+        return 'Mini capa \u00e9 obrigat\u00f3ria';
+      }
+
+      final cat = currentCategories.firstWhere((c) => c.id == id);
+      final updated = cat.copyWith(
+        name: name.trim(),
+        slug: slug.trim(),
+        isActive: isActive,
+        updatedAt: DateTime.now(),
+        cover: (cat.cover ?? const CollectionCover()).copyWith(
+          coverMiniPath: coverMiniPath,
+          coverPagePath: coverPagePath,
+        ),
+      );
+
+      await categoriesRepo.updateCategory(updated);
+      await _refresh();
+      ref.invalidate(productsViewModelProvider);
+      return null;
+    } catch (e) {
+      throw e.toAppFailure(action: 'updateCollection', entity: 'Collection');
     }
-
-    // Validation: Mini cover is mandatory
-    if (coverMiniPath.trim().isEmpty) {
-      return 'Mini capa \u00e9 obrigat\u00f3ria';
-    }
-
-    final cat = currentCategories.firstWhere((c) => c.id == id);
-    final updated = cat.copyWith(
-      name: name.trim(),
-      slug: slug.trim(),
-      isActive: isActive,
-      updatedAt: DateTime.now(),
-      cover: (cat.cover ?? const CollectionCover()).copyWith(
-        coverMiniPath: coverMiniPath,
-        coverPagePath: coverPagePath,
-      ),
-    );
-
-    await categoriesRepo.updateCategory(updated);
-    await _refresh();
-    ref.invalidate(productsViewModelProvider);
-    return null;
   }
 
-  // Reorder
   Future<void> reorder(int oldIndex, int newIndex) async {
     if (state.value == null) return;
-    // Only allow in manual mode
     if (state.value!.sortOption != CategorySortOption.manual) return;
-
-    // The list in state might be filtered. Reorder only works on full list roughly?
-    // Assuming no filter for reorder.
     if (state.value!.searchQuery.isNotEmpty) return;
 
     final list = List<Category>.from(state.value!.categories);
@@ -328,69 +327,77 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     final item = list.removeAt(oldIndex);
     list.insert(newIndex, item);
 
-    // Update orders in DB
-    // Optimization: only update affected range? For now update all indexes for safety.
-    final categoriesRepo = ref.read(categoriesRepositoryProvider);
-    for (var i = 0; i < list.length; i++) {
-      final cat = list[i].copyWith(order: i);
-      if (cat.order != list[i].order) {
-        // This check is dummy since we just updated logic
-        // But we check DB diff?
-        // Just update all to be safe and simple.
+    try {
+      final categoriesRepo = ref.read(categoriesRepositoryProvider);
+      for (var i = 0; i < list.length; i++) {
+        final cat = list[i].copyWith(order: i);
+        await categoriesRepo.updateCategory(cat);
       }
-      await categoriesRepo.updateCategory(cat);
-    }
 
-    // Optimistic update
-    state = AsyncData(
-      CategoriesState(
-        categories: list,
-        productCounts: state.value!.productCounts,
-        sortOption: CategorySortOption.manual,
-        searchQuery: '',
-      ),
-    );
-  }
-
-  // Delete Check
-  Future<CategoryDeleteResult> checkDelete(String id) async {
-    final productRepository = ref.read(productsRepositoryProvider);
-    final categoriesRepo = ref.read(categoriesRepositoryProvider);
-    final products = await productRepository.getProductsByCategory(id);
-
-    if (products.isEmpty) {
-      await categoriesRepo.deleteCategory(id);
-      await _refresh();
-      ref.invalidate(productsViewModelProvider);
-      return CategoryDeleteResult(success: true, hasProducts: false);
-    } else {
-      return CategoryDeleteResult(
-        success: false,
-        hasProducts: true,
-        message: 'Existem ${products.length} produtos nesta categoria.',
+      state = AsyncData(
+        CategoriesState(
+          categories: list,
+          productCounts: state.value!.productCounts,
+          sortOption: CategorySortOption.manual,
+          searchQuery: '',
+        ),
       );
+    } catch (e) {
+      throw e.toAppFailure(action: 'reorder', entity: 'Categories');
     }
   }
 
-  // Confirm Delete
-  // action: 'delete_products', 'move', 'uncategorize'
-  // For requirement:
-  // b) Mover para "Sem Categoria" (create if not exists)
-  // c) Definir null/uncategorized (essentially same as B if "Sem Categoria" is the concept of null)
-  // Let's implement options directly.
+  Future<CategoryDeleteResult> checkDelete(String id) async {
+    try {
+      final productRepository = ref.read(productsRepositoryProvider);
+      final categoriesRepo = ref.read(categoriesRepositoryProvider);
+      final products = await productRepository.getProductsByCategory(id);
+
+      if (products.isEmpty) {
+        await categoriesRepo.deleteCategory(id);
+        await _refresh();
+        ref.invalidate(productsViewModelProvider);
+        return CategoryDeleteResult(success: true, hasProducts: false);
+      } else {
+        return CategoryDeleteResult(
+          success: false,
+          hasProducts: true,
+          message: 'Existem ${products.length} produtos nesta categoria.',
+        );
+      }
+    } catch (e) {
+      throw e.toAppFailure(action: 'checkDelete', entity: 'Category');
+    }
+  }
 
   Future<void> deleteWithMove(String id, String targetCategoryId) async {
-    final categoriesRepo = ref.read(categoriesRepositoryProvider);
-    await categoriesRepo.reassignCategory(id, targetCategoryId);
-    await categoriesRepo.deleteCategory(id);
-    await _refresh();
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      try {
+        final categoriesRepo = ref.read(categoriesRepositoryProvider);
+        await categoriesRepo.reassignCategory(id, targetCategoryId);
+        await categoriesRepo.deleteCategory(id);
+        return await _fetchData();
+      } catch (e) {
+        throw e.toAppFailure(action: 'deleteWithMove', entity: 'Category');
+      }
+    });
   }
 
   Future<void> deleteAndUncategorize(String id) async {
-    // Reassign to empty string or specialized 'uncategorized'
-    final categoriesRepo = ref.read(categoriesRepositoryProvider);
-    await categoriesRepo.reassignCategory(id, ''); // '' = Uncategorized
-    await categoriesRepo.deleteCategory(id);
-    await _refresh();
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      try {
+        final categoriesRepo = ref.read(categoriesRepositoryProvider);
+        await categoriesRepo.reassignCategory(id, '');
+        await categoriesRepo.deleteCategory(id);
+        return await _fetchData();
+      } catch (e) {
+        throw e.toAppFailure(
+          action: 'deleteAndUncategorize',
+          entity: 'Category',
+        );
+      }
+    });
   }
 }

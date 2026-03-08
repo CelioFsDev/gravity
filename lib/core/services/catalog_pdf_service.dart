@@ -1,21 +1,18 @@
-import 'dart:io';
-import 'dart:typed_data';
+import 'dart:io' as io;
 import 'dart:convert';
 
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/models/product_image.dart';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
 
-enum CatalogPdfStyle {
-  classic,
-  clean,
-  compact,
-  editorial,
-  minimal,
-}
+enum CatalogPdfStyle { classic, clean, compact, editorial, minimal }
 
 class CatalogPdfService {
   static const PdfColor _colorPriceGreen = PdfColor(0.12, 0.42, 0.29);
@@ -23,6 +20,9 @@ class CatalogPdfService {
   static const PdfColor _colorImageBg = PdfColor(0.953, 0.953, 0.953);
   static const PdfColor _colorSizePillBg = PdfColor(0.929, 0.929, 0.929);
   static const PdfPageFormat _defaultMobileFormat = PdfPageFormat(360, 640);
+
+  // Cache unificado de imagens (rede + local + memória) durante a geração
+  static final Map<String, Uint8List> _imageCache = {};
 
   static Future<Uint8List> generateCatalogPdf({
     required String catalogName,
@@ -62,11 +62,72 @@ class CatalogPdfService {
 
     String? currentCollectionId;
 
-    for (final product in products) {
-      // Check for collection change
-      if (collectionsMap != null) {
+    // Pré-carregar TODAS as imagens dos produtos (rede + local + memória) em paralelo
+    await _preloadImages(products);
+
+    // Pré-carregar imagens da capa e do banner (arquivos locais)
+    final coverPaths = <String>{
+      if (bannerImagePath != null && bannerImagePath.isNotEmpty)
+        bannerImagePath,
+      if (collectionCover?.coverImagePath?.isNotEmpty == true)
+        collectionCover!.coverImagePath!,
+      if (collectionCover?.coverMiniPath?.isNotEmpty == true)
+        collectionCover!.coverMiniPath!,
+      if (collectionCover?.coverPagePath?.isNotEmpty == true)
+        collectionCover!.coverPagePath!,
+    };
+    if (!kIsWeb) {
+      await Future.wait(
+        coverPaths.where((p) => !_imageCache.containsKey(p)).map((p) async {
+          try {
+            final file = io.File(p);
+            if (await file.exists()) {
+              _imageCache[p] = await file.readAsBytes();
+            }
+          } catch (e) {
+            print('Erro ao pré-carregar imagem da capa: $p - $e');
+          }
+        }),
+      );
+    }
+
+    // Group products by collection to facilitate batching
+    final List<List<Product>> collectionBatches = [];
+    if (collectionsMap != null) {
+      String? lastId;
+      List<Product> currentCollection = [];
+      for (final p in products) {
+        String? prodCatId;
+        for (final id in p.categoryIds) {
+          if (collectionsMap.containsKey(id)) {
+            prodCatId = id;
+            break;
+          }
+        }
+        if (prodCatId != lastId && currentCollection.isNotEmpty) {
+          collectionBatches.add(currentCollection);
+          currentCollection = [];
+        }
+        currentCollection.add(p);
+        lastId = prodCatId;
+      }
+      if (currentCollection.isNotEmpty)
+        collectionBatches.add(currentCollection);
+    } else {
+      collectionBatches.add(products);
+    }
+
+    final int itemsPerPage = switch (style) {
+      CatalogPdfStyle.compact => 3,
+      CatalogPdfStyle.minimal => 2,
+      _ => 1,
+    };
+
+    for (final batch in collectionBatches) {
+      // Add collection opening page if needed
+      if (collectionsMap != null && batch.isNotEmpty) {
         String? prodCollectionId;
-        for (final catId in product.categoryIds) {
+        for (final catId in batch.first.categoryIds) {
           if (collectionsMap.containsKey(catId)) {
             prodCollectionId = catId;
             break;
@@ -89,72 +150,198 @@ class CatalogPdfService {
         }
       }
 
-      if (useLoosePhotos) {
-        final loosePhotoPaths = _extractLoosePhotoPaths(product);
-        if (loosePhotoPaths.isEmpty) {
+      // Process products in this collection with batching
+      for (var i = 0; i < batch.length; i += itemsPerPage) {
+        final productsInPage = batch.skip(i).take(itemsPerPage).toList();
+
+        // If useLoosePhotos is ON, we still do 1 page per photo for now
+        if (useLoosePhotos) {
+          for (final product in productsInPage) {
+            final loosePhotos = _extractLoosePhotos(product);
+            final photosToProcess = loosePhotos.isEmpty ? [null] : loosePhotos;
+
+            for (final photo in photosToProcess) {
+              pdf.addPage(
+                pw.Page(
+                  pageFormat: pageFormat,
+                  margin: const pw.EdgeInsets.symmetric(vertical: 18),
+                  build: (context) => _buildProductPage(
+                    product,
+                    mode,
+                    currencyFormat,
+                    pageFormat,
+                    collectionName: collectionName,
+                    defaultSubtitle: defaultSubtitle,
+                    showPrice: showPrice,
+                    useLoosePhotos: true,
+                    forcedHeroPath: photo?.uri,
+                    style: style,
+                  ),
+                ),
+              );
+            }
+          }
+        } else {
+          // Standard batched page
           pdf.addPage(
             pw.Page(
               pageFormat: pageFormat,
-              margin: const pw.EdgeInsets.symmetric(vertical: 18),
-              build: (context) => _buildProductPage(
-                product,
-                mode,
-                currencyFormat,
-                pageFormat,
-                collectionName: collectionName,
-                defaultSubtitle: defaultSubtitle,
-                showPrice: showPrice,
-                useLoosePhotos: true,
-                style: style,
-              ),
+              margin: pw.EdgeInsets.zero, // Styles handle their own margins
+              build: (context) {
+                final double itemHeight =
+                    (pageFormat.height - 36) / itemsPerPage;
+                return pw.Padding(
+                  padding: const pw.EdgeInsets.symmetric(vertical: 18),
+                  child: pw.Column(
+                    mainAxisAlignment: pw.MainAxisAlignment.start,
+                    children: productsInPage.map((product) {
+                      return pw.Container(
+                        height: itemHeight,
+                        child: _buildProductPage(
+                          product,
+                          mode,
+                          currencyFormat,
+                          pageFormat.copyWith(
+                            height: itemHeight,
+                          ), // Treat each item area as a miniature page
+                          collectionName: collectionName,
+                          defaultSubtitle: defaultSubtitle,
+                          showPrice: showPrice,
+                          useLoosePhotos: false,
+                          style: style,
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                );
+              },
             ),
           );
-        } else {
-          for (final photoPath in loosePhotoPaths) {
-            pdf.addPage(
-              pw.Page(
-                pageFormat: pageFormat,
-                margin: const pw.EdgeInsets.symmetric(vertical: 18),
-                build: (context) => _buildProductPage(
-                  product,
-                  mode,
-                  currencyFormat,
-                  pageFormat,
-                  collectionName: collectionName,
-                  defaultSubtitle: defaultSubtitle,
-                  showPrice: showPrice,
-                  useLoosePhotos: true,
-                  forcedHeroPath: photoPath,
-                  style: style,
-                ),
-              ),
-            );
-          }
         }
-      } else {
-        pdf.addPage(
-          pw.Page(
-            pageFormat: pageFormat,
-            margin: const pw.EdgeInsets.symmetric(
-              vertical: 18,
-            ), // No horizontal margin for full-bleed
-            build: (context) => _buildProductPage(
-              product,
-              mode,
-              currencyFormat,
-              pageFormat,
-              collectionName: collectionName,
-              defaultSubtitle: defaultSubtitle,
-              showPrice: showPrice,
-              useLoosePhotos: false,
-              style: style,
-            ),
-          ),
+      }
+    }
+
+    final result = await pdf.save();
+    // Limpar cache após salvar para liberar memória
+    _imageCache.clear();
+    return result;
+  }
+
+  static Future<void> _preloadImages(List<Product> products) async {
+    // Garante que o cache comece limpo para esta geração
+    _imageCache.clear();
+
+    final networkUrls = <String>{};
+    final localPaths = <String>{};
+    final memoryUris = <String>{};
+
+    for (final product in products) {
+      for (final img in product.images) {
+        final uri = img.uri.trim();
+        if (uri.isEmpty) continue;
+        switch (img.sourceType) {
+          case ProductImageSource.networkUrl:
+            networkUrls.add(uri);
+            break;
+          case ProductImageSource.localPath:
+            localPaths.add(uri);
+            break;
+          case ProductImageSource.memory:
+            memoryUris.add(uri);
+            break;
+          default:
+            break;
+        }
+      }
+    }
+
+    const int maxConcurrent = 5; // Reduzido para maior estabilidade
+
+    // 1. Processar imagens locais (Apenas Mobile)
+    if (localPaths.isNotEmpty && !kIsWeb) {
+      final pathsList = localPaths.toList();
+      for (var i = 0; i < pathsList.length; i += maxConcurrent) {
+        final batch = pathsList.skip(i).take(maxConcurrent);
+        await Future.wait(
+          batch.map((path) async {
+            try {
+              final file = io.File(path);
+              if (await file.exists()) {
+                final result = await FlutterImageCompress.compressWithFile(
+                  path,
+                  minWidth: 700,
+                  minHeight: 700,
+                  quality: 40,
+                );
+                _imageCache[path] = result ?? await file.readAsBytes();
+              }
+            } catch (e) {
+              debugPrint('Erro ao processar imagem local: $path - $e');
+            }
+          }),
         );
       }
     }
 
-    return pdf.save();
+    // 2. Processar imagens em memória
+    if (memoryUris.isNotEmpty) {
+      final urisList = memoryUris.toList();
+      for (var i = 0; i < urisList.length; i += maxConcurrent) {
+        final batch = urisList.skip(i).take(maxConcurrent);
+        await Future.wait(
+          batch.map((uri) async {
+            try {
+              if (uri.startsWith('data:')) {
+                final commaIndex = uri.indexOf(',');
+                if (commaIndex != -1) {
+                  final bytes = base64Decode(uri.substring(commaIndex + 1));
+                  final compressed =
+                      await FlutterImageCompress.compressWithList(
+                        bytes,
+                        minWidth: 700,
+                        minHeight: 700,
+                        quality: 40,
+                      );
+                  _imageCache[uri] = compressed;
+                }
+              }
+            } catch (e) {
+              debugPrint('Erro ao decodificar imagem em memória: $e');
+            }
+          }),
+        );
+      }
+    }
+
+    // 3. Processar imagens de rede (Usa http para compatibilidade Web)
+    if (networkUrls.isNotEmpty) {
+      final urls = networkUrls.toList();
+      for (var i = 0; i < urls.length; i += maxConcurrent) {
+        final batch = urls.skip(i).take(maxConcurrent);
+        await Future.wait(
+          batch.map((url) async {
+            try {
+              final response = await http
+                  .get(Uri.parse(url))
+                  .timeout(const Duration(seconds: 15));
+
+              if (response.statusCode == 200) {
+                final bytes = response.bodyBytes;
+                final compressed = await FlutterImageCompress.compressWithList(
+                  bytes,
+                  minWidth: 700,
+                  minHeight: 700,
+                  quality: 40,
+                );
+                _imageCache[url] = compressed;
+              }
+            } catch (e) {
+              debugPrint('Erro ao baixar imagem: $url - $e');
+            }
+          }),
+        );
+      }
+    }
   }
 
   static pw.Widget _buildProductPage(
@@ -163,88 +350,50 @@ class CatalogPdfService {
     NumberFormat currencyFormat,
     PdfPageFormat pageFormat, {
     String? collectionName,
-    String defaultSubtitle = 'SELE\u00c7\u00c3O DE PRODUTOS',
+    String defaultSubtitle = 'SELEÇÃO DE PRODUTOS',
     bool showPrice = true,
     bool useLoosePhotos = false,
     String? forcedHeroPath,
     CatalogPdfStyle style = CatalogPdfStyle.classic,
   }) {
     final displayPrice = product.priceForMode(mode.name);
-    ProductPhoto? photoP;
-    List<MapEntry<String, String>> detailVariants;
-    List<MapEntry<String, String>> colorVariants;
+    ProductImage? photoP;
+    List<MapEntry<String, ProductImage>> detailVariants;
+    List<MapEntry<String, ProductImage>> colorVariants;
 
     if (forcedHeroPath != null && forcedHeroPath.trim().isNotEmpty) {
-      photoP = ProductPhoto(path: forcedHeroPath);
+      photoP = ProductImage.local(path: forcedHeroPath);
       detailVariants = const [];
       colorVariants = const [];
-    } else if (useLoosePhotos) {
-      final pool = <ProductPhoto>[
-        ...product.photos,
-        ...product.images.map((path) => ProductPhoto(path: path)),
-      ];
+    } else {
+      photoP = product.mainImage;
 
-      photoP = _selectPrimaryPhoto(pool);
-      if (photoP != null) {
-        pool.remove(photoP);
+      var details = product.detailImages;
+      // Fallback: If no explicit 'detalhe' tag is found, take the next 2 images after main
+      if (details.isEmpty && product.images.length > 1) {
+        details = product.images
+            .where(
+              (img) =>
+                  img.id != photoP?.id &&
+                  (img.label == null || !img.label!.startsWith('cor')),
+            )
+            .take(2)
+            .toList();
       }
 
-      detailVariants = pool
-          .take(2)
-          .map((p) => MapEntry('', p.path))
-          .toList();
-      colorVariants = pool
-          .skip(2)
-          .take(4)
-          .map((p) => MapEntry('', p.path))
-          .toList();
-    } else {
-      // 1. Organize photos by type
-      final photosD = <ProductPhoto>[];
-      final photosC = <ProductPhoto>[];
-      final otherPhotos = <ProductPhoto>[];
+      detailVariants = details.take(2).map((img) => MapEntry('', img)).toList();
 
-      for (final photo in product.photos) {
-        final type = photo.photoType;
-        if (type == 'P') {
-          photoP = photo;
-        } else if (type == 'D1' || type == 'D2') {
-          photosD.add(photo);
-        } else if (type != null && type.startsWith('C')) {
-          photosC.add(photo);
-        } else if (photo.isPrimary && photoP == null) {
-          photoP = photo;
-        } else {
-          otherPhotos.add(photo);
+      final uniqueColors = <String, MapEntry<String, ProductImage>>{};
+      for (final img in product.colorImages) {
+        final rawLabel = img.colorTag ?? _resolveColorLabelLegacy(img.uri);
+        final label = _stripColorPrefix(rawLabel);
+        if (label.isNotEmpty && !uniqueColors.containsKey(label)) {
+          uniqueColors[label] = MapEntry(label, img);
         }
       }
-
-      // Fallback for legacy products
-      if (photoP == null && otherPhotos.isNotEmpty) {
-        photoP = otherPhotos.removeAt(0);
-      }
-
-      // If we still have space for D or C from otherPhotos
-      while (photosD.length < 2 && otherPhotos.isNotEmpty) {
-        photosD.add(otherPhotos.removeAt(0));
-      }
-      while (photosC.length < 4 && otherPhotos.isNotEmpty) {
-        photosC.add(otherPhotos.removeAt(0));
-      }
-
-      // Sort Colors by name (C1, C2...)
-      photosC.sort((a, b) => (a.photoType ?? '').compareTo(b.photoType ?? ''));
-
-      // Detail photos should maximize visual space; keep labels only for colors.
-      detailVariants = photosD.map((p) => MapEntry('', p.path)).toList();
-
-      colorVariants = photosC.map((p) {
-        final label = _resolveColorLabel(p);
-        return MapEntry(label, p.path);
-      }).toList();
+      colorVariants = uniqueColors.values.take(4).toList();
     }
 
-    final heroPath = photoP?.path;
     final sizesText = _extractSizesText(product);
     final topHeaderText =
         (collectionName != null && collectionName.trim().isNotEmpty)
@@ -254,161 +403,704 @@ class CatalogPdfService {
     final availableWidth = pageFormat.width - 36;
     final availableHeight = pageFormat.height - 36;
 
-    final bottomContentHeight = switch (style) {
-      CatalogPdfStyle.classic => 175.0,
-      CatalogPdfStyle.clean => 165.0,
-      CatalogPdfStyle.compact => 145.0,
-      CatalogPdfStyle.editorial => 190.0,
-      CatalogPdfStyle.minimal => 135.0,
-    };
-    final topHeaderHeight = switch (style) {
-      CatalogPdfStyle.classic => 35.0,
-      CatalogPdfStyle.clean => 28.0,
-      CatalogPdfStyle.compact => 24.0,
-      CatalogPdfStyle.editorial => 46.0,
-      CatalogPdfStyle.minimal => 0.0,
-    };
-    final spacing = switch (style) {
-      CatalogPdfStyle.classic => 15.0,
-      CatalogPdfStyle.clean => 12.0,
-      CatalogPdfStyle.compact => 8.0,
-      CatalogPdfStyle.editorial => 18.0,
-      CatalogPdfStyle.minimal => 10.0,
-    };
-    final mainRadius = switch (style) {
-      CatalogPdfStyle.classic => 0.0,
-      CatalogPdfStyle.clean => 8.0,
-      CatalogPdfStyle.compact => 6.0,
-      CatalogPdfStyle.editorial => 0.0,
-      CatalogPdfStyle.minimal => 12.0,
-    };
-    final productNameSize = switch (style) {
-      CatalogPdfStyle.classic => 15.0,
-      CatalogPdfStyle.clean => 14.0,
-      CatalogPdfStyle.compact => 13.0,
-      CatalogPdfStyle.editorial => 17.0,
-      CatalogPdfStyle.minimal => 14.0,
-    };
-    final priceSize = switch (style) {
-      CatalogPdfStyle.classic => 22.0,
-      CatalogPdfStyle.clean => 21.0,
-      CatalogPdfStyle.compact => 18.0,
-      CatalogPdfStyle.editorial => 24.0,
-      CatalogPdfStyle.minimal => 20.0,
-    };
-    final detailColumnWidth = switch (style) {
-      CatalogPdfStyle.classic => 85.0,
-      CatalogPdfStyle.clean => 82.0,
-      CatalogPdfStyle.compact => 72.0,
-      CatalogPdfStyle.editorial => 92.0,
-      CatalogPdfStyle.minimal => 78.0,
-    };
-    final showHeader = style != CatalogPdfStyle.minimal;
-    final infoFlex = switch (style) {
-      CatalogPdfStyle.classic => 4,
-      CatalogPdfStyle.clean => 5,
-      CatalogPdfStyle.compact => 6,
-      CatalogPdfStyle.editorial => 5,
-      CatalogPdfStyle.minimal => 6,
-    };
-    final colorFlex = switch (style) {
-      CatalogPdfStyle.classic => 6,
-      CatalogPdfStyle.clean => 5,
-      CatalogPdfStyle.compact => 4,
-      CatalogPdfStyle.editorial => 5,
-      CatalogPdfStyle.minimal => 4,
-    };
-    final nameMaxLines = style == CatalogPdfStyle.compact ? 1 : 2;
-    final mainPhotoHeight =
-        availableHeight - topHeaderHeight - bottomContentHeight - spacing;
+    switch (style) {
+      case CatalogPdfStyle.clean:
+        return _buildClassicLayout(
+          product,
+          showPrice,
+          displayPrice,
+          photoP,
+          detailVariants,
+          colorVariants,
+          sizesText,
+          topHeaderText,
+          availableWidth,
+          availableHeight,
+          currencyFormat,
+          isClean: true,
+          showDetails: false,
+        );
+      case CatalogPdfStyle.compact:
+        return _buildCompactLayout(
+          product,
+          showPrice,
+          displayPrice,
+          photoP,
+          detailVariants,
+          colorVariants,
+          sizesText,
+          topHeaderText,
+          availableWidth,
+          availableHeight,
+          currencyFormat,
+          useDenseMode:
+              false, // `products` is not available here, assuming default false
+        );
+      case CatalogPdfStyle.editorial:
+        return _buildEditorialLayout(
+          product,
+          showPrice,
+          displayPrice,
+          photoP,
+          detailVariants,
+          colorVariants,
+          sizesText,
+          topHeaderText,
+          pageFormat,
+          currencyFormat,
+        );
+      case CatalogPdfStyle.minimal:
+        return _buildMinimalLayout(
+          product,
+          showPrice,
+          displayPrice,
+          photoP,
+          detailVariants,
+          colorVariants,
+          sizesText,
+          topHeaderText,
+          availableWidth,
+          availableHeight,
+          currencyFormat,
+        );
+      case CatalogPdfStyle.classic:
+        return _buildClassicLayout(
+          product,
+          showPrice,
+          displayPrice,
+          photoP,
+          detailVariants,
+          colorVariants,
+          sizesText,
+          topHeaderText,
+          availableWidth,
+          availableHeight,
+          currencyFormat,
+        );
+    }
+  }
 
+  static pw.Widget _buildEditorialLayout(
+    Product product,
+    bool showPrice,
+    double displayPrice,
+    ProductImage? photoP,
+    List<MapEntry<String, ProductImage>> detailVariants,
+    List<MapEntry<String, ProductImage>> colorVariants,
+    String sizesText,
+    String topHeaderText,
+    PdfPageFormat pageFormat,
+    NumberFormat currencyFormat,
+  ) {
+    final lookNumber =
+        'LOOK ${(product.id.hashCode % 99).toString().padLeft(2, '0')}';
+
+    return pw.Container(
+      width: pageFormat.width,
+      height: pageFormat.height,
+      child: pw.Stack(
+        children: [
+          // 1. Full Bleed Background
+          pw.Positioned.fill(
+            child: photoP != null
+                ? _buildImageWidget(
+                    photoP,
+                    height: pageFormat.height,
+                    radius: 0,
+                  )
+                : _buildImagePlaceholder(
+                    height: pageFormat.height,
+                    width: pageFormat.width,
+                    radius: 0,
+                  ),
+          ),
+
+          // 2. Top Header (Look ID & Collection)
+          pw.Positioned(
+            top: 40,
+            left: 40,
+            right: 40,
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      lookNumber,
+                      style: pw.TextStyle(
+                        color: PdfColors.white,
+                        fontSize: 14,
+                        fontWeight: pw.FontWeight.bold,
+                        letterSpacing: 4,
+                      ),
+                    ),
+                    pw.Container(
+                      height: 1,
+                      width: 30,
+                      color: PdfColors.white,
+                      margin: const pw.EdgeInsets.only(top: 4),
+                    ),
+                  ],
+                ),
+                pw.Text(
+                  topHeaderText.toUpperCase(),
+                  style: pw.TextStyle(
+                    color: PdfColors.white,
+                    fontSize: 10,
+                    letterSpacing: 5,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // 3. Floating Detail Polaroids
+          if (detailVariants.isNotEmpty)
+            pw.Positioned(
+              top: 100,
+              right: 25,
+              child: pw.Column(
+                children: detailVariants.take(2).map((v) {
+                  return pw.Container(
+                    margin: const pw.EdgeInsets.only(bottom: 20),
+                    padding: const pw.EdgeInsets.all(4),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.white,
+                      border: pw.Border.all(color: PdfColors.white, width: 1),
+                      boxShadow: [
+                        pw.BoxShadow(
+                          color: PdfColor(0, 0, 0, 0.3),
+                          blurRadius: 6,
+                          offset: const PdfPoint(2, 2),
+                        ),
+                      ],
+                    ),
+                    child: _buildImageWidget(
+                      v.value,
+                      height: 100,
+                      width: 75,
+                      radius: 0,
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+
+          // 4. Bottom Info - Floating Text (No Black Box)
+          pw.Positioned(
+            left: 40,
+            right: 40,
+            bottom: 50,
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              mainAxisSize: pw.MainAxisSize.min,
+              children: [
+                // Product Name - Cleaner, more elegant typography
+                pw.Text(
+                  product.name.toUpperCase(),
+                  style: pw.TextStyle(
+                    color: PdfColors.white,
+                    fontSize: 30,
+                    fontWeight: pw.FontWeight.normal,
+                    letterSpacing: 3,
+                  ),
+                ),
+                pw.SizedBox(height: 16),
+
+                // Meta Info & Price Row
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: pw.CrossAxisAlignment.end,
+                  children: [
+                    // REF & Sizes
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          'REF: ${product.reference}',
+                          style: pw.TextStyle(
+                            color: PdfColors.white,
+                            fontSize: 12,
+                            fontWeight: pw.FontWeight.bold,
+                            letterSpacing: 2,
+                          ),
+                        ),
+                        pw.SizedBox(height: 6),
+                        pw.Text(
+                          sizesText,
+                          style: pw.TextStyle(
+                            color: PdfColor(1, 1, 1, 0.8),
+                            fontSize: 11,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // Price Column
+                    if (showPrice)
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.end,
+                        children: [
+                          if (product.promoEnabled)
+                            pw.Text(
+                              currencyFormat.format(
+                                product.priceForMode(CatalogMode.varejo.name) /
+                                    (1 - (product.promoPercent / 100)),
+                              ),
+                              style: pw.TextStyle(
+                                color: PdfColor(1, 1, 1, 0.6),
+                                fontSize: 14,
+                                decoration: pw.TextDecoration.lineThrough,
+                              ),
+                            ),
+                          pw.Text(
+                            currencyFormat.format(displayPrice),
+                            style: pw.TextStyle(
+                              color: PdfColors.white,
+                              fontSize: 38,
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+
+                // Visual Color Swatches - Real photos for each color
+                if (colorVariants.isNotEmpty) ...[
+                  pw.SizedBox(height: 25),
+                  pw.Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: colorVariants.take(6).map((v) {
+                      return pw.Column(
+                        mainAxisSize: pw.MainAxisSize.min,
+                        children: [
+                          _buildSwatchThumb(v.key, v.value, width: 42),
+                          pw.SizedBox(height: 4),
+                          pw.Text(
+                            v.key.toUpperCase(),
+                            style: pw.TextStyle(
+                              color: PdfColors.white,
+                              fontSize: 7,
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _buildMinimalLayout(
+    Product product,
+    bool showPrice,
+    double displayPrice,
+    ProductImage? photoP,
+    List<MapEntry<String, ProductImage>> detailVariants,
+    List<MapEntry<String, ProductImage>> colorVariants,
+    String sizesText,
+    String topHeaderText,
+    double availableWidth,
+    double availableHeight,
+    NumberFormat currencyFormat,
+  ) {
+    // Height optimized for 2-per-page (availableHeight ~300)
+    final heroHeight = availableHeight * 0.45;
+
+    return pw.Container(
+      color: PdfColors.white,
+      padding: const pw.EdgeInsets.symmetric(horizontal: 40, vertical: 10),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: [
+          // Hero Image
+          pw.Container(
+            height: heroHeight,
+            child: photoP != null
+                ? _buildImageWidget(
+                    photoP,
+                    height: heroHeight,
+                    width: availableWidth * 0.7,
+                    radius: 8,
+                  )
+                : _buildImagePlaceholder(
+                    height: heroHeight,
+                    width: availableWidth * 0.7,
+                    radius: 8,
+                  ),
+          ),
+
+          pw.SizedBox(height: 10),
+
+          // Product Name
+          pw.Text(
+            product.name.toUpperCase(),
+            textAlign: pw.TextAlign.center,
+            style: pw.TextStyle(
+              fontSize: 16,
+              fontWeight: pw.FontWeight.normal,
+              color: PdfColors.black,
+              letterSpacing: 2,
+            ),
+          ),
+
+          pw.SizedBox(height: 4),
+
+          // REF & Sizes
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.center,
+            children: [
+              pw.Text(
+                'REF: ${product.reference}',
+                style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+              ),
+              pw.Container(
+                width: 1,
+                height: 8,
+                color: PdfColors.grey300,
+                margin: const pw.EdgeInsets.symmetric(horizontal: 6),
+              ),
+              pw.Text(
+                sizesText,
+                style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+              ),
+            ],
+          ),
+
+          pw.SizedBox(height: 8),
+
+          // Price Section
+          if (showPrice)
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.center,
+              crossAxisAlignment: pw.CrossAxisAlignment.end,
+              children: [
+                if (product.promoEnabled) ...[
+                  pw.Text(
+                    currencyFormat.format(
+                      product.priceForMode(CatalogMode.varejo.name) /
+                          (1 - (product.promoPercent / 100)),
+                    ),
+                    style: pw.TextStyle(
+                      fontSize: 9,
+                      color: PdfColors.grey400,
+                      decoration: pw.TextDecoration.lineThrough,
+                    ),
+                  ),
+                  pw.SizedBox(width: 6),
+                ],
+                pw.Text(
+                  currencyFormat.format(displayPrice),
+                  style: pw.TextStyle(
+                    fontSize: 20,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.black,
+                  ),
+                ),
+              ],
+            ),
+
+          // Color Swatches (Small photo + Name)
+          if (colorVariants.isNotEmpty) ...[
+            pw.SizedBox(height: 12),
+            pw.Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              alignment: pw.WrapAlignment.center,
+              children: colorVariants.take(5).map((v) {
+                return pw.Column(
+                  mainAxisSize: pw.MainAxisSize.min,
+                  children: [
+                    _buildSwatchThumb(v.key, v.value, width: 36),
+                    pw.SizedBox(height: 2),
+                    pw.Text(
+                      v.key.toUpperCase(),
+                      style: pw.TextStyle(
+                        fontSize: 6,
+                        color: PdfColors.grey700,
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _buildCompactLayout(
+    Product product,
+    bool showPrice,
+    double displayPrice,
+    ProductImage? photoP,
+    List<MapEntry<String, ProductImage>> detailVariants,
+    List<MapEntry<String, ProductImage>> colorVariants,
+    String sizesText,
+    String topHeaderText,
+    double availableWidth,
+    double availableHeight,
+    NumberFormat currencyFormat, {
+    bool useDenseMode = false,
+  }) {
+    // Determine info 60% / photo 40%
+    final photoWidth = availableWidth * 0.4;
+    // final infoWidth = availableWidth * 0.6; // Not directly used
+
+    return pw.Container(
+      margin: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 18),
+      padding: const pw.EdgeInsets.all(12),
+      decoration: pw.BoxDecoration(
+        color: PdfColors.white,
+        borderRadius: pw.BorderRadius.circular(12),
+        border: pw.Border.all(color: PdfColors.grey200, width: 0.5),
+      ),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: [
+          // Left: Photo
+          pw.Container(
+            width: photoWidth,
+            height: photoWidth * 1.25, // 4:5 aspect ratio
+            child: photoP != null
+                ? _buildImageWidget(
+                    photoP,
+                    height: photoWidth * 1.25,
+                    radius: 8,
+                  )
+                : _buildImagePlaceholder(height: photoWidth * 1.25, radius: 8),
+          ),
+          pw.SizedBox(width: 16),
+          // Right: Info
+          pw.Expanded(
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              mainAxisSize: pw.MainAxisSize.min,
+              children: [
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Expanded(
+                      child: pw.Text(
+                        product.name.toUpperCase(),
+                        maxLines: 1,
+                        overflow: pw.TextOverflow.clip,
+                        style: pw.TextStyle(
+                          fontSize: 14,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    if (product.promoEnabled)
+                      _buildBadge('-${product.promoPercent.toInt()}%'),
+                  ],
+                ),
+                pw.Text(
+                  'REF: ${product.reference}',
+                  style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
+                ),
+                pw.SizedBox(height: 8),
+                if (showPrice)
+                  pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                    children: [
+                      pw.Text(
+                        currencyFormat.format(displayPrice),
+                        style: pw.TextStyle(
+                          fontSize: 18,
+                          fontWeight: pw.FontWeight.bold,
+                          color: _colorPriceGreen,
+                        ),
+                      ),
+                      if (product.promoEnabled) ...[
+                        pw.SizedBox(width: 8),
+                        pw.Text(
+                          currencyFormat.format(
+                            product.priceForMode(CatalogMode.varejo.name) /
+                                (1 - (product.promoPercent / 100)),
+                          ),
+                          style: pw.TextStyle(
+                            fontSize: 10,
+                            color: PdfColors.grey500,
+                            decoration: pw.TextDecoration.lineThrough,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                pw.SizedBox(height: 6),
+                _buildSizePill(sizesText),
+                pw.SizedBox(height: 6),
+                // Colors Thumbnails
+                if (!useDenseMode && colorVariants.isNotEmpty) ...[
+                  pw.SizedBox(height: 8),
+                  pw.Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: colorVariants.take(6).map((v) {
+                      return pw.Column(
+                        mainAxisSize: pw.MainAxisSize.min,
+                        children: [
+                          _buildSwatchThumb(v.key, v.value, width: 28),
+                          pw.SizedBox(height: 2),
+                          pw.Text(
+                            v.key.toUpperCase(),
+                            style: pw.TextStyle(
+                              fontSize: 6,
+                              color: PdfColors.grey700,
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                ],
+                if (!useDenseMode && detailVariants.isNotEmpty) ...[
+                  pw.SizedBox(height: 10),
+                  pw.Row(
+                    children: detailVariants
+                        .take(2)
+                        .map(
+                          (v) => pw.Padding(
+                            padding: const pw.EdgeInsets.only(right: 8),
+                            child: _buildImageWidget(
+                              v.value,
+                              height: 45,
+                              width: 36,
+                              radius: 6,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _buildClassicLayout(
+    Product product,
+    bool showPrice,
+    double displayPrice,
+    ProductImage? photoP,
+    List<MapEntry<String, ProductImage>> detailVariants,
+    List<MapEntry<String, ProductImage>> colorVariants,
+    String sizesText,
+    String topHeaderText,
+    double availableWidth,
+    double availableHeight,
+    NumberFormat currencyFormat, {
+    bool isClean = false,
+    bool showDetails = true,
+  }) {
+    final mainPhotoHeight = availableHeight - 35 - 175 - 15;
+    final radius = isClean ? 14.0 : 0.0;
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 18),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
-          // 1. Top Header
-          if (showHeader)
-            pw.Container(
-              height: topHeaderHeight,
-              alignment: pw.Alignment.centerLeft,
-              child: pw.Text(
-                topHeaderText.toUpperCase(),
-                style: pw.TextStyle(
-                  fontSize: style == CatalogPdfStyle.editorial ? 12 : 11,
-                  letterSpacing: style == CatalogPdfStyle.compact ? 1.4 : 3,
-                  fontWeight: pw.FontWeight.bold,
-                  color: PdfColors.black,
-                ),
+          pw.Container(
+            height: 35,
+            alignment: pw.Alignment.centerLeft,
+            child: pw.Text(
+              topHeaderText.toUpperCase(),
+              style: pw.TextStyle(
+                fontSize: 11,
+                letterSpacing: 3,
+                fontWeight: pw.FontWeight.bold,
+                color: PdfColors.black,
               ),
             ),
-          // 2. Main Photo Section + Details
+          ),
           pw.Container(
             height: mainPhotoHeight,
             width: availableWidth,
             child: pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.stretch,
               children: [
-                // MAIN PHOTO (P)
                 pw.Expanded(
-                  child: heroPath != null
-                      ? _buildMainPhotoBox(
-                          heroPath,
+                  child: photoP != null
+                      ? _buildImageWidget(
+                          photoP,
                           height: mainPhotoHeight,
-                          radius: mainRadius,
+                          radius: radius,
                         )
                       : _buildImagePlaceholder(
                           height: mainPhotoHeight,
                           width: availableWidth,
-                          radius: mainRadius,
+                          radius: radius,
                         ),
                 ),
-                // DETAILS (D1, D2)
-                if (detailVariants.isNotEmpty) ...[
-                  pw.SizedBox(width: 10),
+                if (showDetails && detailVariants.isNotEmpty) ...[
+                  pw.SizedBox(width: 12),
                   pw.Container(
-                    width: detailColumnWidth,
+                    width: 100, // Increased for better visibility
                     child: pw.Column(
                       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      children: detailVariants
-                          .map(
-                            (v) => pw.Expanded(
-                              child: _buildSwatchThumb(
-                                v.key,
-                                v.value,
-                                width: detailColumnWidth,
-                                expand: true,
-                              ),
+                      children: detailVariants.take(3).map((v) {
+                        return pw.Expanded(
+                          child: pw.Container(
+                            margin: const pw.EdgeInsets.only(bottom: 6),
+                            child: _buildSwatchThumb(
+                              v.key,
+                              v.value,
+                              width: 100,
+                              expand: true,
                             ),
-                          )
-                          .toList(),
+                          ),
+                        );
+                      }).toList(),
                     ),
                   ),
                 ],
               ],
             ),
           ),
-          pw.SizedBox(height: spacing),
-          // 3. Bottom Content (Info + Colors)
+          pw.SizedBox(height: 15),
           pw.Container(
-            height: bottomContentHeight,
+            height: 175,
+            padding: isClean ? const pw.EdgeInsets.all(16) : pw.EdgeInsets.zero,
+            decoration: isClean
+                ? pw.BoxDecoration(
+                    color: PdfColors.grey100,
+                    borderRadius: pw.BorderRadius.circular(12),
+                  )
+                : null,
             child: pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                // Info Section
                 pw.Expanded(
-                  flex: infoFlex,
+                  flex: 5,
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
                       pw.Text(
                         product.name.toUpperCase(),
-                        maxLines: nameMaxLines,
+                        maxLines: 2,
                         style: pw.TextStyle(
-                          fontSize: productNameSize,
-                          fontWeight: pw.FontWeight.bold,
+                          fontSize: isClean ? 17 : 15,
+                          fontWeight: isClean
+                              ? pw.FontWeight.normal
+                              : pw.FontWeight.bold,
                           color: PdfColors.black,
-                          lineSpacing: 1.2,
+                          letterSpacing: isClean ? 1.5 : 0.5,
                         ),
                       ),
                       pw.SizedBox(height: 12),
@@ -418,7 +1110,6 @@ class CatalogPdfService {
                         'REF: ${product.reference}',
                         style: pw.TextStyle(
                           fontSize: 11,
-                          fontWeight: pw.FontWeight.normal,
                           color: PdfColors.black,
                           letterSpacing: 0.5,
                         ),
@@ -428,19 +1119,18 @@ class CatalogPdfService {
                         pw.Text(
                           currencyFormat.format(displayPrice),
                           style: pw.TextStyle(
-                            fontSize: priceSize,
+                            fontSize: isClean ? 24 : 22,
                             fontWeight: pw.FontWeight.bold,
-                            color: _colorPriceGreen,
+                            color: isClean ? PdfColors.black : _colorPriceGreen,
                           ),
                         ),
                       ],
                     ],
                   ),
                 ),
-                // Colors Section (C1-C4)
                 if (colorVariants.isNotEmpty)
                   pw.Expanded(
-                    flex: colorFlex,
+                    flex: 5,
                     child: pw.Container(
                       alignment: pw.Alignment.topRight,
                       child: _buildVariantThumbsLayout(colorVariants),
@@ -454,9 +1144,30 @@ class CatalogPdfService {
     );
   }
 
+  static pw.Widget _buildBadge(
+    String text, {
+    PdfColor color = PdfColors.red800,
+  }) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: pw.BoxDecoration(
+        color: color,
+        borderRadius: pw.BorderRadius.circular(4),
+      ),
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(
+          color: PdfColors.white,
+          fontSize: 9,
+          fontWeight: pw.FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
   /// Builds the variant thumb layout based on quantity rules
   static pw.Widget _buildVariantThumbsLayout(
-    List<MapEntry<String, String>> variants,
+    List<MapEntry<String, ProductImage>> variants,
   ) {
     final count = variants.length;
 
@@ -470,19 +1181,19 @@ class CatalogPdfService {
             mainAxisAlignment: pw.MainAxisAlignment.end,
             mainAxisSize: pw.MainAxisSize.min,
             children: [
-              _buildSwatchThumb(variants[0].key, variants[0].value, width: 44),
-              pw.SizedBox(width: 6),
-              _buildSwatchThumb(variants[1].key, variants[1].value, width: 44),
+              _buildSwatchThumb(variants[0].key, variants[0].value, width: 45),
+              pw.SizedBox(width: 8),
+              _buildSwatchThumb(variants[1].key, variants[1].value, width: 45),
             ],
           ),
-          pw.SizedBox(height: 6),
+          pw.SizedBox(height: 8),
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.end,
             mainAxisSize: pw.MainAxisSize.min,
             children: [
-              _buildSwatchThumb(variants[2].key, variants[2].value, width: 44),
-              pw.SizedBox(width: 6),
-              _buildSwatchThumb(variants[3].key, variants[3].value, width: 44),
+              _buildSwatchThumb(variants[2].key, variants[2].value, width: 45),
+              pw.SizedBox(width: 8),
+              _buildSwatchThumb(variants[3].key, variants[3].value, width: 45),
             ],
           ),
         ],
@@ -493,20 +1204,20 @@ class CatalogPdfService {
         mainAxisAlignment: pw.MainAxisAlignment.end,
         mainAxisSize: pw.MainAxisSize.min,
         children: [
-          _buildSwatchThumb(variants[0].key, variants[0].value, width: 85),
+          _buildSwatchThumb(variants[0].key, variants[0].value, width: 65),
           pw.SizedBox(width: 10),
-          _buildSwatchThumb(variants[1].key, variants[1].value, width: 85),
+          _buildSwatchThumb(variants[1].key, variants[1].value, width: 65),
         ],
       );
     } else {
       // Casos 1 ou 3
-      final thumbWidth = (count == 3) ? 42.0 : 85.0;
+      final thumbWidth = (count == 3) ? 45.0 : 65.0;
       return pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.end,
         mainAxisSize: pw.MainAxisSize.min,
         children: variants.asMap().entries.map((entry) {
           return pw.Padding(
-            padding: pw.EdgeInsets.only(left: entry.key == 0 ? 0 : 8),
+            padding: pw.EdgeInsets.only(left: entry.key == 0 ? 0 : 10),
             child: _buildSwatchThumb(
               entry.value.key,
               entry.value.value,
@@ -521,7 +1232,7 @@ class CatalogPdfService {
   /// Helper for a single variant swatch thumb
   static pw.Widget _buildSwatchThumb(
     String label,
-    String path, {
+    ProductImage img, {
     double? width,
     bool small = false,
     bool expand = false,
@@ -539,8 +1250,8 @@ class CatalogPdfService {
       child: pw.ClipRRect(
         horizontalRadius: 10,
         verticalRadius: 10,
-        child: _buildImageBox(
-          path,
+        child: _buildImageWidget(
+          img,
           height: thumbHeight ?? 200, // Large fallback for fit
           width: thumbWidth,
           radius: 10,
@@ -559,7 +1270,7 @@ class CatalogPdfService {
             child: pw.Text(
               label.toUpperCase(),
               style: pw.TextStyle(
-                fontSize: small ? 7 : 8,
+                fontSize: small ? 8 : 9,
                 letterSpacing: 0.5,
                 fontWeight: pw.FontWeight.bold,
                 color: PdfColors.grey800,
@@ -629,62 +1340,24 @@ class CatalogPdfService {
     return list;
   }
 
-  static ProductPhoto? _selectPrimaryPhoto(List<ProductPhoto> photos) {
-    if (photos.isEmpty) return null;
-
-    // 1. Try by photoType 'P'
-    for (final photo in photos) {
-      if (photo.photoType == 'P') return photo;
-    }
-
-    // 2. Try by isPrimary flag
-    for (final photo in photos) {
-      if (photo.isPrimary) return photo;
-    }
-
-    // 3. Fallback to any photo with colorKey (to avoid semi-empty thumbnails if possible)
-    for (final photo in photos) {
-      final key = photo.colorKey?.trim();
-      if (key != null && key.isNotEmpty) return photo;
-    }
-
-    return photos.first;
+  static List<ProductImage> _extractLoosePhotos(Product product) {
+    return product.images;
   }
 
-  static List<String> _extractLoosePhotoPaths(Product product) {
-    final result = <String>[];
-    final seen = <String>{};
-
-    for (final photo in product.photos) {
-      final path = photo.path.trim();
-      if (path.isNotEmpty && seen.add(path)) {
-        result.add(path);
-      }
-    }
-    for (final path in product.images) {
-      final value = path.trim();
-      if (value.isNotEmpty && seen.add(value)) {
-        result.add(value);
-      }
-    }
-
-    return result;
-  }
-
-  static String _resolveColorLabel(ProductPhoto photo) {
-    final explicit = photo.colorKey?.trim();
+  static String _resolveColorLabel(ProductImage img) {
+    final explicit = img.colorTag?.trim();
     if (explicit != null && explicit.isNotEmpty) {
       return explicit;
     }
 
-    final fromPath = _extractColorFromPath(photo.path);
+    final fromPath = _extractColorFromPath(img.uri);
     if (fromPath != null && fromPath.isNotEmpty) {
       return fromPath;
     }
 
-    final type = photo.photoType?.trim();
-    if (type != null && type.isNotEmpty) {
-      return type;
+    final label = img.label?.trim();
+    if (label != null && label.isNotEmpty) {
+      return label;
     }
     return 'COR';
   }
@@ -732,41 +1405,34 @@ class CatalogPdfService {
     return parts.join(' ').toUpperCase();
   }
 
-  static pw.Widget _buildImageBox(
-    String path, {
+  static String _resolveColorLabelLegacy(String path) {
+    final fromPath = _extractColorFromPath(path);
+    if (fromPath != null && fromPath.isNotEmpty) {
+      return fromPath;
+    }
+    return 'COR';
+  }
+
+  /// Remove prefixo "C1", "C2", "C3", "C4" do label de cor.
+  /// Ex: "C1 Azul" -> "Azul", "C2 ROSA" -> "ROSA", "Preto" -> "Preto"
+  static String _stripColorPrefix(String label) {
+    return label
+        .replaceFirst(RegExp(r'^C[1-4]\s+', caseSensitive: false), '')
+        .trim();
+  }
+
+  static pw.Widget _buildImageWidget(
+    ProductImage img, {
     required double height,
     double? width,
     double radius = 0,
   }) {
     try {
-      if (path.startsWith('data:')) {
-        final commaIndex = path.indexOf(',');
-        if (commaIndex != -1) {
-          final base64Data = path.substring(commaIndex + 1);
-          final bytes = base64Decode(base64Data);
-          final image = pw.MemoryImage(bytes);
-          return pw.Container(
-            height: height,
-            width: width,
-            alignment: pw.Alignment.centerLeft,
-            decoration: pw.BoxDecoration(
-              color: _colorImageBg,
-              borderRadius: pw.BorderRadius.circular(radius),
-            ),
-            child: pw.ClipRRect(
-              horizontalRadius: radius,
-              verticalRadius: radius,
-              child: pw.FittedBox(
-                fit: pw.BoxFit.contain,
-                child: pw.Image(image),
-              ),
-            ),
-          );
-        }
-      }
-      final file = File(path);
-      if (file.existsSync()) {
-        final image = pw.MemoryImage(file.readAsBytesSync());
+      // Todas as imagens já foram pré-carregadas em _imageCache
+      final bytes = _imageCache[img.uri];
+
+      if (bytes != null) {
+        final image = pw.MemoryImage(bytes);
         return pw.Container(
           height: height,
           width: width,
@@ -782,19 +1448,21 @@ class CatalogPdfService {
           ),
         );
       }
-    } catch (_) {
-      // Ignora erro de imagem
+    } catch (e) {
+      print('Falha ao processar imagem no PDF: ${img.uri} - $e');
     }
     return _buildImagePlaceholder(height: height, width: width, radius: radius);
   }
 
-  static pw.Widget _buildMainPhotoBox(
+  static pw.Widget _buildImageBox(
     String path, {
-    double? width,
     required double height,
+    double? width,
     double radius = 0,
   }) {
-    return _buildImageBox(path, height: height, width: width, radius: radius);
+    // Legacy support for cover images which might be paths
+    final img = ProductImage.local(path: path);
+    return _buildImageWidget(img, height: height, width: width, radius: radius);
   }
 
   static pw.Widget _buildImagePlaceholder({
@@ -807,10 +1475,23 @@ class CatalogPdfService {
       width: width,
       alignment: pw.Alignment.center,
       decoration: pw.BoxDecoration(
-        color: _colorImageBg,
+        color: PdfColor(0.9, 0.9, 0.9), // Cinza claro
         borderRadius: pw.BorderRadius.circular(radius),
+        border: pw.Border.all(color: PdfColors.grey300, width: 1),
       ),
-      child: pw.Text('Sem Foto', style: pw.TextStyle(color: _colorMuted)),
+      child: pw.Column(
+        mainAxisAlignment: pw.MainAxisAlignment.center,
+        children: [
+          pw.Text(
+            'Imagem',
+            style: pw.TextStyle(color: _colorMuted, fontSize: 8),
+          ),
+          pw.Text(
+            'indisponível',
+            style: pw.TextStyle(color: _colorMuted, fontSize: 8),
+          ),
+        ],
+      ),
     );
   }
 

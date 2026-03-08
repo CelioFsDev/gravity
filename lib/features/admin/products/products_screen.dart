@@ -18,6 +18,8 @@ import 'package:catalogo_ja/ui/widgets/app_search_field.dart';
 import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
 import 'package:catalogo_ja/ui/widgets/app_product_list_tile.dart';
 import 'package:uuid/uuid.dart';
+import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
+import 'package:catalogo_ja/core/auth/user_role.dart';
 
 class ProductsScreen extends ConsumerStatefulWidget {
   const ProductsScreen({super.key});
@@ -49,12 +51,17 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       title: 'Produtos',
       subtitle: 'Gerencie seu cat\u00e1logo de produtos',
       useAppBar: false,
-      actions: [_buildMoreActions(context)],
+      actions: [
+        if (ref.watch(currentRoleProvider).canManageRegistrations)
+          _buildMoreActions(context),
+      ],
       body: Column(
         children: [
           _buildBulkActionsBar(context),
           Expanded(
-            child: state.when(
+            child: state.whenStandard(
+              onRetry: () =>
+                  ref.read(productsViewModelProvider.notifier).refresh(),
               data: (data) => _ProductsContent(
                 state: data,
                 searchController: _searchController,
@@ -62,7 +69,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     .read(productsViewModelProvider.notifier)
                     .setSearchQuery(value),
                 onClearFilters: () => _clearFilters(data),
-
                 onSelectCategory: (value) => ref
                     .read(productsViewModelProvider.notifier)
                     .setCategoryFilter(value),
@@ -74,25 +80,27 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     .setSortOption(value),
                 onNewProduct: () => _openNewProduct(context),
                 onViewProduct: (product) => _openDetails(context, product),
-                onEditProduct: (product) => _openEdit(context, product),
-                onDeleteProduct: (product) => _deleteProduct(product),
-                onDuplicateProduct: (product) => _duplicateProduct(product),
-                onTogglePromo: (product) => _togglePromo(product),
+                onEditProduct:
+                    ref.watch(currentRoleProvider).canManageRegistrations
+                    ? (product) => _openEdit(context, product)
+                    : null,
+                onDeleteProduct: ref.watch(currentRoleProvider).canDeleteProduct
+                    ? (product) => _deleteProduct(product)
+                    : null,
+                onDuplicateProduct:
+                    ref.watch(currentRoleProvider).canManageRegistrations
+                    ? (product) => _duplicateProduct(product)
+                    : null,
+                onTogglePromo:
+                    ref.watch(currentRoleProvider).canManageRegistrations
+                    ? (product) => _togglePromo(product)
+                    : null,
                 onRefresh: () async =>
                     ref.read(productsViewModelProvider.notifier).refresh(),
                 onToggleSelection: (id) => ref
                     .read(productsViewModelProvider.notifier)
                     .toggleSelection(id),
               ),
-              error: (e, s) => AppEmptyState(
-                icon: Icons.error_outline,
-                title: 'Erro ao carregar',
-                message: e.toString(),
-                actionLabel: 'Tentar novamente',
-                onAction: () =>
-                    ref.read(productsViewModelProvider.notifier).refresh(),
-              ),
-              loading: () => const Center(child: CircularProgressIndicator()),
             ),
           ),
           state.maybeWhen(
@@ -112,6 +120,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
     final count = state.selectedProductIds.length;
     final notifier = ref.read(productsViewModelProvider.notifier);
+    final role = ref.watch(currentRoleProvider);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -123,11 +132,12 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            onPressed: () => _confirmBulkDelete(context),
-            tooltip: 'Excluir selecionados',
-          ),
+          if (role.canDeleteProduct)
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              onPressed: () => _confirmBulkDelete(context),
+              tooltip: 'Excluir selecionados',
+            ),
           IconButton(
             icon: const Icon(Icons.category_outlined),
             onPressed: () => _showBulkCategoryDialog(context),
@@ -225,31 +235,33 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       ),
       child: SafeArea(
         top: false,
-        child: Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => _openImport(context),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                icon: const Icon(Icons.cloud_download_outlined, size: 18),
-                label: const Text('Importar'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: () => _openNewProduct(context),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Novo Produto'),
-              ),
-            ),
-          ],
-        ),
+        child: ref.watch(currentRoleProvider).canManageRegistrations
+            ? Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _openImport(context),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      icon: const Icon(Icons.cloud_download_outlined, size: 18),
+                      label: const Text('Importar'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _openNewProduct(context),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Novo Produto'),
+                    ),
+                  ),
+                ],
+              )
+            : const SizedBox.shrink(),
       ),
     );
   }
@@ -595,7 +607,8 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                       ),
                     ),
                   ],
-                  if (importState.isDone && importState.linkReport.isNotEmpty) ...[
+                  if (importState.isDone &&
+                      importState.linkReport.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Text(
                       'Relatório: ${importState.imagesMatchedCount}/${importState.imagesTotalCount} vinculadas',
@@ -609,9 +622,8 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                       alignment: Alignment.centerLeft,
                       child: Text(
                         'Não vinculadas (${failures.length})',
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -772,10 +784,10 @@ class _ProductsContent extends StatelessWidget {
   final ValueChanged<ProductSort> onSelectSort;
   final VoidCallback onNewProduct;
   final ValueChanged<Product> onViewProduct;
-  final ValueChanged<Product> onEditProduct;
-  final ValueChanged<Product> onDeleteProduct;
-  final ValueChanged<Product> onDuplicateProduct;
-  final ValueChanged<Product> onTogglePromo;
+  final ValueChanged<Product>? onEditProduct;
+  final ValueChanged<Product>? onDeleteProduct;
+  final ValueChanged<Product>? onDuplicateProduct;
+  final ValueChanged<Product>? onTogglePromo;
   final RefreshCallback onRefresh;
   final ValueChanged<String> onToggleSelection;
 
@@ -790,10 +802,10 @@ class _ProductsContent extends StatelessWidget {
     required this.onSelectSort,
     required this.onNewProduct,
     required this.onViewProduct,
-    required this.onEditProduct,
-    required this.onDeleteProduct,
-    required this.onDuplicateProduct,
-    required this.onTogglePromo,
+    this.onEditProduct,
+    this.onDeleteProduct,
+    this.onDuplicateProduct,
+    this.onTogglePromo,
     required this.onRefresh,
     required this.onToggleSelection,
   });
@@ -1207,10 +1219,10 @@ class _ProductsListSection extends StatelessWidget {
   final List<Category> categories;
   final VoidCallback onNewProduct;
   final ValueChanged<Product> onViewProduct;
-  final ValueChanged<Product> onEditProduct;
-  final ValueChanged<Product> onDeleteProduct;
-  final ValueChanged<Product> onDuplicateProduct;
-  final ValueChanged<Product> onTogglePromo;
+  final ValueChanged<Product>? onEditProduct;
+  final ValueChanged<Product>? onDeleteProduct;
+  final ValueChanged<Product>? onDuplicateProduct;
+  final ValueChanged<Product>? onTogglePromo;
   final Set<String> selectedIds;
   final ValueChanged<String> onToggleSelection;
 
@@ -1219,10 +1231,10 @@ class _ProductsListSection extends StatelessWidget {
     required this.categories,
     required this.onNewProduct,
     required this.onViewProduct,
-    required this.onEditProduct,
-    required this.onDeleteProduct,
-    required this.onDuplicateProduct,
-    required this.onTogglePromo,
+    this.onEditProduct,
+    this.onDeleteProduct,
+    this.onDuplicateProduct,
+    this.onTogglePromo,
     required this.selectedIds,
     required this.onToggleSelection,
   });
@@ -1257,10 +1269,16 @@ class _ProductsListSection extends StatelessWidget {
               onViewProduct(product);
             }
           },
-          onEdit: () => onEditProduct(product),
-          onDelete: () => onDeleteProduct(product),
-          onDuplicate: () => onDuplicateProduct(product),
-          onTogglePromo: () => onTogglePromo(product),
+          onEdit: onEditProduct != null ? () => onEditProduct!(product) : null,
+          onDelete: onDeleteProduct != null
+              ? () => onDeleteProduct!(product)
+              : null,
+          onDuplicate: onDuplicateProduct != null
+              ? () => onDuplicateProduct!(product)
+              : null,
+          onTogglePromo: onTogglePromo != null
+              ? () => onTogglePromo!(product)
+              : null,
         );
       },
     );

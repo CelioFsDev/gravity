@@ -9,6 +9,7 @@ import 'package:catalogo_ja/data/repositories/contracts/products_repository_cont
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/product_variant.dart';
+import 'package:catalogo_ja/models/product_image.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:catalogo_ja/core/services/image_cache_service.dart';
 import 'package:catalogo_ja/core/utils/encoding_utils.dart';
@@ -210,11 +211,11 @@ class NuvemshopImportService {
           minWholesaleQty: 1,
           sizes: productSizes,
           colors: productColors,
-          images: await _downloadImagesIfNecessary(
+          images: (await _downloadImagesIfNecessary(
             remoteImages,
             productLabel: name.isNotEmpty ? name : slug,
             onStatus: onStatus,
-          ),
+          )).map((path) => ProductImage.local(path: path)).toList(),
           mainImageIndex: 0,
           isActive: true,
           isOutOfStock: false,
@@ -243,11 +244,11 @@ class NuvemshopImportService {
           sizes: productSizes.isNotEmpty ? productSizes : existing.sizes,
           colors: productColors.isNotEmpty ? productColors : existing.colors,
           images: (existing.images.isEmpty)
-              ? await _downloadImagesIfNecessary(
+              ? (await _downloadImagesIfNecessary(
                   remoteImages,
                   productLabel: name.isNotEmpty ? name : slug,
                   onStatus: onStatus,
-                )
+                )).map((path) => ProductImage.local(path: path)).toList()
               : existing.images,
           promoEnabled: promoEnabled,
           promoPercent: promoPercent,

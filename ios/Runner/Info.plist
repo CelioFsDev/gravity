@@ -49,5 +49,11 @@
 	<array>
 		<string>whatsapp</string>
 	</array>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Precisamos de acesso para que você possa selecionar fotos dos produtos para o catálogo.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Precisamos de acesso para que você possa tirar fotos dos produtos diretamente pelo aplicativo.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Este aplicativo não utiliza o microfone, mas a biblioteca de câmera exige esta permissão.</string>
 </dict>
 </plist>

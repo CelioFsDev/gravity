@@ -1,4 +1,8 @@
+import 'package:catalogo_ja/features/admin/users/create_email_password_user_screen.dart';
+import 'package:catalogo_ja/features/auth/register_screen.dart';
+import 'package:catalogo_ja/features/admin/profile/profile_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +14,7 @@ import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/models/settings.dart';
 import 'package:catalogo_ja/models/product_variant.dart';
+import 'package:catalogo_ja/models/product_image.dart';
 import 'package:catalogo_ja/features/admin/admin_shell_screen.dart';
 import 'package:catalogo_ja/features/admin/products/products_screen.dart';
 import 'package:catalogo_ja/features/admin/categories/categories_screen.dart';
@@ -18,14 +23,35 @@ import 'package:catalogo_ja/features/admin/collections/collection_form_screen.da
 import 'package:catalogo_ja/features/admin/catalogs/catalogs_screen.dart';
 import 'package:catalogo_ja/features/admin/import/nuvemshop_import_screen.dart';
 import 'package:catalogo_ja/features/admin/settings/settings_screen.dart';
+import 'package:catalogo_ja/features/admin/users/user_management_screen.dart';
 import 'package:catalogo_ja/features/theme/theme_providers.dart';
 import 'package:catalogo_ja/features/public/catalog_home_page.dart';
 import 'package:catalogo_ja/features/public/product_detail_screen.dart';
 import 'package:catalogo_ja/ui/theme/app_theme.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/features/auth/login_screen.dart';
+import 'package:catalogo_ja/features/splash/splash_screen.dart';
+import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
+import 'package:catalogo_ja/core/auth/user_role.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart' hide Category;
+
+/// Provider that checks if the user is disabled, manually defined to avoid build issues.
+final currentUserStatusProvider = StreamProvider<bool>((ref) {
+  final user = ref.watch(authViewModelProvider).valueOrNull;
+  if (user == null || user.email == null) return Stream.value(false);
+  final email = user.email!.trim().toLowerCase();
+  return FirebaseFirestore.instance
+      .collection('users')
+      .doc(email)
+      .snapshots()
+      .map((doc) => doc.data()?['disabled'] as bool? ?? false);
+});
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
   // Initialize Hive
   await Hive.initFlutter();
@@ -37,6 +63,8 @@ void main() async {
   Hive.registerAdapter(CategoryAdapter());
   Hive.registerAdapter(ProductVariantAdapter());
   Hive.registerAdapter(ProductPhotoAdapter());
+  Hive.registerAdapter(ProductImageSourceAdapter());
+  Hive.registerAdapter(ProductImageAdapter());
   Hive.registerAdapter(AppSettingsAdapter());
   Hive.registerAdapter(ProductAdapter());
   Hive.registerAdapter(CatalogBannerAdapter());
@@ -63,17 +91,26 @@ void main() async {
         options: DefaultFirebaseOptions.currentPlatform,
       );
     }
-  } on FirebaseException catch (e) {
-    if (e.code == 'duplicate-app') {
-      debugPrint('Firebase initialized (recovered from duplicate-app error)');
-    } else {
-      debugPrint('Firebase init failed (Offline Mode Active): $e');
-    }
   } catch (e) {
-    debugPrint('Firebase init failed (Offline Mode Active): $e');
+    debugPrint('Firebase initialization warning: $e');
+  }
+
+  // Configuração do Crashlytics
+  if (!kIsWeb) {
+    FlutterError.onError = (errorDetails) {
+      FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
+    };
+    // Pass ALL errors to Crashlytics
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
   }
 
   runApp(const ProviderScope(child: MyApp()));
+
+  // Remove a splash nativa logo que o app está pronto
+  FlutterNativeSplash.remove();
 }
 
 class MyApp extends ConsumerStatefulWidget {
@@ -85,19 +122,69 @@ class MyApp extends ConsumerStatefulWidget {
 
 class _MyAppState extends ConsumerState<MyApp> {
   late final GoRouter _router;
+  late final _RouterRefreshNotifier _routerRefreshNotifier;
 
   @override
   void initState() {
     super.initState();
+    _routerRefreshNotifier = _RouterRefreshNotifier(ref);
     _router = GoRouter(
-      initialLocation: '/admin/products',
+      initialLocation: '/splash',
+      refreshListenable: _routerRefreshNotifier,
+      redirect: (context, state) {
+        final authState = ref.read(authViewModelProvider);
+        final user = authState.valueOrNull;
+
+        // Forced status check (manual provider call to avoid generator lag)
+        final isDisabled =
+            ref.read(currentUserStatusProvider).valueOrNull ?? false;
+
+        if (isDisabled && user != null) {
+          ref.read(authViewModelProvider.notifier).signOut();
+          return '/login';
+        }
+
+        final isAuthRoute =
+            state.matchedLocation == '/login' ||
+            state.matchedLocation == '/register';
+        final isSplash = state.matchedLocation == '/splash';
+        final isPublicArea =
+            state.matchedLocation == '/' ||
+            state.matchedLocation == '/register' ||
+            state.matchedLocation.startsWith('/c/') ||
+            state.matchedLocation.startsWith('/p/');
+
+        if (isPublicArea || isSplash) return null;
+
+        if (user == null) {
+          return isAuthRoute ? null : '/login';
+        }
+
+        if (isAuthRoute) {
+          return '/admin/products';
+        }
+
+        return null;
+      },
       routes: [
+        GoRoute(
+          path: '/splash',
+          builder: (context, state) => const SplashScreen(),
+        ),
+        GoRoute(
+          path: '/login',
+          builder: (context, state) => const LoginScreen(),
+        ),
+        GoRoute(
+          path: '/register',
+          builder: (context, state) => const PublicRegisterScreen(),
+        ),
         GoRoute(
           path: '/',
           builder: (context, state) => const PublicHomeScreen(),
         ),
         GoRoute(
-          path: 'p/:productId',
+          path: '/p/:productId',
           builder: (context, state) {
             final productId = state.pathParameters['productId']!;
             final extra = state.extra as Map<String, dynamic>?;
@@ -109,7 +196,6 @@ class _MyAppState extends ConsumerState<MyApp> {
               );
             }
 
-            // Deep link support: Fallback to loading screen that fetches the product
             return Scaffold(
               appBar: AppBar(),
               body: Center(child: Text('Carregando produto $productId...')),
@@ -183,6 +269,45 @@ class _MyAppState extends ConsumerState<MyApp> {
                 GoRoute(
                   path: '/admin/settings',
                   builder: (context, state) => const SettingsScreen(),
+                  routes: [
+                    GoRoute(
+                      path: 'profile',
+                      builder: (context, state) => const ProfileScreen(),
+                    ),
+                    GoRoute(
+                      path: 'users',
+                      builder: (context, state) => const UserManagementScreen(),
+                      redirect: (context, state) {
+                        final role = ref.read(currentRoleProvider);
+                        final email = ref
+                            .read(authViewModelProvider)
+                            .valueOrNull
+                            ?.email;
+                        if (!role.canManageUsers(email)) {
+                          return '/admin/settings';
+                        }
+                        return null;
+                      },
+                      routes: [
+                        GoRoute(
+                          path: 'create-login',
+                          builder: (context, state) =>
+                              const CreateEmailPasswordUserScreen(),
+                          redirect: (context, state) {
+                            final role = ref.read(currentRoleProvider);
+                            final email = ref
+                                .read(authViewModelProvider)
+                                .valueOrNull
+                                ?.email;
+                            if (!role.canManageUsers(email)) {
+                              return '/admin/settings';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -195,6 +320,7 @@ class _MyAppState extends ConsumerState<MyApp> {
   @override
   void dispose() {
     _router.dispose();
+    _routerRefreshNotifier.dispose();
     super.dispose();
   }
 
@@ -215,7 +341,7 @@ class _MyAppState extends ConsumerState<MyApp> {
               systemNavigationBarIconBrightness: Brightness.dark,
             ),
       child: MaterialApp.router(
-        title: 'CatalogoJa',
+        title: 'Catálogo Já',
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
         themeMode: mode,
@@ -288,8 +414,20 @@ class _PublicHomeScreenState extends ConsumerState<PublicHomeScreen> {
                       width: double.infinity,
                       child: FilledButton(
                         onPressed: _openCatalog,
-                        child: const Text('Abrir cat\u00e1logo'),
+                        child: const Text('Abrir catálogo'),
                       ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Divider(height: 1),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => context.push('/login'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Theme.of(context).colorScheme.primary,
+                      ),
+                      icon: const Icon(Icons.admin_panel_settings_outlined),
+                      label: const Text('ACESSO ADMINISTRATIVO'),
                     ),
                   ],
                 ),
@@ -299,5 +437,22 @@ class _PublicHomeScreenState extends ConsumerState<PublicHomeScreen> {
         ),
       ),
     );
+  }
+}
+
+class _RouterRefreshNotifier extends ChangeNotifier {
+  _RouterRefreshNotifier(WidgetRef ref) {
+    _subscription = ref.listenManual(
+      authViewModelProvider,
+      (_, _) => notifyListeners(),
+    );
+  }
+
+  late final ProviderSubscription<AsyncValue<dynamic>> _subscription;
+
+  @override
+  void dispose() {
+    _subscription.close();
+    super.dispose();
   }
 }

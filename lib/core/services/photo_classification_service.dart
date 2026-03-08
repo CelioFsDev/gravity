@@ -48,38 +48,47 @@ class PhotoClassificationService extends _$PhotoClassificationService {
     // 1. Missing Primary
     final hasPrimary = photos.any((p) => p.photoType == typePrimary);
     if (!hasPrimary) {
-      issues.add(PhotoValidationIssue(
-        message: 'Foto Principal (P) n\u00e3o encontrada.',
-        isCritical: true,
-        photoType: typePrimary,
-      ));
+      issues.add(
+        PhotoValidationIssue(
+          message: 'Foto Principal (P) n\u00e3o encontrada.',
+          isCritical: true,
+          photoType: typePrimary,
+        ),
+      );
     }
 
     // 2. Missing Details (Optional)
     final hasD1 = photos.any((p) => p.photoType == typeDetail1);
     if (!hasD1) {
-      issues.add(PhotoValidationIssue(
-        message: 'Foto Detalhe 1 (D1) n\u00e3o encontrada.',
-        photoType: typeDetail1,
-      ));
+      issues.add(
+        PhotoValidationIssue(
+          message: 'Foto Detalhe 1 (D1) n\u00e3o encontrada.',
+          photoType: typeDetail1,
+        ),
+      );
     }
 
     final hasD2 = photos.any((p) => p.photoType == typeDetail2);
     if (!hasD2) {
-      issues.add(PhotoValidationIssue(
-        message: 'Foto Detalhe 2 (D2) n\u00e3o encontrada.',
-        photoType: typeDetail2,
-      ));
+      issues.add(
+        PhotoValidationIssue(
+          message: 'Foto Detalhe 2 (D2) n\u00e3o encontrada.',
+          photoType: typeDetail2,
+        ),
+      );
     }
 
     // 3. Unidentified Colors
     for (final photo in photos) {
       if (photo.photoType != null && photo.photoType!.startsWith('C')) {
         if (photo.colorKey == null || photo.colorKey!.trim().isEmpty) {
-          issues.add(PhotoValidationIssue(
-            message: 'Foto de cor (${photo.photoType}) sem identificacao de nome.',
-            photoType: photo.photoType,
-          ));
+          issues.add(
+            PhotoValidationIssue(
+              message:
+                  'Foto de cor (${photo.photoType}) sem identificacao de nome.',
+              photoType: photo.photoType,
+            ),
+          );
         }
       }
     }
@@ -121,6 +130,8 @@ class PhotoClassificationService extends _$PhotoClassificationService {
     String? colorName;
 
     final first = tokens.first;
+    final colorPrefixMatch = RegExp(r'^c([1-4])$').firstMatch(first);
+
     if (first == 'p' || first == 'principal') {
       photoType = typePrimary;
     } else if (first == 'd1' ||
@@ -131,6 +142,12 @@ class PhotoClassificationService extends _$PhotoClassificationService {
         first == 'detalhe2' ||
         (first == 'detalhe' && tokens.length > 1 && tokens[1] == '2')) {
       photoType = typeDetail2;
+    } else if (colorPrefixMatch != null) {
+      photoType = 'C${colorPrefixMatch.group(1)}';
+      tokens = tokens.skip(1).toList();
+      if (tokens.isNotEmpty) {
+        colorName = normalizeColor(tokens.join('_'));
+      }
     } else {
       photoType = typeColor;
       if (first == 'cor') {
@@ -165,16 +182,19 @@ class PhotoClassificationService extends _$PhotoClassificationService {
     return normalized;
   }
 
-  String buildInternalName(String ref, String photoType, String? colorName, String extension) {
+  String buildInternalName(
+    String ref,
+    String photoType,
+    String? colorName,
+    String extension,
+  ) {
     // {REF}__P.jpg
-    // {REF}__C{N}__{COR}.jpg
-    // Note: {N} needs to be determined by the context (existing photos), 
-    // but the pattern provided in requirements is {REF}__C{N}__{COR}.jpg
-    // For now, let's use a placeholder for {N} or return the base pattern.
-    // The requirement 4.1 says: {REF}__C{N}__{COR}.jpg
-    
-    if (photoType == typeColor) {
-      return '${ref}__C{N}__$colorName.$extension';
+    // {REF}__C1__PRETO.jpg
+    if (photoType.startsWith('C')) {
+      final suffix = colorName != null ? '__$colorName' : '';
+      // Garante que se o tipo for apenas 'C', usamos o placeholder {N} para ser preenchido pela organização
+      final typeStr = photoType == 'C' ? 'C{N}' : photoType;
+      return '${ref}__$typeStr$suffix.$extension';
     } else {
       return '${ref}__$photoType.$extension';
     }
@@ -182,37 +202,46 @@ class PhotoClassificationService extends _$PhotoClassificationService {
 
   /// Reorganizes colors to ensure PRETO is C1, and others are C2-C4.
   /// Max 4 colors.
-  List<ProductPhoto> organizeColors(List<ProductPhoto> existingPhotos, ProductPhoto newPhoto) {
-    if (newPhoto.photoType != typeColor) return existingPhotos;
+  List<ProductPhoto> organizeColors(
+    List<ProductPhoto> existingPhotos,
+    ProductPhoto newPhoto,
+  ) {
+    final newType = newPhoto.photoType ?? '';
+    if (!newType.startsWith('C')) return existingPhotos;
 
-    final colorPhotos = existingPhotos.where((p) => p.photoType != null && p.photoType!.startsWith('C')).toList();
-    final nonColorPhotos = existingPhotos.where((p) => p.photoType == null || !p.photoType!.startsWith('C')).toList();
+    final colorPhotos = existingPhotos
+        .where((p) => p.photoType != null && p.photoType!.startsWith('C'))
+        .toList();
+    final nonColorPhotos = existingPhotos
+        .where((p) => p.photoType == null || !p.photoType!.startsWith('C'))
+        .toList();
 
-    // Check if color already exists (by name)
+    // Check if color already exists (by name or same Cx slot)
     final newColorName = _getColorNameFromPath(newPhoto.path);
-    final existingColorIdx = colorPhotos.indexWhere((p) => _getColorNameFromPath(p.path) == newColorName);
+    final existingColorIdx = colorPhotos.indexWhere((p) {
+      if (newColorName.isNotEmpty &&
+          _getColorNameFromPath(p.path) == newColorName) {
+        return true;
+      }
+      // Se tivermos um slot explícito no arquivo original (ex: C1) e o novo também for C1, substitui
+      return newType != 'C' && p.photoType == newType;
+    });
 
     if (existingColorIdx != -1) {
       colorPhotos[existingColorIdx] = newPhoto;
     } else {
       if (colorPhotos.length >= 4) {
-        // Limit reached, but we might be replacing one if PRETO comes in?
-        // Actually 7.3 says: Se já existir C1..C4 completos: bloquear a 5ª cor.
-        // But 3.2 says if PRETO comes after, reorganize.
-        // Let's check if new is PRETO.
-        if (newColorName == 'PRETO') {
-          // If PRETO enters and we have 4, we must replace or block?
-          // "Se já existir C1..C4 completos: bloquear a 5ª cor"
-          // This implies if we have 4 DIFFERENT colors, the 5th is blocked.
-          // If PRETO is one of the 4, it will just replace or stay at C1.
-          return existingPhotos; // Should be handled by caller to block.
+        // Se já temos 4 e a nova cor não é PRETO para forçar entrada, bloqueia
+        if (newColorName != 'PRETO') {
+          return existingPhotos;
         }
-        return existingPhotos;
+        // Se for PRETO, vamos substituir a última cor para manter o limite de 4
+        colorPhotos.removeLast();
       }
       colorPhotos.add(newPhoto);
     }
 
-    // Sort: PRETO first, then others alphabetically.
+    // Sort: PRETO first, then others alphabetically by color name.
     colorPhotos.sort((a, b) {
       final nameA = _getColorNameFromPath(a.path);
       final nameB = _getColorNameFromPath(b.path);
@@ -221,16 +250,14 @@ class PhotoClassificationService extends _$PhotoClassificationService {
       return nameA.compareTo(nameB);
     });
 
-    // Re-assign C1-C4
+    // Re-assign C1-C4 only if they don't have explicit types or to normalize
     final organizedColors = colorPhotos.asMap().entries.map((entry) {
       final idx = entry.key + 1;
       final photo = entry.value;
       final type = 'C$idx';
-      final newPath = _updatePathWithCorrectC(photo.path, type);
-      return photo.copyWith(
-        photoType: type,
-        path: newPath,
-      );
+      // Atualiza o colorKey se estiver vazio usando o nome do arquivo
+      final colorKey = photo.colorKey ?? _getColorNameFromPath(photo.path);
+      return photo.copyWith(photoType: type, colorKey: colorKey);
     }).toList();
 
     return [...nonColorPhotos, ...organizedColors];
@@ -241,21 +268,12 @@ class PhotoClassificationService extends _$PhotoClassificationService {
     final fileName = p.basename(path);
     final parts = fileName.split('__');
     if (parts.length >= 3) {
-      final lastPart = parts.last; // PRETO.jpg
-      return lastPart.split('.').first;
+      final lastPart = parts.last; // PRETO.jpg ou C1 VERMELHO.jpg
+      String name = lastPart.split('.').first;
+      // Limpa prefixos legados como "C1 " se existirem no nome da cor
+      name = name.replaceFirst(RegExp(r'^C[1-4]\s+'), '');
+      return name;
     }
     return '';
-  }
-
-  String _updatePathWithCorrectC(String path, String newType) {
-    // 106603__C2__ROSA.jpg -> 106603__C1__ROSA.jpg
-    final directory = p.dirname(path);
-    final fileName = p.basename(path);
-    final parts = fileName.split('__');
-    if (parts.length >= 3) {
-      parts[1] = newType;
-      return p.join(directory, parts.join('__'));
-    }
-    return path;
   }
 }

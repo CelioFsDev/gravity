@@ -273,10 +273,10 @@ class _ProductSelectTile extends StatelessWidget {
     if (product.images.isNotEmpty) {
       final idx = product.mainImageIndex;
       if (idx >= 0 && idx < product.images.length) {
-        final path = product.images[idx].trim();
+        final path = product.images[idx].uri.trim();
         if (path.isNotEmpty) return path;
       }
-      final fallback = product.images.first.trim();
+      final fallback = product.images.first.uri.trim();
       if (fallback.isNotEmpty) return fallback;
     }
     return null;

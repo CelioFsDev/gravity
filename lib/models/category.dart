@@ -16,7 +16,7 @@ enum CollectionCoverMode {
 @HiveType(typeId: 10)
 class CollectionCover {
   static const String defaultTitle = 'CAT\u00c1LOGO';
-  static const String defaultBrand = 'VITORIANA';
+  static const String defaultBrand = '2026';
 
   @HiveField(0)
   final CollectionCoverMode mode;

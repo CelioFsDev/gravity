@@ -1,5 +1,6 @@
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/models/product_image.dart';
 
 class CatalogoJaExportPayload {
   final String app;
@@ -232,25 +233,48 @@ class ProductPhotoDTO {
   final String path;
   final String? colorKey;
   final bool isPrimary;
+  final String? photoType;
 
-  ProductPhotoDTO({required this.path, this.colorKey, this.isPrimary = false});
+  ProductPhotoDTO({
+    required this.path,
+    this.colorKey,
+    this.isPrimary = false,
+    this.photoType,
+  });
 
   factory ProductPhotoDTO.fromModel(ProductPhoto photo) {
     return ProductPhotoDTO(
       path: photo.path,
       colorKey: photo.colorKey,
       isPrimary: photo.isPrimary,
+      photoType: photo.photoType,
     );
   }
 
   ProductPhoto toModel() {
-    return ProductPhoto(path: path, colorKey: colorKey, isPrimary: isPrimary);
+    return ProductPhoto(
+      path: path,
+      colorKey: colorKey,
+      isPrimary: isPrimary,
+      photoType: photoType,
+    );
+  }
+
+  ProductImage toProductImage() {
+    return ProductImage(
+      id: '', // Blank or generate
+      sourceType: ProductImageSource.localPath,
+      uri: path,
+      label: photoType,
+      colorTag: colorKey,
+    );
   }
 
   Map<String, dynamic> toJson() => {
     'path': path,
     'colorKey': colorKey,
     'isPrimary': isPrimary,
+    'photoType': photoType,
   };
 
   factory ProductPhotoDTO.fromJson(Map<String, dynamic> json) {
@@ -258,6 +282,70 @@ class ProductPhotoDTO {
       path: json['path'] ?? '',
       colorKey: json['colorKey'],
       isPrimary: json['isPrimary'] ?? false,
+      photoType: json['photoType'],
+    );
+  }
+}
+
+class ProductImageDTO {
+  final String id;
+  final String sourceType;
+  final String uri;
+  final String? label;
+  final int order;
+  final String? colorTag;
+
+  ProductImageDTO({
+    required this.id,
+    required this.sourceType,
+    required this.uri,
+    this.label,
+    required this.order,
+    this.colorTag,
+  });
+
+  factory ProductImageDTO.fromModel(ProductImage model) {
+    return ProductImageDTO(
+      id: model.id,
+      sourceType: model.sourceType.name,
+      uri: model.uri,
+      label: model.label,
+      order: model.order,
+      colorTag: model.colorTag,
+    );
+  }
+
+  ProductImage soul() {
+    return ProductImage(
+      id: id,
+      sourceType: ProductImageSource.values.firstWhere(
+        (e) => e.name == sourceType,
+        orElse: () => ProductImageSource.unknown,
+      ),
+      uri: uri,
+      label: label,
+      order: order,
+      colorTag: colorTag,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'sourceType': sourceType,
+    'uri': uri,
+    'label': label,
+    'order': order,
+    'colorTag': colorTag,
+  };
+
+  factory ProductImageDTO.fromJson(Map<String, dynamic> json) {
+    return ProductImageDTO(
+      id: json['id'] ?? '',
+      sourceType: json['sourceType'] ?? 'unknown',
+      uri: json['uri'] ?? '',
+      label: json['label'],
+      order: json['order'] ?? 0,
+      colorTag: json['colorTag'],
     );
   }
 }
@@ -273,7 +361,7 @@ class ProductDTO {
   final bool isOutOfStock;
   final bool promoEnabled;
   final double promoPercent;
-  final List<String> images;
+  final List<ProductImageDTO> images;
   final List<ProductPhotoDTO> photos;
   final int mainImageIndex;
 
@@ -323,7 +411,7 @@ class ProductDTO {
       isOutOfStock: product.isOutOfStock,
       promoEnabled: product.promoEnabled,
       promoPercent: product.promoPercent,
-      images: product.images,
+      images: product.images.map((i) => ProductImageDTO.fromModel(i)).toList(),
       photos: product.photos.map((p) => ProductPhotoDTO.fromModel(p)).toList(),
       remoteImages: product.remoteImages,
       mainImageIndex: product.mainImageIndex,
@@ -347,7 +435,7 @@ class ProductDTO {
       minWholesaleQty: 1, // Default
       sizes: sizes,
       colors: colors,
-      images: images,
+      images: images.map((i) => i.soul()).toList(),
       photos: photos.map((p) => p.toModel()).toList(),
       remoteImages: remoteImages,
       mainImageIndex: mainImageIndex,
@@ -372,7 +460,7 @@ class ProductDTO {
       'isOutOfStock': isOutOfStock,
       'promoEnabled': promoEnabled,
       'promoPercent': promoPercent,
-      'images': images,
+      'images': images.map((i) => i.toJson()).toList(),
       'photos': photos.map((p) => p.toJson()).toList(),
       'remoteImages': remoteImages,
       'mainImageIndex': mainImageIndex,
@@ -397,9 +485,15 @@ class ProductDTO {
       promoEnabled: json['promoEnabled'] ?? false,
       promoPercent: (json['promoPercent'] as num?)?.toDouble() ?? 0.0,
       images:
-          (json['images'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
+          (json['images'] as List<dynamic>?)?.map((e) {
+            if (e is Map<String, dynamic>) {
+              return ProductImageDTO.fromJson(e);
+            }
+            // Legacy conversion
+            return ProductImageDTO.fromModel(
+              ProductImage.local(path: e.toString()),
+            );
+          }).toList() ??
           [],
       photos:
           (json['photos'] as List<dynamic>?)

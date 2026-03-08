@@ -46,7 +46,9 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
     final canShare = state.catalog.productIds.isNotEmpty;
 
     return AppScaffold(
-      title: widget.catalog == null ? 'Novo Cat\u00e1logo' : 'Editar Cat\u00e1logo',
+      title: widget.catalog == null
+          ? 'Novo Cat\u00e1logo'
+          : 'Editar Cat\u00e1logo',
       subtitle: 'Selecione produtos e personalize o cat\u00e1logo',
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(48),
@@ -158,6 +160,58 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                   value: state.catalog.isPublic,
                   onChanged: notifier.setIsPublic,
                 ),
+                if (state.catalog.isPublic &&
+                    state.catalog.shareCode.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.secondaryContainer.withAlpha(50),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.link, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'C\u00f3digo de Compartilhamento:',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  state.catalog.shareCode,
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed: notifier.regenerateShareCode,
+                            icon: const Icon(Icons.refresh, size: 16),
+                            label: const Text(
+                              'Trocar',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 _buildSwitchTile(
                   title: 'Exigir Dados do Cliente',
                   subtitle: 'Solicita Nome/WhatsApp ao abrir',
@@ -191,8 +245,10 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                       state.catalog.coverType ??
                       (state.catalog.includeCover ? 'collection' : 'none'),
                   items: const {
-                    'collection': 'Autom\u00e1tica (Baseada na cole\u00e7\u00e3o)',
-                    'standard': 'Padr\u00e3o (Personaliza\u00e7\u00e3o apenas de texto)',
+                    'collection':
+                        'Autom\u00e1tica (Baseada na cole\u00e7\u00e3o)',
+                    'standard':
+                        'Padr\u00e3o (Personaliza\u00e7\u00e3o apenas de texto)',
                     'none': 'Sem capa principal',
                   },
                   onChanged: (v) {

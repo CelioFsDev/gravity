@@ -7,6 +7,8 @@ import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/ui/widgets/app_search_field.dart';
 import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
+import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
+import 'package:catalogo_ja/core/auth/user_role.dart';
 
 class CategoriesScreen extends ConsumerStatefulWidget {
   const CategoriesScreen({super.key});
@@ -37,16 +39,16 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
       title: 'Categorias',
       subtitle: 'Organize as categorias do cat\u00e1logo',
       actions: [
-        IconButton(
-          icon: const Icon(Icons.add),
-          onPressed: () => _showCategoryDialog(context, notifier),
-          tooltip: 'Nova Categoria',
-        ),
+        if (ref.watch(currentRoleProvider).canManageRegistrations)
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () => _showCategoryDialog(context, notifier),
+            tooltip: 'Nova Categoria',
+          ),
       ],
-      body: state.when(
+      body: state.whenStandard(
+        onRetry: () => ref.read(categoriesViewModelProvider.notifier).build(),
         data: (data) => _buildContent(context, data, notifier),
-        error: (e, s) => Center(child: Text('Erro: $e')),
-        loading: () => const Center(child: CircularProgressIndicator()),
       ),
     );
   }
@@ -256,23 +258,28 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         subtitle: Text('${state.productCounts[category.id] ?? 0} produtos'),
-        trailing: PopupMenuButton<_CategoryAction>(
-          tooltip: 'A\u00e7\u00f5es',
-          onSelected: (value) {
-            if (value == _CategoryAction.edit) {
-              _showCategoryDialog(context, notifier, category: category);
-            } else if (value == _CategoryAction.delete) {
-              _handleDelete(context, notifier, category);
-            }
-          },
-          itemBuilder: (context) => const [
-            PopupMenuItem(value: _CategoryAction.edit, child: Text('Editar')),
-            PopupMenuItem(
-              value: _CategoryAction.delete,
-              child: Text('Excluir'),
-            ),
-          ],
-        ),
+        trailing: ref.watch(currentRoleProvider).canManageRegistrations
+            ? PopupMenuButton<_CategoryAction>(
+                tooltip: 'Ações',
+                onSelected: (value) {
+                  if (value == _CategoryAction.edit) {
+                    _showCategoryDialog(context, notifier, category: category);
+                  } else if (value == _CategoryAction.delete) {
+                    _handleDelete(context, notifier, category);
+                  }
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(
+                    value: _CategoryAction.edit,
+                    child: Text('Editar'),
+                  ),
+                  PopupMenuItem(
+                    value: _CategoryAction.delete,
+                    child: Text('Excluir'),
+                  ),
+                ],
+              )
+            : null,
       ),
     );
   }
@@ -410,7 +417,11 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
 
     if (result.hasProducts) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.message ?? 'N\u00e3o \u00e9 poss\u00edvel excluir.')),
+        SnackBar(
+          content: Text(
+            result.message ?? 'N\u00e3o \u00e9 poss\u00edvel excluir.',
+          ),
+        ),
       );
     }
   }

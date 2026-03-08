@@ -17,10 +17,25 @@ class SettingsViewModel extends Notifier<AppSettings> {
   }) async {
     final repository = ref.read(settingsRepositoryProvider);
     final current = state;
+
+    String? cleanedBaseUrl = publicBaseUrl;
+    if (cleanedBaseUrl != null) {
+      cleanedBaseUrl = cleanedBaseUrl.trim();
+      if (cleanedBaseUrl.endsWith('/')) {
+        cleanedBaseUrl = cleanedBaseUrl.substring(0, cleanedBaseUrl.length - 1);
+      }
+      // Ensure it starts with https://
+      if (!cleanedBaseUrl.startsWith('http')) {
+        cleanedBaseUrl = 'https://$cleanedBaseUrl';
+      } else if (cleanedBaseUrl.startsWith('http://')) {
+        cleanedBaseUrl = cleanedBaseUrl.replaceFirst('http://', 'https://');
+      }
+    }
+
     final updated = current.copyWith(
       storeName: storeName ?? current.storeName,
       whatsappNumber: whatsappNumber ?? current.whatsappNumber,
-      publicBaseUrl: publicBaseUrl ?? current.publicBaseUrl,
+      publicBaseUrl: cleanedBaseUrl ?? current.publicBaseUrl,
       remoteImageBaseUrl: remoteImageBaseUrl ?? current.remoteImageBaseUrl,
     );
     await repository.saveSettings(updated);
