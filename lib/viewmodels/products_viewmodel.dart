@@ -1,12 +1,15 @@
 import 'package:catalogo_ja/data/repositories/categories_repository.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
+import 'package:catalogo_ja/core/services/photo_classification_service.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/models/product_image.dart';
 import 'package:catalogo_ja/viewmodels/catalog_public_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
 import 'package:catalogo_ja/core/error/app_failure.dart';
 import 'package:catalogo_ja/core/services/app_logger.dart';
+import 'package:path/path.dart' as p;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'products_viewmodel.g.dart';
@@ -268,6 +271,56 @@ class ProductsViewModel extends _$ProductsViewModel {
     });
   }
 
+  Future<void> addCategoriesToSelected(Iterable<String> categoryIds) async {
+    if (state.value == null || state.value!.selectedProductIds.isEmpty) return;
+    final idsToAdd = categoryIds.where((id) => id.trim().isNotEmpty).toSet();
+    if (idsToAdd.isEmpty) return;
+
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      try {
+        final repository = ref.read(productsRepositoryProvider);
+        for (final id in state.value!.selectedProductIds) {
+          final product = state.value!.allProducts.firstWhere((p) => p.id == id);
+          final updatedIds = {...product.categoryIds, ...idsToAdd}.toList();
+          await repository.updateProduct(
+            product.copyWith(categoryIds: updatedIds),
+          );
+        }
+        await refresh();
+        _notifyChanges();
+        return state.value!;
+      } catch (e) {
+        throw e.toAppFailure(
+          action: 'addCategoriesToSelected',
+          entity: 'Products',
+        );
+      }
+    });
+  }
+
+  Future<void> clearCategoriesSelected() async {
+    if (state.value == null || state.value!.selectedProductIds.isEmpty) return;
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      try {
+        final repository = ref.read(productsRepositoryProvider);
+        for (final id in state.value!.selectedProductIds) {
+          final product = state.value!.allProducts.firstWhere((p) => p.id == id);
+          await repository.updateProduct(product.copyWith(categoryIds: const []));
+        }
+        await refresh();
+        _notifyChanges();
+        return state.value!;
+      } catch (e) {
+        throw e.toAppFailure(
+          action: 'clearCategoriesSelected',
+          entity: 'Products',
+        );
+      }
+    });
+  }
+
   Future<void> deleteProduct(String id) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
@@ -335,9 +388,25 @@ class ProductsViewModel extends _$ProductsViewModel {
       var updatedCount = 0;
 
       for (final product in products) {
-        final reorganized = _prioritizePrimaryPhoto(product.photos);
-        if (!_samePhotoOrderAndPrimary(product.photos, reorganized)) {
-          await repository.updateProduct(product.copyWith(photos: reorganized));
+        final reorganized = _reorganizeProductPhotos(product);
+        final updatedImages = reorganized
+            .map((photo) => photo.toProductImage())
+            .toList();
+        final mainImageIndex = _mainImageIndexFromPhotos(reorganized);
+
+        if (!_sameProductPhotoState(
+          product,
+          reorganized,
+          updatedImages,
+          mainImageIndex,
+        )) {
+          await repository.updateProduct(
+            product.copyWith(
+              photos: reorganized,
+              images: updatedImages,
+              mainImageIndex: mainImageIndex,
+            ),
+          );
           updatedCount++;
         }
       }
@@ -355,32 +424,223 @@ class ProductsViewModel extends _$ProductsViewModel {
     }
   }
 
-  List<ProductPhoto> _prioritizePrimaryPhoto(List<ProductPhoto> photos) {
-    if (photos.isEmpty) return const [];
-    final updated = List<ProductPhoto>.from(photos);
+  List<ProductPhoto> _reorganizeProductPhotos(Product product) {
+    final classifier = ref.read(photoClassificationServiceProvider.notifier);
+    final sourcePhotos = product.photos.isNotEmpty
+        ? List<ProductPhoto>.from(product.photos)
+        : _photosFromImages(product);
 
-    var primaryIndex = updated.indexWhere((p) => p.photoType == 'P');
-    primaryIndex = primaryIndex >= 0
-        ? primaryIndex
-        : updated.indexWhere((p) => p.isPrimary);
-    primaryIndex = primaryIndex >= 0 ? primaryIndex : 0;
+    if (sourcePhotos.isEmpty) return const [];
 
-    for (var i = 0; i < updated.length; i++) {
-      updated[i] = updated[i].copyWith(isPrimary: i == primaryIndex);
+    ProductPhoto? primary;
+    ProductPhoto? detail1;
+    ProductPhoto? detail2;
+    var colors = <ProductPhoto>[];
+    final fallback = <ProductPhoto>[];
+
+    for (final photo in sourcePhotos) {
+      final normalized = _normalizePhotoForProduct(product, photo);
+      if (normalized == null) continue;
+
+      switch (normalized.photoType) {
+        case PhotoClassificationService.typePrimary:
+          primary ??= normalized.copyWith(
+            photoType: PhotoClassificationService.typePrimary,
+          );
+          break;
+        case PhotoClassificationService.typeDetail1:
+          detail1 ??= normalized.copyWith(
+            photoType: PhotoClassificationService.typeDetail1,
+          );
+          break;
+        case PhotoClassificationService.typeDetail2:
+          detail2 ??= normalized.copyWith(
+            photoType: PhotoClassificationService.typeDetail2,
+          );
+          break;
+        default:
+          if ((normalized.photoType ?? '').startsWith('C')) {
+            colors = classifier.organizeColors(colors, normalized);
+          } else {
+            fallback.add(normalized.copyWith(
+              photoType: normalized.photoType,
+              isPrimary: false,
+            ));
+          }
+      }
     }
 
-    if (primaryIndex > 0) {
-      final primary = updated.removeAt(primaryIndex);
-      updated.insert(0, primary);
-    }
+    primary ??= fallback.isNotEmpty
+        ? fallback.removeAt(0).copyWith(
+            photoType: PhotoClassificationService.typePrimary,
+          )
+        : null;
 
-    return updated;
+    final organized = <ProductPhoto>[
+      if (primary != null)
+        primary.copyWith(
+          isPrimary: true,
+          photoType: PhotoClassificationService.typePrimary,
+        ),
+      if (detail1 != null)
+        detail1.copyWith(
+          isPrimary: false,
+          photoType: PhotoClassificationService.typeDetail1,
+        ),
+      if (detail2 != null)
+        detail2.copyWith(
+          isPrimary: false,
+          photoType: PhotoClassificationService.typeDetail2,
+        ),
+      ...colors.take(4).map(
+        (photo) => photo.copyWith(isPrimary: false),
+      ),
+    ];
+
+    return _dedupePhotosByPath(organized);
   }
 
-  bool _samePhotoOrderAndPrimary(
-    List<ProductPhoto> oldPhotos,
+  List<ProductPhoto> _photosFromImages(Product product) {
+    if (product.images.isEmpty) return const [];
+    return product.images.asMap().entries.map((entry) {
+      final image = entry.value;
+      final isPrimary = entry.key == product.mainImageIndex ||
+          image.label == PhotoClassificationService.typePrimary ||
+          image.label?.toLowerCase() == 'principal';
+      return ProductPhoto(
+        path: image.uri,
+        colorKey: image.colorTag,
+        isPrimary: isPrimary,
+        photoType: image.label,
+      );
+    }).toList();
+  }
+
+  ProductPhoto? _normalizePhotoForProduct(Product product, ProductPhoto photo) {
+    final classifier = ref.read(photoClassificationServiceProvider.notifier);
+    final fileName = p.basename(photo.path);
+    final classification = classifier.classifyFileName(fileName);
+    final matchesProduct = classification != null &&
+        _matchesProductReference(product, classification.ref);
+
+    final inferredColor = matchesProduct
+        ? (classification!.colorName ??
+              photo.colorKey ??
+              _colorFromFileName(fileName))
+        : (photo.colorKey ?? _colorFromFileName(fileName));
+    final normalizedColor = _normalizeColorKey(inferredColor);
+    final inferredType = matchesProduct
+        ? classification!.photoType
+        : _normalizeLegacyPhotoType(photo.photoType, photo.isPrimary);
+    final normalizedType =
+        inferredType == null && normalizedColor != null ? 'C' : inferredType;
+
+    if (normalizedType == null && !photo.isPrimary) {
+      return photo.copyWith(
+        photoType: null,
+        colorKey: normalizedColor,
+        isPrimary: false,
+      );
+    }
+
+    if (normalizedType != null && normalizedType.startsWith('C')) {
+      return photo.copyWith(
+        photoType: normalizedType,
+        colorKey: normalizedColor,
+        isPrimary: false,
+      );
+    }
+
+    return photo.copyWith(
+      photoType: normalizedType,
+      colorKey: null,
+      isPrimary: normalizedType == PhotoClassificationService.typePrimary,
+    );
+  }
+
+  bool _matchesProductReference(Product product, String ref) {
+    final normalizedRef = _normalizeKey(ref);
+    if (normalizedRef.isEmpty) return false;
+    return normalizedRef == _normalizeKey(product.ref) ||
+        normalizedRef == _normalizeKey(product.sku);
+  }
+
+  String _normalizeKey(String value) {
+    return value.toLowerCase().trim().replaceAll(RegExp(r'[^a-z0-9]'), '');
+  }
+
+  String? _normalizeLegacyPhotoType(String? photoType, bool isPrimary) {
+    final type = photoType?.trim().toUpperCase();
+    if (type == null || type.isEmpty) {
+      return isPrimary ? PhotoClassificationService.typePrimary : null;
+    }
+    if (type == 'PRINCIPAL') return PhotoClassificationService.typePrimary;
+    if (type == PhotoClassificationService.typePrimary ||
+        type == PhotoClassificationService.typeDetail1 ||
+        type == PhotoClassificationService.typeDetail2) {
+      return type;
+    }
+    if (RegExp(r'^C[1-4]$').hasMatch(type)) return type;
+    if (type == 'C' || type.startsWith('COR')) return 'C';
+    return isPrimary ? PhotoClassificationService.typePrimary : null;
+  }
+
+  String? _colorFromFileName(String fileName) {
+    final stem = p.basenameWithoutExtension(fileName);
+    final parts = stem.split('__');
+    if (parts.length >= 3) {
+      final raw = parts.last.trim();
+      if (raw.isNotEmpty) return raw.toUpperCase();
+    }
+    return null;
+  }
+
+  String? _normalizeColorKey(String? value) {
+    final normalized = value?.trim().toUpperCase();
+    if (normalized == null || normalized.isEmpty) return null;
+    if (normalized == 'P' ||
+        normalized == 'D1' ||
+        normalized == 'D2' ||
+        normalized == 'PRINCIPAL') {
+      return null;
+    }
+    if (RegExp(r'^D[12](\.[A-Z0-9]+)?$').hasMatch(normalized)) return null;
+    if (RegExp(r'^P(\.[A-Z0-9]+)?$').hasMatch(normalized)) return null;
+    if (RegExp(r'^C[1-4](\.[A-Z0-9]+)?$').hasMatch(normalized)) return null;
+    if (normalized.endsWith('.WEBP') ||
+        normalized.endsWith('.PNG') ||
+        normalized.endsWith('.JPG') ||
+        normalized.endsWith('.JPEG')) {
+      return null;
+    }
+    return normalized;
+  }
+
+  int _mainImageIndexFromPhotos(List<ProductPhoto> photos) {
+    if (photos.isEmpty) return 0;
+    final pIndex = photos.indexWhere(
+      (photo) => photo.photoType == PhotoClassificationService.typePrimary,
+    );
+    if (pIndex >= 0) return pIndex;
+    final primaryIndex = photos.indexWhere((photo) => photo.isPrimary);
+    return primaryIndex >= 0 ? primaryIndex : 0;
+  }
+
+  List<ProductPhoto> _dedupePhotosByPath(List<ProductPhoto> photos) {
+    final unique = <String, ProductPhoto>{};
+    for (final photo in photos) {
+      unique.putIfAbsent(photo.path, () => photo);
+    }
+    return unique.values.toList();
+  }
+
+  bool _sameProductPhotoState(
+    Product product,
     List<ProductPhoto> newPhotos,
+    List<ProductImage> newImages,
+    int newMainImageIndex,
   ) {
+    final oldPhotos = product.photos;
     if (oldPhotos.length != newPhotos.length) return false;
     for (var i = 0; i < oldPhotos.length; i++) {
       final oldP = oldPhotos[i];
@@ -392,7 +652,19 @@ class ProductsViewModel extends _$ProductsViewModel {
         return false;
       }
     }
-    return true;
+    if (product.images.length != newImages.length) return false;
+    for (var i = 0; i < product.images.length; i++) {
+      final oldImage = product.images[i];
+      final newImage = newImages[i];
+      if (oldImage.uri != newImage.uri ||
+          oldImage.label != newImage.label ||
+          oldImage.colorTag != newImage.colorTag ||
+          oldImage.order != newImage.order ||
+          oldImage.sourceType != newImage.sourceType) {
+        return false;
+      }
+    }
+    return product.mainImageIndex == newMainImageIndex;
   }
 
   void _notifyChanges() {

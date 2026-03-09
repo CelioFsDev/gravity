@@ -191,30 +191,80 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   void _showBulkCategoryDialog(BuildContext context) {
     final state = ref.read(productsViewModelProvider).value;
     if (state == null) return;
+    final notifier = ref.read(productsViewModelProvider.notifier);
+    final selectedCategoryIds = <String>{};
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Alterar Categoria'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: state.categories.length,
-            itemBuilder: (context, index) {
-              final cat = state.categories[index];
-              return ListTile(
-                title: Text(cat.safeName),
-                onTap: () {
-                  final catId = cat.id;
-                  ref
-                      .read(productsViewModelProvider.notifier)
-                      .updateCategorySelected(catId);
-                  Navigator.pop(context);
-                },
-              );
-            },
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => AlertDialog(
+          title: const Text('Categorias dos Selecionados'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Escolha uma ou mais categorias para anexar aos produtos selecionados.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: state.categories.length,
+                    itemBuilder: (context, index) {
+                      final cat = state.categories[index];
+                      final isSelected = selectedCategoryIds.contains(cat.id);
+                      return CheckboxListTile(
+                        value: isSelected,
+                        title: Text(cat.safeName),
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        onChanged: (value) {
+                          setModalState(() {
+                            if (value == true) {
+                              selectedCategoryIds.add(cat.id);
+                            } else {
+                              selectedCategoryIds.remove(cat.id);
+                            }
+                          });
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                await notifier.clearCategoriesSelected();
+              },
+              child: const Text(
+                'Retirar todas categorias',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: selectedCategoryIds.isEmpty
+                  ? null
+                  : () async {
+                      Navigator.pop(context);
+                      await notifier.addCategoriesToSelected(selectedCategoryIds);
+                    },
+              child: const Text('Anexar categorias'),
+            ),
+          ],
         ),
       ),
     );
@@ -391,7 +441,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               leading: const Icon(Icons.auto_fix_high_outlined),
               title: const Text('Reorganizar Fotos'),
               subtitle: const Text(
-                'Aplica a regra da foto principal (P) para produtos antigos.',
+                'Religa fotos pelos nomes e limita P, detalhes e cores para evitar erro no PDF.',
               ),
               onTap: () async {
                 Navigator.pop(context);

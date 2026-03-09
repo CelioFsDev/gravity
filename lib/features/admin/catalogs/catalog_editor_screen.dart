@@ -105,9 +105,15 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                 data: (pData) => ProductsSelectionTab(
                   selectedIds: state.catalog.productIds,
                   onToggle: notifier.toggleProduct,
+                  onSelectMany: notifier.selectProducts,
+                  onDeselectMany: notifier.deselectProducts,
                   allProducts: pData.allProducts,
                   categories: pData.categories
-                      .where((c) => c.type == CategoryType.productType)
+                      .where(
+                        (c) =>
+                            c.type == CategoryType.productType ||
+                            c.type == CategoryType.collection,
+                      )
                       .toList(),
                 ),
                 error: (e, s) => Center(child: Text('Erro: $e')),

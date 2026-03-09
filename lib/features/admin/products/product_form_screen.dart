@@ -366,9 +366,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
   /// Adiciona fotos de detalhe (D1 / D2) sem mostrar o diálogo de meta.
   Future<void> _addDetailPhotos() async {
-    final currentDetails = _photos
-        .where((p) => p.photoType == 'D1' || p.photoType == 'D2')
-        .length;
+    final currentDetails = _photos.where(_isDetailPhoto).length;
     if (currentDetails >= 2) return;
 
     try {
@@ -382,9 +380,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         final resolved = await _processPickedImage(file);
         if (resolved == null || !mounted) break;
 
-        final existingDetails = _photos
-            .where((p) => p.photoType == 'D1' || p.photoType == 'D2')
-            .length;
+        final existingDetails = _photos.where(_isDetailPhoto).length;
         if (existingDetails >= 2) break;
 
         final nextType = existingDetails == 0 ? 'D1' : 'D2';
@@ -405,15 +401,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
   /// Adiciona fotos de cor (C1 – C4) solicitando o nome da cor.
   Future<void> _addColorPhotos() async {
-    final currentColors = _photos
-        .where(
-          (p) =>
-              p.photoType != null &&
-              p.photoType != 'P' &&
-              p.photoType != 'D1' &&
-              p.photoType != 'D2',
-        )
-        .length;
+    final currentColors = _photos.where(_isColorPhoto).length;
     if (currentColors >= 4) return;
 
     try {
@@ -634,7 +622,19 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
   List<ProductPhoto> _normalizePhotosForSave() {
     if (_photos.isEmpty) return const [];
-    return _prioritizePrimaryPhoto(_photos);
+    final primary = _photos.where(_isPrimaryPhoto).firstOrNull;
+    final primaryPath = primary?.path;
+    final details = _photos
+        .where((photo) => _isDetailPhoto(photo) && photo.path != primaryPath)
+        .take(2);
+    final colors = _photos
+        .where((photo) => _isColorPhoto(photo) && photo.path != primaryPath)
+        .take(4);
+    return _prioritizePrimaryPhoto(_dedupePhotosByPath([
+      if (primary != null) primary,
+      ...details,
+      ...colors,
+    ]));
   }
 
   List<ProductImage> _imagesFromPhotos(List<ProductPhoto> photos) {
@@ -667,6 +667,28 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       updated.insert(0, primary);
     }
     return updated;
+  }
+
+  bool _isPrimaryPhoto(ProductPhoto photo) {
+    return photo.photoType == 'P' || photo.isPrimary;
+  }
+
+  bool _isDetailPhoto(ProductPhoto photo) {
+    return photo.photoType == 'D1' || photo.photoType == 'D2';
+  }
+
+  bool _isColorPhoto(ProductPhoto photo) {
+    final type = photo.photoType?.trim().toUpperCase();
+    if (type == null) return false;
+    return RegExp(r'^C[1-4]$').hasMatch(type) || type == 'C';
+  }
+
+  List<ProductPhoto> _dedupePhotosByPath(List<ProductPhoto> photos) {
+    final unique = <String, ProductPhoto>{};
+    for (final photo in photos) {
+      unique.putIfAbsent(photo.path, () => photo);
+    }
+    return unique.values.toList();
   }
 
   void _setPrimaryPhoto(String path) {
@@ -1076,19 +1098,14 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     final photoP =
         _photos.where((p) => p.photoType == 'P').firstOrNull ??
         _photos.where((p) => p.isPrimary).firstOrNull;
+    final primaryPath = photoP?.path;
 
     final detailPhotos = _photos
-        .where((p) => p.photoType == 'D1' || p.photoType == 'D2')
+        .where((photo) => _isDetailPhoto(photo) && photo.path != primaryPath)
         .toList();
 
     final colorPhotos = _photos
-        .where(
-          (p) =>
-              p.photoType != null &&
-              p.photoType != 'P' &&
-              p.photoType != 'D1' &&
-              p.photoType != 'D2',
-        )
+        .where((photo) => _isColorPhoto(photo) && photo.path != primaryPath)
         .toList();
 
     return Column(

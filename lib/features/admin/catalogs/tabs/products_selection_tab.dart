@@ -1,17 +1,20 @@
-import 'dart:io';
 import 'dart:convert';
+import 'dart:io';
+
+import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
+import 'package:catalogo_ja/ui/widgets/app_search_field.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
-import 'package:catalogo_ja/models/product.dart';
-import 'package:catalogo_ja/models/category.dart';
 import 'package:intl/intl.dart';
-import 'package:catalogo_ja/ui/theme/app_tokens.dart';
-import 'package:catalogo_ja/ui/widgets/app_search_field.dart';
-import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
 
 class ProductsSelectionTab extends StatefulWidget {
   final List<String> selectedIds;
-  final Function(String) onToggle;
+  final void Function(String) onToggle;
+  final ValueChanged<List<String>> onSelectMany;
+  final ValueChanged<List<String>> onDeselectMany;
   final List<Product> allProducts;
   final List<Category> categories;
 
@@ -19,6 +22,8 @@ class ProductsSelectionTab extends StatefulWidget {
     super.key,
     required this.selectedIds,
     required this.onToggle,
+    required this.onSelectMany,
+    required this.onDeselectMany,
     required this.allProducts,
     required this.categories,
   });
@@ -31,6 +36,7 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
   final _searchController = TextEditingController();
   String _search = '';
   String? _categoryFilter;
+  String? _collectionFilter;
   bool _onlySelected = false;
   bool _onlyWithPhoto = false;
 
@@ -42,15 +48,32 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
 
   @override
   Widget build(BuildContext context) {
-    final filtered = widget.allProducts.where((p) {
-      if (_onlySelected && !widget.selectedIds.contains(p.id)) return false;
-      if (_onlyWithPhoto && p.photos.isEmpty && p.images.isEmpty) return false;
-      if (_categoryFilter != null && !p.categoryIds.contains(_categoryFilter)) {
+    final collections = widget.categories
+        .where((category) => category.type == CategoryType.collection)
+        .toList();
+    final productTypes = widget.categories
+        .where((category) => category.type == CategoryType.productType)
+        .toList();
+
+    final filtered = widget.allProducts.where((product) {
+      if (_onlySelected && !widget.selectedIds.contains(product.id)) {
+        return false;
+      }
+      if (_onlyWithPhoto && product.photos.isEmpty && product.images.isEmpty) {
+        return false;
+      }
+      if (_collectionFilter != null &&
+          !product.categoryIds.contains(_collectionFilter)) {
+        return false;
+      }
+      if (_categoryFilter != null &&
+          !product.categoryIds.contains(_categoryFilter)) {
         return false;
       }
       if (_search.isNotEmpty) {
-        if (!p.name.toLowerCase().contains(_search.toLowerCase()) &&
-            !p.reference.toLowerCase().contains(_search.toLowerCase())) {
+        final query = _search.toLowerCase();
+        if (!product.name.toLowerCase().contains(query) &&
+            !product.reference.toLowerCase().contains(query)) {
           return false;
         }
       }
@@ -70,46 +93,67 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
               AppSearchField(
                 controller: _searchController,
                 hintText: 'Buscar por nome ou REF...',
-                onChanged: (val) => setState(() => _search = val),
+                onChanged: (value) => setState(() => _search = value),
                 onClear: () {
-                  setState(() => _search = '');
                   _searchController.clear();
+                  setState(() => _search = '');
                 },
               ),
               const SizedBox(height: 12),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    ActionChip(
-                      label: Text(_categoryLabel()),
-                      onPressed: () => _selectCategory(context),
-                      avatar: const Icon(Icons.filter_list, size: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  ActionChip(
+                    avatar: const Icon(Icons.collections_bookmark, size: 16),
+                    label: Text(_collectionLabel(collections)),
+                    onPressed: () => _selectCollection(context, collections),
+                  ),
+                  ActionChip(
+                    avatar: const Icon(Icons.filter_list, size: 16),
+                    label: Text(_categoryLabel(productTypes)),
+                    onPressed: () => _selectCategory(context, productTypes),
+                  ),
+                  FilterChip(
+                    label: const Text('Apenas Selecionados'),
+                    selected: _onlySelected,
+                    onSelected: (value) =>
+                        setState(() => _onlySelected = value),
+                  ),
+                  FilterChip(
+                    label: const Text('Somente com foto'),
+                    selected: _onlyWithPhoto,
+                    onSelected: (value) =>
+                        setState(() => _onlyWithPhoto = value),
+                  ),
+                  Chip(
+                    label: Text('${widget.selectedIds.length} selecionados'),
+                    backgroundColor: AppTokens.accentBlue.withOpacity(0.1),
+                    side: BorderSide.none,
+                    labelStyle: const TextStyle(
+                      color: AppTokens.accentBlue,
+                      fontWeight: FontWeight.bold,
                     ),
-                    const SizedBox(width: 8),
-                    FilterChip(
-                      label: const Text('Apenas Selecionados'),
-                      selected: _onlySelected,
-                      onSelected: (val) => setState(() => _onlySelected = val),
-                    ),
-                    const SizedBox(width: 8),
-                    FilterChip(
-                      label: const Text('Somente com foto'),
-                      selected: _onlyWithPhoto,
-                      onSelected: (val) => setState(() => _onlyWithPhoto = val),
-                    ),
-                    const SizedBox(width: 8),
-                    Chip(
-                      label: Text('${widget.selectedIds.length} selecionados'),
-                      backgroundColor: AppTokens.accentBlue.withOpacity(0.1),
-                      side: BorderSide.none,
-                      labelStyle: const TextStyle(
-                        color: AppTokens.accentBlue,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                  ActionChip(
+                    avatar: const Icon(Icons.done_all, size: 16),
+                    label: const Text('Selecionar todos'),
+                    onPressed: filtered.isEmpty
+                        ? null
+                        : () => widget.onSelectMany(
+                            filtered.map((product) => product.id).toList(),
+                          ),
+                  ),
+                  ActionChip(
+                    avatar: const Icon(Icons.remove_done, size: 16),
+                    label: const Text('Limpar visiveis'),
+                    onPressed: filtered.isEmpty
+                        ? null
+                        : () => widget.onDeselectMany(
+                            filtered.map((product) => product.id).toList(),
+                          ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -131,10 +175,9 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
                   separatorBuilder: (_, _) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final product = filtered[index];
-                    final isSelected = widget.selectedIds.contains(product.id);
                     return _ProductSelectTile(
                       product: product,
-                      isSelected: isSelected,
+                      isSelected: widget.selectedIds.contains(product.id),
                       onToggle: () => widget.onToggle(product.id),
                     );
                   },
@@ -144,17 +187,28 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
     );
   }
 
-  String _categoryLabel() {
+  String _categoryLabel(List<Category> categories) {
     if (_categoryFilter == null) return 'Categoria: Todas';
-    final name = widget.categories
-        .where((c) => c.id == _categoryFilter)
-        .map((c) => c.name)
-        .toList();
-    if (name.isEmpty) return 'Categoria: Todas';
-    return 'Categoria: ${name.first}';
+    final selected = categories
+        .where((category) => category.id == _categoryFilter)
+        .firstOrNull;
+    if (selected == null) return 'Categoria: Todas';
+    return 'Categoria: ${selected.safeName}';
   }
 
-  Future<void> _selectCategory(BuildContext context) async {
+  String _collectionLabel(List<Category> collections) {
+    if (_collectionFilter == null) return 'Colecao: Todas';
+    final selected = collections
+        .where((category) => category.id == _collectionFilter)
+        .firstOrNull;
+    if (selected == null) return 'Colecao: Todas';
+    return 'Colecao: ${selected.safeName}';
+  }
+
+  Future<void> _selectCategory(
+    BuildContext context,
+    List<Category> categories,
+  ) async {
     final result = await showModalBottomSheet<String?>(
       context: context,
       isScrollControlled: true,
@@ -176,15 +230,15 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
                       title: const Text('Todas categorias'),
                       trailing: _categoryFilter == null
                           ? const Icon(Icons.check)
-                          : const SizedBox(),
+                          : const SizedBox.shrink(),
                       onTap: () => Navigator.pop(sheetContext, null),
                     ),
-                    ...widget.categories.map(
+                    ...categories.map(
                       (category) => ListTile(
                         title: Text(category.safeName),
                         trailing: _categoryFilter == category.id
                             ? const Icon(Icons.check)
-                            : const SizedBox(),
+                            : const SizedBox.shrink(),
                         onTap: () => Navigator.pop(sheetContext, category.id),
                       ),
                     ),
@@ -199,6 +253,57 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
 
     if (!mounted) return;
     setState(() => _categoryFilter = result);
+  }
+
+  Future<void> _selectCollection(
+    BuildContext context,
+    List<Category> collections,
+  ) async {
+    final result = await showModalBottomSheet<String?>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.of(sheetContext).size.height * 0.75,
+          child: Column(
+            children: [
+              const ListTile(
+                title: Text(
+                  'Colecao',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  children: [
+                    ListTile(
+                      title: const Text('Todas colecoes'),
+                      trailing: _collectionFilter == null
+                          ? const Icon(Icons.check)
+                          : const SizedBox.shrink(),
+                      onTap: () => Navigator.pop(sheetContext, null),
+                    ),
+                    ...collections.map(
+                      (collection) => ListTile(
+                        title: Text(collection.safeName),
+                        trailing: _collectionFilter == collection.id
+                            ? const Icon(Icons.check)
+                            : const SizedBox.shrink(),
+                        onTap: () =>
+                            Navigator.pop(sheetContext, collection.id),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+    setState(() => _collectionFilter = result);
   }
 }
 
@@ -260,9 +365,9 @@ class _ProductSelectTile extends StatelessWidget {
   String? _resolvePrimaryImage(Product product) {
     if (product.photos.isNotEmpty) {
       final typedPrimary = product.photos.firstWhere(
-        (p) => p.photoType == 'P',
+        (photo) => photo.photoType == 'P',
         orElse: () => product.photos.firstWhere(
-          (p) => p.isPrimary,
+          (photo) => photo.isPrimary,
           orElse: () => product.photos.first,
         ),
       );
@@ -271,14 +376,15 @@ class _ProductSelectTile extends StatelessWidget {
     }
 
     if (product.images.isNotEmpty) {
-      final idx = product.mainImageIndex;
-      if (idx >= 0 && idx < product.images.length) {
-        final path = product.images[idx].uri.trim();
+      final index = product.mainImageIndex;
+      if (index >= 0 && index < product.images.length) {
+        final path = product.images[index].uri.trim();
         if (path.isNotEmpty) return path;
       }
       final fallback = product.images.first.uri.trim();
       if (fallback.isNotEmpty) return fallback;
     }
+
     return null;
   }
 }

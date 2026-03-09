@@ -105,6 +105,23 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
     );
   }
 
+  void selectProducts(Iterable<String> productIds) {
+    final merged = {...state.catalog.productIds, ...productIds}.toList();
+    state = state.copyWith(
+      catalog: state.catalog.copyWith(productIds: merged),
+    );
+  }
+
+  void deselectProducts(Iterable<String> productIds) {
+    final toRemove = productIds.toSet();
+    final updated = state.catalog.productIds
+        .where((id) => !toRemove.contains(id))
+        .toList();
+    state = state.copyWith(
+      catalog: state.catalog.copyWith(productIds: updated),
+    );
+  }
+
   void setRequireCustomerData(bool val) {
     state = state.copyWith(
       catalog: state.catalog.copyWith(requireCustomerData: val),

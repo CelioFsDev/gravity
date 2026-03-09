@@ -114,7 +114,7 @@ class PhotoClassificationService extends _$PhotoClassificationService {
     final extension = parsed.group(3)!;
 
     var tokens = suffixRaw
-        .split(RegExp(r'[_\-\s]+'))
+        .split(RegExp(r'[._\-\s]+'))
         .map((t) => removeDiacritics(t).toLowerCase().trim())
         .where((t) => t.isNotEmpty)
         .toList();
