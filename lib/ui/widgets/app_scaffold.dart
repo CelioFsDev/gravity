@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
-// Removed unused AppSectionHeader import
 
 class AppScaffold extends StatelessWidget {
   final String? title;
