@@ -112,7 +112,7 @@ class CatalogShareHelper {
       final width = MediaQuery.of(context).size.width;
       final columnsCount = width < 600 ? 1 : 2;
       if (options.useLoosePhotos) {
-        final files = await _runWithLoadingDialog(
+        final pdfFiles = await _runWithLoadingDialog(
           context,
           () => _generatePerProductPdfFiles(
             ref,
@@ -122,9 +122,12 @@ class CatalogShareHelper {
             pdfStyle: options.pdfStyle,
           ),
         );
-        if (files.isEmpty) {
+        if (pdfFiles.isEmpty) {
           throw Exception('Nenhum produto encontrado para exportação avulsa.');
         }
+        final files = options.fileFormat == CatalogExportFileFormat.image
+            ? await _convertPdfFilesToImageFiles(pdfFiles)
+            : pdfFiles;
 
         final savedPaths = <String>[];
         if (!kIsWeb) {
@@ -146,7 +149,7 @@ class CatalogShareHelper {
                   (f) => (
                     bytes: f.bytes,
                     fileName: f.fileName,
-                    mimeType: 'application/pdf',
+                    mimeType: f.mimeType,
                   ),
                 )
                 .toList(),
@@ -373,7 +376,7 @@ class CatalogShareHelper {
           await getDownloadsDirectory() ??
           await getApplicationDocumentsDirectory();
       if (options.useLoosePhotos) {
-        final files = await _runWithLoadingDialog(
+        final pdfFiles = await _runWithLoadingDialog(
           context,
           () => _generatePerProductPdfFiles(
             ref,
@@ -383,14 +386,21 @@ class CatalogShareHelper {
             pdfStyle: options.pdfStyle,
           ),
         );
-        if (files.isEmpty) {
+        if (pdfFiles.isEmpty) {
           throw Exception(
             'Nenhum produto encontrado para exportaÃ§Ã£o avulsa.',
           );
         }
+        final files = options.fileFormat == CatalogExportFileFormat.image
+            ? await _convertPdfFilesToImageFiles(pdfFiles)
+            : pdfFiles;
         for (final pdf in files) {
           if (kIsWeb) {
-            await Printing.sharePdf(bytes: pdf.bytes, filename: pdf.fileName);
+            await WhatsAppShareService.shareFile(
+              bytes: pdf.bytes,
+              fileName: pdf.fileName,
+              mimeType: pdf.mimeType,
+            );
           } else {
             final filePath = p.join(documentsDirectory.path, pdf.fileName);
             final file = io.File(filePath);
@@ -403,8 +413,8 @@ class CatalogShareHelper {
             SnackBar(
               content: Text(
                 kIsWeb
-                    ? '${files.length} PDFs enviados para download'
-                    : '${files.length} PDFs salvos em ${documentsDirectory.path}',
+                    ? '${files.length} arquivos enviados para download'
+                    : '${files.length} arquivos salvos em ${documentsDirectory.path}',
               ),
             ),
           );
@@ -669,6 +679,7 @@ class CatalogShareHelper {
     CatalogMode selectedMode = CatalogMode.varejo;
     bool showPrice = true;
     bool useLoosePhotos = false;
+    CatalogExportFileFormat fileFormat = CatalogExportFileFormat.pdf;
     CatalogPdfStyle selectedPdfStyle = CatalogPdfStyle.classic;
     String selectedCoverType = 'collection';
     if (availableCollections.length != 1) {
@@ -798,6 +809,38 @@ class CatalogShareHelper {
                                   setState(() => useLoosePhotos = value),
                               activeThumbColor: AppTokens.accentBlue,
                             ),
+                            if (useLoosePhotos) ...[
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  _buildOptionCard(
+                                    context,
+                                    label: 'PDF Avulso',
+                                    isSelected:
+                                        fileFormat ==
+                                        CatalogExportFileFormat.pdf,
+                                    onTap: () => setState(
+                                      () =>
+                                          fileFormat =
+                                              CatalogExportFileFormat.pdf,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _buildOptionCard(
+                                    context,
+                                    label: 'Imagem Avulsa',
+                                    isSelected:
+                                        fileFormat ==
+                                        CatalogExportFileFormat.image,
+                                    onTap: () => setState(
+                                      () =>
+                                          fileFormat =
+                                              CatalogExportFileFormat.image,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                             const SizedBox(height: 24),
 
                             _buildSubHeader(context, 'Estilo do Layout'),
@@ -942,11 +985,12 @@ class CatalogShareHelper {
                                 selectedCollectionId,
                                 showPrice,
                                 useLoosePhotos,
+                                fileFormat,
                                 selectedPdfStyle,
                               ),
                             ),
                             child: const Text(
-                              'Gerar PDF',
+                              'Gerar Arquivo',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
@@ -1237,6 +1281,7 @@ class CatalogExportOptions {
   final String? collectionId;
   final bool showPrice;
   final bool useLoosePhotos;
+  final CatalogExportFileFormat fileFormat;
   final CatalogPdfStyle pdfStyle;
   CatalogExportOptions(
     this.mode,
@@ -1244,15 +1289,23 @@ class CatalogExportOptions {
     this.collectionId,
     this.showPrice,
     this.useLoosePhotos,
+    this.fileFormat,
     this.pdfStyle,
   );
 }
 
+enum CatalogExportFileFormat { pdf, image }
+
 class _GeneratedPdfFile {
   final String fileName;
   final Uint8List bytes;
+  final String mimeType;
 
-  const _GeneratedPdfFile({required this.fileName, required this.bytes});
+  const _GeneratedPdfFile({
+    required this.fileName,
+    required this.bytes,
+    this.mimeType = 'application/pdf',
+  });
 }
 
 String _sanitizeFileNamePart(String value) {
@@ -1299,6 +1352,33 @@ Future<List<_GeneratedPdfFile>> _generatePerProductPdfFiles(
   }
 
   return files;
+}
+
+Future<List<_GeneratedPdfFile>> _convertPdfFilesToImageFiles(
+  List<_GeneratedPdfFile> pdfFiles,
+) async {
+  final imageFiles = <_GeneratedPdfFile>[];
+
+  for (final pdf in pdfFiles) {
+    final rasterPages = Printing.raster(pdf.bytes, pages: const [0], dpi: 144);
+    await for (final page in rasterPages) {
+      final imageBytes = await page.toPng();
+      final imageName = pdf.fileName.replaceAll(
+        RegExp(r'\.pdf$', caseSensitive: false),
+        '.png',
+      );
+      imageFiles.add(
+        _GeneratedPdfFile(
+          fileName: imageName,
+          bytes: imageBytes,
+          mimeType: 'image/png',
+        ),
+      );
+      break;
+    }
+  }
+
+  return imageFiles;
 }
 
 Widget _buildStylePreview(CatalogPdfStyle style, bool isSelected) {
