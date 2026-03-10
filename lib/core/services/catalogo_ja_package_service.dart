@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io' as io;
 import 'package:archive/archive.dart';
+import 'package:archive/archive_io.dart';
 import 'package:flutter/foundation.dart' hide Category;
-import 'package:flutter/foundation.dart' show Uint8List;
 import 'package:catalogo_ja/core/services/dto/catalogo_ja_export_dtos.dart';
 import 'package:catalogo_ja/core/services/export_import_service.dart';
 import 'package:catalogo_ja/models/product.dart';
@@ -285,8 +285,29 @@ class CatalogoJaPackageService {
       );
     }
 
-    final bytes = await zipFile.readAsBytes();
-    return preparePackageFromBytes(bytes);
+    final tempDir = await getTemporaryDirectory();
+    final extractDir = io.Directory(
+      p.join(
+        tempDir.path,
+        'CatalogoJa_import_prepare_${DateTime.now().millisecondsSinceEpoch}',
+      ),
+    );
+    await extractDir.create(recursive: true);
+
+    // Run unzipping in background isolate for performance and memory safety
+    await compute(_unzipTask, {
+      'zipPath': zipFile.path,
+      'extractPath': extractDir.path,
+    });
+
+    // Validate and Read Products
+    final productsFile = io.File(p.join(extractDir.path, 'products.json'));
+    if (!await productsFile.exists()) {
+      throw Exception('Invalid package: products.json missing');
+    }
+
+    final payload = await _exportImportService.parsePayload(productsFile);
+    return (payload, extractDir);
   }
 
   Future<(CatalogoJaExportPayload, io.Directory)> preparePackageFromBytes(
@@ -678,3 +699,26 @@ final catalogoJaPackageServiceProvider = Provider<CatalogoJaPackageService>((
 ) {
   return CatalogoJaPackageService(ref.read(exportImportServiceProvider));
 });
+
+
+/// Top-level function for background ZIP extraction via compute
+Future<void> _unzipTask(Map<String, String> args) async {
+  final zipPath = args['zipPath']!;
+  final extractPath = args['extractPath']!;
+
+  final bytes = io.File(zipPath).readAsBytesSync();
+  final archive = ZipDecoder().decodeBytes(bytes);
+
+  for (final file in archive) {
+    final filename = file.name;
+    final destPath = p.join(extractPath, filename);
+    if (file.isFile) {
+      final outputStream = OutputFileStream(destPath);
+      file.writeContent(outputStream);
+      outputStream.close();
+    } else {
+      io.Directory(destPath).createSync(recursive: true);
+    }
+  }
+  
+}

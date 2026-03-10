@@ -84,7 +84,7 @@ class CatalogoJaImportViewModel extends _$CatalogoJaImportViewModel {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json', 'zip'],
-        withData: true,
+        withData: kIsWeb,
       );
 
       if (result != null && result.files.isNotEmpty) {
