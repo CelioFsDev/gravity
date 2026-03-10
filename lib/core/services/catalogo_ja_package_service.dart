@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io' as io;
 import 'package:archive/archive.dart';
 import 'package:flutter/foundation.dart' hide Category;
+import 'package:flutter/foundation.dart' show Uint8List;
 import 'package:catalogo_ja/core/services/dto/catalogo_ja_export_dtos.dart';
 import 'package:catalogo_ja/core/services/export_import_service.dart';
 import 'package:catalogo_ja/models/product.dart';
@@ -278,6 +279,25 @@ class CatalogoJaPackageService {
   Future<(CatalogoJaExportPayload, io.Directory)> preparePackage(
     io.File zipFile,
   ) async {
+    if (kIsWeb) {
+      throw UnsupportedError(
+        'preparePackage(File) nao e suportado na web. Use preparePackageFromBytes.',
+      );
+    }
+
+    final bytes = await zipFile.readAsBytes();
+    return preparePackageFromBytes(bytes);
+  }
+
+  Future<(CatalogoJaExportPayload, io.Directory)> preparePackageFromBytes(
+    Uint8List bytes,
+  ) async {
+    if (kIsWeb) {
+      throw UnsupportedError(
+        'preparePackageFromBytes usa diretorio temporario e nao e suportado na web.',
+      );
+    }
+
     final tempDir = await getTemporaryDirectory();
     final extractDir = io.Directory(
       p.join(
@@ -288,7 +308,6 @@ class CatalogoJaPackageService {
     await extractDir.create(recursive: true);
 
     // 1. Unzip
-    final bytes = await zipFile.readAsBytes();
     final archive = ZipDecoder().decodeBytes(bytes);
 
     for (final file in archive) {
@@ -475,6 +494,164 @@ class CatalogoJaPackageService {
       extractDir: dir,
       mode: ImportMode.merge,
     );
+  }
+
+  Future<ImportReport> importPackageFromBytes({
+    required Uint8List zipBytes,
+    required ImportMode mode,
+  }) async {
+    final archive = ZipDecoder().decodeBytes(zipBytes);
+
+    ArchiveFile? manifestFile;
+    ArchiveFile? productsFile;
+    for (final file in archive) {
+      if (!file.isFile) continue;
+      final name = file.name.toLowerCase();
+      if (name == 'manifest.json') manifestFile = file;
+      if (name == 'products.json') productsFile = file;
+    }
+
+    if (manifestFile == null) {
+      throw Exception('Invalid package: manifest.json missing');
+    }
+    if (productsFile == null) {
+      throw Exception('Invalid package: products.json missing');
+    }
+
+    final payload = await _exportImportService.parsePayloadFromBytes(
+      Uint8List.fromList((productsFile.content as List).cast<int>()),
+    );
+
+    final archiveFiles = <String, ArchiveFile>{};
+    for (final file in archive) {
+      if (file.isFile) {
+        archiveFiles[file.name] = file;
+      }
+    }
+
+    final restoredProducts = <ProductDTO>[];
+    for (final product in payload.products) {
+      final restoredPhotos = <ProductPhotoDTO>[];
+
+      for (final photo in product.photos) {
+        final archived = archiveFiles[photo.path];
+        if (archived == null) continue;
+
+        final bytes = Uint8List.fromList((archived.content as List).cast<int>());
+        final dataUrl = _bytesToDataUrl(photo.path, bytes);
+        restoredPhotos.add(
+          ProductPhotoDTO(
+            path: dataUrl,
+            colorKey: photo.colorKey,
+            isPrimary: photo.isPrimary,
+            photoType: photo.photoType,
+          ),
+        );
+      }
+
+      restoredProducts.add(
+        ProductDTO(
+          id: product.id,
+          name: product.name,
+          ref: product.ref,
+          sku: product.sku,
+          priceRetail: product.priceRetail,
+          priceWholesale: product.priceWholesale,
+          isActive: product.isActive,
+          isOutOfStock: product.isOutOfStock,
+          promoEnabled: product.promoEnabled,
+          promoPercent: product.promoPercent,
+          images: restoredPhotos
+              .map((p) => ProductImageDTO.fromModel(p.toProductImage()))
+              .toList(),
+          photos: restoredPhotos,
+          remoteImages: product.remoteImages,
+          mainImageIndex: product.mainImageIndex,
+          categoryIds: product.categoryIds,
+          sizes: product.sizes,
+          colors: product.colors,
+          createdAt: product.createdAt,
+          updatedAt: product.updatedAt,
+        ),
+      );
+    }
+
+    final restoredCollections = <CategoryDTO>[];
+    for (final collection in payload.collections) {
+      String? coverMiniPath = collection.cover?.coverMiniPath;
+      String? coverPagePath = collection.cover?.coverPagePath;
+
+      if (collection.cover?.coverMiniPath != null) {
+        final archived = archiveFiles[collection.cover!.coverMiniPath!];
+        if (archived != null) {
+          final bytes = Uint8List.fromList((archived.content as List).cast<int>());
+          coverMiniPath = _bytesToDataUrl(collection.cover!.coverMiniPath!, bytes);
+        }
+      }
+
+      if (collection.cover?.coverPagePath != null) {
+        final archived = archiveFiles[collection.cover!.coverPagePath!];
+        if (archived != null) {
+          final bytes = Uint8List.fromList((archived.content as List).cast<int>());
+          coverPagePath = _bytesToDataUrl(collection.cover!.coverPagePath!, bytes);
+        }
+      }
+
+      restoredCollections.add(
+        CategoryDTO(
+          id: collection.id,
+          name: collection.name,
+          slug: collection.slug,
+          isActive: collection.isActive,
+          order: collection.order,
+          type: collection.type,
+          cover: collection.cover != null
+              ? CollectionCoverDTO(
+                  title: collection.cover!.title,
+                  mode: collection.cover!.mode,
+                  coverImagePath: collection.cover!.coverImagePath,
+                  coverMiniPath: coverMiniPath,
+                  coverPagePath: coverPagePath,
+                )
+              : null,
+          createdAt: collection.createdAt,
+          updatedAt: collection.updatedAt,
+        ),
+      );
+    }
+
+    final importPayload = CatalogoJaExportPayload(
+      app: payload.app,
+      version: payload.version,
+      exportedAt: payload.exportedAt,
+      store: payload.store,
+      categories: payload.categories,
+      collections: restoredCollections,
+      products: restoredProducts,
+    );
+
+    final result = await _exportImportService.executeImport(importPayload, mode);
+    return ImportReport(
+      createdCount: result.successCount,
+      updatedCount: 0,
+      variantsCount: 0,
+      createdCategoriesCount: 0,
+      warnings: result.errors,
+      importedProducts: restoredProducts.map((e) => e.toModel()).toList(),
+    );
+  }
+
+  String _bytesToDataUrl(String filePath, Uint8List bytes) {
+    final ext = p.extension(filePath).toLowerCase();
+    final mime = switch (ext) {
+      '.jpg' || '.jpeg' => 'image/jpeg',
+      '.png' => 'image/png',
+      '.webp' => 'image/webp',
+      '.gif' => 'image/gif',
+      '.bmp' => 'image/bmp',
+      _ => 'application/octet-stream',
+    };
+    return 'data:$mime;base64,${base64Encode(bytes)}';
   }
 }
 

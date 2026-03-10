@@ -1212,13 +1212,13 @@ class CatalogPdfService {
       );
     } else {
       // Casos 1 ou 3
-      final thumbWidth = (count == 3) ? 45.0 : 65.0;
+      final thumbWidth = (count == 3) ? 48.0 : 65.0;
       return pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.end,
         mainAxisSize: pw.MainAxisSize.min,
         children: variants.asMap().entries.map((entry) {
           return pw.Padding(
-            padding: pw.EdgeInsets.only(left: entry.key == 0 ? 0 : 10),
+            padding: pw.EdgeInsets.only(left: entry.key == 0 ? 0 : 8),
             child: _buildSwatchThumb(
               entry.value.key,
               entry.value.value,
@@ -1267,18 +1267,18 @@ class CatalogPdfService {
         if (label.trim().isNotEmpty) ...[
           pw.SizedBox(height: 2),
           pw.Container(
-            width: thumbWidth + 10,
+            width: thumbWidth + 14,
             child: pw.Text(
               label.toUpperCase(),
               style: pw.TextStyle(
-                fontSize: small ? 8 : 9,
-                letterSpacing: 0.5,
+                fontSize: small ? 7 : 8,
+                letterSpacing: 0.2,
                 fontWeight: pw.FontWeight.bold,
                 color: PdfColors.grey800,
               ),
               textAlign: pw.TextAlign.center,
-              maxLines: 1,
-              overflow: pw.TextOverflow.clip,
+              maxLines: 2,
+              overflow: pw.TextOverflow.span,
             ),
           ),
         ],
