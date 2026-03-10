@@ -1,4 +1,4 @@
-﻿import 'dart:io' as io;
+import 'dart:io' as io;
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -312,11 +312,28 @@ class CatalogShareHelper {
     Catalog catalog,
   ) async {
     try {
+      if (catalog.shareCode.trim().isEmpty) {
+        throw Exception(
+          'Este catálogo ainda não possui um código público para compartilhamento.',
+        );
+      }
+
       final settings = ref.read(settingsViewModelProvider);
-      final baseUrl = settings.publicBaseUrl.isEmpty
-          ? 'https://CatalogoJa.app'
-          : settings.publicBaseUrl;
-      final shareUrl = '$baseUrl/c/${catalog.slug}';
+      final baseUrl = _normalizeBaseUrl(settings.publicBaseUrl);
+      final previewImageUrl = await _resolveSharePreviewImageUrl(
+        ref,
+        catalog,
+      );
+      final shareUrl = _buildWebShareUrl(
+        baseUrl: baseUrl,
+        shareCode: catalog.shareCode.trim().toLowerCase(),
+        catalogName: catalog.name,
+        announcementText: catalog.announcementEnabled
+            ? catalog.announcementText
+            : null,
+        imageUrl: previewImageUrl,
+      );
+
       await WhatsAppShareService.shareCatalog(
         catalogName: catalog.name,
         catalogUrl: shareUrl,
@@ -336,6 +353,107 @@ class CatalogShareHelper {
         );
       }
     }
+  }
+
+  static String _normalizeBaseUrl(String baseUrl) {
+    final trimmed = baseUrl.trim();
+    if (trimmed.isEmpty) {
+      return 'https://CatalogoJa.app';
+    }
+
+    var normalized = trimmed;
+    if (!normalized.startsWith('http://') &&
+        !normalized.startsWith('https://')) {
+      normalized = 'https://$normalized';
+    }
+    if (normalized.startsWith('http://')) {
+      normalized = normalized.replaceFirst('http://', 'https://');
+    }
+    if (normalized.endsWith('/')) {
+      normalized = normalized.substring(0, normalized.length - 1);
+    }
+    return normalized;
+  }
+
+  static String _buildWebShareUrl({
+    required String baseUrl,
+    required String shareCode,
+    required String catalogName,
+    String? announcementText,
+    String? imageUrl,
+  }) {
+    final uri = Uri.parse(baseUrl);
+    return uri
+        .replace(
+          path: '/s/$shareCode',
+          queryParameters: <String, String>{
+            'title': catalogName,
+            if (announcementText != null && announcementText.trim().isNotEmpty)
+              'description': announcementText.trim(),
+            if (imageUrl != null && imageUrl.trim().isNotEmpty)
+              'image': imageUrl.trim(),
+          },
+        )
+        .toString();
+  }
+
+  static Future<String?> _resolveSharePreviewImageUrl(
+    WidgetRef ref,
+    Catalog catalog,
+  ) async {
+    final directCatalogImage = _asPublicHttpUrl(
+      catalog.banners.isNotEmpty ? catalog.banners.first.imagePath : null,
+    );
+    if (directCatalogImage != null) {
+      return directCatalogImage;
+    }
+
+    final productsState = await ref.read(productsViewModelProvider.future);
+    final catalogProducts = productsState.allProducts
+        .where((product) => catalog.productIds.contains(product.id))
+        .toList();
+
+    final coverInfo = _resolveCollectionCover(
+      catalogProducts,
+      productsState.categories,
+    );
+    final collectionCover = coverInfo.cover;
+    if (collectionCover != null) {
+      final collectionCoverImage =
+          _asPublicHttpUrl(collectionCover.coverPagePath) ??
+          _asPublicHttpUrl(collectionCover.coverMiniPath) ??
+          _asPublicHttpUrl(collectionCover.coverImagePath);
+      if (collectionCoverImage != null) {
+        return collectionCoverImage;
+      }
+    }
+
+    for (final product in catalogProducts) {
+      final productImage = _asPublicHttpUrl(product.mainImage?.uri);
+      if (productImage != null) {
+        return productImage;
+      }
+    }
+
+    return null;
+  }
+
+  static String? _asPublicHttpUrl(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      return null;
+    }
+
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null || !uri.hasScheme) {
+      return null;
+    }
+
+    if (uri.scheme != 'http' && uri.scheme != 'https') {
+      return null;
+    }
+
+    return trimmed;
   }
 
   static Future<void> saveCatalogPdf(
@@ -1332,7 +1450,7 @@ Future<List<_GeneratedPdfFile>> _generatePerProductPdfFiles(
 
   for (final product in catalogProducts) {
     final pdfBytes = await CatalogPdfService.generateCatalogPdf(
-      catalogName: catalog.name.isEmpty ? 'Meu CatÃ¡logo' : catalog.name,
+      catalogName: catalog.name.isEmpty ? 'Meu Catálogo' : catalog.name,
       products: [product],
       mode: mode,
       showPrice: showPrice,

@@ -1,5 +1,5 @@
 const admin = require('firebase-admin');
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions');
 
 admin.initializeApp();
@@ -16,6 +16,91 @@ const VALID_ROLES = new Set(['admin', 'operator', 'seller', 'viewer']);
 function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
 }
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function normalizePreviewImage(rawImage, origin) {
+  const fallback = `${origin}/icons/Icon-512.png`;
+  const image = String(rawImage || '').trim();
+  if (!image) return fallback;
+
+  try {
+    const parsed = new URL(image, origin);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return parsed.toString();
+    }
+  } catch (error) {
+    logger.warn('Imagem de preview invalida recebida no share', { image, error });
+  }
+
+  return fallback;
+}
+
+exports.catalogSharePreview = onRequest(
+  {
+    cors: true,
+    maxInstances: 10,
+  },
+  async (req, res) => {
+    const origin = `${req.protocol}://${req.get('host')}`;
+    const pathSegments = String(req.path || '')
+      .split('/')
+      .filter(Boolean);
+    const shareCode = decodeURIComponent(pathSegments[pathSegments.length - 1] || '')
+      .trim()
+      .toLowerCase();
+
+    if (!shareCode) {
+      res.status(400).send('Catalog share code is required.');
+      return;
+    }
+
+    const title = escapeHtml(req.query.title || 'CatalogoJa');
+    const description = escapeHtml(
+      req.query.description || 'Confira nosso catalogo digital.',
+    );
+    const imageUrl = escapeHtml(normalizePreviewImage(req.query.image, origin));
+    const canonicalUrl = `${origin}/c/${encodeURIComponent(shareCode)}`;
+    const escapedCanonicalUrl = escapeHtml(canonicalUrl);
+    const appTitle = title || 'CatalogoJa';
+
+    res.set('Cache-Control', 'public, max-age=300, s-maxage=300');
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.status(200).send(`<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <title>${appTitle}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="${description}">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="${appTitle}">
+    <meta property="og:description" content="${description}">
+    <meta property="og:image" content="${imageUrl}">
+    <meta property="og:url" content="${escapedCanonicalUrl}">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="${appTitle}">
+    <meta name="twitter:description" content="${description}">
+    <meta name="twitter:image" content="${imageUrl}">
+    <link rel="canonical" href="${escapedCanonicalUrl}">
+    <meta http-equiv="refresh" content="0;url=${escapedCanonicalUrl}">
+    <script>
+      window.location.replace(${JSON.stringify(canonicalUrl)});
+    </script>
+  </head>
+  <body>
+    <p>Abrindo catalogo...</p>
+  </body>
+</html>`);
+  },
+);
 
 async function ensureAdmin(request) {
   if (!request.auth) {

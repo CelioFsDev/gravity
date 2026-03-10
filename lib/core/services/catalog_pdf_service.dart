@@ -21,7 +21,8 @@ class CatalogPdfService {
   static const PdfColor _colorSizePillBg = PdfColor(0.929, 0.929, 0.929);
   static const PdfPageFormat _defaultMobileFormat = PdfPageFormat(360, 640);
 
-  // Cache unificado de imagens (rede + local + memória) durante a geração
+  // Cache unificado de imagens (rede + local + memória) durante a geração.
+  // Usamos URIs trimados como chave para evitar falhas por espaços em branco.
   static final Map<String, Uint8List> _imageCache = {};
 
   static Future<Uint8List> generateCatalogPdf({
@@ -62,34 +63,58 @@ class CatalogPdfService {
 
     String? currentCollectionId;
 
-    // Pré-carregar TODAS as imagens dos produtos (rede + local + memória) em paralelo
-    await _preloadImages(products);
-
-    // Pré-carregar imagens da capa e do banner (arquivos locais)
-    final coverPaths = <String>{
-      if (bannerImagePath != null && bannerImagePath.isNotEmpty)
-        bannerImagePath,
-      if (collectionCover?.coverImagePath?.isNotEmpty == true)
-        collectionCover!.coverImagePath!,
-      if (collectionCover?.coverMiniPath?.isNotEmpty == true)
-        collectionCover!.coverMiniPath!,
-      if (collectionCover?.coverPagePath?.isNotEmpty == true)
-        collectionCover!.coverPagePath!,
-    };
-    if (!kIsWeb) {
-      await Future.wait(
-        coverPaths.where((p) => !_imageCache.containsKey(p)).map((p) async {
-          try {
-            final file = io.File(p);
-            if (await file.exists()) {
-              _imageCache[p] = await file.readAsBytes();
-            }
-          } catch (e) {
-            print('Erro ao pré-carregar imagem da capa: $p - $e');
-          }
-        }),
-      );
+    // Coleta TODAS as imagens possíveis para pré-carregamento (Produtos + Capas + Banners)
+    // Inclui TODAS as fontes (images, photos, remoteImages) sem exclusão mútua.
+    final allImages = <ProductImage>[];
+    for (final p in products) {
+      // Novas imagens
+      allImages.addAll(p.images);
+      // Imagens legadas (converte para ProductImage para unificar o processamento)
+      for (final ph in p.photos) {
+        allImages.add(ph.toProductImage());
+      }
+      // URLs remotas legadas
+      for (final url in p.remoteImages) {
+        if (url.trim().isNotEmpty) {
+          allImages.add(ProductImage.network(url: url.trim()));
+        }
+      }
     }
+
+    if (bannerImagePath != null && bannerImagePath.isNotEmpty) {
+      allImages.add(_inferProductImage(bannerImagePath));
+    }
+
+    if (collectionCover != null) {
+      if (collectionCover.coverImagePath?.isNotEmpty == true) {
+        allImages.add(_inferProductImage(collectionCover.coverImagePath!));
+      }
+      if (collectionCover.coverMiniPath?.isNotEmpty == true) {
+        allImages.add(_inferProductImage(collectionCover.coverMiniPath!));
+      }
+      if (collectionCover.coverPagePath?.isNotEmpty == true) {
+        allImages.add(_inferProductImage(collectionCover.coverPagePath!));
+      }
+    }
+
+    if (collectionsMap != null) {
+      for (final cat in collectionsMap.values) {
+        if (cat.cover != null) {
+          if (cat.cover!.coverImagePath?.isNotEmpty == true) {
+            allImages.add(_inferProductImage(cat.cover!.coverImagePath!));
+          }
+          if (cat.cover!.coverMiniPath?.isNotEmpty == true) {
+            allImages.add(_inferProductImage(cat.cover!.coverMiniPath!));
+          }
+          if (cat.cover!.coverPagePath?.isNotEmpty == true) {
+            allImages.add(_inferProductImage(cat.cover!.coverPagePath!));
+          }
+        }
+      }
+    }
+
+    // Pré-carregar TODAS as imagens unificadamente (rede + local + memória)
+    await _preloadImages(allImages);
 
     // Group products by collection to facilitate batching
     final List<List<Product>> collectionBatches = [];
@@ -228,7 +253,7 @@ class CatalogPdfService {
     return result;
   }
 
-  static Future<void> _preloadImages(List<Product> products) async {
+  static Future<void> _preloadImages(List<ProductImage> imageObjects) async {
     // Garante que o cache comece limpo para esta geração
     _imageCache.clear();
 
@@ -236,23 +261,48 @@ class CatalogPdfService {
     final localPaths = <String>{};
     final memoryUris = <String>{};
 
-    for (final product in products) {
-      for (final img in product.images) {
-        final uri = img.uri.trim();
-        if (uri.isEmpty) continue;
-        switch (img.sourceType) {
-          case ProductImageSource.networkUrl:
-            networkUrls.add(uri);
-            break;
-          case ProductImageSource.localPath:
-            localPaths.add(uri);
-            break;
-          case ProductImageSource.memory:
-            memoryUris.add(uri);
-            break;
-          default:
-            break;
+    for (final img in imageObjects) {
+      final uri = img.uri.trim();
+      if (uri.isEmpty) continue;
+
+      var effectiveSource = img.sourceType;
+      // Se for desconhecido, inferimos pelo prefixo da URI
+      if (effectiveSource == ProductImageSource.unknown) {
+        if (uri.startsWith('http')) {
+          effectiveSource = ProductImageSource.networkUrl;
+        } else if (uri.startsWith('data:')) {
+          effectiveSource = ProductImageSource.memory;
+        } else if (uri.startsWith('blob:')) {
+          effectiveSource = ProductImageSource.networkUrl;
+        } else {
+          effectiveSource = ProductImageSource.localPath;
         }
+      }
+
+      switch (effectiveSource) {
+        case ProductImageSource.networkUrl:
+          networkUrls.add(uri);
+          break;
+        case ProductImageSource.localPath:
+          // No Web, "localPath" pode ser um asset ou algo mal categorizado.
+          // Mas como File não existe, só tentamos carregar se não for Web.
+          if (!kIsWeb) {
+            localPaths.add(uri);
+          } else {
+            // Se for Web e começar com http ou blob, redirecionamos para rede
+            if (uri.startsWith('http') || uri.startsWith('blob:')) {
+              networkUrls.add(uri);
+            }
+          }
+          break;
+        case ProductImageSource.memory:
+          memoryUris.add(uri);
+          break;
+        default:
+          if (uri.startsWith('http') || uri.startsWith('blob:')) {
+            networkUrls.add(uri);
+          }
+          break;
       }
     }
 
@@ -268,13 +318,18 @@ class CatalogPdfService {
             try {
               final file = io.File(path);
               if (await file.exists()) {
-                final result = await FlutterImageCompress.compressWithFile(
-                  path,
-                  minWidth: 700,
-                  minHeight: 700,
-                  quality: 40,
-                );
-                _imageCache[path] = result ?? await file.readAsBytes();
+                final bytes = await file.readAsBytes();
+                if (kIsWeb) {
+                  _imageCache[path] = bytes;
+                } else {
+                  final result = await FlutterImageCompress.compressWithFile(
+                    path,
+                    minWidth: 700,
+                    minHeight: 700,
+                    quality: 40,
+                  );
+                  _imageCache[path] = result ?? bytes;
+                }
               }
             } catch (e) {
               debugPrint('Erro ao processar imagem local: $path - $e');
@@ -296,14 +351,18 @@ class CatalogPdfService {
                 final commaIndex = uri.indexOf(',');
                 if (commaIndex != -1) {
                   final bytes = base64Decode(uri.substring(commaIndex + 1));
-                  final compressed =
-                      await FlutterImageCompress.compressWithList(
-                        bytes,
-                        minWidth: 700,
-                        minHeight: 700,
-                        quality: 40,
-                      );
-                  _imageCache[uri] = compressed;
+                  if (kIsWeb) {
+                    _imageCache[uri] = bytes;
+                  } else {
+                    final compressed =
+                        await FlutterImageCompress.compressWithList(
+                          bytes,
+                          minWidth: 700,
+                          minHeight: 700,
+                          quality: 40,
+                        );
+                    _imageCache[uri] = compressed ?? bytes;
+                  }
                 }
               }
             } catch (e) {
@@ -322,19 +381,32 @@ class CatalogPdfService {
         await Future.wait(
           batch.map((url) async {
             try {
+              final uri = Uri.parse(url);
               final response = await http
-                  .get(Uri.parse(url))
+                  .get(uri)
                   .timeout(const Duration(seconds: 15));
 
               if (response.statusCode == 200) {
                 final bytes = response.bodyBytes;
-                final compressed = await FlutterImageCompress.compressWithList(
-                  bytes,
-                  minWidth: 700,
-                  minHeight: 700,
-                  quality: 40,
-                );
-                _imageCache[url] = compressed;
+                if (kIsWeb) {
+                  _imageCache[url] = bytes;
+                } else {
+                  try {
+                    final compressed =
+                        await FlutterImageCompress.compressWithList(
+                          bytes,
+                          minWidth: 700,
+                          minHeight: 700,
+                          quality: 40,
+                        );
+                    _imageCache[url] = compressed ?? bytes;
+                  } catch (e) {
+                    debugPrint('Erro na compressão: $url - $e');
+                    _imageCache[url] = bytes;
+                  }
+                }
+              } else {
+                debugPrint('Falha ao baixar imagem (Status ${response.statusCode}): $url');
               }
             } catch (e) {
               debugPrint('Erro ao baixar imagem: $url - $e');
@@ -362,30 +434,75 @@ class CatalogPdfService {
     List<MapEntry<String, ProductImage>> detailVariants;
     List<MapEntry<String, ProductImage>> colorVariants;
 
+    // Unifica todas as fontes de imagem do produto para garantir que nada falte no layout
+    final List<ProductImage> allImgs = [];
+    final Set<String> seenUris = {};
+
+    void addIfUnique(ProductImage img) {
+      final uri = img.uri.trim();
+      if (uri.isNotEmpty && !seenUris.contains(uri)) {
+        allImgs.add(img);
+        seenUris.add(uri);
+      }
+    }
+
+    // Prioridade: images > photos > remoteImages
+    for (final img in product.images) {
+      addIfUnique(img);
+    }
+    for (final ph in product.photos) {
+      addIfUnique(ph.toProductImage());
+    }
+    for (final url in product.remoteImages) {
+      addIfUnique(ProductImage.network(url: url));
+    }
+
     if (forcedHeroPath != null && forcedHeroPath.trim().isNotEmpty) {
-      photoP = ProductImage.local(path: forcedHeroPath);
+      photoP = _inferProductImage(forcedHeroPath);
       detailVariants = const [];
       colorVariants = const [];
     } else {
-      photoP = product.mainImage;
+      // 1. Encontrar a foto principal (Busca por label 'P'/'principal' ou primeira da lista)
+      photoP =
+          allImgs.where((i) {
+                final l = i.label?.toLowerCase() ?? '';
+                return l == 'p' || l == 'principal';
+              }).firstOrNull ??
+          (allImgs.isNotEmpty ? allImgs.first : null);
 
-      var details = product.detailImages;
-      // Fallback: If no explicit 'detalhe' tag is found, take the next 2 images after main
-      if (details.isEmpty && product.images.length > 1) {
-        details = product.images
-            .where(
-              (img) =>
-                  img.id != photoP?.id &&
-                  (img.label == null || !img.label!.startsWith('cor')),
-            )
-            .take(2)
-            .toList();
+      // 2. Encontrar detalhes (Busca por label 'D1'/'D2'/'detalhe' ou próximas da lista)
+      var details = allImgs.where((i) {
+        if (i.uri.trim() == photoP?.uri.trim()) return false;
+        final l = i.label?.toLowerCase() ?? '';
+        return l == 'd1' || l == 'd2' || l.startsWith('detalhe');
+      }).toList();
+
+      if (details.isEmpty && allImgs.length > 1) {
+        details =
+            allImgs
+                .where((i) {
+                  if (i.uri.trim() == photoP?.uri.trim()) return false;
+                  final l = i.label?.toLowerCase() ?? '';
+                  return !l.startsWith('cor') && l != 'c1' && l != 'c2';
+                })
+                .take(2)
+                .toList();
       }
-
       detailVariants = details.take(2).map((img) => MapEntry('', img)).toList();
 
+      // 3. Encontrar variantes de cor (Busca por label 'C1'-'C4' ou 'cor')
       final uniqueColors = <String, MapEntry<String, ProductImage>>{};
-      for (final img in product.colorImages) {
+      final colorCandidates = allImgs.where((i) {
+        if (i.colorTag != null && i.colorTag!.isNotEmpty) return true;
+        final l = i.label?.toLowerCase() ?? '';
+        return l == 'c1' ||
+            l == 'c2' ||
+            l == 'c3' ||
+            l == 'c4' ||
+            l.startsWith('cor');
+      }).toList();
+
+      for (final img in colorCandidates) {
         final rawLabel = img.colorTag ?? _resolveColorLabelLegacy(img.uri);
         final label = _stripColorPrefix(rawLabel);
         if (label.isNotEmpty && !uniqueColors.containsKey(label)) {
@@ -1422,6 +1539,26 @@ class CatalogPdfService {
         .trim();
   }
 
+  static ProductImage _inferProductImage(String uri) {
+    if (uri.startsWith('http')) {
+      return ProductImage.network(url: uri);
+    } else if (uri.startsWith('data:')) {
+      return ProductImage(
+        id: 'memory-${uri.hashCode}',
+        sourceType: ProductImageSource.memory,
+        uri: uri,
+      );
+    } else if (uri.startsWith('blob:')) {
+      return ProductImage(
+        id: 'blob-${uri.hashCode}',
+        sourceType: ProductImageSource.networkUrl,
+        uri: uri,
+      );
+    } else {
+      return ProductImage.local(path: uri);
+    }
+  }
+
   static pw.Widget _buildImageWidget(
     ProductImage img, {
     required double height,
@@ -1429,8 +1566,11 @@ class CatalogPdfService {
     double radius = 0,
   }) {
     try {
-      // Todas as imagens já foram pré-carregadas em _imageCache
-      final bytes = _imageCache[img.uri];
+      final uri = img.uri.trim();
+      if (uri.isEmpty) return _buildImagePlaceholder(height: height, width: width, radius: radius);
+
+      // Todas as imagens já foram pré-carregadas em _imageCache (usando chave trimada)
+      final bytes = _imageCache[uri];
 
       if (bytes != null) {
         final image = pw.MemoryImage(bytes);
@@ -1461,8 +1601,8 @@ class CatalogPdfService {
     double? width,
     double radius = 0,
   }) {
-    // Legacy support for cover images which might be paths
-    final img = ProductImage.local(path: path);
+    // Legacy support for cover images which might be paths or URLs
+    final img = _inferProductImage(path);
     return _buildImageWidget(img, height: height, width: width, radius: radius);
   }
 

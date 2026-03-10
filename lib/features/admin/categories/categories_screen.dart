@@ -302,25 +302,33 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   ) async {
     final result = await showModalBottomSheet<CategorySortOption>(
       context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppTokens.radiusLg),
+        ),
+      ),
       builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const ListTile(
-              title: Text(
-                'Ordenar categorias',
-                style: TextStyle(fontWeight: FontWeight.bold),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const ListTile(
+                title: Text(
+                  'Ordenar categorias',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
-            ),
-            ...CategorySortOption.values.map(
-              (option) => RadioListTile<CategorySortOption>(
-                title: Text(_sortLabel(option)),
-                value: option,
-                groupValue: state.sortOption,
-                onChanged: (value) => Navigator.pop(sheetContext, value),
+              ...CategorySortOption.values.map(
+                (option) => RadioListTile<CategorySortOption>(
+                  title: Text(_sortLabel(option)),
+                  value: option,
+                  groupValue: state.sortOption,
+                  onChanged: (value) => Navigator.pop(sheetContext, value),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -328,6 +336,22 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     if (result != null) {
       notifier.setSortOption(result);
     }
+  }
+
+  void _saveCategory(
+    CategoriesViewModel notifier,
+    bool isEdit,
+    Category? category,
+  ) {
+    final name = _categoryNameController.text.trim();
+    if (name.isEmpty) return;
+
+    if (isEdit && category != null) {
+      notifier.updateCategory(category.id, name);
+    } else {
+      notifier.addCategory(name, CategoryType.productType);
+    }
+    Navigator.of(context).pop();
   }
 
   Future<void> _showCategoryDialog(
@@ -345,30 +369,25 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          scrollable: false,
+          scrollable: true,
           title: Text(isEdit ? 'Editar Categoria' : 'Nova Categoria'),
-          content: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.3,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: _categoryNameController,
-                  focusNode: _categoryNameFocus,
-                  textInputAction: TextInputAction.done,
-                  decoration: const InputDecoration(
-                    labelText: 'Nome',
-                    hintText: 'Ex: Camisetas',
-                  ),
-                  autofocus: true,
-                  onSubmitted: (_) {
-                    // trigger save action via button press logic usually, or duplicate logic here
-                  },
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _categoryNameController,
+                focusNode: _categoryNameFocus,
+                textInputAction: TextInputAction.done,
+                decoration: const InputDecoration(
+                  labelText: 'Nome',
+                  hintText: 'Ex: Camisetas',
                 ),
-              ],
-            ),
+                autofocus: true,
+                onSubmitted: (_) {
+                  _saveCategory(notifier, isEdit, category);
+                },
+              ),
+            ],
           ),
           actions: [
             TextButton(
@@ -376,22 +395,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
               child: const Text('Cancelar'),
             ),
             FilledButton(
-              onPressed: () {
-                if (_categoryNameController.text.trim().isEmpty) return;
-
-                if (isEdit) {
-                  notifier.updateCategory(
-                    category.id,
-                    _categoryNameController.text.trim(),
-                  );
-                } else {
-                  notifier.addCategory(
-                    _categoryNameController.text.trim(),
-                    CategoryType.productType, // Always product type here
-                  );
-                }
-                Navigator.of(context).pop();
-              },
+              onPressed: () => _saveCategory(notifier, isEdit, category),
               child: Text(isEdit ? 'Salvar' : 'Criar'),
             ),
           ],
