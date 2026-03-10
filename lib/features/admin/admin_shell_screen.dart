@@ -38,7 +38,7 @@ class AdminShellScreen extends ConsumerWidget {
     final currentRole = ref.watch(currentRoleProvider);
     final canManageUsers = currentRole.canManageUsers(authUser?.email);
 
-    String _getEffectiveTitle(BuildContext context) {
+    String getEffectiveTitle(BuildContext context) {
       final location = GoRouterState.of(context).matchedLocation;
       if (location.startsWith('/admin/settings/users')) return 'Usu\u00e1rios';
       if (location.startsWith('/admin/settings/profile')) return 'Meu Perfil';
@@ -59,7 +59,7 @@ class AdminShellScreen extends ConsumerWidget {
                   elevation: 0,
                   scrolledUnderElevation: 0,
                   title: Text(
-                    _getEffectiveTitle(context),
+                    getEffectiveTitle(context),
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   actions: [

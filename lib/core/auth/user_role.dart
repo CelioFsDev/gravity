@@ -28,6 +28,7 @@ enum UserRole {
   static const superAdminEmails = {
     'ti.vitoriana@gmail.com',
     'celiofs.dev@gmail.com',
+    'celio@gmail.com',
   };
 }
 

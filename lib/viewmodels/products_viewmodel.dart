@@ -524,13 +524,13 @@ class ProductsViewModel extends _$ProductsViewModel {
         _matchesProductReference(product, classification.ref);
 
     final inferredColor = matchesProduct
-        ? (classification!.colorName ??
+        ? (classification.colorName ??
               photo.colorKey ??
               _colorFromFileName(fileName))
         : (photo.colorKey ?? _colorFromFileName(fileName));
     final normalizedColor = _normalizeColorKey(inferredColor);
     final inferredType = matchesProduct
-        ? classification!.photoType
+        ? classification.photoType
         : _normalizeLegacyPhotoType(photo.photoType, photo.isPrimary);
     final normalizedType =
         inferredType == null && normalizedColor != null ? 'C' : inferredType;

@@ -111,8 +111,9 @@ class CatalogPdfService {
         currentCollection.add(p);
         lastId = prodCatId;
       }
-      if (currentCollection.isNotEmpty)
+      if (currentCollection.isNotEmpty) {
         collectionBatches.add(currentCollection);
+      }
     } else {
       collectionBatches.add(products);
     }

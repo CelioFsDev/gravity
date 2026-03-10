@@ -6,11 +6,40 @@ admin.initializeApp();
 
 const db = admin.firestore();
 const auth = admin.auth();
-const SUPER_ADMIN_EMAILS = new Set(['ti.vitoriana@gmail.com', 'celiofs.dev@gmail.com']);
+const SUPER_ADMIN_EMAILS = new Set([
+  'ti.vitoriana@gmail.com',
+  'celiofs.dev@gmail.com',
+  'celio@gmail.com',
+]);
 const VALID_ROLES = new Set(['admin', 'operator', 'seller', 'viewer']);
 
 function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
+}
+
+async function ensureAdmin(request) {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Login obrigatorio.');
+  }
+
+  const requesterEmail = normalizeEmail(request.auth.token.email);
+  let isAuthorized = SUPER_ADMIN_EMAILS.has(requesterEmail);
+
+  if (!isAuthorized) {
+    const doc = await db.collection('users').doc(requesterEmail).get();
+    if (doc.exists && doc.data().role === 'admin') {
+      isAuthorized = true;
+    }
+  }
+
+  if (!isAuthorized) {
+    throw new HttpsError(
+      'permission-denied',
+      'Apenas administradores podem gerenciar usuarios.',
+    );
+  }
+
+  return requesterEmail;
 }
 
 exports.syncAuthUsers = onCall(
@@ -19,27 +48,7 @@ exports.syncAuthUsers = onCall(
     maxInstances: 5,
   },
   async (request) => {
-    if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'Login obrigatorio.');
-    }
-
-    const requesterEmail = normalizeEmail(request.auth.token.email);
-
-    // Allow if in hardcoded super admin list OR has admin role in Firestore
-    let isAuthorized = SUPER_ADMIN_EMAILS.has(requesterEmail);
-    if (!isAuthorized) {
-      const doc = await db.collection('users').doc(requesterEmail).get();
-      if (doc.exists && doc.data().role === 'admin') {
-        isAuthorized = true;
-      }
-    }
-
-    if (!isAuthorized) {
-      throw new HttpsError(
-        'permission-denied',
-        'Apenas administradores podem sincronizar usuarios.',
-      );
-    }
+    const requesterEmail = await ensureAdmin(request);
 
     let nextPageToken;
     let processed = 0;
@@ -130,27 +139,7 @@ exports.createEmailPasswordUser = onCall(
     maxInstances: 5,
   },
   async (request) => {
-    if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'Login obrigatorio.');
-    }
-
-    const requesterEmail = normalizeEmail(request.auth.token.email);
-
-    // Allow if in hardcoded super admin list OR has admin role in Firestore
-    let isAuthorized = SUPER_ADMIN_EMAILS.has(requesterEmail);
-    if (!isAuthorized) {
-      const doc = await db.collection('users').doc(requesterEmail).get();
-      if (doc.exists && doc.data().role === 'admin') {
-        isAuthorized = true;
-      }
-    }
-
-    if (!isAuthorized) {
-      throw new HttpsError(
-        'permission-denied',
-        'Apenas administradores podem cadastrar usuarios.',
-      );
-    }
+    const requesterEmail = await ensureAdmin(request);
 
     const email = normalizeEmail(request.data?.email);
     const password = String(request.data?.password || '').trim();
@@ -224,5 +213,120 @@ exports.createEmailPasswordUser = onCall(
       role,
       uid: userRecord.uid,
     };
+  },
+);
+
+exports.updateUserAccess = onCall(
+  {
+    cors: true,
+    maxInstances: 5,
+  },
+  async (request) => {
+    const requesterEmail = await ensureAdmin(request);
+
+    const email = normalizeEmail(request.data?.email);
+    const requestedRole = String(request.data?.role || 'viewer').trim();
+    const role = VALID_ROLES.has(requestedRole) ? requestedRole : 'viewer';
+    const disabled = !!request.data?.disabled;
+    const displayName = String(request.data?.displayName || '').trim();
+
+    if (!email || !email.includes('@')) {
+      throw new HttpsError('invalid-argument', 'Email invalido.');
+    }
+
+    if (SUPER_ADMIN_EMAILS.has(email) && role !== 'admin') {
+      throw new HttpsError(
+        'failed-precondition',
+        'Nao e permitido rebaixar um super administrador.',
+      );
+    }
+
+    let userRecord;
+    try {
+      userRecord = await auth.getUserByEmail(email);
+    } catch (error) {
+      if (error?.code === 'auth/user-not-found') {
+        throw new HttpsError('not-found', 'Usuario nao encontrado no Auth.');
+      }
+      throw new HttpsError('internal', 'Falha ao localizar usuario no Auth.');
+    }
+
+    await auth.updateUser(userRecord.uid, {
+      disabled,
+      displayName: displayName || undefined,
+    });
+
+    await db.collection('users').doc(email).set(
+      {
+        authUid: userRecord.uid,
+        disabled,
+        displayName,
+        email,
+        lastRefreshAt: admin.firestore.FieldValue.serverTimestamp(),
+        providerIds: (userRecord.providerData || [])
+          .map((provider) => provider.providerId)
+          .filter(Boolean),
+        role,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedBy: requesterEmail,
+      },
+      { merge: true },
+    );
+
+    logger.info('Usuario atualizado', {
+      email,
+      disabled,
+      role,
+      updatedBy: requesterEmail,
+    });
+
+    return { email, role, disabled };
+  },
+);
+
+exports.deleteUserAccount = onCall(
+  {
+    cors: true,
+    maxInstances: 5,
+  },
+  async (request) => {
+    const requesterEmail = await ensureAdmin(request);
+    const email = normalizeEmail(request.data?.email);
+
+    if (!email || !email.includes('@')) {
+      throw new HttpsError('invalid-argument', 'Email invalido.');
+    }
+
+    if (email === requesterEmail) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Nao e permitido excluir o proprio usuario.',
+      );
+    }
+
+    if (SUPER_ADMIN_EMAILS.has(email)) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Nao e permitido excluir um super administrador.',
+      );
+    }
+
+    try {
+      const userRecord = await auth.getUserByEmail(email);
+      await auth.deleteUser(userRecord.uid);
+    } catch (error) {
+      if (error?.code !== 'auth/user-not-found') {
+        throw new HttpsError('internal', 'Falha ao excluir usuario no Auth.');
+      }
+    }
+
+    await db.collection('users').doc(email).delete();
+
+    logger.info('Usuario excluido', {
+      email,
+      deletedBy: requesterEmail,
+    });
+
+    return { email };
   },
 );
