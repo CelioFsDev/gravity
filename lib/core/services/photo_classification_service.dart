@@ -217,10 +217,9 @@ class PhotoClassificationService extends _$PhotoClassificationService {
         .toList();
 
     // Check if color already exists (by name or same Cx slot)
-    final newColorName = _getColorNameFromPath(newPhoto.path);
+    final newColorName = _resolveColorName(newPhoto);
     final existingColorIdx = colorPhotos.indexWhere((p) {
-      if (newColorName.isNotEmpty &&
-          _getColorNameFromPath(p.path) == newColorName) {
+      if (newColorName.isNotEmpty && _resolveColorName(p) == newColorName) {
         return true;
       }
       // Se tivermos um slot explícito no arquivo original (ex: C1) e o novo também for C1, substitui
@@ -243,8 +242,8 @@ class PhotoClassificationService extends _$PhotoClassificationService {
 
     // Sort: PRETO first, then others alphabetically by color name.
     colorPhotos.sort((a, b) {
-      final nameA = _getColorNameFromPath(a.path);
-      final nameB = _getColorNameFromPath(b.path);
+      final nameA = _resolveColorName(a);
+      final nameB = _resolveColorName(b);
       if (nameA == 'PRETO') return -1;
       if (nameB == 'PRETO') return 1;
       return nameA.compareTo(nameB);
@@ -256,7 +255,7 @@ class PhotoClassificationService extends _$PhotoClassificationService {
       final photo = entry.value;
       final type = 'C$idx';
       // Atualiza o colorKey se estiver vazio usando o nome do arquivo
-      final colorKey = photo.colorKey ?? _getColorNameFromPath(photo.path);
+      final colorKey = _resolveColorName(photo);
       return photo.copyWith(photoType: type, colorKey: colorKey);
     }).toList();
 
@@ -275,5 +274,13 @@ class PhotoClassificationService extends _$PhotoClassificationService {
       return name;
     }
     return '';
+  }
+
+  String _resolveColorName(ProductPhoto photo) {
+    final key = photo.colorKey?.trim().toUpperCase();
+    if (key != null && key.isNotEmpty) {
+      return key;
+    }
+    return _getColorNameFromPath(photo.path);
   }
 }

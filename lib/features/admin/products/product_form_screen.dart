@@ -34,13 +34,13 @@ class ProductFormScreen extends ConsumerStatefulWidget {
 }
 
 class _PhotoMetaResult {
+  final String photoType;
   final String? colorKey;
-  final bool isPrimary;
   final bool isNewColor;
 
   const _PhotoMetaResult({
+    required this.photoType,
     required this.colorKey,
-    required this.isPrimary,
     required this.isNewColor,
   });
 }
@@ -243,9 +243,11 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       if (result == null || result.files.isEmpty) return;
       final file = result.files.first;
 
-      final classification = ref
+      final rawClassification = ref
           .read(photoClassificationServiceProvider.notifier)
           .classifyFileName(file.name);
+      final classification =
+          rawClassification?.photoType == 'P' ? rawClassification : null;
 
       final resolved = await _processPickedImage(
         file,
@@ -259,8 +261,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
         final newPhoto = ProductPhoto(
           path: resolved,
-          colorKey: classification?.colorName,
-          photoType: classification?.photoType ?? 'P',
+          photoType: 'P',
           isPrimary: true,
         );
 
@@ -309,18 +310,18 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           colorKey = classification.colorName;
           isPrimary = photoType == 'P';
         } else {
-          final meta = await _showPhotoMetaDialog(context);
+          final meta = await _showPhotoMetaDialog(context, initialType: 'D1');
           if (meta == null || !mounted) break;
+          photoType = meta.photoType;
           colorKey = meta.colorKey;
-          isPrimary = meta.isPrimary;
+          isPrimary = photoType == 'P';
 
           if (meta.isNewColor && meta.colorKey != null) {
-            final current = _parseColorOptions().toSet();
-            if (!current.contains(meta.colorKey)) {
-              final sep = _colorsController.text.trim().isEmpty ? '' : ', ';
-              _colorsController.text =
-                  '${_colorsController.text.trim()}$sep${meta.colorKey}';
-            }
+            _appendColorOption(meta.colorKey!);
+          }
+
+          if (photoType == 'C') {
+            photoType = _nextAvailableColorSlot();
           }
         }
 
@@ -377,17 +378,41 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       if (result == null || result.files.isEmpty) return;
 
       for (var file in result.files) {
-        final resolved = await _processPickedImage(file);
+        final rawClassification = ref
+            .read(photoClassificationServiceProvider.notifier)
+            .classifyFileName(file.name);
+        final classification =
+            rawClassification?.photoType == 'D1' ||
+                rawClassification?.photoType == 'D2'
+            ? rawClassification
+            : null;
+
+        final resolved = await _processPickedImage(
+          file,
+          classification: classification,
+        );
         if (resolved == null || !mounted) break;
 
         final existingDetails = _photos.where(_isDetailPhoto).length;
         if (existingDetails >= 2) break;
 
-        final nextType = existingDetails == 0 ? 'D1' : 'D2';
+        final classifiedType = classification?.photoType;
+        final nextType =
+            classifiedType == 'D1' || classifiedType == 'D2'
+            ? classifiedType
+            : (existingDetails == 0 ? 'D1' : 'D2');
         setState(() {
-          _photos.add(
-            ProductPhoto(path: resolved, photoType: nextType, isPrimary: false),
+          final newPhoto = ProductPhoto(
+            path: resolved,
+            photoType: nextType,
+            isPrimary: false,
           );
+          final existingIdx = _photos.indexWhere((p) => p.photoType == nextType);
+          if (existingIdx != -1) {
+            _photos[existingIdx] = newPhoto;
+          } else {
+            _photos.add(newPhoto);
+          }
         });
       }
     } catch (e) {
@@ -413,45 +438,45 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       final file = result.files.first;
 
       // Try to auto-classify first
-      final classification = ref
+      final rawClassification = ref
           .read(photoClassificationServiceProvider.notifier)
           .classifyFileName(file.name);
-
-      final resolved = await _processPickedImage(
-        file,
-        classification: classification,
-      );
-      if (resolved == null || !mounted) return;
+      final classification =
+          rawClassification?.photoType?.startsWith('C') == true
+          ? rawClassification
+          : null;
 
       String? colorKey = classification?.colorName;
       String? photoType = classification?.photoType;
+      PhotoClassification? effectiveClassification = classification;
 
       // If auto-classification didn't give a color type, ask the user
       if (photoType == null || !photoType.startsWith('C')) {
-        final meta = await _showPhotoMetaDialog(context);
+        final meta = await _showPhotoMetaDialog(
+          context,
+          initialType: 'C',
+          allowTypeSelection: false,
+        );
         if (meta == null || !mounted) return;
         colorKey = meta.colorKey;
 
         if (meta.isNewColor && meta.colorKey != null) {
-          final current = _parseColorOptions().toSet();
-          if (!current.contains(meta.colorKey)) {
-            final sep = _colorsController.text.trim().isEmpty ? '' : ', ';
-            _colorsController.text =
-                '${_colorsController.text.trim()}$sep${meta.colorKey}';
-          }
+          _appendColorOption(meta.colorKey!);
         }
 
-        // Determine next Cx slot
-        final usedTypes = _photos
-            .where((p) => p.photoType?.startsWith('C') ?? false)
-            .map((p) => p.photoType!)
-            .toSet();
-        final slots = ['C1', 'C2', 'C3', 'C4'];
-        photoType = slots.firstWhere(
-          (s) => !usedTypes.contains(s),
-          orElse: () => 'C4',
+        photoType = _nextAvailableColorSlot();
+        effectiveClassification = _buildManualClassification(
+          fileName: file.name,
+          photoType: photoType,
+          colorKey: colorKey,
         );
       }
+
+      final resolved = await _processPickedImage(
+        file,
+        classification: effectiveClassification,
+      );
+      if (resolved == null || !mounted) return;
 
       setState(() {
         final newPhoto = ProductPhoto(
@@ -473,42 +498,63 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     }
   }
 
-  Future<_PhotoMetaResult?> _showPhotoMetaDialog(BuildContext context) async {
+  Future<_PhotoMetaResult?> _showPhotoMetaDialog(
+    BuildContext context, {
+    String initialType = 'C',
+    bool allowTypeSelection = true,
+  }) async {
     final colors = _parseColorOptions();
-    String selected = '__none__';
+    String selectedType = initialType;
+    String selectedColor = colors.isNotEmpty ? colors.first : '__new__';
     final newColorController = TextEditingController();
-    bool isPrimary = false;
 
     final result = await showDialog<_PhotoMetaResult>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setModalState) => AlertDialog(
-          title: const Text('Vincular foto a cor'),
+          title: const Text('Configurar foto'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              DropdownButtonFormField<String>(
-                initialValue: selected,
-                decoration: const InputDecoration(labelText: 'Cor'),
-                items: [
-                  const DropdownMenuItem(
-                    value: '__none__',
-                    child: Text('Sem cor (geral)'),
-                  ),
-                  const DropdownMenuItem(
-                    value: '__new__',
-                    child: Text('Adicionar nova cor'),
-                  ),
-                  ...colors.map(
-                    (c) => DropdownMenuItem(value: c, child: Text(c)),
-                  ),
-                ],
-                onChanged: (value) {
-                  if (value == null) return;
-                  setModalState(() => selected = value);
-                },
-              ),
-              if (selected == '__new__') ...[
+              if (allowTypeSelection) ...[
+                DropdownButtonFormField<String>(
+                  initialValue: selectedType,
+                  decoration: const InputDecoration(labelText: 'Tipo da foto'),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'P',
+                      child: Text('Foto principal'),
+                    ),
+                    DropdownMenuItem(value: 'D1', child: Text('Detalhe 1')),
+                    DropdownMenuItem(value: 'D2', child: Text('Detalhe 2')),
+                    DropdownMenuItem(value: 'C', child: Text('Foto de cor')),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setModalState(() => selectedType = value);
+                  },
+                ),
+                const SizedBox(height: 12),
+              ],
+              if (selectedType == 'C')
+                DropdownButtonFormField<String>(
+                  initialValue: selectedColor,
+                  decoration: const InputDecoration(labelText: 'Cor'),
+                  items: [
+                    ...colors.map(
+                      (c) => DropdownMenuItem(value: c, child: Text(c)),
+                    ),
+                    const DropdownMenuItem(
+                      value: '__new__',
+                      child: Text('Adicionar nova cor'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setModalState(() => selectedColor = value);
+                  },
+                ),
+              if (selectedType == 'C' && selectedColor == '__new__') ...[
                 const SizedBox(height: 12),
                 TextField(
                   controller: newColorController,
@@ -518,14 +564,6 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   ),
                 ),
               ],
-              const SizedBox(height: 12),
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                value: isPrimary,
-                onChanged: (value) =>
-                    setModalState(() => isPrimary = value ?? false),
-                title: const Text('Foto principal'),
-              ),
             ],
           ),
           actions: [
@@ -535,23 +573,24 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
             ),
             ElevatedButton(
               onPressed: () {
+                final photoType = selectedType;
                 String? colorKey;
                 bool isNewColor = false;
-                if (selected == '__new__') {
-                  final text = newColorController.text.trim();
-                  if (text.isEmpty) return;
-                  colorKey = text.toUpperCase();
-                  isNewColor = true;
-                } else if (selected == '__none__') {
-                  colorKey = null;
-                } else {
-                  colorKey = selected.toUpperCase();
+                if (photoType == 'C') {
+                  if (selectedColor == '__new__') {
+                    final text = newColorController.text.trim();
+                    if (text.isEmpty) return;
+                    colorKey = text.toUpperCase();
+                    isNewColor = true;
+                  } else {
+                    colorKey = selectedColor.toUpperCase();
+                  }
                 }
                 Navigator.pop(
                   dialogContext,
                   _PhotoMetaResult(
+                    photoType: photoType,
                     colorKey: colorKey,
-                    isPrimary: isPrimary,
                     isNewColor: isNewColor,
                   ),
                 );
@@ -567,6 +606,45 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       newColorController.dispose();
     });
     return result;
+  }
+
+  String _nextAvailableColorSlot() {
+    final usedTypes = _photos
+        .where((p) => p.photoType?.startsWith('C') ?? false)
+        .map((p) => p.photoType!)
+        .toSet();
+    const slots = ['C1', 'C2', 'C3', 'C4'];
+    return slots.firstWhere((s) => !usedTypes.contains(s), orElse: () => 'C4');
+  }
+
+  void _appendColorOption(String colorKey) {
+    final current = _parseColorOptions().toSet();
+    if (current.contains(colorKey)) return;
+    final sep = _colorsController.text.trim().isEmpty ? '' : ', ';
+    _colorsController.text = '${_colorsController.text.trim()}$sep$colorKey';
+  }
+
+  PhotoClassification _buildManualClassification({
+    required String fileName,
+    required String photoType,
+    String? colorKey,
+  }) {
+    final extension = p.extension(fileName).toLowerCase().replaceFirst('.', '');
+    final productRef = _refController.text.trim().isNotEmpty
+        ? _refController.text.trim()
+        : const Uuid().v4().substring(0, 8);
+    final service = ref.read(photoClassificationServiceProvider.notifier);
+    return PhotoClassification(
+      ref: productRef,
+      photoType: photoType,
+      colorName: colorKey,
+      standardName: service.buildInternalName(
+        productRef,
+        photoType,
+        colorKey,
+        extension.isEmpty ? 'jpg' : extension,
+      ),
+    );
   }
 
   List<String> _parseColorOptions() {

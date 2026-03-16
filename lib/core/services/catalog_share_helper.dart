@@ -612,15 +612,21 @@ class CatalogShareHelper {
     final bannerImagePath = catalog.banners.isNotEmpty
         ? catalog.banners.first.imagePath
         : null;
-    final coverInfo = _resolveCollectionCover(
-      catalogProducts,
-      productsState.categories,
-    );
+    final coverInfo = collectionIdOverride != null
+        ? _resolveSpecificCollectionCover(
+            collectionIdOverride,
+            productsState.categories,
+          )
+        : _resolveCollectionCover(
+            catalogProducts,
+            productsState.categories,
+          );
 
     // Resolve which cover to show based on settings or override
     bool resolvedIncludeCover;
     CollectionCover? resolvedCollectionCover;
     String? mainCoverCollectionId;
+    String? resolvedCollectionName;
 
     // Use override if provided, otherwise fallback to catalog settings
     final effectiveCoverType = coverTypeOverride ?? catalog.coverType;
@@ -635,23 +641,18 @@ class CatalogShareHelper {
       } else {
         // 'collection' or default
         resolvedIncludeCover = true;
-        var cover = coverInfo.cover; // Default cover (first match)
+        var cover = coverInfo.cover;
         var usedCollectionId = coverInfo.collectionId;
+        var usedCollectionName = coverInfo.name;
 
-        // NEW: If user selected a specific collection, try to find it
         if (collectionIdOverride != null) {
-          final requestedCollection = productsState.categories.firstWhere(
-            (c) => c.id == collectionIdOverride,
-            orElse: () => productsState.categories.firstWhere(
-              (c) => c.type == CategoryType.collection,
-              orElse: () => productsState.categories.first,
-            ), // fallback
+          final requestedCover = _resolveSpecificCollectionCover(
+            collectionIdOverride,
+            productsState.categories,
           );
-          if (requestedCollection.type == CategoryType.collection &&
-              requestedCollection.cover != null) {
-            cover = requestedCollection.cover;
-            usedCollectionId = requestedCollection.id;
-          }
+          cover = requestedCover.cover;
+          usedCollectionId = requestedCover.collectionId;
+          usedCollectionName = requestedCover.name;
         }
 
         // Fix: If user selected 'collection', ensure we try to show the image
@@ -668,6 +669,7 @@ class CatalogShareHelper {
 
         resolvedCollectionCover = cover;
         mainCoverCollectionId = usedCollectionId;
+        resolvedCollectionName = usedCollectionName;
       }
     } else {
       // Legacy fallback
@@ -677,6 +679,7 @@ class CatalogShareHelper {
       if (resolvedIncludeCover && resolvedCollectionCover != null) {
         mainCoverCollectionId = coverInfo.collectionId;
       }
+      resolvedCollectionName = coverInfo.name;
     }
 
     final collectionsMap = {
@@ -704,10 +707,15 @@ class CatalogShareHelper {
         );
       }
 
-      final fallbackCoverInfo = _resolveCollectionCover(
-        fallbackProducts,
-        productsState.categories,
-      );
+      final fallbackCoverInfo = collectionIdOverride != null
+          ? _resolveSpecificCollectionCover(
+              collectionIdOverride,
+              productsState.categories,
+            )
+          : _resolveCollectionCover(
+              fallbackProducts,
+              productsState.categories,
+            );
       final catalogName = catalog.name.isEmpty
           ? 'Meu Cat\u00e1logo'
           : catalog.name;
@@ -758,7 +766,7 @@ class CatalogShareHelper {
       style: pdfStyle,
       bannerImagePath: bannerImagePath,
       collectionCover: resolvedCollectionCover,
-      collectionName: coverInfo.name,
+      collectionName: resolvedCollectionName ?? coverInfo.name,
       includeCover: resolvedIncludeCover,
       collectionsMap: collectionsMap,
       mainCoverCollectionId: mainCoverCollectionId,
@@ -1760,5 +1768,23 @@ _CollectionCoverResult _resolveCollectionCover(
     collection.cover,
     collection.safeName,
     collectionId,
+  );
+}
+
+_CollectionCoverResult _resolveSpecificCollectionCover(
+  String collectionId,
+  List<Category> categories,
+) {
+  final matches = categories
+      .where((c) => c.type == CategoryType.collection && c.id == collectionId);
+  if (matches.isEmpty) {
+    return const _CollectionCoverResult(null, null, null);
+  }
+  final collection = matches.first;
+
+  return _CollectionCoverResult(
+    collection.cover,
+    collection.safeName,
+    collection.id,
   );
 }
