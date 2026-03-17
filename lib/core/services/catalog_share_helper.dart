@@ -967,6 +967,7 @@ class CatalogShareHelper {
                                 ],
                               ),
                             ],
+
                             const SizedBox(height: 24),
 
                             _buildSubHeader(context, 'Estilo do Layout'),

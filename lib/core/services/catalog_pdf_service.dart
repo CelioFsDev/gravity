@@ -61,8 +61,6 @@ class CatalogPdfService {
       );
     }
 
-    String? currentCollectionId;
-
     // Coleta TODAS as imagens possíveis para pré-carregamento (Produtos + Capas + Banners)
     // Inclui TODAS as fontes (images, photos, remoteImages) sem exclusão mútua.
     final allImages = <ProductImage>[];
@@ -116,134 +114,79 @@ class CatalogPdfService {
     // Pré-carregar TODAS as imagens unificadamente (rede + local + memória)
     await _preloadImages(allImages);
 
-    // Group products by collection to facilitate batching
-    final List<List<Product>> collectionBatches = [];
-    if (collectionsMap != null) {
-      String? lastId;
-      List<Product> currentCollection = [];
-      for (final p in products) {
-        String? prodCatId;
-        for (final id in p.categoryIds) {
-          if (collectionsMap.containsKey(id)) {
-            prodCatId = id;
-            break;
-          }
-        }
-        if (prodCatId != lastId && currentCollection.isNotEmpty) {
-          collectionBatches.add(currentCollection);
-          currentCollection = [];
-        }
-        currentCollection.add(p);
-        lastId = prodCatId;
-      }
-      if (currentCollection.isNotEmpty) {
-        collectionBatches.add(currentCollection);
-      }
-    } else {
-      collectionBatches.add(products);
-    }
-
     final int itemsPerPage = switch (style) {
       CatalogPdfStyle.compact => 3,
       CatalogPdfStyle.minimal => 2,
       _ => 1,
     };
 
-    for (final batch in collectionBatches) {
-      // Add collection opening page if needed
-      if (collectionsMap != null && batch.isNotEmpty) {
-        String? prodCollectionId;
-        for (final catId in batch.first.categoryIds) {
-          if (collectionsMap.containsKey(catId)) {
-            prodCollectionId = catId;
-            break;
+    // Process all products with batching
+    for (var i = 0; i < products.length; i += itemsPerPage) {
+      final productsInPage = products.skip(i).take(itemsPerPage).toList();
+
+      // If useLoosePhotos is ON, we still do 1 page per photo for now
+      if (useLoosePhotos) {
+        for (final product in productsInPage) {
+          final loosePhotos = _extractLoosePhotos(product);
+          final photosToProcess = loosePhotos.isEmpty ? [null] : loosePhotos;
+
+          for (final photo in photosToProcess) {
+            pdf.addPage(
+              pw.Page(
+                pageFormat: pageFormat,
+                margin: const pw.EdgeInsets.symmetric(vertical: 18),
+                build: (context) => _buildProductPage(
+                  product,
+                  mode,
+                  currencyFormat,
+                  pageFormat,
+                  collectionName: collectionName,
+                  defaultSubtitle: defaultSubtitle,
+                  showPrice: showPrice,
+                  useLoosePhotos: true,
+                  forcedHeroPath: photo?.uri,
+                  style: style,
+                ),
+              ),
+            );
           }
         }
-
-        if (prodCollectionId != null &&
-            prodCollectionId != currentCollectionId) {
-          final isDuplicateCover =
-              includeCover &&
-              mainCoverCollectionId != null &&
-              prodCollectionId == mainCoverCollectionId &&
-              currentCollectionId == null;
-
-          if (!isDuplicateCover) {
-            final collection = collectionsMap[prodCollectionId]!;
-            _addCollectionOpeningPage(pdf, pageFormat, collection);
-          }
-          currentCollectionId = prodCollectionId;
-        }
-      }
-
-      // Process products in this collection with batching
-      for (var i = 0; i < batch.length; i += itemsPerPage) {
-        final productsInPage = batch.skip(i).take(itemsPerPage).toList();
-
-        // If useLoosePhotos is ON, we still do 1 page per photo for now
-        if (useLoosePhotos) {
-          for (final product in productsInPage) {
-            final loosePhotos = _extractLoosePhotos(product);
-            final photosToProcess = loosePhotos.isEmpty ? [null] : loosePhotos;
-
-            for (final photo in photosToProcess) {
-              pdf.addPage(
-                pw.Page(
-                  pageFormat: pageFormat,
-                  margin: const pw.EdgeInsets.symmetric(vertical: 18),
-                  build: (context) => _buildProductPage(
-                    product,
-                    mode,
-                    currencyFormat,
-                    pageFormat,
-                    collectionName: collectionName,
-                    defaultSubtitle: defaultSubtitle,
-                    showPrice: showPrice,
-                    useLoosePhotos: true,
-                    forcedHeroPath: photo?.uri,
-                    style: style,
-                  ),
+      } else {
+        // Standard batched page
+        pdf.addPage(
+          pw.Page(
+            pageFormat: pageFormat,
+            margin: pw.EdgeInsets.zero, // Styles handle their own margins
+            build: (context) {
+              final double itemHeight =
+                  (pageFormat.height - 36) / itemsPerPage;
+              return pw.Padding(
+                padding: const pw.EdgeInsets.symmetric(vertical: 18),
+                child: pw.Column(
+                  mainAxisAlignment: pw.MainAxisAlignment.start,
+                  children: productsInPage.map((product) {
+                    return pw.Container(
+                      height: itemHeight,
+                      child: _buildProductPage(
+                        product,
+                        mode,
+                        currencyFormat,
+                        pageFormat.copyWith(
+                          height: itemHeight,
+                        ), // Treat each item area as a miniature page
+                        collectionName: collectionName,
+                        defaultSubtitle: defaultSubtitle,
+                        showPrice: showPrice,
+                        useLoosePhotos: false,
+                        style: style,
+                      ),
+                    );
+                  }).toList(),
                 ),
               );
-            }
-          }
-        } else {
-          // Standard batched page
-          pdf.addPage(
-            pw.Page(
-              pageFormat: pageFormat,
-              margin: pw.EdgeInsets.zero, // Styles handle their own margins
-              build: (context) {
-                final double itemHeight =
-                    (pageFormat.height - 36) / itemsPerPage;
-                return pw.Padding(
-                  padding: const pw.EdgeInsets.symmetric(vertical: 18),
-                  child: pw.Column(
-                    mainAxisAlignment: pw.MainAxisAlignment.start,
-                    children: productsInPage.map((product) {
-                      return pw.Container(
-                        height: itemHeight,
-                        child: _buildProductPage(
-                          product,
-                          mode,
-                          currencyFormat,
-                          pageFormat.copyWith(
-                            height: itemHeight,
-                          ), // Treat each item area as a miniature page
-                          collectionName: collectionName,
-                          defaultSubtitle: defaultSubtitle,
-                          showPrice: showPrice,
-                          useLoosePhotos: false,
-                          style: style,
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                );
-              },
-            ),
-          );
-        }
+            },
+          ),
+        );
       }
     }
 
