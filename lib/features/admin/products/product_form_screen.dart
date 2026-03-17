@@ -442,7 +442,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           .read(photoClassificationServiceProvider.notifier)
           .classifyFileName(file.name);
       final classification =
-          rawClassification?.photoType?.startsWith('C') == true
+          rawClassification?.photoType.startsWith('C') == true
           ? rawClassification
           : null;
 

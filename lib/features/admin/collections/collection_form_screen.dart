@@ -95,8 +95,7 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
   Future<void> _pickImage(bool isMini) async {
     try {
       final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'],
+        type: FileType.image,
         allowMultiple: false,
         withData: kIsWeb,
       );

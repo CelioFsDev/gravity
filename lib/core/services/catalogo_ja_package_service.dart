@@ -89,7 +89,13 @@ class CatalogoJaPackageService {
           final ext = p.extension(imagePath).isEmpty
               ? '.jpg'
               : p.extension(imagePath);
-          final baseName = p.basenameWithoutExtension(imagePath);
+          String baseName = '';
+          if (imagePath.startsWith('data:')) {
+            baseName = 'photo_${DateTime.now().millisecondsSinceEpoch}_$i';
+          } else {
+            baseName = p.basenameWithoutExtension(imagePath);
+          }
+          if (baseName.length > 50) baseName = baseName.substring(0, 50);
           final relativeName = '${i.toString().padLeft(2, '0')}__$baseName$ext';
           final relativePackagePath = 'images/${product.id}/$relativeName';
 
@@ -381,7 +387,10 @@ class CatalogoJaPackageService {
       for (final photo in product.photos) {
         final sourceFile = io.File(p.join(extractDir.path, photo.path));
         if (await sourceFile.exists()) {
-          final newName = '${product.id}_${p.basename(sourceFile.path)}';
+          final newName = _buildSafeImportedFileName(
+            prefix: product.id,
+            originalPath: photo.path,
+          );
           final targetFile = io.File(p.join(appImagesDir.path, newName));
 
           await sourceFile.copy(targetFile.path);
@@ -437,8 +446,11 @@ class CatalogoJaPackageService {
             p.join(extractDir.path, collection.cover!.coverMiniPath!),
           );
           if (await sourceFile.exists()) {
-            final newName =
-                'coll_${collection.id}_mini${p.extension(sourceFile.path)}';
+            final newName = _buildSafeImportedFileName(
+              prefix: 'coll_${collection.id}_mini',
+              originalPath: collection.cover!.coverMiniPath!,
+              fallbackExtension: p.extension(sourceFile.path),
+            );
             final targetFile = io.File(p.join(appImagesDir.path, newName));
             await sourceFile.copy(targetFile.path);
             absMiniPath = targetFile.path;
@@ -450,8 +462,11 @@ class CatalogoJaPackageService {
             p.join(extractDir.path, collection.cover!.coverPagePath!),
           );
           if (await sourceFile.exists()) {
-            final newName =
-                'coll_${collection.id}_page${p.extension(sourceFile.path)}';
+            final newName = _buildSafeImportedFileName(
+              prefix: 'coll_${collection.id}_page',
+              originalPath: collection.cover!.coverPagePath!,
+              fallbackExtension: p.extension(sourceFile.path),
+            );
             final targetFile = io.File(p.join(appImagesDir.path, newName));
             await sourceFile.copy(targetFile.path);
             absPagePath = targetFile.path;
@@ -673,6 +688,36 @@ class CatalogoJaPackageService {
       _ => 'application/octet-stream',
     };
     return 'data:$mime;base64,${base64Encode(bytes)}';
+  }
+
+  String _buildSafeImportedFileName({
+    required String prefix,
+    required String originalPath,
+    String? fallbackExtension,
+  }) {
+    final normalizedPath = originalPath.replaceAll('\\', '/');
+    final baseName = p.posix.basename(normalizedPath);
+    String extension = p.posix.extension(baseName).isNotEmpty
+        ? p.posix.extension(baseName)
+        : (fallbackExtension?.isNotEmpty == true ? fallbackExtension! : '.jpg');
+        
+    if (extension.length > 10) {
+      extension = extension.substring(0, 10);
+    }
+    
+    final baseWithoutExtension = p.posix.basenameWithoutExtension(baseName);
+    String safeBase = _sanitizePathSegment(baseWithoutExtension);
+    
+    if (safeBase.length > 80) {
+      safeBase = '${safeBase.substring(0, 80)}_${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
+    }
+    
+    final safePrefix = _sanitizePathSegment(prefix);
+    return '${safePrefix}_${safeBase.isEmpty ? 'image' : safeBase}$extension';
+  }
+
+  String _sanitizePathSegment(String value) {
+    return value.replaceAll(RegExp(r'[<>:"/\\|?*\x00-\x1F]+'), '_').trim();
   }
 }
 

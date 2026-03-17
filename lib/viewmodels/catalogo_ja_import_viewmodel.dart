@@ -81,13 +81,20 @@ class CatalogoJaImportViewModel extends _$CatalogoJaImportViewModel {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['json', 'zip'],
+        type: FileType.any,
         withData: kIsWeb,
       );
 
       if (result != null && result.files.isNotEmpty) {
         final pickedFile = result.files.single;
+        final nameLower = pickedFile.name.toLowerCase();
+        if (!nameLower.endsWith('.json') && !nameLower.endsWith('.zip')) {
+          state = state.copyWith(
+            isLoading: false,
+            errorMessage: 'Formato inv\u00e1lido. Selecione um arquivo .json ou .zip.',
+          );
+          return;
+        }
         final filePath = pickedFile.path;
         final fileBytes = pickedFile.bytes;
         final exportService = ref.read(exportImportServiceProvider);
