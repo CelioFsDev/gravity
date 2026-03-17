@@ -28,8 +28,7 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSuperAdmin()
-        || (userDocExists() && userDoc().data.role == 'admin');
+      return isSuperAdmin();
     }
 
     function isSelf(userEmail) {

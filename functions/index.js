@@ -1,6 +1,6 @@
 const admin = require('firebase-admin');
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
-const { logger } = require('firebase-functions');
+const { auth: authFunctions, logger } = require('firebase-functions');
 
 admin.initializeApp();
 
@@ -108,19 +108,17 @@ async function ensureAdmin(request) {
   }
 
   const requesterEmail = normalizeEmail(request.auth.token.email);
-  let isAuthorized = SUPER_ADMIN_EMAILS.has(requesterEmail);
-
-  if (!isAuthorized) {
-    const doc = await db.collection('users').doc(requesterEmail).get();
-    if (doc.exists && doc.data().role === 'admin') {
-      isAuthorized = true;
-    }
+  if (!requesterEmail) {
+    throw new HttpsError('unauthenticated', 'Email do usuario nao encontrado no token.');
   }
 
+  let isAuthorized = SUPER_ADMIN_EMAILS.has(requesterEmail);
+  
   if (!isAuthorized) {
+    logger.warn('Acesso negado ao Gerenciamento de Usuarios para ' + requesterEmail);
     throw new HttpsError(
       'permission-denied',
-      'Apenas administradores podem gerenciar usuarios.',
+      'Apenas administradores gerais (Super Admin) podem gerenciar usuarios.',
     );
   }
 
@@ -415,3 +413,42 @@ exports.deleteUserAccount = onCall(
     return { email };
   },
 );
+
+exports.onUserCreated = authFunctions.user().onCreate(async (user) => {
+  const email = normalizeEmail(user.email);
+  if (!email) return null;
+
+  const docRef = db.collection('users').doc(email);
+  const snapshot = await docRef.get();
+
+  if (snapshot.exists) {
+    logger.info('Documento de usuario ja existe no Firestore', { email });
+    return null;
+  }
+
+  const role = SUPER_ADMIN_EMAILS.has(email) ? 'admin' : 'viewer';
+
+  const payload = {
+    authUid: user.uid,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    disabled: !!user.disabled,
+    displayName: user.displayName || '',
+    email,
+    lastRefreshAt: admin.firestore.FieldValue.serverTimestamp(),
+    photoURL: user.photoURL || '',
+    providerIds: (user.providerData || [])
+      .map((provider) => provider.providerId)
+      .filter(Boolean),
+    role,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+
+  try {
+    await docRef.set(payload);
+    logger.info('Perfil de usuario criado automaticamente via trigger', { email, role });
+  } catch (error) {
+    logger.error('Erro ao criar perfil de usuario automaticamente', { email, error });
+  }
+
+  return null;
+});
