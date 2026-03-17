@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io' as io;
 import 'package:archive/archive.dart';
+import 'package:archive/archive_io.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:catalogo_ja/core/services/dto/catalogo_ja_export_dtos.dart';
 import 'package:catalogo_ja/core/services/export_import_service.dart';
@@ -88,7 +89,13 @@ class CatalogoJaPackageService {
           final ext = p.extension(imagePath).isEmpty
               ? '.jpg'
               : p.extension(imagePath);
-          final baseName = p.basenameWithoutExtension(imagePath);
+          String baseName = '';
+          if (imagePath.startsWith('data:')) {
+            baseName = 'photo_${DateTime.now().millisecondsSinceEpoch}_$i';
+          } else {
+            baseName = p.basenameWithoutExtension(imagePath);
+          }
+          if (baseName.length > 50) baseName = baseName.substring(0, 50);
           final relativeName = '${i.toString().padLeft(2, '0')}__$baseName$ext';
           final relativePackagePath = 'images/${product.id}/$relativeName';
 
@@ -278,6 +285,46 @@ class CatalogoJaPackageService {
   Future<(CatalogoJaExportPayload, io.Directory)> preparePackage(
     io.File zipFile,
   ) async {
+    if (kIsWeb) {
+      throw UnsupportedError(
+        'preparePackage(File) nao e suportado na web. Use preparePackageFromBytes.',
+      );
+    }
+
+    final tempDir = await getTemporaryDirectory();
+    final extractDir = io.Directory(
+      p.join(
+        tempDir.path,
+        'CatalogoJa_import_prepare_${DateTime.now().millisecondsSinceEpoch}',
+      ),
+    );
+    await extractDir.create(recursive: true);
+
+    // Run unzipping in background isolate for performance and memory safety
+    await compute(_unzipTask, {
+      'zipPath': zipFile.path,
+      'extractPath': extractDir.path,
+    });
+
+    // Validate and Read Products
+    final productsFile = io.File(p.join(extractDir.path, 'products.json'));
+    if (!await productsFile.exists()) {
+      throw Exception('Invalid package: products.json missing');
+    }
+
+    final payload = await _exportImportService.parsePayload(productsFile);
+    return (payload, extractDir);
+  }
+
+  Future<(CatalogoJaExportPayload, io.Directory)> preparePackageFromBytes(
+    Uint8List bytes,
+  ) async {
+    if (kIsWeb) {
+      throw UnsupportedError(
+        'preparePackageFromBytes usa diretorio temporario e nao e suportado na web.',
+      );
+    }
+
     final tempDir = await getTemporaryDirectory();
     final extractDir = io.Directory(
       p.join(
@@ -288,7 +335,6 @@ class CatalogoJaPackageService {
     await extractDir.create(recursive: true);
 
     // 1. Unzip
-    final bytes = await zipFile.readAsBytes();
     final archive = ZipDecoder().decodeBytes(bytes);
 
     for (final file in archive) {
@@ -341,7 +387,10 @@ class CatalogoJaPackageService {
       for (final photo in product.photos) {
         final sourceFile = io.File(p.join(extractDir.path, photo.path));
         if (await sourceFile.exists()) {
-          final newName = '${product.id}_${p.basename(sourceFile.path)}';
+          final newName = _buildSafeImportedFileName(
+            prefix: product.id,
+            originalPath: photo.path,
+          );
           final targetFile = io.File(p.join(appImagesDir.path, newName));
 
           await sourceFile.copy(targetFile.path);
@@ -397,8 +446,11 @@ class CatalogoJaPackageService {
             p.join(extractDir.path, collection.cover!.coverMiniPath!),
           );
           if (await sourceFile.exists()) {
-            final newName =
-                'coll_${collection.id}_mini${p.extension(sourceFile.path)}';
+            final newName = _buildSafeImportedFileName(
+              prefix: 'coll_${collection.id}_mini',
+              originalPath: collection.cover!.coverMiniPath!,
+              fallbackExtension: p.extension(sourceFile.path),
+            );
             final targetFile = io.File(p.join(appImagesDir.path, newName));
             await sourceFile.copy(targetFile.path);
             absMiniPath = targetFile.path;
@@ -410,8 +462,11 @@ class CatalogoJaPackageService {
             p.join(extractDir.path, collection.cover!.coverPagePath!),
           );
           if (await sourceFile.exists()) {
-            final newName =
-                'coll_${collection.id}_page${p.extension(sourceFile.path)}';
+            final newName = _buildSafeImportedFileName(
+              prefix: 'coll_${collection.id}_page',
+              originalPath: collection.cover!.coverPagePath!,
+              fallbackExtension: p.extension(sourceFile.path),
+            );
             final targetFile = io.File(p.join(appImagesDir.path, newName));
             await sourceFile.copy(targetFile.path);
             absPagePath = targetFile.path;
@@ -476,6 +531,194 @@ class CatalogoJaPackageService {
       mode: ImportMode.merge,
     );
   }
+
+  Future<ImportReport> importPackageFromBytes({
+    required Uint8List zipBytes,
+    required ImportMode mode,
+  }) async {
+    final archive = ZipDecoder().decodeBytes(zipBytes);
+
+    ArchiveFile? manifestFile;
+    ArchiveFile? productsFile;
+    for (final file in archive) {
+      if (!file.isFile) continue;
+      final name = file.name.toLowerCase();
+      if (name == 'manifest.json') manifestFile = file;
+      if (name == 'products.json') productsFile = file;
+    }
+
+    if (manifestFile == null) {
+      throw Exception('Invalid package: manifest.json missing');
+    }
+    if (productsFile == null) {
+      throw Exception('Invalid package: products.json missing');
+    }
+
+    final payload = await _exportImportService.parsePayloadFromBytes(
+      Uint8List.fromList((productsFile.content as List).cast<int>()),
+    );
+
+    final archiveFiles = <String, ArchiveFile>{};
+    for (final file in archive) {
+      if (file.isFile) {
+        archiveFiles[file.name] = file;
+      }
+    }
+
+    final restoredProducts = <ProductDTO>[];
+    for (final product in payload.products) {
+      final restoredPhotos = <ProductPhotoDTO>[];
+
+      for (final photo in product.photos) {
+        final archived = archiveFiles[photo.path];
+        if (archived == null) continue;
+
+        final bytes = Uint8List.fromList((archived.content as List).cast<int>());
+        final dataUrl = _bytesToDataUrl(photo.path, bytes);
+        restoredPhotos.add(
+          ProductPhotoDTO(
+            path: dataUrl,
+            colorKey: photo.colorKey,
+            isPrimary: photo.isPrimary,
+            photoType: photo.photoType,
+          ),
+        );
+      }
+
+      restoredProducts.add(
+        ProductDTO(
+          id: product.id,
+          name: product.name,
+          ref: product.ref,
+          sku: product.sku,
+          priceRetail: product.priceRetail,
+          priceWholesale: product.priceWholesale,
+          isActive: product.isActive,
+          isOutOfStock: product.isOutOfStock,
+          promoEnabled: product.promoEnabled,
+          promoPercent: product.promoPercent,
+          images: restoredPhotos
+              .map((p) => ProductImageDTO.fromModel(p.toProductImage()))
+              .toList(),
+          photos: restoredPhotos,
+          remoteImages: product.remoteImages,
+          mainImageIndex: product.mainImageIndex,
+          categoryIds: product.categoryIds,
+          sizes: product.sizes,
+          colors: product.colors,
+          createdAt: product.createdAt,
+          updatedAt: product.updatedAt,
+        ),
+      );
+    }
+
+    final restoredCollections = <CategoryDTO>[];
+    for (final collection in payload.collections) {
+      String? coverMiniPath = collection.cover?.coverMiniPath;
+      String? coverPagePath = collection.cover?.coverPagePath;
+
+      if (collection.cover?.coverMiniPath != null) {
+        final archived = archiveFiles[collection.cover!.coverMiniPath!];
+        if (archived != null) {
+          final bytes = Uint8List.fromList((archived.content as List).cast<int>());
+          coverMiniPath = _bytesToDataUrl(collection.cover!.coverMiniPath!, bytes);
+        }
+      }
+
+      if (collection.cover?.coverPagePath != null) {
+        final archived = archiveFiles[collection.cover!.coverPagePath!];
+        if (archived != null) {
+          final bytes = Uint8List.fromList((archived.content as List).cast<int>());
+          coverPagePath = _bytesToDataUrl(collection.cover!.coverPagePath!, bytes);
+        }
+      }
+
+      restoredCollections.add(
+        CategoryDTO(
+          id: collection.id,
+          name: collection.name,
+          slug: collection.slug,
+          isActive: collection.isActive,
+          order: collection.order,
+          type: collection.type,
+          cover: collection.cover != null
+              ? CollectionCoverDTO(
+                  title: collection.cover!.title,
+                  mode: collection.cover!.mode,
+                  coverImagePath: collection.cover!.coverImagePath,
+                  coverMiniPath: coverMiniPath,
+                  coverPagePath: coverPagePath,
+                )
+              : null,
+          createdAt: collection.createdAt,
+          updatedAt: collection.updatedAt,
+        ),
+      );
+    }
+
+    final importPayload = CatalogoJaExportPayload(
+      app: payload.app,
+      version: payload.version,
+      exportedAt: payload.exportedAt,
+      store: payload.store,
+      categories: payload.categories,
+      collections: restoredCollections,
+      products: restoredProducts,
+    );
+
+    final result = await _exportImportService.executeImport(importPayload, mode);
+    return ImportReport(
+      createdCount: result.successCount,
+      updatedCount: 0,
+      variantsCount: 0,
+      createdCategoriesCount: 0,
+      warnings: result.errors,
+      importedProducts: restoredProducts.map((e) => e.toModel()).toList(),
+    );
+  }
+
+  String _bytesToDataUrl(String filePath, Uint8List bytes) {
+    final ext = p.extension(filePath).toLowerCase();
+    final mime = switch (ext) {
+      '.jpg' || '.jpeg' => 'image/jpeg',
+      '.png' => 'image/png',
+      '.webp' => 'image/webp',
+      '.gif' => 'image/gif',
+      '.bmp' => 'image/bmp',
+      _ => 'application/octet-stream',
+    };
+    return 'data:$mime;base64,${base64Encode(bytes)}';
+  }
+
+  String _buildSafeImportedFileName({
+    required String prefix,
+    required String originalPath,
+    String? fallbackExtension,
+  }) {
+    final normalizedPath = originalPath.replaceAll('\\', '/');
+    final baseName = p.posix.basename(normalizedPath);
+    String extension = p.posix.extension(baseName).isNotEmpty
+        ? p.posix.extension(baseName)
+        : (fallbackExtension?.isNotEmpty == true ? fallbackExtension! : '.jpg');
+        
+    if (extension.length > 10) {
+      extension = extension.substring(0, 10);
+    }
+    
+    final baseWithoutExtension = p.posix.basenameWithoutExtension(baseName);
+    String safeBase = _sanitizePathSegment(baseWithoutExtension);
+    
+    if (safeBase.length > 80) {
+      safeBase = '${safeBase.substring(0, 80)}_${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
+    }
+    
+    final safePrefix = _sanitizePathSegment(prefix);
+    return '${safePrefix}_${safeBase.isEmpty ? 'image' : safeBase}$extension';
+  }
+
+  String _sanitizePathSegment(String value) {
+    return value.replaceAll(RegExp(r'[<>:"/\\|?*\x00-\x1F]+'), '_').trim();
+  }
 }
 
 class ImportReport {
@@ -501,3 +744,26 @@ final catalogoJaPackageServiceProvider = Provider<CatalogoJaPackageService>((
 ) {
   return CatalogoJaPackageService(ref.read(exportImportServiceProvider));
 });
+
+
+/// Top-level function for background ZIP extraction via compute
+Future<void> _unzipTask(Map<String, String> args) async {
+  final zipPath = args['zipPath']!;
+  final extractPath = args['extractPath']!;
+
+  final bytes = io.File(zipPath).readAsBytesSync();
+  final archive = ZipDecoder().decodeBytes(bytes);
+
+  for (final file in archive) {
+    final filename = file.name;
+    final destPath = p.join(extractPath, filename);
+    if (file.isFile) {
+      final outputStream = OutputFileStream(destPath);
+      file.writeContent(outputStream);
+      outputStream.close();
+    } else {
+      io.Directory(destPath).createSync(recursive: true);
+    }
+  }
+  
+}

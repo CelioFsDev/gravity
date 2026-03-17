@@ -20,7 +20,7 @@ class WhatsAppShareService {
     await _launchWhatsApp(text: text);
   }
 
-  static Future<void> shareFile({
+  static Future<ShareResult> shareFile({
     required List<int> bytes,
     required String fileName,
     String? text,
@@ -39,26 +39,31 @@ class WhatsAppShareService {
       }
     }
 
-    if (kIsWeb) {
-      await Share.shareXFiles([
-        XFile.fromData(
-          Uint8List.fromList(bytes),
-          name: fileName,
-          mimeType: effectiveMimeType,
-        ),
-      ], text: text);
-    } else {
-      final tempDir = await getTemporaryDirectory();
-      final tempFile = File(p.join(tempDir.path, fileName));
-      await tempFile.writeAsBytes(bytes, flush: true);
+    final file = kIsWeb
+        ? XFile.fromData(
+            Uint8List.fromList(bytes),
+            name: fileName,
+            mimeType: effectiveMimeType,
+          )
+        : await _writeTempXFile(
+            bytes: bytes,
+            fileName: fileName,
+            mimeType: effectiveMimeType,
+          );
 
-      await Share.shareXFiles([
-        XFile(tempFile.path, mimeType: effectiveMimeType),
-      ], text: text);
-    }
+    final result = await SharePlus.instance.share(
+      ShareParams(
+        files: [file],
+        text: text,
+        downloadFallbackEnabled: false,
+        mailToFallbackEnabled: false,
+      ),
+    );
+    _throwIfShareUnavailable(result);
+    return result;
   }
 
-  static Future<void> shareFiles({
+  static Future<ShareResult> shareFiles({
     required List<({List<int> bytes, String fileName, String? mimeType})> files,
     String? text,
   }) async {
@@ -84,24 +89,64 @@ class WhatsAppShareService {
           ),
         );
       } else {
-        final tempDir = await getTemporaryDirectory();
-        final tempFile = File(p.join(tempDir.path, file.fileName));
-        await tempFile.writeAsBytes(file.bytes, flush: true);
-        xfiles.add(XFile(tempFile.path, mimeType: effectiveMimeType));
+        xfiles.add(
+          await _writeTempXFile(
+            bytes: file.bytes,
+            fileName: file.fileName,
+            mimeType: effectiveMimeType,
+          ),
+        );
       }
     }
-    await Share.shareXFiles(xfiles, text: text);
+    final result = await SharePlus.instance.share(
+      ShareParams(
+        files: xfiles,
+        text: text,
+        downloadFallbackEnabled: false,
+        mailToFallbackEnabled: false,
+      ),
+    );
+    _throwIfShareUnavailable(result);
+    return result;
   }
 
-  static Future<void> shareXFile({
+  static Future<ShareResult> shareXFile({
     required String filePath,
     required String fileName,
     String? text,
     String? mimeType,
   }) async {
-    await Share.shareXFiles([
-      XFile(filePath, name: fileName, mimeType: mimeType),
-    ], text: text);
+    final result = await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(filePath, name: fileName, mimeType: mimeType)],
+        text: text,
+        downloadFallbackEnabled: false,
+        mailToFallbackEnabled: false,
+      ),
+    );
+    _throwIfShareUnavailable(result);
+    return result;
+  }
+
+  static Future<XFile> _writeTempXFile({
+    required List<int> bytes,
+    required String fileName,
+    String? mimeType,
+  }) async {
+    final tempDir = await getTemporaryDirectory();
+    final tempFile = File(p.join(tempDir.path, fileName));
+    await tempFile.writeAsBytes(bytes, flush: true);
+    return XFile(tempFile.path, mimeType: mimeType);
+  }
+
+  static void _throwIfShareUnavailable(ShareResult result) {
+    if (result.status == ShareResultStatus.unavailable) {
+      throw Exception(
+        kIsWeb
+            ? 'Este navegador não oferece compartilhamento de arquivos. Use o app instalado ou compartilhe o link do catálogo.'
+            : 'O compartilhamento de arquivos não está disponível neste dispositivo.',
+      );
+    }
   }
 
   static Future<void> _launchWhatsApp({

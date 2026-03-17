@@ -1,6 +1,5 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
@@ -111,6 +110,21 @@ class _CreateEmailPasswordUserScreenState
   }
 
   String _functionErrorMessage(Object error) {
+    if (error is FirebaseFunctionsException) {
+      switch (error.code) {
+        case 'already-exists':
+          return 'Já existe um login com esse email.';
+        case 'invalid-argument':
+          return error.message ?? 'Dados inválidos para criar o usuário.';
+        case 'permission-denied':
+          return 'Você não tem permissão para criar este usuário.';
+        case 'unauthenticated':
+          return 'Sua sessão expirou. Entre novamente.';
+        default:
+          return error.message ?? 'Erro ao criar usuário.';
+      }
+    }
+
     if (error is FirebaseAuthException) {
       switch (error.code) {
         case 'email-already-in-use':

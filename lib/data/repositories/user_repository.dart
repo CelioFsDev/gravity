@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class UserRepository {
@@ -43,6 +44,63 @@ class UserRepository {
     await updateUserData(email, {'role': role.name});
   }
 
+  Future<void> ensureUserProfile({
+    required String email,
+    String displayName = '',
+    String photoURL = '',
+    List<String> providerIds = const [],
+    String? authUid,
+    UserRole? preferredRole,
+  }) async {
+    final normalizedEmail = _normalizeEmail(email);
+    if (normalizedEmail.isEmpty) return;
+
+    final docRef = _firestore.collection('users').doc(normalizedEmail);
+    final snapshot = await docRef.get();
+    final data = snapshot.data() ?? <String, dynamic>{};
+    final currentRole = data['role'] as String?;
+    final role =
+        currentRole ??
+        preferredRole?.name ??
+        (UserRole.superAdminEmails.contains(normalizedEmail)
+            ? UserRole.admin.name
+            : UserRole.viewer.name);
+
+    await docRef.set({
+      'authUid': authUid ?? data['authUid'],
+      'createdAt': data['createdAt'] ?? FieldValue.serverTimestamp(),
+      'disabled': data['disabled'] ?? false,
+      'displayName': displayName.isNotEmpty
+          ? displayName
+          : (data['displayName'] as String? ?? ''),
+      'email': normalizedEmail,
+      'lastRefreshAt': FieldValue.serverTimestamp(),
+      'photoURL': photoURL.isNotEmpty ? photoURL : (data['photoURL'] as String? ?? ''),
+      'providerIds': providerIds.isNotEmpty
+          ? providerIds
+          : List<String>.from(data['providerIds'] ?? const []),
+      'role': role,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> ensureUserProfileFromAuth(User user) {
+    final email = user.email?.trim().toLowerCase() ?? '';
+    return ensureUserProfile(
+      email: email,
+      displayName: user.displayName ?? '',
+      photoURL: user.photoURL ?? '',
+      providerIds: user.providerData
+          .map((provider) => provider.providerId)
+          .whereType<String>()
+          .toList(),
+      authUid: user.uid,
+      preferredRole: UserRole.superAdminEmails.contains(email)
+          ? UserRole.admin
+          : UserRole.viewer,
+    );
+  }
+
   /// Generic update for user document
   Future<void> updateUserData(String email, Map<String, dynamic> data) async {
     final normalizedEmail = _normalizeEmail(email);
@@ -64,6 +122,15 @@ class UserRepository {
       snapshot,
     ) {
       return snapshot.docs.map((doc) => doc.data()).toList();
+    });
+  }
+
+  Stream<Map<String, dynamic>?> getUserStream(String email) {
+    final normalizedEmail = _normalizeEmail(email);
+    return _firestore.collection('users').doc(normalizedEmail).snapshots().map((
+      doc,
+    ) {
+      return doc.data();
     });
   }
 }

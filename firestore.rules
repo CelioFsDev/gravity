@@ -12,7 +12,8 @@ service cloud.firestore {
     function isSuperAdmin() {
       return isSignedIn() && (
         currentUserEmail() == 'ti.vitoriana@gmail.com' || 
-        currentUserEmail() == 'celiofs.dev@gmail.com'
+        currentUserEmail() == 'celiofs.dev@gmail.com' ||
+        currentUserEmail() == 'celio@gmail.com'
       );
     }
 

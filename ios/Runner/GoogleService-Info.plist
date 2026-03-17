@@ -3,21 +3,23 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>666583578619-u9osto95a6qi7pu4iddeh456rorcpum1.apps.googleusercontent.com</string>
+	<string>866110171338-5iim6tktrfvnk4jijoesjgkug4ao6su3.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.666583578619-u9osto95a6qi7pu4iddeh456rorcpum1</string>
+	<string>com.googleusercontent.apps.866110171338-5iim6tktrfvnk4jijoesjgkug4ao6su3</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>866110171338-vkp1ja7pu6r93q69q6j2ju2tgj6fq2aj.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
-	<string>AIzaSyDBkzi5fi_wDstzSC7ahuSmS5Jtdrg2gHo</string>
+	<string>AIzaSyB1ul-7ZilqnG0Ck0Apk_3D6Z9nFr45cds</string>
 	<key>GCM_SENDER_ID</key>
-	<string>666583578619</string>
+	<string>866110171338</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
 	<string>com.catalogoja.app</string>
 	<key>PROJECT_ID</key>
-	<string>catalogo-fc9b5</string>
+	<string>catalogo-ja-89aae</string>
 	<key>STORAGE_BUCKET</key>
-	<string>catalogo-fc9b5.firebasestorage.app</string>
+	<string>catalogo-ja-89aae.firebasestorage.app</string>
 	<key>IS_ADS_ENABLED</key>
 	<false></false>
 	<key>IS_ANALYTICS_ENABLED</key>
@@ -29,6 +31,8 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:666583578619:ios:aa82dc5fc28519b83ffd5e</string>
+	<string>1:866110171338:ios:a71004a3d73b26e7b22c33</string>
+	<key>DATABASE_URL</key>
+	<string>https://catalogo-ja-89aae-default-rtdb.firebaseio.com</string>
 </dict>
 </plist>

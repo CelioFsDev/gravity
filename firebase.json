@@ -9,6 +9,10 @@
         ],
         "rewrites": [
             {
+                "source": "/s/**",
+                "function": "catalogSharePreview"
+            },
+            {
                 "source": "**",
                 "destination": "/index.html"
             }

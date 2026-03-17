@@ -143,13 +143,20 @@ class ProductImportViewModel extends _$ProductImportViewModel {
 
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['csv', 'zip'],
+        type: FileType.any,
         withData: kIsWeb,
       );
 
       if (result != null) {
         final file = result.files.single;
+        final nameLower = file.name.toLowerCase();
+        if (!nameLower.endsWith('.csv') && !nameLower.endsWith('.zip')) {
+          state = state.copyWith(
+            isLoading: false,
+            errorMessage: 'Formato inv\u00e1lido. Selecione um arquivo .csv ou .zip.',
+          );
+          return;
+        }
         final ext = p.extension(file.name).toLowerCase();
         final ParsedImport parsed;
 
@@ -220,7 +227,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
-        type: FileType.image,
+        type: FileType.any,
         withData: !kIsWeb, // Important: need bytes for Drive files
       );
 
@@ -329,7 +336,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       // Pick files first to avoid losing the user gesture context on web.
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
-        type: FileType.image,
+        type: FileType.any,
         // Mobile cloud providers (Google Drive, etc.) often return files
         // without a local path, so we need in-memory bytes too.
         withData: true,

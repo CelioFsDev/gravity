@@ -42,13 +42,21 @@ class _NuvemshopImportScreenState extends ConsumerState<NuvemshopImportScreen> {
       _preview = null;
     });
     final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['csv'],
+      type: FileType.any,
+      // allowedExtensions: ['csv'],
       withData: true,
     );
     if (result == null || result.files.isEmpty) return;
 
     final file = result.files.first;
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Formato invalido. Selecione um arquivo .csv.')),
+        );
+      }
+      return;
+    }
     final table = await NuvemshopCsvReader.readFromPlatformFile(file);
     final filled = forwardFill(table.rows, const [
       'Nome',

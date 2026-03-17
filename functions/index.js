@@ -1,16 +1,130 @@
 const admin = require('firebase-admin');
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions');
 
 admin.initializeApp();
 
 const db = admin.firestore();
 const auth = admin.auth();
-const SUPER_ADMIN_EMAILS = new Set(['ti.vitoriana@gmail.com', 'celiofs.dev@gmail.com']);
+const SUPER_ADMIN_EMAILS = new Set([
+  'ti.vitoriana@gmail.com',
+  'celiofs.dev@gmail.com',
+  'celio@gmail.com',
+]);
 const VALID_ROLES = new Set(['admin', 'operator', 'seller', 'viewer']);
 
 function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function normalizePreviewImage(rawImage, origin) {
+  const fallback = `${origin}/icons/Icon-512.png`;
+  const image = String(rawImage || '').trim();
+  if (!image) return fallback;
+
+  try {
+    const parsed = new URL(image, origin);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return parsed.toString();
+    }
+  } catch (error) {
+    logger.warn('Imagem de preview invalida recebida no share', { image, error });
+  }
+
+  return fallback;
+}
+
+exports.catalogSharePreview = onRequest(
+  {
+    cors: true,
+    maxInstances: 10,
+  },
+  async (req, res) => {
+    const origin = `${req.protocol}://${req.get('host')}`;
+    const pathSegments = String(req.path || '')
+      .split('/')
+      .filter(Boolean);
+    const shareCode = decodeURIComponent(pathSegments[pathSegments.length - 1] || '')
+      .trim()
+      .toLowerCase();
+
+    if (!shareCode) {
+      res.status(400).send('Catalog share code is required.');
+      return;
+    }
+
+    const title = escapeHtml(req.query.title || 'CatalogoJa');
+    const description = escapeHtml(
+      req.query.description || 'Confira nosso catalogo digital.',
+    );
+    const imageUrl = escapeHtml(normalizePreviewImage(req.query.image, origin));
+    const canonicalUrl = `${origin}/c/${encodeURIComponent(shareCode)}`;
+    const escapedCanonicalUrl = escapeHtml(canonicalUrl);
+    const appTitle = title || 'CatalogoJa';
+
+    res.set('Cache-Control', 'public, max-age=300, s-maxage=300');
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.status(200).send(`<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <title>${appTitle}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="${description}">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="${appTitle}">
+    <meta property="og:description" content="${description}">
+    <meta property="og:image" content="${imageUrl}">
+    <meta property="og:url" content="${escapedCanonicalUrl}">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="${appTitle}">
+    <meta name="twitter:description" content="${description}">
+    <meta name="twitter:image" content="${imageUrl}">
+    <link rel="canonical" href="${escapedCanonicalUrl}">
+    <meta http-equiv="refresh" content="0;url=${escapedCanonicalUrl}">
+    <script>
+      window.location.replace(${JSON.stringify(canonicalUrl)});
+    </script>
+  </head>
+  <body>
+    <p>Abrindo catalogo...</p>
+  </body>
+</html>`);
+  },
+);
+
+async function ensureAdmin(request) {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Login obrigatorio.');
+  }
+
+  const requesterEmail = normalizeEmail(request.auth.token.email);
+  let isAuthorized = SUPER_ADMIN_EMAILS.has(requesterEmail);
+
+  if (!isAuthorized) {
+    const doc = await db.collection('users').doc(requesterEmail).get();
+    if (doc.exists && doc.data().role === 'admin') {
+      isAuthorized = true;
+    }
+  }
+
+  if (!isAuthorized) {
+    throw new HttpsError(
+      'permission-denied',
+      'Apenas administradores podem gerenciar usuarios.',
+    );
+  }
+
+  return requesterEmail;
 }
 
 exports.syncAuthUsers = onCall(
@@ -19,27 +133,7 @@ exports.syncAuthUsers = onCall(
     maxInstances: 5,
   },
   async (request) => {
-    if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'Login obrigatorio.');
-    }
-
-    const requesterEmail = normalizeEmail(request.auth.token.email);
-
-    // Allow if in hardcoded super admin list OR has admin role in Firestore
-    let isAuthorized = SUPER_ADMIN_EMAILS.has(requesterEmail);
-    if (!isAuthorized) {
-      const doc = await db.collection('users').doc(requesterEmail).get();
-      if (doc.exists && doc.data().role === 'admin') {
-        isAuthorized = true;
-      }
-    }
-
-    if (!isAuthorized) {
-      throw new HttpsError(
-        'permission-denied',
-        'Apenas administradores podem sincronizar usuarios.',
-      );
-    }
+    const requesterEmail = await ensureAdmin(request);
 
     let nextPageToken;
     let processed = 0;
@@ -130,27 +224,7 @@ exports.createEmailPasswordUser = onCall(
     maxInstances: 5,
   },
   async (request) => {
-    if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'Login obrigatorio.');
-    }
-
-    const requesterEmail = normalizeEmail(request.auth.token.email);
-
-    // Allow if in hardcoded super admin list OR has admin role in Firestore
-    let isAuthorized = SUPER_ADMIN_EMAILS.has(requesterEmail);
-    if (!isAuthorized) {
-      const doc = await db.collection('users').doc(requesterEmail).get();
-      if (doc.exists && doc.data().role === 'admin') {
-        isAuthorized = true;
-      }
-    }
-
-    if (!isAuthorized) {
-      throw new HttpsError(
-        'permission-denied',
-        'Apenas administradores podem cadastrar usuarios.',
-      );
-    }
+    const requesterEmail = await ensureAdmin(request);
 
     const email = normalizeEmail(request.data?.email);
     const password = String(request.data?.password || '').trim();
@@ -224,5 +298,120 @@ exports.createEmailPasswordUser = onCall(
       role,
       uid: userRecord.uid,
     };
+  },
+);
+
+exports.updateUserAccess = onCall(
+  {
+    cors: true,
+    maxInstances: 5,
+  },
+  async (request) => {
+    const requesterEmail = await ensureAdmin(request);
+
+    const email = normalizeEmail(request.data?.email);
+    const requestedRole = String(request.data?.role || 'viewer').trim();
+    const role = VALID_ROLES.has(requestedRole) ? requestedRole : 'viewer';
+    const disabled = !!request.data?.disabled;
+    const displayName = String(request.data?.displayName || '').trim();
+
+    if (!email || !email.includes('@')) {
+      throw new HttpsError('invalid-argument', 'Email invalido.');
+    }
+
+    if (SUPER_ADMIN_EMAILS.has(email) && role !== 'admin') {
+      throw new HttpsError(
+        'failed-precondition',
+        'Nao e permitido rebaixar um super administrador.',
+      );
+    }
+
+    let userRecord;
+    try {
+      userRecord = await auth.getUserByEmail(email);
+    } catch (error) {
+      if (error?.code === 'auth/user-not-found') {
+        throw new HttpsError('not-found', 'Usuario nao encontrado no Auth.');
+      }
+      throw new HttpsError('internal', 'Falha ao localizar usuario no Auth.');
+    }
+
+    await auth.updateUser(userRecord.uid, {
+      disabled,
+      displayName: displayName || undefined,
+    });
+
+    await db.collection('users').doc(email).set(
+      {
+        authUid: userRecord.uid,
+        disabled,
+        displayName,
+        email,
+        lastRefreshAt: admin.firestore.FieldValue.serverTimestamp(),
+        providerIds: (userRecord.providerData || [])
+          .map((provider) => provider.providerId)
+          .filter(Boolean),
+        role,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedBy: requesterEmail,
+      },
+      { merge: true },
+    );
+
+    logger.info('Usuario atualizado', {
+      email,
+      disabled,
+      role,
+      updatedBy: requesterEmail,
+    });
+
+    return { email, role, disabled };
+  },
+);
+
+exports.deleteUserAccount = onCall(
+  {
+    cors: true,
+    maxInstances: 5,
+  },
+  async (request) => {
+    const requesterEmail = await ensureAdmin(request);
+    const email = normalizeEmail(request.data?.email);
+
+    if (!email || !email.includes('@')) {
+      throw new HttpsError('invalid-argument', 'Email invalido.');
+    }
+
+    if (email === requesterEmail) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Nao e permitido excluir o proprio usuario.',
+      );
+    }
+
+    if (SUPER_ADMIN_EMAILS.has(email)) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Nao e permitido excluir um super administrador.',
+      );
+    }
+
+    try {
+      const userRecord = await auth.getUserByEmail(email);
+      await auth.deleteUser(userRecord.uid);
+    } catch (error) {
+      if (error?.code !== 'auth/user-not-found') {
+        throw new HttpsError('internal', 'Falha ao excluir usuario no Auth.');
+      }
+    }
+
+    await db.collection('users').doc(email).delete();
+
+    logger.info('Usuario excluido', {
+      email,
+      deletedBy: requesterEmail,
+    });
+
+    return { email };
   },
 );

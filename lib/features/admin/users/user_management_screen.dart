@@ -1,10 +1,12 @@
 import 'package:catalogo_ja/core/auth/user_role.dart';
+import 'package:catalogo_ja/data/repositories/admin_user_account_repository.dart';
 import 'package:catalogo_ja/data/repositories/user_repository.dart';
 import 'package:catalogo_ja/data/repositories/user_sync_repository.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/ui/widgets/section_card.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,8 +22,44 @@ class UserManagementScreen extends ConsumerStatefulWidget {
 
 class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
   bool _isSyncing = false;
+  bool _didAutoSync = false;
 
-  Future<void> _syncUsers() async {
+  @override
+  void initState() {
+    super.initState();
+    _ensureCurrentUserDocument();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _didAutoSync) return;
+      _didAutoSync = true;
+      _syncUsers(showFeedback: false);
+    });
+  }
+
+  Future<void> _ensureCurrentUserDocument() async {
+    final user = ref.read(authViewModelProvider).valueOrNull;
+    final email = user?.email?.trim().toLowerCase() ?? '';
+    if (user == null || email.isEmpty) return;
+
+    try {
+      await ref.read(userRepositoryProvider).ensureUserProfile(
+        email: email,
+        displayName: user.displayName ?? '',
+        photoURL: user.photoURL ?? '',
+        providerIds: user.providerData
+            .map((provider) => provider.providerId)
+            .whereType<String>()
+            .toList(),
+        authUid: user.uid,
+        preferredRole: UserRole.superAdminEmails.contains(email)
+            ? UserRole.admin
+            : UserRole.viewer,
+      );
+    } catch (error) {
+      debugPrint('Erro ao garantir documento do usuário: $error');
+    }
+  }
+
+  Future<void> _syncUsers({bool showFeedback = true}) async {
     setState(() => _isSyncing = true);
 
     try {
@@ -55,8 +93,12 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
   }
 
   String _syncErrorMessage(Object error) {
+    if (error is FirebaseException) {
+      return error.message ?? 'Erro ao sincronizar usuários.';
+    }
+
     if (error is! FirebaseFunctionsException) {
-      return 'Erro ao sincronizar usuários.';
+      return error.toString();
     }
 
     switch (error.code) {
@@ -134,7 +176,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                         icon: Icons.sync_outlined,
                         title: 'Sincronizar Logins Externos',
                         subtitle:
-                            'Busca usuários criados via Google e atualiza permissões.',
+                            'Importa usuários antigos do Firebase Auth. Novos logins entram automaticamente.',
                         loading: _isSyncing,
                         onTap: _isSyncing ? null : _syncUsers,
                       ),
@@ -431,7 +473,7 @@ class _UserRow extends ConsumerWidget {
               SwitchListTile(
                 title: const Text('Acesso Bloqueado'),
                 subtitle: const Text('Impede o usuário de entrar no app'),
-                activeColor: Colors.red,
+                activeThumbColor: Colors.red,
                 value: isSuspended,
                 onChanged: (val) => setState(() => isSuspended = val),
               ),
@@ -465,13 +507,36 @@ class _UserRow extends ConsumerWidget {
             ElevatedButton(
               onPressed: () {
                 ref
-                    .read(userRepositoryProvider)
-                    .updateUserData(user['email'] as String, {
-                      'displayName': nameController.text.trim(),
-                      'role': selectedRole.name,
-                      'disabled': isSuspended,
+                    .read(adminUserAccountRepositoryProvider)
+                    .updateUserAccess(
+                      email: user['email'] as String,
+                      displayName: nameController.text.trim(),
+                      role: selectedRole.name,
+                      disabled: isSuspended,
+                    )
+                    .then((_) {
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Usuário atualizado com sucesso.'),
+                          ),
+                        );
+                      }
+                    })
+                    .catchError((error) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              _userAdminErrorMessage(error),
+                            ),
+                            backgroundColor:
+                                Theme.of(context).colorScheme.error,
+                          ),
+                        );
+                      }
                     });
-                Navigator.pop(context);
               },
               child: const Text('SALVAR'),
             ),
@@ -487,7 +552,7 @@ class _UserRow extends ConsumerWidget {
       builder: (context) => AlertDialog(
         title: const Text('Excluir Registro?'),
         content: Text(
-          'Deseja remover o registro de ${user['email']}? Isso removerá as permissões, mas não excluirá a conta de autenticação do usuário.',
+          'Deseja excluir ${user['email']}? Isso removerá o acesso no Firebase Auth e também apagará o registro no Firestore.',
         ),
         actions: [
           TextButton(
@@ -497,9 +562,31 @@ class _UserRow extends ConsumerWidget {
           TextButton(
             onPressed: () {
               ref
-                  .read(userRepositoryProvider)
-                  .deleteUser(user['email'] as String);
-              Navigator.pop(context);
+                  .read(adminUserAccountRepositoryProvider)
+                  .deleteUserAccount(user['email'] as String)
+                  .then((_) {
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Usuário excluído com sucesso.'),
+                        ),
+                      );
+                    }
+                  })
+                  .catchError((error) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            _userAdminErrorMessage(error),
+                          ),
+                          backgroundColor:
+                              Theme.of(context).colorScheme.error,
+                        ),
+                      );
+                    }
+                  });
             },
             child: const Text('EXCLUIR', style: TextStyle(color: Colors.red)),
           ),
@@ -507,4 +594,23 @@ class _UserRow extends ConsumerWidget {
       ),
     );
   }
+}
+
+String _userAdminErrorMessage(Object error) {
+  if (error is FirebaseFunctionsException) {
+    switch (error.code) {
+      case 'permission-denied':
+        return 'Você não tem permissão para gerenciar usuários.';
+      case 'failed-precondition':
+        return error.message ?? 'Operação não permitida para este usuário.';
+      case 'not-found':
+        return 'Usuário não encontrado no Firebase Auth.';
+      case 'unauthenticated':
+        return 'Sua sessão expirou. Entre novamente.';
+      default:
+        return error.message ?? 'Erro ao gerenciar usuário.';
+    }
+  }
+
+  return 'Erro ao gerenciar usuário.';
 }

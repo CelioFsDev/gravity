@@ -53,6 +53,8 @@ class CatalogoJaImportScreen extends ConsumerWidget {
                 state.errorMessage!,
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.red),
+                softWrap: true,
+                overflow: TextOverflow.visible,
               ),
               const SizedBox(height: 24),
               ElevatedButton(
@@ -294,7 +296,12 @@ class CatalogoJaImportScreen extends ConsumerWidget {
                     ...result.errors
                         .take(3)
                         .map(
-                          (e) => Text(e, style: const TextStyle(fontSize: 12)),
+                          (e) => Text(
+                            e,
+                            style: const TextStyle(fontSize: 12),
+                            softWrap: true,
+                            overflow: TextOverflow.visible,
+                          ),
                         ),
                     if (result.errors.length > 3) const Text('...'),
                   ],

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:archive/archive.dart';
 import 'package:catalogo_ja/core/services/catalogo_ja_package_service.dart';
 
 import 'package:file_picker/file_picker.dart';
@@ -8,6 +9,7 @@ import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/catalog_public_viewmodel.dart';
+import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'catalogo_ja_import_viewmodel.g.dart';
@@ -21,6 +23,8 @@ class CatalogoJaImportState {
   final ImportMode selectedMode;
   final ImportResult? result;
   final String? extractDirPath; // Path to temp dir for ZIP imports
+  final Uint8List? packageBytes;
+  final bool isZipPackage;
 
   CatalogoJaImportState({
     this.step = 0,
@@ -31,6 +35,8 @@ class CatalogoJaImportState {
     this.selectedMode = ImportMode.merge,
     this.result,
     this.extractDirPath,
+    this.packageBytes,
+    this.isZipPackage = false,
   });
 
   CatalogoJaImportState copyWith({
@@ -42,6 +48,8 @@ class CatalogoJaImportState {
     ImportMode? selectedMode,
     ImportResult? result,
     String? extractDirPath,
+    Uint8List? packageBytes,
+    bool? isZipPackage,
   }) {
     return CatalogoJaImportState(
       step: step ?? this.step,
@@ -52,6 +60,8 @@ class CatalogoJaImportState {
       selectedMode: selectedMode ?? this.selectedMode,
       result: result ?? this.result,
       extractDirPath: extractDirPath ?? this.extractDirPath,
+      packageBytes: packageBytes ?? this.packageBytes,
+      isZipPackage: isZipPackage ?? this.isZipPackage,
     );
   }
 }
@@ -71,19 +81,31 @@ class CatalogoJaImportViewModel extends _$CatalogoJaImportViewModel {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['json', 'zip'],
+        type: FileType.any,
+        withData: kIsWeb,
       );
 
-      if (result != null && result.files.single.path != null) {
-        final filePath = result.files.single.path!;
+      if (result != null && result.files.isNotEmpty) {
+        final pickedFile = result.files.single;
+        final nameLower = pickedFile.name.toLowerCase();
+        if (!nameLower.endsWith('.json') && !nameLower.endsWith('.zip')) {
+          state = state.copyWith(
+            isLoading: false,
+            errorMessage: 'Formato inv\u00e1lido. Selecione um arquivo .json ou .zip.',
+          );
+          return;
+        }
+        final filePath = pickedFile.path;
+        final fileBytes = pickedFile.bytes;
         final exportService = ref.read(exportImportServiceProvider);
         CatalogoJaExportPayload payload;
         String? extractDir;
+        Uint8List? packageBytes;
 
-        // More robust ZIP detection: Check extension OR check file header (PK)
-        bool isActuallyZip = filePath.toLowerCase().endsWith('.zip');
-        if (!isActuallyZip) {
+        bool isActuallyZip = pickedFile.name.toLowerCase().endsWith('.zip');
+        if (!isActuallyZip && fileBytes != null && fileBytes.length >= 2) {
+          isActuallyZip = fileBytes[0] == 0x50 && fileBytes[1] == 0x4B;
+        } else if (!isActuallyZip && filePath != null) {
           try {
             final file = File(filePath);
             if (await file.exists()) {
@@ -99,11 +121,31 @@ class CatalogoJaImportViewModel extends _$CatalogoJaImportViewModel {
 
         if (isActuallyZip) {
           final packageService = ref.read(catalogoJaPackageServiceProvider);
-          final (p, dir) = await packageService.preparePackage(File(filePath));
-          payload = p;
-          extractDir = dir.path;
+          if (kIsWeb) {
+            if (fileBytes == null) {
+              throw Exception('Nao foi possivel ler os bytes do arquivo ZIP.');
+            }
+            payload = await exportService.parsePayloadFromBytes(
+              _extractProductsJsonFromZip(fileBytes),
+            );
+            packageBytes = fileBytes;
+          } else {
+            if (filePath == null) {
+              throw Exception('Caminho do arquivo ZIP indisponivel.');
+            }
+            final (p, dir) = await packageService.preparePackage(File(filePath));
+            payload = p;
+            extractDir = dir.path;
+          }
         } else {
-          payload = await exportService.parsePayload(File(filePath));
+          if (fileBytes != null) {
+            payload = await exportService.parsePayloadFromBytes(fileBytes);
+          } else {
+            if (filePath == null) {
+              throw Exception('Caminho do arquivo JSON indisponivel.');
+            }
+            payload = await exportService.parsePayload(File(filePath));
+          }
         }
 
         final preview = await exportService.previewImport(payload);
@@ -112,6 +154,8 @@ class CatalogoJaImportViewModel extends _$CatalogoJaImportViewModel {
           payload: payload,
           preview: preview,
           extractDirPath: extractDir,
+          packageBytes: packageBytes,
+          isZipPackage: isActuallyZip,
           step: 1, // Move to Preview
           isLoading: false,
         );
@@ -139,6 +183,18 @@ class CatalogoJaImportViewModel extends _$CatalogoJaImportViewModel {
         final report = await packageService.importPackageFromDir(
           payload: state.payload!,
           extractDir: Directory(state.extractDirPath!),
+          mode: state.selectedMode,
+        );
+        result = ImportResult(
+          successCount: report.createdCount,
+          skipCount: 0,
+          errorCount: report.warnings.length,
+          errors: report.warnings,
+        );
+      } else if (state.isZipPackage && state.packageBytes != null) {
+        final packageService = ref.read(catalogoJaPackageServiceProvider);
+        final report = await packageService.importPackageFromBytes(
+          zipBytes: state.packageBytes!,
           mode: state.selectedMode,
         );
         result = ImportResult(
@@ -187,5 +243,15 @@ class CatalogoJaImportViewModel extends _$CatalogoJaImportViewModel {
     ref.invalidate(categoriesViewModelProvider);
     ref.invalidate(catalogsViewModelProvider);
     ref.invalidate(catalogPublicProvider);
+  }
+
+  Uint8List _extractProductsJsonFromZip(Uint8List zipBytes) {
+    final archive = ZipDecoder().decodeBytes(zipBytes);
+    for (final file in archive) {
+      if (file.isFile && file.name.toLowerCase() == 'products.json') {
+        return Uint8List.fromList((file.content as List).cast<int>());
+      }
+    }
+    throw Exception('Invalid package: products.json missing');
   }
 }
