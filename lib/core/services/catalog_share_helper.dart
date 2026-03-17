@@ -977,7 +977,7 @@ class CatalogShareHelper {
                               physics: const NeverScrollableScrollPhysics(),
                               mainAxisSpacing: 8,
                               crossAxisSpacing: 8,
-                              childAspectRatio: 2.2,
+                              childAspectRatio: 1.9,
                               children: CatalogPdfStyle.values.map((style) {
                                 final isSelected = selectedPdfStyle == style;
                                 return _buildStyleOption(
@@ -1316,7 +1316,7 @@ class CatalogShareHelper {
                   color: Colors.orange.shade800,
                 ),
                 const SizedBox(width: 8),
-                const Text('Pend\u00eancias de Fotos'),
+                const Expanded(child: Text('Pend\u00eancias de Fotos')),
               ],
             ),
             content: SizedBox(

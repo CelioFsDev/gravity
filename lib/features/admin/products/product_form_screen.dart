@@ -238,7 +238,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     try {
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: false,
-        type: FileType.image,
+        type: FileType.any,
       );
       if (result == null || result.files.isEmpty) return;
       final file = result.files.first;
@@ -286,7 +286,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     try {
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
-        type: FileType.image,
+        type: FileType.any,
       );
       if (result == null || result.files.isEmpty) return;
 
@@ -373,7 +373,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     try {
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: currentDetails == 0,
-        type: FileType.image,
+        type: FileType.any,
       );
       if (result == null || result.files.isEmpty) return;
 
@@ -432,7 +432,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     try {
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: false,
-        type: FileType.image,
+        type: FileType.any,
       );
       if (result == null || result.files.isEmpty) return;
       final file = result.files.first;

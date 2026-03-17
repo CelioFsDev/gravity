@@ -95,13 +95,25 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
   Future<void> _pickImage(bool isMini) async {
     try {
       final result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
+        type: FileType.any,
         allowMultiple: false,
         withData: kIsWeb,
       );
 
       if (result == null || result.files.isEmpty) return;
       final picked = result.files.single;
+
+      // Basic validation for images
+      final ext = p.extension(picked.name).toLowerCase();
+      final supported = {'.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'};
+      if (!supported.contains(ext)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Por favor, selecione uma imagem v\u00e1lida.')),
+          );
+        }
+        return;
+      }
       final optimizer = ref.read(imageOptimizerServiceProvider.notifier);
 
       if (kIsWeb) {

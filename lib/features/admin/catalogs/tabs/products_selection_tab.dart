@@ -83,78 +83,89 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppTokens.space24,
-            vertical: AppTokens.space12,
-          ),
+          padding: const EdgeInsets.only(top: AppTokens.space12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AppSearchField(
-                controller: _searchController,
-                hintText: 'Buscar por nome ou REF...',
-                onChanged: (value) => setState(() => _search = value),
-                onClear: () {
-                  _searchController.clear();
-                  setState(() => _search = '');
-                },
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: AppTokens.space24),
+                child: AppSearchField(
+                  controller: _searchController,
+                  hintText: 'Buscar por nome ou REF...',
+                  onChanged: (value) => setState(() => _search = value),
+                  onClear: () {
+                    _searchController.clear();
+                    setState(() => _search = '');
+                  },
+                ),
               ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  ActionChip(
-                    avatar: const Icon(Icons.collections_bookmark, size: 16),
-                    label: Text(_collectionLabel(collections)),
-                    onPressed: () => _selectCollection(context, collections),
-                  ),
-                  ActionChip(
-                    avatar: const Icon(Icons.filter_list, size: 16),
-                    label: Text(_categoryLabel(productTypes)),
-                    onPressed: () => _selectCategory(context, productTypes),
-                  ),
-                  FilterChip(
-                    label: const Text('Apenas Selecionados'),
-                    selected: _onlySelected,
-                    onSelected: (value) =>
-                        setState(() => _onlySelected = value),
-                  ),
-                  FilterChip(
-                    label: const Text('Somente com foto'),
-                    selected: _onlyWithPhoto,
-                    onSelected: (value) =>
-                        setState(() => _onlyWithPhoto = value),
-                  ),
-                  Chip(
-                    label: Text('${widget.selectedIds.length} selecionados'),
-                    backgroundColor: AppTokens.accentBlue.withOpacity(0.1),
-                    side: BorderSide.none,
-                    labelStyle: const TextStyle(
-                      color: AppTokens.accentBlue,
-                      fontWeight: FontWeight.bold,
+              const SizedBox(height: 8),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: AppTokens.space24),
+                child: Row(
+                  children: [
+                    ActionChip(
+                      avatar: const Icon(Icons.collections_bookmark, size: 16),
+                      label: Text(_collectionLabel(collections)),
+                      onPressed: () => _selectCollection(context, collections),
                     ),
-                  ),
-                  ActionChip(
-                    avatar: const Icon(Icons.done_all, size: 16),
-                    label: const Text('Selecionar todos'),
-                    onPressed: filtered.isEmpty
-                        ? null
-                        : () => widget.onSelectMany(
-                            filtered.map((product) => product.id).toList(),
-                          ),
-                  ),
-                  ActionChip(
-                    avatar: const Icon(Icons.remove_done, size: 16),
-                    label: const Text('Limpar visiveis'),
-                    onPressed: filtered.isEmpty
-                        ? null
-                        : () => widget.onDeselectMany(
-                            filtered.map((product) => product.id).toList(),
-                          ),
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    ActionChip(
+                      avatar: const Icon(Icons.filter_list, size: 16),
+                      label: Text(_categoryLabel(productTypes)),
+                      onPressed: () => _selectCategory(context, productTypes),
+                    ),
+                    const SizedBox(width: 8),
+                    FilterChip(
+                      label: const Text('Apenas Selecionados'),
+                      selected: _onlySelected,
+                      onSelected: (value) =>
+                          setState(() => _onlySelected = value),
+                    ),
+                    const SizedBox(width: 8),
+                    FilterChip(
+                      label: const Text('Somente com foto'),
+                      selected: _onlyWithPhoto,
+                      onSelected: (value) =>
+                          setState(() => _onlyWithPhoto = value),
+                    ),
+                    const SizedBox(width: 8),
+                    Chip(
+                      label: Text('${widget.selectedIds.length} selecionados'),
+                      backgroundColor: AppTokens.accentBlue.withOpacity(0.1),
+                      side: BorderSide.none,
+                      labelStyle: const TextStyle(
+                        color: AppTokens.accentBlue,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ActionChip(
+                      avatar: const Icon(Icons.done_all, size: 16),
+                      label: const Text('Selecionar todos'),
+                      onPressed: filtered.isEmpty
+                          ? null
+                          : () => widget.onSelectMany(
+                                filtered.map((product) => product.id).toList(),
+                              ),
+                    ),
+                    const SizedBox(width: 8),
+                    ActionChip(
+                      avatar: const Icon(Icons.remove_done, size: 16),
+                      label: const Text('Limpar visiveis'),
+                      onPressed: filtered.isEmpty
+                          ? null
+                          : () => widget.onDeselectMany(
+                                filtered.map((product) => product.id).toList(),
+                              ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(height: 8),
             ],
           ),
         ),
