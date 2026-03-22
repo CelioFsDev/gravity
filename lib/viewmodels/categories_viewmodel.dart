@@ -1,8 +1,13 @@
 import 'package:catalogo_ja/data/repositories/categories_repository.dart';
+import 'package:catalogo_ja/data/repositories/firestore_categories_repository.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:catalogo_ja/core/error/app_failure.dart';
+import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
 
@@ -399,5 +404,87 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         );
       }
     });
+  }
+
+  /// Sincroniza todas as categorias/coleções locais para a nuvem
+  Future<int> syncAllToCloud() async {
+    try {
+      final localRepo = ref.read(categoriesRepositoryProvider) as HiveCategoriesRepository;
+      final localCategories = await localRepo.getCategories();
+      
+      if (localCategories.isEmpty) return 0;
+
+      // Busca o tenantId
+      final tenant = await ref.read(currentTenantProvider.future);
+      String? tenantId = tenant?.id;
+      if (tenantId == null) {
+        final authUser = ref.read(authViewModelProvider).value;
+        if (authUser?.email != null) {
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(authUser!.email!.toLowerCase().trim())
+              .get();
+          tenantId = userDoc.data()?['tenantId'] as String?;
+        }
+      }
+
+      if (tenantId == null) throw Exception('Empresa não identificada.');
+
+      final storageService = ref.read(saasPhotoStorageProvider);
+      final firestoreRepo = FirestoreCategoriesRepository(localRepo, storageService, tenantId);
+      var syncedCount = 0;
+      for (var cat in localCategories) {
+        try {
+          await firestoreRepo.addCategory(cat);
+          syncedCount++;
+        } catch (_) {}
+      }
+
+      return syncedCount;
+    } catch (e) {
+      print('Erro ao sincronizar categorias: $e');
+      rethrow;
+    }
+  }
+
+  /// Baixa todas as categorias/coleções da nuvem para o celular
+  Future<int> syncFromCloud() async {
+    try {
+      final tenant = await ref.read(currentTenantProvider.future);
+      String? tenantId = tenant?.id;
+      if (tenantId == null) {
+        final authUser = ref.read(authViewModelProvider).value;
+        if (authUser?.email != null) {
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(authUser!.email!.toLowerCase().trim())
+              .get();
+          tenantId = userDoc.data()?['tenantId'] as String?;
+        }
+      }
+
+      if (tenantId == null) throw Exception('Empresa não identificada.');
+
+      final storageService = ref.read(saasPhotoStorageProvider);
+      final localRepo = ref.read(categoriesRepositoryProvider) as HiveCategoriesRepository;
+      final firestoreRepo = FirestoreCategoriesRepository(localRepo, storageService, tenantId);
+
+      final cloudCategories = await firestoreRepo.getCategories();
+      if (cloudCategories.isEmpty) return 0;
+
+      var downloadedCount = 0;
+      for (var cat in cloudCategories) {
+        try {
+          await localRepo.addCategory(cat);
+          downloadedCount++;
+        } catch (_) {}
+      }
+
+      await _refresh();
+      return downloadedCount;
+    } catch (e) {
+      print('Erro ao baixar categorias: $e');
+      rethrow;
+    }
   }
 }

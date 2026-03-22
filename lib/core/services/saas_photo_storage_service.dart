@@ -9,6 +9,58 @@ class SaaSPhotoStorageService {
     bucket: 'gs://catalogo-ja-89aae.firebasestorage.app',
   );
 
+  // ✨ UPLOAD DE CATEGORIA
+  Future<String?> uploadCategoryImage({
+    required String localPath,
+    required String categoryId,
+    required String tenantId,
+  }) async {
+    try {
+      final file = File(localPath);
+      if (!file.existsSync()) return null;
+
+      final fileName = p.basename(localPath); // Use p.basename for consistency
+      final ref = _storage.ref().child('$tenantId/categories/$categoryId/$fileName');
+      
+      final metadata = SettableMetadata(
+        contentType: 'image/jpeg',
+        customMetadata: {'processed': 'true', 'tenant': tenantId},
+      );
+
+      final task = await ref.putFile(file, metadata);
+      return await task.ref.getDownloadURL();
+    } catch (e) {
+      print('Erro no upload da imagem da categoria: $e');
+      return null;
+    }
+  }
+
+  // ✨ UPLOAD DE CATÁLOGO (Banners)
+  Future<String?> uploadCatalogImage({
+    required String localPath,
+    required String catalogId,
+    required String tenantId,
+  }) async {
+    try {
+      final file = File(localPath);
+      if (!file.existsSync()) return null;
+
+      final fileName = p.basename(localPath); // Use p.basename for consistency
+      final ref = _storage.ref().child('$tenantId/catalogs/$catalogId/$fileName');
+      
+      final metadata = SettableMetadata(
+        contentType: 'image/jpeg',
+        customMetadata: {'processed': 'true', 'tenant': tenantId},
+      );
+
+      final task = await ref.putFile(file, metadata);
+      return await task.ref.getDownloadURL();
+    } catch (e) {
+      print('Erro no upload da imagem do catálogo: $e');
+      return null;
+    }
+  }
+
   /// Sobe uma imagem de produto para a nuvem
   /// Retorna a URL pública de download
   Future<String> uploadProductImage({

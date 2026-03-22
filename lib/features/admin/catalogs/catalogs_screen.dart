@@ -24,10 +24,46 @@ class CatalogsScreen extends ConsumerWidget {
       subtitle: 'Gerencie seus cat\u00e1logos digitais',
       actions: [
         if (ref.watch(currentRoleProvider).canEditCatalog)
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => _openNew(context),
-            tooltip: 'Novo Catálogo',
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (value) {
+              if (value == 'add') _openNew(context);
+              if (value == 'upload') _startCloudSync(context, notifier);
+              if (value == 'download') _startCloudDownload(context, notifier);
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'add',
+                child: Row(
+                  children: [
+                    Icon(Icons.add_outlined, size: 20),
+                    SizedBox(width: 8),
+                    Text('Novo Catálogo'),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'upload',
+                child: Row(
+                  children: [
+                    Icon(Icons.cloud_upload_outlined, size: 20),
+                    SizedBox(width: 8),
+                    Text('Subir Catálogos (Nuvem)'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'download',
+                child: Row(
+                  children: [
+                    Icon(Icons.cloud_download_outlined, size: 20),
+                    SizedBox(width: 8),
+                    Text('Baixar Catálogos (Nuvem)'),
+                  ],
+                ),
+              ),
+            ],
           ),
       ],
       body: state.whenStandard(
@@ -57,6 +93,66 @@ class CatalogsScreen extends ConsumerWidget {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => CatalogEditorScreen(catalog: catalog)),
     );
+  }
+
+  void _startCloudSync(BuildContext context, CatalogsViewModel notifier) async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Sincronizando Catálogos com a nuvem...'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+
+    try {
+      final count = await notifier.syncAllToCloud();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$count catálogos enviados para a nuvem com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro na sincronização: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _startCloudDownload(BuildContext context, CatalogsViewModel notifier) async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Baixando Catálogos da nuvem...'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+
+    try {
+      final count = await notifier.syncFromCloud();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$count catálogos baixados com sucesso!'),
+            backgroundColor: Colors.blue,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao baixar catálogos: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }
 

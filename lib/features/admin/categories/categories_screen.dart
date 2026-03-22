@@ -40,10 +40,46 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
       subtitle: 'Organize as categorias do cat\u00e1logo',
       actions: [
         if (ref.watch(currentRoleProvider).canManageRegistrations)
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => _showCategoryDialog(context, notifier),
-            tooltip: 'Nova Categoria',
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (value) {
+              if (value == 'add') _showCategoryDialog(context, notifier);
+              if (value == 'upload') _startCloudSync(context, notifier);
+              if (value == 'download') _startCloudDownload(context, notifier);
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'add',
+                child: Row(
+                  children: [
+                    Icon(Icons.add_outlined, size: 20),
+                    SizedBox(width: 8),
+                    Text('Nova Categoria'),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'upload',
+                child: Row(
+                  children: [
+                    Icon(Icons.cloud_upload_outlined, size: 20),
+                    SizedBox(width: 8),
+                    Text('Subir Categorias (Nuvem)'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'download',
+                child: Row(
+                  children: [
+                    Icon(Icons.cloud_download_outlined, size: 20),
+                    SizedBox(width: 8),
+                    Text('Baixar Categorias (Nuvem)'),
+                  ],
+                ),
+              ),
+            ],
           ),
       ],
       body: state.whenStandard(
@@ -423,10 +459,70 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            result.message ?? 'N\u00e3o \u00e9 poss\u00edvel excluir.',
+            result.message ?? 'Não é possível excluir.',
           ),
         ),
       );
+    }
+  }
+
+  void _startCloudSync(BuildContext context, CategoriesViewModel notifier) async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Sincronizando Categorias com a nuvem...'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+
+    try {
+      final count = await notifier.syncAllToCloud();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$count categorias enviadas para a nuvem com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro na sincronização: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _startCloudDownload(BuildContext context, CategoriesViewModel notifier) async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Baixando Categorias da nuvem...'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+
+    try {
+      final count = await notifier.syncFromCloud();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$count categorias baixadas com sucesso!'),
+            backgroundColor: Colors.blue,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao baixar categorias: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 }

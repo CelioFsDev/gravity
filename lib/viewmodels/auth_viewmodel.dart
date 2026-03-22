@@ -2,6 +2,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:catalogo_ja/data/repositories/auth_repository.dart';
 import 'package:catalogo_ja/core/services/app_logger.dart';
 import 'package:catalogo_ja/data/repositories/user_repository.dart';
+import 'package:catalogo_ja/data/repositories/products_repository.dart';
+import 'package:catalogo_ja/data/repositories/categories_repository.dart';
+import 'package:catalogo_ja/data/repositories/catalogs_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class AuthViewModel extends StreamNotifier<User?> {
@@ -132,6 +135,15 @@ class AuthViewModel extends StreamNotifier<User?> {
 
   Future<void> signOut() async {
     try {
+      // ✨ LIMPEZA SAAS: Apaga dados locais para não misturar catálogos de usuários diferentes
+      final productsRepo = ref.read(productsRepositoryProvider);
+      final categoriesRepo = ref.read(categoriesRepositoryProvider);
+      final catalogsRepo = ref.read(catalogsRepositoryProvider);
+
+      await productsRepo.clearAll();
+      await categoriesRepo.clearAll();
+      await catalogsRepo.clearAll();
+
       await _repository.signOut();
       _logger.log(AppEvent.logout);
     } catch (e, stack) {

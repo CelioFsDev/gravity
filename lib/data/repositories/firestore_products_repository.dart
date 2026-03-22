@@ -40,30 +40,36 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
       imagesToSync = product.photos.map((p) => p.toProductImage()).toList();
     }
 
-    // Sincroniza fotos locais com a nuvem em PARALELO
-    final imageUploadFutures = imagesToSync.map((image) async {
+    // Sincroniza fotos locais com a nuvem uma por uma (mais ESTÁVEL que paralelo em conexões instáveis)
+    final List<ProductImage> updatedImages = [];
+    for (var image in imagesToSync) {
       if (image.sourceType == ProductImageSource.localPath) {
         try {
+          print('🚀 Iniciando upload da imagem: ${image.uri}');
           final cloudUrl = await _storageService.uploadProductImage(
-            tenantId: _tenantId,
-            productId: product.id,
             localPath: image.uri,
-            label: image.label,
-          );
-          return image.copyWith(
-            uri: cloudUrl,
-            sourceType: ProductImageSource.networkUrl,
-          );
+            productId: product.id,
+            tenantId: _tenantId,
+          ).timeout(const Duration(seconds: 60)); // ✨ Timeout de segurança: 60 segundos
+          
+          if (cloudUrl.isNotEmpty) {
+            updatedImages.add(image.copyWith(
+              uri: cloudUrl,
+              sourceType: ProductImageSource.networkUrl,
+            ));
+            print('✅ Upload concluído: $cloudUrl');
+          } else {
+            print('⚠️ Foto ignorada (upload retornou vazio)');
+          }
         } catch (e) {
-          print('Erro no upload de imagem de ${product.name}: $e');
-          return null; // Imagem falhou, removemos para evitar link quebrado
+          print('❌ Erro no upload da foto ${image.uri}: $e');
+          // No catch, não adicionamos ao updatedImages, o que remove a imagem inválida do Firestore
         }
+      } else {
+        // Já é link de internet, mantemos como está
+        updatedImages.add(image);
       }
-      return image;
-    });
-
-    final results = await Future.wait(imageUploadFutures);
-    final updatedImages = results.whereType<ProductImage>().toList();
+    }
 
     // Sincroniza o campo 'photos' (legado) com os novos links da nuvem
     final updatedPhotos = updatedImages.map((img) => ProductPhoto(
