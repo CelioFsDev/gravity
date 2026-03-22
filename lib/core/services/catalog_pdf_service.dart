@@ -135,17 +135,20 @@ class CatalogPdfService {
               pw.Page(
                 pageFormat: pageFormat,
                 margin: const pw.EdgeInsets.symmetric(vertical: 18),
-                build: (context) => _buildProductPage(
-                  product,
-                  mode,
-                  currencyFormat,
-                  pageFormat,
-                  collectionName: collectionName,
-                  defaultSubtitle: defaultSubtitle,
-                  showPrice: showPrice,
-                  useLoosePhotos: true,
-                  forcedHeroPath: photo?.uri,
-                  style: style,
+                build: (context) => pw.Container(
+                  color: PdfColors.white,
+                  child: _buildProductPage(
+                    product,
+                    mode,
+                    currencyFormat,
+                    pageFormat,
+                    collectionName: collectionName,
+                    defaultSubtitle: defaultSubtitle,
+                    showPrice: showPrice,
+                    useLoosePhotos: true,
+                    forcedHeroPath: photo?.uri,
+                    style: style,
+                  ),
                 ),
               ),
             );
@@ -160,7 +163,8 @@ class CatalogPdfService {
             build: (context) {
               final double itemHeight =
                   (pageFormat.height - 36) / itemsPerPage;
-              return pw.Padding(
+              return pw.Container(
+                color: PdfColors.white,
                 padding: const pw.EdgeInsets.symmetric(vertical: 18),
                 child: pw.Column(
                   mainAxisAlignment: pw.MainAxisAlignment.start,
