@@ -49,6 +49,7 @@ dependencies:
   diacritic: ^0.1.5
   cached_network_image: ^3.4.1
   flutter_svg: ^2.0.10+1
+  firebase_storage: ^12.4.10
 
 dev_dependencies:
   flutter_test:

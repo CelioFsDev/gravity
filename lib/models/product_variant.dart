@@ -18,4 +18,20 @@ class ProductVariant {
     required this.stock,
     required this.attributes,
   });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'sku': sku,
+      'stock': stock,
+      'attributes': attributes,
+    };
+  }
+
+  factory ProductVariant.fromMap(Map<String, dynamic> map) {
+    return ProductVariant(
+      sku: map['sku'] ?? '',
+      stock: map['stock'] ?? 0,
+      attributes: Map<String, String>.from(map['attributes'] ?? {}),
+    );
+  }
 }

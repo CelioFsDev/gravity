@@ -18,7 +18,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   late TextEditingController _nameController;
   late TextEditingController _photoUrlController;
   late TextEditingController _whatsappController;
-  String? _tenantId;
+  late TextEditingController _tenantController;
   bool _isLoading = false;
 
   @override
@@ -27,6 +27,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _nameController = TextEditingController();
     _photoUrlController = TextEditingController();
     _whatsappController = TextEditingController();
+    _tenantController = TextEditingController();
 
     // Load initial data
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -50,7 +51,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         _nameController.text = data['displayName'] as String? ?? '';
         _photoUrlController.text = data['photoURL'] as String? ?? '';
         _whatsappController.text = data['whatsappNumber'] as String? ?? '';
-        _tenantId = data['tenantId'] as String?;
+        _tenantController.text = data['tenantId'] as String? ?? '';
       } else if (mounted) {
         _nameController.text = user.displayName ?? '';
         _photoUrlController.text = user.photoURL ?? '';
@@ -67,6 +68,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _nameController.dispose();
     _photoUrlController.dispose();
     _whatsappController.dispose();
+    _tenantController.dispose();
     super.dispose();
   }
 
@@ -80,6 +82,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         'displayName': _nameController.text.trim(),
         'photoURL': _photoUrlController.text.trim(),
         'whatsappNumber': _whatsappController.text.trim(),
+        'tenantId': _tenantController.text.trim(),
       });
 
       if (mounted) {
@@ -193,14 +196,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             role.label,
                             Icons.admin_panel_settings_outlined,
                           ),
-                          if (_tenantId != null) ...[
-                            const Divider(height: AppTokens.space24),
-                            _buildInfoRow(
-                              'Empresa (ID)',
-                              _tenantId!,
-                              Icons.business_outlined,
-                            ),
-                          ],
+                          const Divider(height: AppTokens.space24),
+                          _buildInfoRow(
+                            'Status de Sincroniza\u00e7\u00e3o',
+                            _tenantController.text.isEmpty ? 'Offline (Apenas Local)' : 'Online (Nuvem Ativa)',
+                            _tenantController.text.isEmpty ? Icons.cloud_off : Icons.cloud_done,
+                          ),
                         ],
                       ),
                     ),
@@ -224,6 +225,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     icon: Icons.phone_android_outlined,
                     hint: 'DDI + DDD + N\u00famero (ex: 5511999999999)',
                     keyboardType: TextInputType.phone,
+                  ),
+                  const SizedBox(height: AppTokens.space16),
+                  _buildTextField(
+                    controller: _tenantController,
+                    label: 'ID da Empresa (SaaS ID)',
+                    icon: Icons.business_outlined,
+                    hint: 'ex: vitoriana_loja_01',
                   ),
                   const SizedBox(height: AppTokens.space16),
                   _buildTextField(

@@ -320,14 +320,37 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     return PopupMenuButton<String>(
       icon: const Icon(Icons.more_vert_rounded),
       onSelected: (value) {
-        if (value == 'export') _showExportOptions(context);
+        if (value == 'sync_upload') _startCloudSync(context);
+        if (value == 'sync_download') _startCloudDownload(context);
         if (value == 'bulk_edit') {
           Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const ProductBulkEditScreen()),
           );
         }
+        if (value == 'export') _showExportOptions(context);
       },
       itemBuilder: (context) => const [
+        PopupMenuItem(
+          value: 'sync_upload',
+          child: Row(
+            children: [
+              Icon(Icons.cloud_upload_outlined, size: 18, color: AppTokens.accentBlue),
+              SizedBox(width: 8),
+              Text('Subir Catálogo (Nuvem)', style: TextStyle(color: AppTokens.accentBlue)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'sync_download',
+          child: Row(
+            children: [
+              Icon(Icons.cloud_download_outlined, size: 18, color: AppTokens.accentBlue),
+              SizedBox(width: 8),
+              Text('Baixar Catálogo (Nuvem)'),
+            ],
+          ),
+        ),
+        PopupMenuDivider(),
         PopupMenuItem(
           value: 'bulk_edit',
           child: Row(
@@ -797,6 +820,78 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => ProductDetailScreen(product: product)),
     );
+  }
+
+  void _startCloudSync(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    
+    // 1. Avisa que começou em segundo plano
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('Sincronizando produtos com a nuvem em segundo plano...'),
+        duration: Duration(seconds: 3),
+        backgroundColor: Colors.blue,
+      ),
+    );
+
+    // 2. Dispara a sincronização sem 'await' para não travar a tela
+    ref.read(productsViewModelProvider.notifier).syncAllToCloud().then((count) {
+      if (context.mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Sincronização concluída! $count produtos enviados para a nuvem.'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }).catchError((e) {
+      if (context.mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Erro na sincronização em segundo plano: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    });
+  }
+
+  void _startCloudDownload(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    
+    // 1. Avisa que começou em segundo plano
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('Baixando catálogo da nuvem em segundo plano...'),
+        duration: Duration(seconds: 3),
+        backgroundColor: Colors.blue,
+      ),
+    );
+
+    // 2. Dispara a descarga sem 'await' para não travar a tela
+    ref.read(productsViewModelProvider.notifier).syncFromCloud().then((count) {
+      if (context.mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Sucesso! $count produtos baixados da nuvem para o seu celular.'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }).catchError((e) {
+      if (context.mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Erro ao baixar catálogo: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    });
   }
 
   void _openEdit(BuildContext context, Product product) {

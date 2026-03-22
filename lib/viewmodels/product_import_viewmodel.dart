@@ -947,6 +947,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     Map<String, List<String>>? imagesBySku,
   }) async {
     final headerMap = _buildHeaderMap(rows.first);
+    // IMPORTANTE: Para a análise inicial, usamos o repositório LOCAL (Hive) por ser instantâneo
     final productsRepo = ref.read(productsRepositoryProvider);
     final categoriesRepo = ref.read(categoriesRepositoryProvider);
     final existingProducts = await productsRepo.getProducts();
@@ -1426,6 +1427,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
   Future<void> finalizeImport() async {
     state = state.copyWith(isLoading: true);
     try {
+      // Importante: Salvamos apenas LOCALMENTE para ser instantâneo.
       final repository = ref.read(productsRepositoryProvider);
 
       for (var p in state.parsedProducts) {
