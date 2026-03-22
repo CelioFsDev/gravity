@@ -51,6 +51,7 @@ class UserRepository {
     List<String> providerIds = const [],
     String? authUid,
     UserRole? preferredRole,
+    String? tenantId,
   }) async {
     final normalizedEmail = _normalizeEmail(email);
     if (normalizedEmail.isEmpty) return;
@@ -80,6 +81,8 @@ class UserRepository {
           ? providerIds
           : List<String>.from(data['providerIds'] ?? const []),
       'role': role,
+      'tenantId': tenantId ?? data['tenantId'],
+      'whatsappNumber': data['whatsappNumber'] ?? '',
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }

@@ -17,6 +17,8 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   late TextEditingController _nameController;
   late TextEditingController _photoUrlController;
+  late TextEditingController _whatsappController;
+  String? _tenantId;
   bool _isLoading = false;
 
   @override
@@ -24,6 +26,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     super.initState();
     _nameController = TextEditingController();
     _photoUrlController = TextEditingController();
+    _whatsappController = TextEditingController();
 
     // Load initial data
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -46,8 +49,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         final data = doc.data()!;
         _nameController.text = data['displayName'] as String? ?? '';
         _photoUrlController.text = data['photoURL'] as String? ?? '';
+        _whatsappController.text = data['whatsappNumber'] as String? ?? '';
+        _tenantId = data['tenantId'] as String?;
       } else if (mounted) {
-        // Use data from auth if firestore doc doesn't exist yet
         _nameController.text = user.displayName ?? '';
         _photoUrlController.text = user.photoURL ?? '';
       }
@@ -62,6 +66,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void dispose() {
     _nameController.dispose();
     _photoUrlController.dispose();
+    _whatsappController.dispose();
     super.dispose();
   }
 
@@ -74,18 +79,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       await ref.read(userRepositoryProvider).updateUserData(user.email!, {
         'displayName': _nameController.text.trim(),
         'photoURL': _photoUrlController.text.trim(),
+        'whatsappNumber': _whatsappController.text.trim(),
       });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Perfil atualizado com sucesso!')),
+          const SnackBar(
+            content: Text('Perfil atualizado com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Erro ao atualizar: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao atualizar: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -99,15 +111,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     return AppScaffold(
       title: 'Meu Perfil',
-      subtitle: 'Personalize como voc\u00ea aparece no sistema',
+      subtitle: 'Configura\u00e7\u00f5es pessoais do seu painel',
       maxWidth: 600,
       useAppBar: true,
       actions: [
         if (!_isLoading)
           IconButton(
-            icon: const Icon(Icons.check),
+            icon: const Icon(Icons.save_outlined),
             onPressed: _save,
-            tooltip: 'Salvar altera\u00e7\u00f5es',
+            tooltip: 'Salvar',
           ),
       ],
       body: _isLoading
@@ -117,14 +129,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  // Avatar Section
                   Stack(
                     alignment: Alignment.bottomRight,
                     children: [
                       CircleAvatar(
-                        radius: 50,
-                        backgroundColor: Theme.of(
-                          context,
-                        ).colorScheme.primaryContainer,
+                        radius: 60,
+                        backgroundColor: AppTokens.accentBlue.withOpacity(0.1),
                         backgroundImage: _photoUrlController.text.isNotEmpty
                             ? NetworkImage(_photoUrlController.text)
                             : null,
@@ -134,40 +145,40 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                         ? _nameController.text
                                         : (user?.email ?? 'U'))[0]
                                     .toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 40,
+                                style: const TextStyle(
+                                  fontSize: 48,
                                   fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).colorScheme.primary,
+                                  color: AppTokens.accentBlue,
                                 ),
                               )
                             : null,
                       ),
                       Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary,
+                        padding: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(
+                          color: AppTokens.accentBlue,
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
                           Icons.camera_alt,
-                          size: 16,
+                          size: 20,
                           color: Colors.white,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: AppTokens.space24),
+                  const SizedBox(height: AppTokens.space32),
 
+                  // User & Tenant Info Card
                   Card(
                     elevation: 0,
+                    color: AppTokens.card,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(
-                        color: Theme.of(context).dividerColor.withAlpha(50),
-                      ),
+                      side: const BorderSide(color: AppTokens.border),
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.all(AppTokens.space16),
+                      padding: const EdgeInsets.all(AppTokens.space24),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -178,87 +189,152 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           ),
                           const Divider(height: AppTokens.space24),
                           _buildInfoRow(
-                            'Cargo',
+                            'Tipo de Conta',
                             role.label,
-                            Icons.shield_outlined,
+                            Icons.admin_panel_settings_outlined,
                           ),
+                          if (_tenantId != null) ...[
+                            const Divider(height: AppTokens.space24),
+                            _buildInfoRow(
+                              'Empresa (ID)',
+                              _tenantId!,
+                              Icons.business_outlined,
+                            ),
+                          ],
                         ],
                       ),
                     ),
                   ),
 
-                  const SizedBox(height: AppTokens.space24),
-
-                  TextField(
-                    controller: _nameController,
-                    decoration: InputDecoration(
-                      labelText: 'Nome de Exibi\u00e7\u00e3o',
-                      prefixIcon: const Icon(Icons.person_outline),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: AppTokens.space16),
-
-                  TextField(
-                    controller: _photoUrlController,
-                    decoration: InputDecoration(
-                      labelText: 'URL da Foto',
-                      prefixIcon: const Icon(Icons.link),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      helperText: 'Insira a URL de uma imagem para seu avatar',
-                    ),
-                    onChanged: (_) => setState(() {}),
-                  ),
-
                   const SizedBox(height: AppTokens.space32),
 
+                  // Editable Fields
+                  _buildSectionTitle('Informa\u00e7\u00f5es de Exibi\u00e7\u00e3o'),
+                  const SizedBox(height: AppTokens.space12),
+                  _buildTextField(
+                    controller: _nameController,
+                    label: 'Nome de Exibi\u00e7\u00e3o',
+                    icon: Icons.person_outline,
+                    hint: 'Seu nome completo ou apelido',
+                  ),
+                  const SizedBox(height: AppTokens.space16),
+                  _buildTextField(
+                    controller: _whatsappController,
+                    label: 'WhatsApp de Vendas',
+                    icon: Icons.phone_android_outlined,
+                    hint: 'DDI + DDD + N\u00famero (ex: 5511999999999)',
+                    keyboardType: TextInputType.phone,
+                  ),
+                  const SizedBox(height: AppTokens.space16),
+                  _buildTextField(
+                    controller: _photoUrlController,
+                    label: 'Link da Foto de Perfil',
+                    icon: Icons.link_outlined,
+                    hint: 'https://link-da-sua-imagem.png',
+                    onChanged: (val) => setState(() {}),
+                  ),
+
+                  const SizedBox(height: AppTokens.space48),
+
+                  // Logout Action
                   SizedBox(
                     width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        ref.read(authViewModelProvider.notifier).signOut();
-                      },
-                      icon: const Icon(Icons.logout, color: Colors.red),
+                    child: TextButton.icon(
+                      onPressed: () =>
+                          ref.read(authViewModelProvider.notifier).signOut(),
+                      icon: const Icon(Icons.logout, color: Colors.redAccent),
                       label: const Text(
-                        'SAIR DO APLICATIVO',
-                        style: TextStyle(color: Colors.red),
+                        'SAIR DA CONTA',
+                        style: TextStyle(
+                          color: Colors.redAccent,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2,
+                        ),
                       ),
-                      style: OutlinedButton.styleFrom(
+                      style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        side: const BorderSide(color: Colors.red),
+                        backgroundColor: Colors.red.withOpacity(0.05),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
                     ),
                   ),
+                  const SizedBox(height: AppTokens.space48),
                 ],
               ),
             ),
     );
   }
 
+  Widget _buildSectionTitle(String title) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        title.toUpperCase(),
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1.5,
+          color: AppTokens.textMuted,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    String? hint,
+    Function(String)? onChanged,
+    TextInputType? keyboardType,
+  }) {
+    return TextField(
+      controller: controller,
+      onChanged: onChanged,
+      keyboardType: keyboardType,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        prefixIcon: Icon(icon, size: 22),
+        filled: true,
+        fillColor: AppTokens.card,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppTokens.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppTokens.border),
+        ),
+      ),
+    );
+  }
+
   Widget _buildInfoRow(String label, String value, IconData icon) {
     return Row(
       children: [
-        Icon(icon, size: 20, color: Colors.grey),
-        const SizedBox(width: AppTokens.space12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-            Text(
-              value,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-          ],
+        Icon(icon, size: 22, color: AppTokens.accentBlue),
+        const SizedBox(width: AppTokens.space16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(fontSize: 11, color: AppTokens.textMuted),
+              ),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );

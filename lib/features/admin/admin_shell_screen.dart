@@ -5,6 +5,7 @@ import 'package:catalogo_ja/core/widgets/admin_drawer_header.dart';
 import 'package:catalogo_ja/features/theme/theme_providers.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
 
 class AdminShellScreen extends ConsumerWidget {
@@ -37,6 +38,13 @@ class AdminShellScreen extends ConsumerWidget {
     final authUser = ref.watch(authViewModelProvider).valueOrNull;
     final currentRole = ref.watch(currentRoleProvider);
     final canManageUsers = currentRole.canManageUsers(authUser?.email);
+
+    final tenantAsync = ref.watch(currentTenantProvider);
+    final tenant = tenantAsync.valueOrNull;
+
+    final displayTitle = tenant?.name ?? authUser?.displayName ?? 'Admin';
+    final displaySubtitle = tenant?.subtitle ?? authUser?.email ?? 'Empresa n\u00e3o identificada';
+    final logoUrl = tenant?.logoUrl ?? authUser?.photoURL;
 
     String getEffectiveTitle(BuildContext context) {
       final location = GoRouterState.of(context).matchedLocation;
@@ -94,11 +102,12 @@ class AdminShellScreen extends ConsumerWidget {
                       },
                       children: [
                         const SizedBox(height: AppTokens.space24),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: AdminDrawerHeader(
-                            title: 'CatalogoJa Admin',
-                            subtitle: 'Cat\u00e1logos automatizados',
+                            title: displayTitle,
+                            subtitle: displaySubtitle,
+                            imageUrl: logoUrl,
                             icon: Icons.auto_awesome_outlined,
                           ),
                         ),
@@ -207,11 +216,12 @@ class AdminShellScreen extends ConsumerWidget {
                           onDestinationSelected: onAdminNavigation,
                           children: [
                             const SizedBox(height: AppTokens.space24),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 16),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
                               child: AdminDrawerHeader(
-                                title: 'CatalogoJa Admin',
-                                subtitle: 'Beta Version',
+                                title: displayTitle,
+                                subtitle: displaySubtitle,
+                                imageUrl: logoUrl,
                                 icon: Icons.auto_awesome_outlined,
                               ),
                             ),
