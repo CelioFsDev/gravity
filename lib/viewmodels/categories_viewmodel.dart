@@ -54,8 +54,8 @@ class CategoriesViewModel extends _$CategoriesViewModel {
   }
 
   Future<CategoriesState> _fetchData() async {
-    final categoriesRepository = ref.watch(categoriesRepositoryProvider);
-    final productRepository = ref.watch(productsRepositoryProvider);
+    final categoriesRepository = ref.watch(syncCategoriesRepositoryProvider);
+    final productRepository = ref.watch(syncProductsRepositoryProvider);
     final allCategories = await categoriesRepository.getCategories();
     final allProducts = await productRepository.getProducts();
 
@@ -355,7 +355,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
 
   Future<CategoryDeleteResult> checkDelete(String id) async {
     try {
-      final productRepository = ref.read(productsRepositoryProvider);
+      final productRepository = ref.read(syncProductsRepositoryProvider);
       final categoriesRepo = ref.read(syncCategoriesRepositoryProvider);
       final products = await productRepository.getProductsByCategory(id);
 

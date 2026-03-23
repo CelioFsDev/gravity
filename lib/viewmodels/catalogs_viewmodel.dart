@@ -17,7 +17,7 @@ class CatalogsViewModel extends _$CatalogsViewModel {
   @override
   FutureOr<List<Catalog>> build() async {
     try {
-      final repository = ref.watch(catalogsRepositoryProvider);
+      final repository = ref.watch(syncCatalogsRepositoryProvider);
       return await repository.getCatalogs();
     } catch (e) {
       throw e.toAppFailure(action: 'build', entity: 'Catalogs');
@@ -28,7 +28,7 @@ class CatalogsViewModel extends _$CatalogsViewModel {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       try {
-        final repository = ref.read(catalogsRepositoryProvider);
+        final repository = ref.read(syncCatalogsRepositoryProvider);
         await repository.deleteCatalog(id);
         ref.invalidateSelf();
         return state.value ?? [];
