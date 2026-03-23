@@ -19,6 +19,7 @@ import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:async';
 
 part 'products_viewmodel.g.dart';
 
@@ -136,7 +137,27 @@ class SyncProgress {
   }
 }
 
-final syncProgressProvider = StateProvider<SyncProgress>((ref) => SyncProgress());
+class SyncProgressNotifier extends StateNotifier<SyncProgress> {
+  SyncProgressNotifier() : super(SyncProgress());
+
+  void startSync(String message) {
+    state = SyncProgress(isSyncing: true, progress: 0.0, message: message);
+  }
+
+  void updateProgress(double progress, String message) {
+    state = state.copyWith(progress: progress, message: message);
+  }
+
+  void stopSync({String? message}) {
+    state = SyncProgress(isSyncing: false, progress: 1.0, message: message ?? '');
+  }
+
+  void reset() {
+    state = SyncProgress();
+  }
+}
+
+final syncProgressProvider = StateNotifierProvider<SyncProgressNotifier, SyncProgress>((ref) => SyncProgressNotifier());
 
 @riverpod
 class ProductsViewModel extends _$ProductsViewModel {
@@ -415,7 +436,7 @@ class ProductsViewModel extends _$ProductsViewModel {
 
   Future<int> syncAllToCloud() async {
     final progressNotifier = ref.read(syncProgressProvider.notifier);
-    progressNotifier.state = SyncProgress(isSyncing: true, progress: 0.0, message: 'Iniciando sincronização...');
+    progressNotifier.startSync('Iniciando sincronização...');
     
     try {
       // 1. Pega o repositório local explicitamente para ler o que está no celular
@@ -423,7 +444,7 @@ class ProductsViewModel extends _$ProductsViewModel {
       final localProducts = await localRepo.getProducts();
       
       if (localProducts.isEmpty) {
-        progressNotifier.state = SyncProgress(isSyncing: false);
+        progressNotifier.stopSync();
         return 0;
       }
 
@@ -462,10 +483,9 @@ class ProductsViewModel extends _$ProductsViewModel {
         final product = localProducts[i];
         final progress = (i + 1) / total;
         
-        progressNotifier.state = SyncProgress(
-          isSyncing: true,
-          progress: progress,
-          message: 'Sincronizando: ${i + 1}/$total - ${product.name}',
+        progressNotifier.updateProgress(
+          progress,
+          'Sincronizando: ${i + 1}/$total - ${product.name}',
         );
 
         try {
@@ -476,15 +496,12 @@ class ProductsViewModel extends _$ProductsViewModel {
         }
       }
 
-      progressNotifier.state = SyncProgress(
-        isSyncing: false,
-        message: 'Sincronização concluída: $syncedCount produtos!',
-      );
+      progressNotifier.stopSync(message: 'Sincronização concluída: $syncedCount produtos!');
       await refresh();
       _notifyChanges();
       return syncedCount;
     } catch (e) {
-      progressNotifier.state = SyncProgress(isSyncing: false, message: 'Erro: $e');
+      progressNotifier.stopSync(message: 'Erro: $e');
       debugPrint('Erro fatal na sincronização: $e');
       rethrow; 
     }
@@ -493,7 +510,7 @@ class ProductsViewModel extends _$ProductsViewModel {
   /// Baixa todos os produtos da nuvem para o celular local
   Future<int> syncFromCloud() async {
     final progressNotifier = ref.read(syncProgressProvider.notifier);
-    progressNotifier.state = SyncProgress(isSyncing: true, progress: 0.0, message: 'Buscando produtos na nuvem...');
+    progressNotifier.startSync('Buscando produtos na nuvem...');
 
     try {
       final tenant = await ref.read(currentTenantProvider.future);
@@ -533,7 +550,7 @@ class ProductsViewModel extends _$ProductsViewModel {
       if (cloudProducts.isEmpty) return 0;
 
       if (cloudProducts.isEmpty) {
-        progressNotifier.state = SyncProgress(isSyncing: false, message: 'Nenhum produto encontrado na nuvem.');
+        progressNotifier.stopSync(message: 'Nenhum produto encontrado na nuvem.');
         return 0;
       }
 
@@ -542,10 +559,9 @@ class ProductsViewModel extends _$ProductsViewModel {
         final p = cloudProducts[i];
         final progress = (i + 1) / cloudProducts.length;
         
-        progressNotifier.state = SyncProgress(
-          isSyncing: true,
-          progress: progress,
-          message: 'Baixando: ${i + 1}/${cloudProducts.length} - ${p.name}',
+        progressNotifier.updateProgress(
+          progress,
+          'Baixando: ${i + 1}/${cloudProducts.length} - ${p.name}',
         );
 
         try {
@@ -596,10 +612,10 @@ class ProductsViewModel extends _$ProductsViewModel {
         }
       }
 
-    progressNotifier.state = SyncProgress(isSyncing: false, message: 'Download concluído: $downloadedCount produtos!');
+    progressNotifier.stopSync(message: 'Download concluído: $downloadedCount produtos!');
     return downloadedCount;
   } catch (e) {
-    progressNotifier.state = SyncProgress(isSyncing: false, message: 'Erro: $e');
+    progressNotifier.stopSync(message: 'Erro: $e');
     debugPrint('Erro ao baixar dados da nuvem: $e');
     rethrow;
   }

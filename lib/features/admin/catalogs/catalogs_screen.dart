@@ -10,6 +10,7 @@ import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
 import 'package:intl/intl.dart';
+import 'package:catalogo_ja/viewmodels/products_viewmodel.dart'; // Para SyncProgress
 
 class CatalogsScreen extends ConsumerWidget {
   const CatalogsScreen({super.key});
@@ -18,10 +19,11 @@ class CatalogsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(catalogsViewModelProvider);
     final notifier = ref.read(catalogsViewModelProvider.notifier);
+    final syncProgress = ref.watch(syncProgressProvider);
 
     return AppScaffold(
-      title: 'Cat\u00e1logos',
-      subtitle: 'Gerencie seus cat\u00e1logos digitais',
+      title: 'Catálogos',
+      subtitle: 'Gerencie seus catálogos digitais',
       actions: [
         if (ref.watch(currentRoleProvider).canEditCatalog)
           PopupMenuButton<String>(
@@ -66,19 +68,31 @@ class CatalogsScreen extends ConsumerWidget {
             ],
           ),
       ],
-      body: state.whenStandard(
-        onRetry: () => ref.invalidate(catalogsViewModelProvider),
-        data: (catalogs) => _CatalogsContent(
-          catalogs: catalogs,
-          onCreate: () => _openNew(context),
-          onShare: (catalog) => CatalogShareHelper.showShareOptions(
-            context: context,
-            ref: ref,
-            catalog: catalog,
+      body: Column(
+        children: [
+          if (syncProgress.isSyncing)
+            _buildSyncProgressBanner(context, syncProgress),
+          Expanded(
+            child: state.when(
+              data: (catalogs) => _CatalogsContent(
+                catalogs: catalogs,
+                onCreate: () => _openNew(context),
+                onShare: (catalog) => CatalogShareHelper.showShareOptions(
+                  context: context,
+                  ref: ref,
+                  catalog: catalog,
+                ),
+                onEdit: (catalog) => _openEdit(context, catalog),
+                onDelete: (catalog) => notifier.deleteCatalog(catalog.id),
+              ),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, s) => AppErrorView(
+                error: e,
+                onRetry: () => ref.invalidate(catalogsViewModelProvider),
+              ),
+            ),
           ),
-          onEdit: (catalog) => _openEdit(context, catalog),
-          onDelete: (catalog) => notifier.deleteCatalog(catalog.id),
-        ),
+        ],
       ),
     );
   }
@@ -96,23 +110,8 @@ class CatalogsScreen extends ConsumerWidget {
   }
 
   void _startCloudSync(BuildContext context, CatalogsViewModel notifier) async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Sincronizando Catálogos com a nuvem...'),
-        duration: Duration(seconds: 2),
-      ),
-    );
-
     try {
-      final count = await notifier.syncAllToCloud();
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$count catálogos enviados para a nuvem com sucesso!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+      await notifier.syncAllToCloud();
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -126,23 +125,8 @@ class CatalogsScreen extends ConsumerWidget {
   }
 
   void _startCloudDownload(BuildContext context, CatalogsViewModel notifier) async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Baixando Catálogos da nuvem...'),
-        duration: Duration(seconds: 2),
-      ),
-    );
-
     try {
-      final count = await notifier.syncFromCloud();
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$count catálogos baixados com sucesso!'),
-            backgroundColor: Colors.blue,
-          ),
-        );
-      }
+      await notifier.syncFromCloud();
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -153,6 +137,56 @@ class CatalogsScreen extends ConsumerWidget {
         );
       }
     }
+  }
+
+  Widget _buildSyncProgressBanner(BuildContext context, SyncProgress sync) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.95),
+        border: const Border(bottom: BorderSide(color: Colors.black12)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  sync.message,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '${(sync.progress * 100).toInt()}%',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: Theme.of(context).colorScheme.primary,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: LinearProgressIndicator(
+              value: sync.progress,
+              minHeight: 4,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -176,12 +210,17 @@ class _CatalogsContent extends ConsumerWidget {
     if (catalogs.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
-        child: AppEmptyState(
-          icon: Icons.collections_bookmark_outlined,
-          title: 'Nenhum catálogo ainda',
-          message: 'Crie um catálogo para gerar PDF e compartilhar.',
-          actionLabel: 'Criar catálogo',
-          onAction: onCreate,
+        child: Column(
+          children: [
+            const SizedBox(height: 40),
+            AppEmptyState(
+              icon: Icons.collections_bookmark_outlined,
+              title: 'Nenhum catálogo ainda',
+              message: 'Crie um catálogo para gerar PDF e compartilhar.',
+              actionLabel: 'Criar catálogo',
+              onAction: onCreate,
+            ),
+          ],
         ),
       );
     }
@@ -256,7 +295,7 @@ class CatalogCard extends StatelessWidget {
                 _buildInfoChip(
                   context,
                   Icons.public,
-                  'P\u00fablico',
+                  'Público',
                   color: AppTokens.accentBlue,
                 ),
             ],

@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:catalogo_ja/data/repositories/catalogs_repository.dart';
 import 'package:catalogo_ja/data/repositories/firestore_catalogs_repository.dart';
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/products_viewmodel.dart'; // Import for SyncProgress
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:catalogo_ja/core/error/app_failure.dart';
 import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
@@ -38,11 +40,17 @@ class CatalogsViewModel extends _$CatalogsViewModel {
 
   /// Sincroniza todos os catálogos locais para a nuvem
   Future<int> syncAllToCloud() async {
+    final progressNotifier = ref.read(syncProgressProvider.notifier);
     try {
+      progressNotifier.startSync('Iniciando sincronização de catálogos...');
+      
       final localRepo = ref.read(catalogsRepositoryProvider) as HiveCatalogsRepository;
       final localCatalogs = await localRepo.getCatalogs();
       
-      if (localCatalogs.isEmpty) return 0;
+      if (localCatalogs.isEmpty) {
+        progressNotifier.stopSync();
+        return 0;
+      }
 
       final tenant = await ref.read(currentTenantProvider.future);
       String? tenantId = tenant?.id;
@@ -57,20 +65,35 @@ class CatalogsViewModel extends _$CatalogsViewModel {
         }
       }
 
-      if (tenantId == null) throw Exception('Empresa não identificada.');
+      if (tenantId == null) {
+        progressNotifier.stopSync();
+        throw Exception('Empresa não identificada.');
+      }
 
       final storageService = ref.read(saasPhotoStorageProvider);
       final firestoreRepo = FirestoreCatalogsRepository(localRepo, storageService, tenantId);
       var syncedCount = 0;
-      for (var cat in localCatalogs) {
+      final total = localCatalogs.length;
+
+      for (var i = 0; i < total; i++) {
+        final cat = localCatalogs[i];
         try {
+          progressNotifier.updateProgress(
+            (i + 1) / total,
+            'Sincronizando: ${i + 1}/$total - ${cat.name}',
+          );
           await firestoreRepo.addCatalog(cat);
           syncedCount++;
-        } catch (_) {}
+        } catch (e) {
+          print('❌ Erro ao sincronizar catálogo ${cat.name}: $e');
+        }
       }
 
+      progressNotifier.stopSync();
+      ref.invalidateSelf();
       return syncedCount;
     } catch (e) {
+      progressNotifier.stopSync();
       print('Erro ao sincronizar catálogos: $e');
       rethrow;
     }
@@ -78,7 +101,10 @@ class CatalogsViewModel extends _$CatalogsViewModel {
 
   /// Baixa todos os catálogos da nuvem para o celular
   Future<int> syncFromCloud() async {
+    final progressNotifier = ref.read(syncProgressProvider.notifier);
     try {
+      progressNotifier.startSync('Buscando catálogos na nuvem...');
+      
       final tenant = await ref.read(currentTenantProvider.future);
       String? tenantId = tenant?.id;
       if (tenantId == null) {
@@ -92,26 +118,41 @@ class CatalogsViewModel extends _$CatalogsViewModel {
         }
       }
 
-      if (tenantId == null) throw Exception('Empresa não identificada.');
+      if (tenantId == null) {
+        progressNotifier.stopSync();
+        throw Exception('Empresa não identificada.');
+      }
 
       final localRepo = ref.read(catalogsRepositoryProvider) as HiveCatalogsRepository;
       final storageService = ref.read(saasPhotoStorageProvider);
       final firestoreRepo = FirestoreCatalogsRepository(localRepo, storageService, tenantId);
 
       final cloudCatalogs = await firestoreRepo.getCatalogs();
-      if (cloudCatalogs.isEmpty) return 0;
+      if (cloudCatalogs.isEmpty) {
+        progressNotifier.stopSync();
+        return 0;
+      }
 
       var downloadedCount = 0;
-      for (var cat in cloudCatalogs) {
+      final total = cloudCatalogs.length;
+
+      for (var i = 0; i < total; i++) {
+        final cat = cloudCatalogs[i];
         try {
+          progressNotifier.updateProgress(
+            (i + 1) / total,
+            'Baixando: ${i + 1}/$total - ${cat.name}',
+          );
           await localRepo.addCatalog(cat);
           downloadedCount++;
         } catch (_) {}
       }
 
+      progressNotifier.stopSync();
       ref.invalidateSelf();
       return downloadedCount;
     } catch (e) {
+      progressNotifier.stopSync();
       print('Erro ao baixar catálogos: $e');
       rethrow;
     }
