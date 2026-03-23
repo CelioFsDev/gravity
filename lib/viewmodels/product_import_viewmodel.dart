@@ -1594,6 +1594,115 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     }
   }
 
+  /// Updates stock quantities from a pasted PDF text report.
+  /// Format: REFERENCE - DESCRIPTION - COLOR - SIZE UN QUANTITY
+  Future<StockUpdateReport> updateStockFromPdfText(String text) async {
+    state = state.copyWith(
+      isLoading: true,
+      errorMessage: null,
+      progress: 0.05,
+      message: 'Iniciando processamento de estoque...',
+    );
+
+    final report = StockUpdateReport();
+    final lines = text.split('\n');
+    final productsRepo = ref.read(syncProductsRepositoryProvider);
+
+    // Regex capture: 1) Ref, 2) Desc (ignored), 3) Color, 4) Size, 5) Qty
+    final regex = RegExp(
+      r"(\d+)\s*-\s*(.+?)\s*-\s*(.+?)\s*-\s*(.+?)\s+UN\s+(\d+)",
+      caseSensitive: false,
+    );
+
+    try {
+      for (var i = 0; i < lines.length; i++) {
+        final line = lines[i].trim();
+        if (line.isEmpty) continue;
+
+        state = state.copyWith(
+          progress: 0.05 + (0.9 * ((i + 1) / lines.length)),
+          message: 'Processando linha ${i + 1} de ${lines.length}...',
+        );
+
+        final match = regex.firstMatch(line);
+        if (match == null) {
+          report.errors.add('Linha ignore (formato inv\u00e1lido): $line');
+          continue;
+        }
+
+        final refStr = match.group(1)!;
+        final color = match.group(3)!.trim().toUpperCase();
+        final size = match.group(4)!.trim().toUpperCase();
+        final qty = int.tryParse(match.group(5)!) ?? 0;
+
+        final product = await productsRepo.getByRef(refStr);
+        if (product == null) {
+          report.errors.add('Refer\u00eancia $refStr n\u00e3o encontrada no app.');
+          continue;
+        }
+
+        var updatedVariants = List<ProductVariant>.from(product.variants);
+        var found = false;
+
+        for (var vIdx = 0; vIdx < updatedVariants.length; vIdx++) {
+          final v = updatedVariants[vIdx];
+          final vColor = (v.attributes['COR'] ?? v.attributes['color'] ?? '')
+              .toUpperCase();
+          final vSize = (v.attributes['TAMANHO'] ?? v.attributes['size'] ?? '')
+              .toUpperCase();
+
+          if (vColor == color && vSize == size) {
+            updatedVariants[vIdx] = ProductVariant(
+              sku: v.sku,
+              stock: qty,
+              attributes: v.attributes,
+            );
+            found = true;
+            break;
+          }
+        }
+
+        if (!found) {
+          // If variant is not found by exact color/size, we add it
+          final newSku = '${product.ref}-$color-$size'.replaceAll(' ', '');
+          updatedVariants.add(
+            ProductVariant(
+              sku: newSku,
+              stock: qty,
+              attributes: {'COR': color, 'TAMANHO': size},
+            ),
+          );
+        }
+
+        final updatedProduct = product.copyWith(
+          variants: updatedVariants,
+          updatedAt: DateTime.now(),
+        );
+
+        await productsRepo.updateProduct(updatedProduct);
+        report.updatedCount++;
+        report.successes.add(
+          'REF $refStr: $color - $size atualizado para $qty',
+        );
+      }
+
+      state = state.copyWith(
+        isLoading: false,
+        isDone: true,
+        progress: 1.0,
+        message: 'Conclu\u00eddo! ${report.updatedCount} itens atualizados.',
+      );
+      _notifyChanges();
+      return report;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Erro ao processar estoque: $e',
+      );
+      rethrow;
+    }
+  }
+
   void _notifyChanges() {
     ref.invalidate(productsViewModelProvider);
     ref.invalidate(categoriesViewModelProvider);
@@ -1647,3 +1756,12 @@ class _DriveFolderFile {
   String get downloadUrl =>
       'https://drive.google.com/uc?export=download&id=$id';
 }
+
+class StockUpdateReport {
+  int updatedCount = 0;
+  final List<String> errors = [];
+  final List<String> successes = [];
+
+  bool get hasErrors => errors.isNotEmpty;
+}
+
