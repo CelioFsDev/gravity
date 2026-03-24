@@ -1,8 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/core/providers/global_loading_provider.dart';
 
-class AppScaffold extends StatelessWidget {
+class AppScaffold extends ConsumerWidget {
   final String? title;
   final String? subtitle;
   final List<Widget>? actions;
@@ -29,9 +31,13 @@ class AppScaffold extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final hasTitle = title != null;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    // Background Tasks logic
+    final _ = ref.watch(globalLoadingProvider);
+    final activeTask = ref.watch(globalLoadingProvider.notifier).mainActiveTask();
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -58,7 +64,7 @@ class AppScaffold extends StatelessWidget {
           SafeArea(
             bottom: bottomNavigationBar == null,
             child: Center(
-              child: _buildContent(context, hasTitle, isDark),
+              child: _buildContent(context, ref, hasTitle, isDark, activeTask),
             ),
           ),
         ],
@@ -68,10 +74,11 @@ class AppScaffold extends StatelessWidget {
     );
   }
 
-  Widget _buildContent(BuildContext context, bool hasTitle, bool isDark) {
+  Widget _buildContent(BuildContext context, WidgetRef ref, bool hasTitle, bool isDark, BackgroundTask? activeTask) {
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (activeTask != null) _buildGlobalProgress(context, activeTask),
         if (!useAppBar && showHeader && hasTitle)
           _buildGlassHeader(context, isDark),
         if (bottom != null) ...[bottom!],
@@ -87,6 +94,50 @@ class AppScaffold extends StatelessWidget {
     }
 
     return SizedBox(width: double.infinity, child: content);
+  }
+
+  Widget _buildGlobalProgress(BuildContext context, BackgroundTask task) {
+    return Container(
+      width: double.infinity,
+      color: AppTokens.accentBlue.withOpacity(0.1),
+      padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24, vertical: 8),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(AppTokens.accentBlue),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  '${task.title}: ${task.message}',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTokens.accentBlue),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Text(
+                '${(task.progress * 100).toInt()}%',
+                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTokens.accentBlue),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          LinearProgressIndicator(
+            value: task.progress,
+            minHeight: 2,
+            backgroundColor: AppTokens.accentBlue.withOpacity(0.1),
+            valueColor: const AlwaysStoppedAnimation<Color>(AppTokens.accentBlue),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildGlassHeader(BuildContext context, bool isDark) {

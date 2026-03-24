@@ -94,6 +94,7 @@ class CategoryAdapter extends TypeAdapter<Category> {
       type: fields[5] as CategoryType,
       cover: fields[6] as CollectionCover?,
       isActive: fields[8] as bool,
+      tenantId: fields[9] as String?,
       name: fields[1] as String?,
       slug: fields[7] as String?,
     );
@@ -102,7 +103,7 @@ class CategoryAdapter extends TypeAdapter<Category> {
   @override
   void write(BinaryWriter writer, Category obj) {
     writer
-      ..writeByte(9)
+      ..writeByte(10)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -120,7 +121,9 @@ class CategoryAdapter extends TypeAdapter<Category> {
       ..writeByte(7)
       ..write(obj.slug)
       ..writeByte(8)
-      ..write(obj.isActive);
+      ..write(obj.isActive)
+      ..writeByte(9)
+      ..write(obj.tenantId);
   }
 
   @override

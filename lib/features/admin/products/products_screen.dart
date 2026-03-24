@@ -539,21 +539,15 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   final viewModel = ref.read(
                     productExportViewModelProvider.notifier,
                   );
-                  _showExportProgressDialog(context);
-
-                  viewModel
-                      .exportPackage()
-                      .then((_) {
-                        if (context.mounted) Navigator.pop(context);
-                      })
-                      .catchError((e) {
-                        if (context.mounted) {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(
-                            context,
-                          ).showSnackBar(SnackBar(content: Text('Erro: $e')));
-                        }
-                      });
+                  // Dispara e deixa o GlobalLoadingIndicator cuidar da UI
+                  viewModel.exportPackage();
+                  
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Gerando backup completo em segundo plano...'),
+                      backgroundColor: AppTokens.accentBlue,
+                    ),
+                  );
                 },
               ),
               ListTile(
@@ -586,233 +580,17 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   }
 
   void _startPhotoReferenceLinking() {
-    final screenContext = context;
     ref.read(productImportViewModelProvider.notifier).reset();
-    _showVincularProgressDialog(screenContext);
-
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      try {
-        await ref
-            .read(productImportViewModelProvider.notifier)
-            .pickAndMatchImagesToExistingProducts();
-
-        if (!mounted) return;
-        final stateAfter = ref.read(productImportViewModelProvider);
-        final rootNav = Navigator.of(screenContext, rootNavigator: true);
-        if (rootNav.canPop()) {
-          rootNav.pop();
-        }
-
-        if (stateAfter.errorMessage != null) {
-          ScaffoldMessenger.of(
-            screenContext,
-          ).showSnackBar(SnackBar(content: Text(stateAfter.errorMessage!)));
-          return;
-        }
-
-        final msg = stateAfter.imagesMatchedCount > 0
-            ? 'Vinculação concluída: ${stateAfter.imagesMatchedCount} fotos vinculadas.'
-            : 'Vinculação concluída sem correspondências.';
-        ScaffoldMessenger.of(
-          screenContext,
-        ).showSnackBar(SnackBar(content: Text(msg)));
-      } catch (e) {
-        if (!mounted) return;
-        final rootNav = Navigator.of(screenContext, rootNavigator: true);
-        if (rootNav.canPop()) {
-          rootNav.pop();
-        }
-        ScaffoldMessenger.of(
-          screenContext,
-        ).showSnackBar(SnackBar(content: Text('Erro ao vincular: $e')));
-      }
-    });
-  }
-
-  void _showVincularProgressDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return Consumer(
-          builder: (context, ref, _) {
-            final importState = ref.watch(productImportViewModelProvider);
-            final failures = importState.linkReport
-                .where((item) => !item.linked)
-                .toList();
-            return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-              ),
-              title: const Text('Vinculando Fotos'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const SizedBox(height: 8),
-                    LinearProgressIndicator(
-                      value: importState.progress,
-                      backgroundColor: AppTokens.accentBlue.withOpacity(0.1),
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        AppTokens.accentBlue,
-                      ),
-                      minHeight: 8,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      importState.message ?? 'Iniciando...',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${(importState.progress * 100).toInt()}%',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (importState.imagesMatchedCount > 0) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        '${importState.imagesMatchedCount} fotos vinculadas',
-                        style: TextStyle(
-                          color: importState.imagesMatchedCount > 0
-                              ? AppTokens.accentGreen
-                              : Colors.orange,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                    if (importState.isDone &&
-                        importState.linkReport.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        'Relatório: ${importState.imagesMatchedCount}/${importState.imagesTotalCount} vinculadas',
-                        style: const TextStyle(fontSize: 12),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                    if (importState.isDone && failures.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Não vinculadas (${failures.length})',
-                          style: Theme.of(context).textTheme.labelMedium
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      SizedBox(
-                        height: 140,
-                        width: 320,
-                        child: ListView.separated(
-                          shrinkWrap: true,
-                          itemCount: failures.length,
-                          separatorBuilder: (_, _) => const Divider(height: 10),
-                          itemBuilder: (context, index) {
-                            final item = failures[index];
-                            return Text(
-                              '${item.fileName}: ${item.reason}',
-                              style: const TextStyle(fontSize: 11),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                    if (importState.errorMessage != null ||
-                        (importState.isDone &&
-                            importState.imagesMatchedCount == 0)) ...[
-                      const SizedBox(height: 20),
-                      if (importState.errorMessage != null)
-                        Text(
-                          importState.errorMessage!,
-                          style: const TextStyle(color: Colors.red, fontSize: 12),
-                          textAlign: TextAlign.center,
-                        )
-                      else
-                        const Text(
-                          'Nenhuma foto correspondeu às referências dos produtos selecionados.',
-                          style: TextStyle(fontSize: 12),
-                          textAlign: TextAlign.center,
-                        ),
-                      const SizedBox(height: 16),
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Fechar'),
-                      ),
-                    ],
-                    if (!importState.isLoading &&
-                        importState.errorMessage == null &&
-                        !importState.isDone) ...[
-                      const SizedBox(height: 16),
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Fechar'),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showExportProgressDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return Consumer(
-          builder: (context, ref, _) {
-            final exportState = ref.watch(productExportViewModelProvider);
-            return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-              ),
-              title: const Text('Preparando Backup'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const SizedBox(height: 8),
-                    LinearProgressIndicator(
-                      value: exportState.progress,
-                      backgroundColor: AppTokens.accentBlue.withOpacity(0.1),
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        AppTokens.accentBlue,
-                      ),
-                      minHeight: 8,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      exportState.message ?? 'Iniciando...',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${(exportState.progress * 100).toInt()}%',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
+    
+    // Dispara em background usando o novo sistema do AppScaffold
+    ref.read(productImportViewModelProvider.notifier)
+        .pickAndMatchImagesToExistingProducts();
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Iniciando vinculação de fotos em segundo plano...'),
+        backgroundColor: AppTokens.accentBlue,
+      ),
     );
   }
 

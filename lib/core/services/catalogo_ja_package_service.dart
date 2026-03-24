@@ -3,7 +3,7 @@ import 'dart:io' as io;
 import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:archive/archive_io.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
@@ -13,8 +13,6 @@ import 'package:catalogo_ja/core/services/dto/catalogo_ja_export_dtos.dart';
 import 'package:catalogo_ja/core/services/export_import_service.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/category.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 typedef ProgressCallback = void Function(double progress, String message);
 
@@ -50,7 +48,7 @@ class CatalogoJaPackageService {
       products: products,
       categories: collections,
     );
-    onProgress?.call(0.10, 'Lendo dados do cat\u00e1logo...');
+    onProgress?.call(0.10, 'Lendo dados do catálogo...');
     await Future.delayed(const Duration(milliseconds: 10));
 
     final archive = Archive();
@@ -116,7 +114,10 @@ class CatalogoJaPackageService {
 
       final results = await Future.wait(photoFutures);
       for (final res in results) {
-        if (res != null) newPhotos.add(res);
+        if (res != null) {
+          newPhotos.add(res);
+          imageCount++;
+        }
       }
 
       // Reconstruct product with relative paths
@@ -156,7 +157,7 @@ class CatalogoJaPackageService {
       currentCol++;
       onProgress?.call(
         0.65 + (0.15 * (currentCol / totalCollections)),
-        'Processando cole\u00e7\u00e3o $currentCol de $totalCollections...',
+        'Processando coleção $currentCol de $totalCollections...',
       );
       String? newMiniPath = collection.cover?.coverMiniPath;
       String? newPagePath = collection.cover?.coverPagePath;
@@ -171,7 +172,8 @@ class CatalogoJaPackageService {
           if (path == null) return null;
           final bytes = await _readImageBytes(path);
           if (bytes != null) {
-            final ext = p.extension(path).isEmpty ? '.jpg' : p.extension(path);
+            final cleanPath = path.split('?').first;
+            final ext = p.extension(cleanPath).isEmpty ? '.jpg' : p.extension(cleanPath);
             final relPath = 'images/collections/${collection.id}/$suffix$ext';
             archive.addFile(ArchiveFile(relPath, bytes.length, bytes));
             imageCount++;
@@ -223,7 +225,8 @@ class CatalogoJaPackageService {
         if (banner.imagePath.isNotEmpty) {
           final bytes = await _readImageBytes(banner.imagePath);
           if (bytes != null) {
-            final ext = p.extension(banner.imagePath).isEmpty ? '.jpg' : p.extension(banner.imagePath);
+            final cleanPath = banner.imagePath.split('?').first;
+            final ext = p.extension(cleanPath).isEmpty ? '.jpg' : p.extension(cleanPath);
             final relPath = 'images/catalogs/${catalog.id}/${banner.id}$ext';
             archive.addFile(ArchiveFile(relPath, bytes.length, bytes));
             imageCount++;
@@ -275,38 +278,72 @@ class CatalogoJaPackageService {
 
     onProgress?.call(0.95, 'Finalizando arquivo...');
     final zipEnabledBits = ZipEncoder().encode(archive);
-    return Uint8List.fromList(zipEnabledBits);
-  }
-
-  Future<Uint8List?> _readLocalFile(String path) async {
-    if (kIsWeb) return null;
-    try {
-      final file = io.File(path);
-      if (file.existsSync()) return await file.readAsBytes();
-
-      final appDocDir = await getApplicationDocumentsDirectory();
-      final file2 = io.File(p.join(appDocDir.path, p.basename(path)));
-      if (file2.existsSync()) return await file2.readAsBytes();
-
-      final file3 = io.File(
-        p.join(appDocDir.path, 'product_images', p.basename(path)),
-      );
-      if (file3.existsSync()) return await file3.readAsBytes();
-    } catch (e) {
-      debugPrint('Error reading local file $path: $e');
-    }
-    return null;
+    return Uint8List.fromList(zipEnabledBits ?? []);
   }
 
   Future<Uint8List?> _readImageBytes(String path) async {
-    if (path.startsWith('data:')) {
-      final commaIndex = path.indexOf(',');
-      if (commaIndex != -1) {
-        return base64Decode(path.substring(commaIndex + 1));
+    if (path.isEmpty) return null;
+
+    try {
+      if (path.startsWith('data:')) {
+        final commaIndex = path.indexOf(',');
+        if (commaIndex != -1) {
+          return base64Decode(path.substring(commaIndex + 1));
+        }
+        return null;
       }
-      return null;
+
+      if (path.startsWith('http')) {
+        // Try Cache first to speed up and save data
+        try {
+          final fileInfo = await DefaultCacheManager().getFileFromCache(path);
+          if (fileInfo != null) {
+            return await fileInfo.file.readAsBytes();
+          }
+        } catch (e) {
+          debugPrint('⚠️ Cache check skipped for $path: $e');
+        }
+
+        debugPrint('🌐 Baixando imagem da nuvem para o backup: $path');
+        final response = await http.get(Uri.parse(path)).timeout(
+          const Duration(seconds: 20),
+        );
+        if (response.statusCode == 200) {
+          // Put in cache for future use
+          try {
+            await DefaultCacheManager().putFile(path, response.bodyBytes);
+          } catch (_) {}
+          
+          return response.bodyBytes;
+        }
+        return null;
+      }
+
+      // Local file
+      if (!kIsWeb) {
+        final file = io.File(path);
+        if (await file.exists()) {
+          return await file.readAsBytes();
+        }
+
+        final appDocDir = await getApplicationDocumentsDirectory();
+        // Try alternate locations
+        final altPaths = [
+          p.join(appDocDir.path, p.basename(path)),
+          p.join(appDocDir.path, 'product_images', p.basename(path)),
+          p.join(appDocDir.path, 'product_photos', p.basename(path)),
+        ];
+
+        for (final alt in altPaths) {
+          final altFile = io.File(alt);
+          if (await altFile.exists()) {
+            return await altFile.readAsBytes();
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Falha ao ler bytes da imagem ($path): $e');
     }
-    if (!kIsWeb) return _readLocalFile(path);
     return null;
   }
 
@@ -557,7 +594,7 @@ class CatalogoJaPackageService {
       categories: payload.categories,
       collections: restoredCollections,
       products: restoredProducts,
-      catalogs: restoredCatalogs,
+      catalogs: payload.catalogs,
     );
 
     final result = await _exportImportService.executeImport(
@@ -801,52 +838,6 @@ class CatalogoJaPackageService {
 
   String _sanitizePathSegment(String value) {
     return value.replaceAll(RegExp(r'[<>:"/\\|?*\x00-\x1F]+'), '_').trim();
-  }
-
-  /// Reads image bytes from either a local file or a network URL.
-  Future<Uint8List?> _readImageBytes(String path) async {
-    if (path.isEmpty) return null;
-
-    try {
-      if (path.startsWith('http')) {
-        // Try Cache first to speed up and save data
-        try {
-          final fileInfo = await DefaultCacheManager().getFileFromCache(path);
-          if (fileInfo != null) {
-            return await fileInfo.file.readAsBytes();
-          }
-        } catch (e) {
-          debugPrint('⚠️ Cache check skipped for $path: $e');
-        }
-
-        debugPrint('🌐 Baixando imagem da nuvem para o backup: $path');
-        final response = await http.get(Uri.parse(path)).timeout(
-          const Duration(seconds: 20),
-        );
-        if (response.statusCode == 200) {
-          // Put in cache for future use
-          try {
-            await DefaultCacheManager().putFile(path, response.bodyBytes);
-          } catch (_) {}
-          
-          return response.bodyBytes;
-        }
-        return null;
-      } else if (path.startsWith('data:')) {
-        final commaIndex = path.indexOf(',');
-        if (commaIndex != -1) {
-          return base64Decode(path.substring(commaIndex + 1));
-        }
-      } else {
-        final file = io.File(path);
-        if (await file.exists()) {
-          return await file.readAsBytes();
-        }
-      }
-    } catch (e) {
-      debugPrint('❌ Falha ao ler bytes da imagem ($path): $e');
-    }
-    return null;
   }
 }
 

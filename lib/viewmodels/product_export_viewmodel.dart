@@ -1,5 +1,6 @@
 import 'package:catalogo_ja/core/services/catalogo_ja_package_service.dart';
 import 'package:catalogo_ja/core/services/whatsapp_share_service.dart';
+import 'package:catalogo_ja/core/providers/global_loading_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'product_export_viewmodel.g.dart';
@@ -44,6 +45,9 @@ class ProductExportViewModel extends _$ProductExportViewModel {
   }
 
   Future<void> exportPackage() async {
+    const taskId = 'full_backup';
+    final loadingNotifier = ref.read(globalLoadingProvider.notifier);
+    
     state = state.copyWith(
       isLoading: true,
       progress: 0.01,
@@ -51,6 +55,13 @@ class ProductExportViewModel extends _$ProductExportViewModel {
       errorMessage: null,
       successMessage: null,
     );
+
+    loadingNotifier.addTask(BackgroundTask(
+      id: taskId,
+      title: 'Gerando Backup',
+      message: 'Preparando...',
+      progress: 0.01,
+    ));
 
     try {
       // The provided code edit seems to be a partial snippet from a different context
@@ -75,6 +86,7 @@ class ProductExportViewModel extends _$ProductExportViewModel {
           .exportPackage(
             onProgress: (progress, message) {
               state = state.copyWith(progress: progress, message: message);
+              loadingNotifier.updateTask(taskId, progress: progress, message: message);
             },
           );
 
@@ -90,7 +102,7 @@ class ProductExportViewModel extends _$ProductExportViewModel {
         fileName: fileName,
         // Original text: 'Backup do Cat\u00e1logo CatalogoJa'
         // Adapted text (from the provided snippet, but simplified as catalog.name is missing):
-        text: 'Confira o pacote de dados do seu catálogo!',
+        text: 'Backup do Catálogo CatalogoJa concluído!',
         mimeType: 'application/zip',
       );
 
@@ -98,11 +110,18 @@ class ProductExportViewModel extends _$ProductExportViewModel {
         isLoading: false,
         successMessage: 'Exporta\u00e7\u00e3o conclu\u00edda',
       );
+      
+      loadingNotifier.updateTask(taskId, progress: 1.0, message: 'Concluído!', isDone: true);
+      // Remove after some delay or immediately if UI is updated
+      Future.delayed(const Duration(seconds: 3), () => loadingNotifier.removeTask(taskId));
+      
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Erro ao exportar: $e',
       );
+      loadingNotifier.updateTask(taskId, message: 'Erro: $e', isDone: true, error: e.toString());
+      Future.delayed(const Duration(seconds: 5), () => loadingNotifier.removeTask(taskId));
     }
   }
 }
