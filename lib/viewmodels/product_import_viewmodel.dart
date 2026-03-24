@@ -7,11 +7,13 @@ import 'package:http/http.dart' as http;
 import 'package:catalogo_ja/data/repositories/contracts/categories_repository_contract.dart';
 import 'package:catalogo_ja/data/repositories/contracts/products_repository_contract.dart';
 import 'package:catalogo_ja/data/repositories/categories_repository.dart';
+import 'package:catalogo_ja/data/repositories/firestore_products_repository.dart';
 import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/core/services/image_optimizer_service.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/models/product_variant.dart';
 import 'package:catalogo_ja/models/product_image.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:csv/csv.dart';
@@ -1615,25 +1617,44 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     );
 
     try {
-      for (var i = 0; i < lines.length; i++) {
-        final line = lines[i].trim();
-        if (line.isEmpty) continue;
+      // 1. Group data by Reference
+      final groupedData = <String, List<Map<String, dynamic>>>{};
+      for (final line in lines) {
+        final trimmed = line.trim();
+        if (trimmed.isEmpty) continue;
 
-        state = state.copyWith(
-          progress: 0.05 + (0.9 * ((i + 1) / lines.length)),
-          message: 'Processando linha ${i + 1} de ${lines.length}...',
-        );
-
-        final match = regex.firstMatch(line);
-        if (match == null) {
-          report.errors.add('Linha ignore (formato inv\u00e1lido): $line');
-          continue;
-        }
+        final match = regex.firstMatch(trimmed);
+        if (match == null) continue;
 
         final refStr = match.group(1)!;
         final color = match.group(3)!.trim().toUpperCase();
         final size = match.group(4)!.trim().toUpperCase();
         final qty = int.tryParse(match.group(5)!) ?? 0;
+
+        groupedData.putIfAbsent(refStr, () => []).add({
+          'color': color,
+          'size': size,
+          'qty': qty,
+        });
+      }
+
+      if (groupedData.isEmpty) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: 'Nenhum item válido encontrado no texto fornecido.',
+        );
+        return report;
+      }
+
+      final refList = groupedData.keys.toList();
+      for (var i = 0; i < refList.length; i++) {
+        final refStr = refList[i];
+        final pdfItems = groupedData[refStr]!;
+
+        state = state.copyWith(
+          progress: 0.1 + (0.8 * ((i + 1) / refList.length)),
+          message: 'Processando REF $refStr...',
+        );
 
         final product = await productsRepo.getByRef(refStr);
         if (product == null) {
@@ -1641,33 +1662,25 @@ class ProductImportViewModel extends _$ProductImportViewModel {
           continue;
         }
 
-        var updatedVariants = List<ProductVariant>.from(product.variants);
-        var found = false;
+        // Reconstruct variants, sizes, and colors based EXCLUSIVELY on PDF data for this product
+        final newVariants = <ProductVariant>[];
+        final newSizes = <String>{};
+        final newColors = <String>{};
 
-        for (var vIdx = 0; vIdx < updatedVariants.length; vIdx++) {
-          final v = updatedVariants[vIdx];
-          final vColor = (v.attributes['COR'] ?? v.attributes['color'] ?? '')
-              .toUpperCase();
-          final vSize = (v.attributes['TAMANHO'] ?? v.attributes['size'] ?? '')
-              .toUpperCase();
+        for (final item in pdfItems) {
+          final color = item['color'] as String;
+          final size = item['size'] as String;
+          final qty = item['qty'] as int;
 
-          if (vColor == color && vSize == size) {
-            updatedVariants[vIdx] = ProductVariant(
-              sku: v.sku,
-              stock: qty,
-              attributes: v.attributes,
-            );
-            found = true;
-            break;
-          }
-        }
+          newSizes.add(size);
+          newColors.add(color);
 
-        if (!found) {
-          // If variant is not found by exact color/size, we add it
-          final newSku = '${product.ref}-$color-$size'.replaceAll(' ', '');
-          updatedVariants.add(
+          // Build SKU
+          final sku = '${product.ref}-$color-$size'.replaceAll(' ', '');
+          
+          newVariants.add(
             ProductVariant(
-              sku: newSku,
+              sku: sku,
               stock: qty,
               attributes: {'COR': color, 'TAMANHO': size},
             ),
@@ -1675,14 +1688,16 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         }
 
         final updatedProduct = product.copyWith(
-          variants: updatedVariants,
+          variants: newVariants,
+          sizes: newSizes.toList()..sort(),
+          colors: newColors.toList()..sort(),
           updatedAt: DateTime.now(),
         );
 
         await productsRepo.updateProduct(updatedProduct);
-        report.updatedCount++;
+        report.updatedCount += pdfItems.length;
         report.successes.add(
-          'REF $refStr: $color - $size atualizado para $qty',
+          'REF $refStr: ${pdfItems.length} variantes sincronizadas com o PDF',
         );
       }
 
@@ -1690,7 +1705,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         isLoading: false,
         isDone: true,
         progress: 1.0,
-        message: 'Conclu\u00eddo! ${report.updatedCount} itens atualizados.',
+        message: 'Conclu\u00eddo! ${report.updatedCount} variantes sincronizadas.',
       );
       _notifyChanges();
       return report;

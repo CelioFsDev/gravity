@@ -1,6 +1,8 @@
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/product_image.dart';
+import 'package:catalogo_ja/models/catalog.dart';
+import 'package:catalogo_ja/models/product_variant.dart';
 
 class CatalogoJaExportPayload {
   final String app;
@@ -11,6 +13,7 @@ class CatalogoJaExportPayload {
   final List<CategoryDTO>
   collections; // Collections are Categories with type=collection
   final List<ProductDTO> products;
+  final List<CatalogDTO> catalogs;
 
   CatalogoJaExportPayload({
     required this.app,
@@ -20,6 +23,7 @@ class CatalogoJaExportPayload {
     required this.categories,
     required this.collections,
     required this.products,
+    this.catalogs = const [],
   });
 
   Map<String, dynamic> toJson() {
@@ -31,6 +35,7 @@ class CatalogoJaExportPayload {
       'categories': categories.map((e) => e.toJson()).toList(),
       'collections': collections.map((e) => e.toJson()).toList(),
       'products': products.map((e) => e.toJson()).toList(),
+      'catalogs': catalogs.map((e) => e.toJson()).toList(),
     };
   }
 
@@ -56,6 +61,11 @@ class CatalogoJaExportPayload {
       products:
           (json['products'] as List<dynamic>?)
               ?.map((e) => ProductDTO.fromJson(e))
+              .toList() ??
+          [],
+      catalogs:
+          (json['catalogs'] as List<dynamic>?)
+              ?.map((e) => CatalogDTO.fromJson(e))
               .toList() ??
           [],
     );
@@ -178,6 +188,10 @@ class CollectionCoverDTO {
   final String? coverImagePath;
   final String? coverMiniPath;
   final String? coverPagePath;
+  final String? coverHeaderImagePath;
+  final String? coverMainImagePath;
+  final String? bannerImagePath;
+  final String? heroImagePath;
 
   // Reduced set of fields for P0
   CollectionCoverDTO({
@@ -186,6 +200,10 @@ class CollectionCoverDTO {
     this.coverImagePath,
     this.coverMiniPath,
     this.coverPagePath,
+    this.coverHeaderImagePath,
+    this.coverMainImagePath,
+    this.bannerImagePath,
+    this.heroImagePath,
   });
 
   factory CollectionCoverDTO.fromModel(CollectionCover cover) {
@@ -195,6 +213,10 @@ class CollectionCoverDTO {
       coverImagePath: cover.coverImagePath,
       coverMiniPath: cover.coverMiniPath,
       coverPagePath: cover.coverPagePath,
+      coverHeaderImagePath: cover.coverHeaderImagePath,
+      coverMainImagePath: cover.coverMainImagePath,
+      bannerImagePath: cover.bannerImagePath,
+      heroImagePath: cover.heroImagePath,
     );
   }
 
@@ -207,6 +229,10 @@ class CollectionCoverDTO {
       coverImagePath: coverImagePath,
       coverMiniPath: coverMiniPath,
       coverPagePath: coverPagePath,
+      coverHeaderImagePath: coverHeaderImagePath,
+      coverMainImagePath: coverMainImagePath,
+      bannerImagePath: bannerImagePath,
+      heroImagePath: heroImagePath,
     );
   }
 
@@ -216,6 +242,10 @@ class CollectionCoverDTO {
     'coverImagePath': coverImagePath,
     'coverMiniPath': coverMiniPath,
     'coverPagePath': coverPagePath,
+    'coverHeaderImagePath': coverHeaderImagePath,
+    'coverMainImagePath': coverMainImagePath,
+    'bannerImagePath': bannerImagePath,
+    'heroImagePath': heroImagePath,
   };
 
   factory CollectionCoverDTO.fromJson(Map<String, dynamic> json) {
@@ -225,6 +255,52 @@ class CollectionCoverDTO {
       coverImagePath: json['coverImagePath'],
       coverMiniPath: json['coverMiniPath'],
       coverPagePath: json['coverPagePath'],
+      coverHeaderImagePath: json['coverHeaderImagePath'],
+      coverMainImagePath: json['coverMainImagePath'],
+      bannerImagePath: json['bannerImagePath'],
+      heroImagePath: json['heroImagePath'],
+    );
+  }
+}
+
+class ProductVariantDTO {
+  final String sku;
+  final int stock;
+  final Map<String, String> attributes;
+
+  ProductVariantDTO({
+    required this.sku,
+    required this.stock,
+    required this.attributes,
+  });
+
+  factory ProductVariantDTO.fromModel(ProductVariant model) {
+    return ProductVariantDTO(
+      sku: model.sku,
+      stock: model.stock,
+      attributes: model.attributes,
+    );
+  }
+
+  ProductVariant toModel() {
+    return ProductVariant(
+      sku: sku,
+      stock: stock,
+      attributes: attributes,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'sku': sku,
+    'stock': stock,
+    'attributes': attributes,
+  };
+
+  factory ProductVariantDTO.fromJson(Map<String, dynamic> json) {
+    return ProductVariantDTO(
+      sku: json['sku'] ?? '',
+      stock: json['stock'] ?? 0,
+      attributes: Map<String, String>.from(json['attributes'] ?? {}),
     );
   }
 }
@@ -377,6 +453,8 @@ class ProductDTO {
 
   final List<String> remoteImages;
 
+  final List<ProductVariantDTO> variants;
+
   ProductDTO({
     required this.id,
     required this.name,
@@ -395,6 +473,7 @@ class ProductDTO {
     this.categoryIds,
     this.sizes = const [],
     this.colors = const [],
+    this.variants = const [],
     this.createdAt,
     this.updatedAt,
   });
@@ -418,6 +497,7 @@ class ProductDTO {
       categoryIds: product.categoryIds,
       sizes: product.sizes,
       colors: product.colors,
+      variants: product.variants.map((v) => ProductVariantDTO.fromModel(v)).toList(),
       createdAt: product.createdAt.toIso8601String(),
       updatedAt: product.updatedAt.toIso8601String(),
     );
@@ -437,6 +517,7 @@ class ProductDTO {
       colors: colors,
       images: images.map((i) => i.soul()).toList(),
       photos: photos.map((p) => p.toModel()).toList(),
+      variants: variants.map((v) => v.toModel()).toList(),
       remoteImages: remoteImages,
       mainImageIndex: mainImageIndex,
       isActive: isActive,
@@ -467,6 +548,7 @@ class ProductDTO {
       'categoryIds': categoryIds,
       'sizes': sizes,
       'colors': colors,
+      'variants': variants.map((v) => v.toJson()).toList(),
       'createdAt': createdAt,
       'updatedAt': updatedAt,
     };
@@ -519,8 +601,227 @@ class ProductDTO {
               ?.map((e) => e.toString())
               .toList() ??
           [],
+      variants:
+          (json['variants'] as List<dynamic>?)
+              ?.map((e) => ProductVariantDTO.fromJson(e))
+              .toList() ??
+          [],
       createdAt: json['createdAt'],
       updatedAt: json['updatedAt'],
+    );
+  }
+}
+
+class CatalogBannerDTO {
+  final String id;
+  final String imagePath;
+  final String? title;
+
+  CatalogBannerDTO({required this.id, required this.imagePath, this.title});
+
+  factory CatalogBannerDTO.fromModel(CatalogBanner model) {
+    return CatalogBannerDTO(
+      id: model.id,
+      imagePath: model.imagePath,
+      title: model.title,
+    );
+  }
+
+  CatalogBanner toModel() {
+    return CatalogBanner(id: id, imagePath: imagePath, title: title);
+  }
+
+  CatalogBannerDTO copyWith({String? id, String? imagePath, String? title}) {
+    return CatalogBannerDTO(
+      id: id ?? this.id,
+      imagePath: imagePath ?? this.imagePath,
+      title: title ?? this.title,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'imagePath': imagePath,
+    'title': title,
+  };
+
+  factory CatalogBannerDTO.fromJson(Map<String, dynamic> json) {
+    return CatalogBannerDTO(
+      id: json['id'] ?? '',
+      imagePath: json['imagePath'] ?? '',
+      title: json['title'],
+    );
+  }
+}
+
+class CatalogDTO {
+  final String id;
+  final String name;
+  final String slug;
+  final bool active;
+  final List<String> productIds;
+  final bool requireCustomerData;
+  final String photoLayout;
+  final bool announcementEnabled;
+  final String? announcementText;
+  final List<CatalogBannerDTO> banners;
+  final String mode; // varela, atacado
+  final bool isPublic;
+  final String shareCode;
+  final bool includeCover;
+  final String? coverType;
+  final String createdAt;
+  final String updatedAt;
+
+  CatalogDTO({
+    required this.id,
+    required this.name,
+    required this.slug,
+    this.active = true,
+    required this.productIds,
+    this.requireCustomerData = false,
+    this.photoLayout = 'grid',
+    this.announcementEnabled = false,
+    this.announcementText,
+    this.banners = const [],
+    required this.mode,
+    this.isPublic = false,
+    this.shareCode = '',
+    this.includeCover = true,
+    this.coverType,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory CatalogDTO.fromModel(Catalog catalog) {
+    return CatalogDTO(
+      id: catalog.id,
+      name: catalog.name,
+      slug: catalog.slug,
+      active: catalog.active,
+      productIds: catalog.productIds,
+      requireCustomerData: catalog.requireCustomerData,
+      photoLayout: catalog.photoLayout,
+      announcementEnabled: catalog.announcementEnabled,
+      announcementText: catalog.announcementText,
+      banners: catalog.banners.map((b) => CatalogBannerDTO.fromModel(b)).toList(),
+      mode: catalog.mode.name,
+      isPublic: catalog.isPublic,
+      shareCode: catalog.shareCode,
+      includeCover: catalog.includeCover,
+      coverType: catalog.coverType,
+      createdAt: catalog.createdAt.toIso8601String(),
+      updatedAt: catalog.updatedAt.toIso8601String(),
+    );
+  }
+
+  Catalog toModel() {
+    return Catalog(
+      id: id,
+      name: name,
+      slug: slug,
+      active: active,
+      productIds: productIds,
+      requireCustomerData: requireCustomerData,
+      photoLayout: photoLayout,
+      announcementEnabled: announcementEnabled,
+      announcementText: announcementText,
+      banners: banners.map((b) => b.toModel()).toList(),
+      mode: mode == 'atacado' ? CatalogMode.atacado : CatalogMode.varejo,
+      createdAt: DateTime.tryParse(createdAt) ?? DateTime.now(),
+      updatedAt: DateTime.tryParse(updatedAt) ?? DateTime.now(),
+      isPublic: isPublic,
+      shareCode: shareCode,
+      includeCover: includeCover,
+      coverType: coverType,
+    );
+  }
+
+  CatalogDTO copyWith({
+    String? id,
+    String? name,
+    String? slug,
+    bool? active,
+    List<String>? productIds,
+    bool? requireCustomerData,
+    String? photoLayout,
+    bool? announcementEnabled,
+    String? announcementText,
+    List<CatalogBannerDTO>? banners,
+    String? mode,
+    bool? isPublic,
+    String? shareCode,
+    bool? includeCover,
+    String? coverType,
+    String? createdAt,
+    String? updatedAt,
+  }) {
+    return CatalogDTO(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      slug: slug ?? this.slug,
+      active: active ?? this.active,
+      productIds: productIds ?? this.productIds,
+      requireCustomerData: requireCustomerData ?? this.requireCustomerData,
+      photoLayout: photoLayout ?? this.photoLayout,
+      announcementEnabled: announcementEnabled ?? this.announcementEnabled,
+      announcementText: announcementText ?? this.announcementText,
+      banners: banners ?? this.banners,
+      mode: mode ?? this.mode,
+      isPublic: isPublic ?? this.isPublic,
+      shareCode: shareCode ?? this.shareCode,
+      includeCover: includeCover ?? this.includeCover,
+      coverType: coverType ?? this.coverType,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'slug': slug,
+      'active': active,
+      'productIds': productIds,
+      'requireCustomerData': requireCustomerData,
+      'photoLayout': photoLayout,
+      'announcementEnabled': announcementEnabled,
+      'announcementText': announcementText,
+      'banners': banners.map((b) => b.toJson()).toList(),
+      'mode': mode,
+      'isPublic': isPublic,
+      'shareCode': shareCode,
+      'includeCover': includeCover,
+      'coverType': coverType,
+      'createdAt': createdAt,
+      'updatedAt': updatedAt,
+    };
+  }
+
+  factory CatalogDTO.fromJson(Map<String, dynamic> json) {
+    return CatalogDTO(
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+      slug: json['slug'] ?? '',
+      active: json['active'] ?? true,
+      productIds: List<String>.from(json['productIds'] ?? []),
+      requireCustomerData: json['requireCustomerData'] ?? false,
+      photoLayout: json['photoLayout'] ?? 'grid',
+      announcementEnabled: json['announcementEnabled'] ?? false,
+      announcementText: json['announcementText'],
+      banners:
+          (json['banners'] as List<dynamic>?)
+              ?.map((e) => CatalogBannerDTO.fromJson(e))
+              .toList() ??
+          [],
+      mode: json['mode'] ?? 'varejo',
+      isPublic: json['isPublic'] ?? false,
+      shareCode: json['shareCode'] ?? '',
+      includeCover: json['includeCover'] ?? true,
+      coverType: json['coverType'],
+      createdAt: json['createdAt'] ?? DateTime.now().toIso8601String(),
+      updatedAt: json['updatedAt'] ?? DateTime.now().toIso8601String(),
     );
   }
 }

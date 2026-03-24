@@ -159,8 +159,8 @@ class _StockUpdateScreenState extends ConsumerState<StockUpdateScreen> {
               style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange),
             ),
             const SizedBox(height: 4),
-            SizedBox(
-              maxHeight: 200,
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 200),
               child: ListView.builder(
                 shrinkWrap: true,
                 itemCount: report.errors.length.clamp(0, 10),
