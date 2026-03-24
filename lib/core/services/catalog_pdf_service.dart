@@ -1236,32 +1236,38 @@ class CatalogPdfService {
   ) {
     final count = variants.length;
 
-    if (count == 4) {
-      // Caso 4: Grade 2x2 (Dividir o espaço)
+    if (count >= 3) {
+      // Caso 3 ou 4+: Grade 2x2 ou 2xN (Dividir o espaço para não estourar a margem)
+      final rows = <pw.Widget>[];
+      final thumbWidth = count >= 4 ? 45.0 : 48.0;
+
+      for (var i = 0; i < count; i += 2) {
+        final hasNext = i + 1 < count;
+        rows.add(
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.end,
+            mainAxisSize: pw.MainAxisSize.min,
+            children: [
+              _buildSwatchThumb(variants[i].key, variants[i].value, width: thumbWidth),
+              if (hasNext) ...[
+                pw.SizedBox(width: 8),
+                _buildSwatchThumb(variants[i + 1].key, variants[i + 1].value, width: thumbWidth),
+              ] else if (count == 3) ...[
+                 // Se for exatamente 3, adicionamos um espaço invisível para manter a 3ª foto no lugar (abaixo da primeira)
+                 pw.SizedBox(width: 8 + thumbWidth),
+              ],
+            ],
+          ),
+        );
+        if (i + 2 < count) {
+          rows.add(pw.SizedBox(height: 8));
+        }
+      }
+
       return pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.end,
         mainAxisSize: pw.MainAxisSize.min,
-        children: [
-          pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.end,
-            mainAxisSize: pw.MainAxisSize.min,
-            children: [
-              _buildSwatchThumb(variants[0].key, variants[0].value, width: 45),
-              pw.SizedBox(width: 8),
-              _buildSwatchThumb(variants[1].key, variants[1].value, width: 45),
-            ],
-          ),
-          pw.SizedBox(height: 8),
-          pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.end,
-            mainAxisSize: pw.MainAxisSize.min,
-            children: [
-              _buildSwatchThumb(variants[2].key, variants[2].value, width: 45),
-              pw.SizedBox(width: 8),
-              _buildSwatchThumb(variants[3].key, variants[3].value, width: 45),
-            ],
-          ),
-        ],
+        children: rows,
       );
     } else if (count == 2) {
       // Caso 2: Duas fotos grandes ocupando o espaço lateral
@@ -1275,21 +1281,13 @@ class CatalogPdfService {
         ],
       );
     } else {
-      // Casos 1 ou 3
-      final thumbWidth = (count == 3) ? 48.0 : 65.0;
+      // Caso 1
       return pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.end,
         mainAxisSize: pw.MainAxisSize.min,
-        children: variants.asMap().entries.map((entry) {
-          return pw.Padding(
-            padding: pw.EdgeInsets.only(left: entry.key == 0 ? 0 : 8),
-            child: _buildSwatchThumb(
-              entry.value.key,
-              entry.value.value,
-              width: thumbWidth,
-            ),
-          );
-        }).toList(),
+        children: [
+          _buildSwatchThumb(variants[0].key, variants[0].value, width: 65),
+        ],
       );
     }
   }
