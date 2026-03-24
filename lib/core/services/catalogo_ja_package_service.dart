@@ -1,13 +1,18 @@
 import 'dart:convert';
 import 'dart:io' as io;
+import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:archive/archive_io.dart';
-import 'package:flutter/foundation.dart' hide Category;
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
+import 'package:http/http.dart' as http;
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:catalogo_ja/core/services/dto/catalogo_ja_export_dtos.dart';
 import 'package:catalogo_ja/core/services/export_import_service.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/category.dart';
-import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -66,53 +71,52 @@ class CatalogoJaPackageService {
       }
       final newPhotos = <ProductPhotoDTO>[];
 
-      // Map paths from photos list
+      // Parallelize downloads for this product's photos (max 4-5 photos usually)
+      final photoFutures = <Future<ProductPhotoDTO?>>[];
+
       for (int i = 0; i < product.photos.length; i++) {
         final photo = product.photos[i];
         final imagePath = photo.path;
-        Uint8List? fileBytes;
+        final photoIndex = i;
 
-        if (imagePath.startsWith('data:')) {
-          try {
-            final commaIndex = imagePath.indexOf(',');
-            if (commaIndex != -1) {
-              fileBytes = base64Decode(imagePath.substring(commaIndex + 1));
+        photoFutures.add(() async {
+          final fileBytes = await _readImageBytes(imagePath);
+          if (fileBytes != null) {
+            // Safe extension for URLs with query params
+            final cleanPath = imagePath.split('?').first;
+            final ext = p.extension(cleanPath).isEmpty ? '.jpg' : p.extension(cleanPath);
+            
+            String baseName = '';
+            if (imagePath.startsWith('data:')) {
+              baseName = 'photo_${DateTime.now().millisecondsSinceEpoch}_$photoIndex';
+            } else if (imagePath.startsWith('http')) {
+               baseName = p.basenameWithoutExtension(cleanPath);
+            } else {
+               baseName = p.basenameWithoutExtension(imagePath);
             }
-          } catch (e) {
-            debugPrint('Error decoding base64 image: $e');
-          }
-        } else if (!kIsWeb) {
-          fileBytes = await _readLocalFile(imagePath);
-        }
+            
+            if (baseName.length > 50) baseName = baseName.substring(0, 50);
+            final relativeName = '${photoIndex.toString().padLeft(2, '0')}__$baseName$ext';
+            final relativePackagePath = 'images/${product.id}/$relativeName';
 
-        if (fileBytes != null) {
-          final ext = p.extension(imagePath).isEmpty
-              ? '.jpg'
-              : p.extension(imagePath);
-          String baseName = '';
-          if (imagePath.startsWith('data:')) {
-            baseName = 'photo_${DateTime.now().millisecondsSinceEpoch}_$i';
-          } else {
-            baseName = p.basenameWithoutExtension(imagePath);
-          }
-          if (baseName.length > 50) baseName = baseName.substring(0, 50);
-          final relativeName = '${i.toString().padLeft(2, '0')}__$baseName$ext';
-          final relativePackagePath = 'images/${product.id}/$relativeName';
+            archive.addFile(
+              ArchiveFile(relativePackagePath, fileBytes.length, fileBytes),
+            );
 
-          archive.addFile(
-            ArchiveFile(relativePackagePath, fileBytes.length, fileBytes),
-          );
-
-          newPhotos.add(
-            ProductPhotoDTO(
+            return ProductPhotoDTO(
               path: relativePackagePath,
               colorKey: photo.colorKey,
               isPrimary: photo.isPrimary,
               photoType: photo.photoType,
-            ),
-          );
-          imageCount++;
-        }
+            );
+          }
+          return null;
+        }());
+      }
+
+      final results = await Future.wait(photoFutures);
+      for (final res in results) {
+        if (res != null) newPhotos.add(res);
       }
 
       // Reconstruct product with relative paths
@@ -797,6 +801,52 @@ class CatalogoJaPackageService {
 
   String _sanitizePathSegment(String value) {
     return value.replaceAll(RegExp(r'[<>:"/\\|?*\x00-\x1F]+'), '_').trim();
+  }
+
+  /// Reads image bytes from either a local file or a network URL.
+  Future<Uint8List?> _readImageBytes(String path) async {
+    if (path.isEmpty) return null;
+
+    try {
+      if (path.startsWith('http')) {
+        // Try Cache first to speed up and save data
+        try {
+          final fileInfo = await DefaultCacheManager().getFileFromCache(path);
+          if (fileInfo != null) {
+            return await fileInfo.file.readAsBytes();
+          }
+        } catch (e) {
+          debugPrint('⚠️ Cache check skipped for $path: $e');
+        }
+
+        debugPrint('🌐 Baixando imagem da nuvem para o backup: $path');
+        final response = await http.get(Uri.parse(path)).timeout(
+          const Duration(seconds: 20),
+        );
+        if (response.statusCode == 200) {
+          // Put in cache for future use
+          try {
+            await DefaultCacheManager().putFile(path, response.bodyBytes);
+          } catch (_) {}
+          
+          return response.bodyBytes;
+        }
+        return null;
+      } else if (path.startsWith('data:')) {
+        final commaIndex = path.indexOf(',');
+        if (commaIndex != -1) {
+          return base64Decode(path.substring(commaIndex + 1));
+        }
+      } else {
+        final file = io.File(path);
+        if (await file.exists()) {
+          return await file.readAsBytes();
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Falha ao ler bytes da imagem ($path): $e');
+    }
+    return null;
   }
 }
 

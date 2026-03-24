@@ -27,6 +27,7 @@ import 'package:catalogo_ja/features/admin/import/stock_update_screen.dart';
 import 'package:catalogo_ja/features/admin/import/catalogo_ja_import_screen.dart';
 import 'package:catalogo_ja/features/admin/settings/settings_screen.dart';
 import 'package:catalogo_ja/features/admin/users/user_management_screen.dart';
+import 'package:catalogo_ja/features/admin/dashboard/dashboard_screen.dart';
 import 'package:catalogo_ja/features/theme/theme_providers.dart';
 import 'package:catalogo_ja/features/public/catalog_home_page.dart';
 import 'package:catalogo_ja/features/public/product_detail_screen.dart';
@@ -164,7 +165,7 @@ class _MyAppState extends ConsumerState<MyApp> {
         }
 
         if (isAuthRoute) {
-          return '/admin/products';
+          return '/admin/dashboard';
         }
 
         return null;
@@ -215,6 +216,14 @@ class _MyAppState extends ConsumerState<MyApp> {
             return AdminShellScreen(navigationShell: navigationShell);
           },
           branches: [
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: '/admin/dashboard',
+                  builder: (context, state) => const DashboardScreen(),
+                ),
+              ],
+            ),
             StatefulShellBranch(
               routes: [
                 GoRoute(

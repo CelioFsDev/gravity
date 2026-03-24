@@ -14,11 +14,12 @@ class AdminShellScreen extends ConsumerWidget {
   const AdminShellScreen({super.key, required this.navigationShell});
 
   static const _destinations = [
-    _NavItem(icon: Icons.inventory, label: 'Produtos'),
-    _NavItem(icon: Icons.collections_bookmark, label: 'Cole\u00e7\u00f5es'),
-    _NavItem(icon: Icons.category, label: 'Categorias'),
-    _NavItem(icon: Icons.menu_book, label: 'Cat\u00e1logos'),
-    _NavItem(icon: Icons.cloud_download, label: 'Importa\u00e7\u00f5es'),
+    _NavItem(icon: Icons.dashboard_outlined, label: 'In\u00edcio'),
+    _NavItem(icon: Icons.inventory_2_outlined, label: 'Produtos'),
+    _NavItem(icon: Icons.collections_bookmark_outlined, label: 'Cole\u00e7\u00f5es'),
+    _NavItem(icon: Icons.category_outlined, label: 'Categorias'),
+    _NavItem(icon: Icons.menu_book_outlined, label: 'Cat\u00e1logos'),
+    _NavItem(icon: Icons.cloud_download_outlined, label: 'Importa\u00e7\u00f5es'),
   ];
 
   @override
