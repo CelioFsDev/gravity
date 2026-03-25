@@ -6,6 +6,10 @@ import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/data/repositories/categories_repository.dart';
 import 'package:catalogo_ja/data/repositories/catalogs_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
 
 class AuthViewModel extends StreamNotifier<User?> {
   late AuthRepository _repository;
@@ -33,8 +37,28 @@ class AuthViewModel extends StreamNotifier<User?> {
     });
   }
 
-  Future<void> _syncUserProfile(User user) {
-    return _userRepository.ensureUserProfileFromAuth(user);
+  Future<void> _syncUserProfile(User user) async {
+    await _userRepository.ensureUserProfileFromAuth(user);
+    
+    // ✨ SaaS Sync: Após garantir o perfil, disparamos o download dos dados da nuvem
+    // Isso evita que o celular fique "zerado" depois de um logout/login.
+    _triggerInitialDataDownload();
+  }
+
+  void _triggerInitialDataDownload() async {
+    try {
+      // Aguarda o tenant ser carregado (o que acontece logo após o ensureUserProfile sincronizar o Firestore)
+      final tenant = await ref.read(currentTenantProvider.future);
+      if (tenant != null) {
+        // Iniciamos o download em background. 
+        // Os métodos syncFromCloud já lidam com o estado de progresso se o usuário abrir as telas.
+        ref.read(categoriesViewModelProvider.notifier).syncFromCloud();
+        ref.read(productsViewModelProvider.notifier).syncFromCloud();
+        ref.read(catalogsViewModelProvider.notifier).syncFromCloud();
+      }
+    } catch (e) {
+      _logger.logError('Erro no disparo do download inicial', error: e);
+    }
   }
 
   Future<void> signInWithGoogle() async {

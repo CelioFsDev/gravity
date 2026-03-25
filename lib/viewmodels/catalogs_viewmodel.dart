@@ -17,6 +17,11 @@ class CatalogsViewModel extends _$CatalogsViewModel {
   @override
   FutureOr<List<Catalog>> build() async {
     try {
+      final authUser = ref.watch(authViewModelProvider).valueOrNull;
+      if (authUser != null) {
+        await ref.watch(currentTenantProvider.future);
+      }
+      
       final repository = ref.watch(syncCatalogsRepositoryProvider);
       return await repository.getCatalogs();
     } catch (e) {

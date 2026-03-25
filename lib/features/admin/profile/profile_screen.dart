@@ -6,6 +6,9 @@ import 'package:catalogo_ja/data/repositories/user_repository.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
+import 'package:catalogo_ja/viewmodels/global_sync_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/products_viewmodel.dart'; // Para SyncProgress
+import 'package:catalogo_ja/features/admin/dashboard/dashboard_screen.dart'; // Acesso a ícones se necessário
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -208,6 +211,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
 
                   const SizedBox(height: AppTokens.space32),
+                  
+                  // ✨ SEÇÃO DE SINCRONIZAÇÃO TOTAL
+                  _buildGlobalSyncCard(context, ref),
+
+                  const SizedBox(height: AppTokens.space32),
 
                   // Editable Fields
                   _buildSectionTitle('Informa\u00e7\u00f5es de Exibi\u00e7\u00e3o'),
@@ -272,6 +280,97 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildGlobalSyncCard(BuildContext context, WidgetRef ref) {
+    final syncProgress = ref.watch(syncProgressProvider);
+    final isSyncing = syncProgress.isSyncing;
+
+    return Card(
+      elevation: 0,
+      color: AppTokens.accentBlue.withOpacity(0.05),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: AppTokens.accentBlue, width: 0.5),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppTokens.space24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.cloud_sync, color: AppTokens.accentBlue),
+                SizedBox(width: 12),
+                Text(
+                  'Sincroniza\u00e7\u00e3o Total',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    color: AppTokens.accentBlue,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppTokens.space12),
+            const Text(
+              'Gerencie todos os dados do seu catálogo na nuvem de uma vez: Categorias, Cole\u00e7\u00f5es, Produtos e Fotos.',
+              style: TextStyle(fontSize: 13, color: AppTokens.textMuted),
+            ),
+            const SizedBox(height: AppTokens.space24),
+            
+            if (isSyncing) ...[
+              LinearProgressIndicator(
+                value: syncProgress.progress,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                syncProgress.message,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: AppTokens.space24),
+            ],
+
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: isSyncing 
+                      ? null 
+                      : () => ref.read(globalSyncViewModelProvider.notifier).syncUpEverything(),
+                    icon: const Icon(Icons.cloud_upload_outlined),
+                    label: const Text('SUBIR TUDO'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: isSyncing 
+                      ? null 
+                      : () => ref.read(globalSyncViewModelProvider.notifier).syncDownEverything(),
+                    icon: const Icon(Icons.cloud_download_outlined),
+                    label: const Text('BAIXAR TUDO'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 

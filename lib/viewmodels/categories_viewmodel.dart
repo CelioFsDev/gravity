@@ -48,6 +48,12 @@ class CategoriesViewModel extends _$CategoriesViewModel {
   @override
   FutureOr<CategoriesState> build() async {
     try {
+      // ✨ Garantia de SaaS: Se o usuário está logado, aguardamos o tenantId ser identificado
+      // Isso evita que a tela comece "Vazia" usando o Repo Local enquanto o Firestore ainda carrega o perfil.
+      final authUser = ref.watch(authViewModelProvider).valueOrNull;
+      if (authUser != null) {
+        await ref.watch(currentTenantProvider.future);
+      }
       return await _fetchData();
     } catch (e) {
       throw e.toAppFailure(action: 'build', entity: 'Categories');

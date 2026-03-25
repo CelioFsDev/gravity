@@ -67,6 +67,21 @@ class UserRepository {
             ? UserRole.admin.name
             : UserRole.viewer.name);
 
+    final existingTenantId = data['tenantId'] as String?;
+    final assignedTenantId = tenantId ?? existingTenantId ?? (authUid != null ? 't_$authUid' : null);
+
+    // ✨ SaaS Logic: Ensure every user has a tenantId. 
+    // This prevents "Local Mode" which causes data loss on logout because Hive is cleared.
+    if (assignedTenantId != null && existingTenantId == null) {
+      // Create a default tenant if it's the first time assigning it
+      await _firestore.collection('tenants').doc(assignedTenantId).set({
+        'id': assignedTenantId,
+        'name': 'Meu Catálogo',
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    }
+
     await docRef.set({
       'authUid': authUid ?? data['authUid'],
       'createdAt': data['createdAt'] ?? FieldValue.serverTimestamp(),
@@ -81,7 +96,7 @@ class UserRepository {
           ? providerIds
           : List<String>.from(data['providerIds'] ?? const []),
       'role': role,
-      'tenantId': tenantId ?? data['tenantId'],
+      'tenantId': assignedTenantId,
       'whatsappNumber': data['whatsappNumber'] ?? '',
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));

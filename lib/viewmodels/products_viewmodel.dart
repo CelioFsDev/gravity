@@ -164,6 +164,12 @@ class ProductsViewModel extends _$ProductsViewModel {
   @override
   FutureOr<ProductsState> build() async {
     try {
+      // ✨ Garantia de SaaS: Se o usuário está logado, aguardamos o tenantId ser identificado
+      final authUser = ref.watch(authViewModelProvider).valueOrNull;
+      if (authUser != null) {
+        await ref.watch(currentTenantProvider.future);
+      }
+
       final productRepository = ref.watch(syncProductsRepositoryProvider);
       final categoryRepository = ref.watch(categoriesRepositoryProvider);
       final products = await productRepository.getProducts();
