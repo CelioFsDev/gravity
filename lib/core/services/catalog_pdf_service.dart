@@ -358,39 +358,32 @@ class CatalogPdfService {
           destination: linktreeUrl,
           child: pw.Container(
             width: pageWidth,
-            padding: const pw.EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+            padding: const pw.EdgeInsets.symmetric(vertical: 16, horizontal: 20),
             decoration: pw.BoxDecoration(
               color: pillColor,
-              borderRadius: pw.BorderRadius.circular(10),
-              border: pw.Border.all(color: accentColor, width: 1),
+              borderRadius: pw.BorderRadius.circular(12),
+              border: pw.Border.all(color: accentColor, width: 1.5),
             ),
-            child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.center,
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
               children: [
-                pw.Container(
-                  width: 14,
-                  height: 14,
-                  decoration: pw.BoxDecoration(
-                    color: accentColor,
-                    shape: pw.BoxShape.circle,
-                  ),
-                ),
-                pw.SizedBox(width: 10),
                 pw.Text(
-                  'Linktree',
+                  'Clique aqui para falar com as vendedoras',
                   style: pw.TextStyle(
                     color: PdfColors.white,
                     fontSize: 13,
                     fontWeight: pw.FontWeight.bold,
                   ),
+                  textAlign: pw.TextAlign.center,
                 ),
-                pw.Spacer(),
+                pw.SizedBox(height: 4),
                 pw.Text(
-                  linktreeUrl.replaceFirst(RegExp(r'^https?://'), ''),
+                  'Acesse nosso Linktree →',
                   style: const pw.TextStyle(
-                    color: PdfColor(0.5, 0.75, 0.55),
-                    fontSize: 9,
+                    color: PdfColor(0.6, 0.85, 0.65),
+                    fontSize: 10,
                   ),
+                  textAlign: pw.TextAlign.center,
                 ),
               ],
             ),
@@ -406,42 +399,35 @@ class CatalogPdfService {
           destination: instagramUrl,
           child: pw.Container(
             width: pageWidth,
-            padding: const pw.EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+            padding: const pw.EdgeInsets.symmetric(vertical: 16, horizontal: 20),
             decoration: pw.BoxDecoration(
               color: pillColor,
-              borderRadius: pw.BorderRadius.circular(10),
+              borderRadius: pw.BorderRadius.circular(12),
               border: pw.Border.all(
                 color: const PdfColor(0.85, 0.4, 0.55),
-                width: 1,
+                width: 1.5,
               ),
             ),
-            child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.center,
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
               children: [
-                pw.Container(
-                  width: 14,
-                  height: 14,
-                  decoration: const pw.BoxDecoration(
-                    color: PdfColor(0.85, 0.4, 0.55),
-                    shape: pw.BoxShape.circle,
-                  ),
-                ),
-                pw.SizedBox(width: 10),
                 pw.Text(
-                  'Instagram',
+                  'Veja nosso Instagram clicando aqui',
                   style: pw.TextStyle(
                     color: PdfColors.white,
                     fontSize: 13,
                     fontWeight: pw.FontWeight.bold,
                   ),
+                  textAlign: pw.TextAlign.center,
                 ),
-                pw.Spacer(),
+                pw.SizedBox(height: 4),
                 pw.Text(
-                  instagramUrl.replaceFirst(RegExp(r'^https?://(www\.)?instagram\.com/'), '@').replaceAll('/', ''),
+                  'Siga-nos no Instagram →',
                   style: const pw.TextStyle(
                     color: PdfColor(0.85, 0.4, 0.55),
-                    fontSize: 9,
+                    fontSize: 10,
                   ),
+                  textAlign: pw.TextAlign.center,
                 ),
               ],
             ),

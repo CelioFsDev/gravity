@@ -21,9 +21,10 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
   Future<List<Category>> getCategories() async {
     final snapshot = await _collection
         .where('tenantId', isEqualTo: _tenantId)
-        .orderBy('order')
         .get();
-    return snapshot.docs.map((doc) => Category.fromMap(doc.data())).toList();
+    final categories = snapshot.docs.map((doc) => Category.fromMap(doc.data())).toList();
+    categories.sort((a, b) => a.order.compareTo(b.order));
+    return categories;
   }
 
   @override
@@ -34,14 +35,13 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
     if (updatedCategory.cover != null) {
       final cover = updatedCategory.cover!;
       
-      // Função auxiliar para subir uma imagem se necessário
       Future<String?> uploadIfNeeded(String? path) async {
-        if (path != null && path.isNotEmpty && !path.startsWith('http')) {
+        if (path != null && path.isNotEmpty && !path.startsWith('http') && !path.startsWith('gs://')) {
           try {
             print('🚀 Subindo imagem de coleção: $path');
             return await _storageService.uploadCategoryImage(
               localPath: path,
-              categoryId: category.id,
+              categoryId: updatedCategory.id,
               tenantId: _tenantId,
             );
           } catch (e) {
@@ -86,11 +86,15 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
   Stream<List<Category>> watchCategories() {
     return _collection
         .where('tenantId', isEqualTo: _tenantId)
-        .orderBy('order')
         .snapshots()
         .map(
-          (snapshot) =>
-              snapshot.docs.map((doc) => Category.fromMap(doc.data())).toList(),
+          (snapshot) {
+            final categories = snapshot.docs
+                .map((doc) => Category.fromMap(doc.data()))
+                .toList();
+            categories.sort((a, b) => a.order.compareTo(b.order));
+            return categories;
+          },
         );
   }
 

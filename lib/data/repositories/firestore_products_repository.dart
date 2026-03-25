@@ -40,17 +40,19 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
       imagesToSync = product.photos.map((p) => p.toProductImage()).toList();
     }
 
-    // Sincroniza fotos locais com a nuvem uma por uma (mais ESTÁVEL que paralelo em conexões instáveis)
+    // Sincroniza fotos locais com a nuvem uma por uma
     final List<ProductImage> updatedImages = [];
     for (var image in imagesToSync) {
-      if (image.sourceType == ProductImageSource.localPath) {
+      final isLocal = !image.uri.startsWith('http') && !image.uri.startsWith('gs://');
+      
+      if (isLocal || image.sourceType == ProductImageSource.localPath) {
         try {
           print('🚀 Iniciando upload da imagem: ${image.uri}');
           final cloudUrl = await _storageService.uploadProductImage(
             localPath: image.uri,
             productId: product.id,
             tenantId: _tenantId,
-          ).timeout(const Duration(seconds: 60)); // ✨ Timeout de segurança: 60 segundos
+          ).timeout(const Duration(seconds: 60)); 
           
           if (cloudUrl.isNotEmpty) {
             updatedImages.add(image.copyWith(
@@ -59,14 +61,14 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
             ));
             print('✅ Upload concluído: $cloudUrl');
           } else {
-            print('⚠️ Foto ignorada (upload retornou vazio)');
+            updatedImages.add(image);
           }
         } catch (e) {
           print('❌ Erro no upload da foto ${image.uri}: $e');
-          // No catch, não adicionamos ao updatedImages, o que remove a imagem inválida do Firestore
+          updatedImages.add(image);
         }
       } else {
-        // Já é link de internet, mantemos como está
+        // Já é link de nuvem
         updatedImages.add(image);
       }
     }
