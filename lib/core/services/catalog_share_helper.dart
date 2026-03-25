@@ -605,6 +605,9 @@ class CatalogShareHelper {
     // Wait for products to load if they haven't yet
     final productsState = await ref.read(productsViewModelProvider.future);
     final allProducts = productsState.allProducts;
+    final settings = ref.read(settingsRepositoryProvider).getSettings();
+    final linktreeUrl = settings.linktreeUrl.trim().isNotEmpty ? settings.linktreeUrl.trim() : null;
+    final instagramUrl = settings.instagramUrl.trim().isNotEmpty ? settings.instagramUrl.trim() : null;
 
     final catalogProducts = allProducts
         .where((p) => catalog.productIds.contains(p.id))
@@ -750,6 +753,8 @@ class CatalogShareHelper {
         includeCover: resolvedIncludeCover,
         collectionsMap: collectionsMap,
         mainCoverCollectionId: fbId,
+        linktreeUrl: linktreeUrl,
+        instagramUrl: instagramUrl,
       );
     }
 
@@ -770,6 +775,8 @@ class CatalogShareHelper {
       includeCover: resolvedIncludeCover,
       collectionsMap: collectionsMap,
       mainCoverCollectionId: mainCoverCollectionId,
+      linktreeUrl: linktreeUrl,
+      instagramUrl: instagramUrl,
     );
   }
 

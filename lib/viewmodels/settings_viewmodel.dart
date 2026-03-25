@@ -14,6 +14,8 @@ class SettingsViewModel extends Notifier<AppSettings> {
     String? whatsappNumber,
     String? publicBaseUrl,
     String? remoteImageBaseUrl,
+    String? linktreeUrl,
+    String? instagramUrl,
   }) async {
     final repository = ref.read(settingsRepositoryProvider);
     final current = state;
@@ -37,6 +39,8 @@ class SettingsViewModel extends Notifier<AppSettings> {
       whatsappNumber: whatsappNumber ?? current.whatsappNumber,
       publicBaseUrl: cleanedBaseUrl ?? current.publicBaseUrl,
       remoteImageBaseUrl: remoteImageBaseUrl ?? current.remoteImageBaseUrl,
+      linktreeUrl: linktreeUrl ?? current.linktreeUrl,
+      instagramUrl: instagramUrl ?? current.instagramUrl,
     );
     await repository.saveSettings(updated);
     state = updated;

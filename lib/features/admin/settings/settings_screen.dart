@@ -22,6 +22,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late final TextEditingController _whatsappController;
   late final TextEditingController _baseUrlController;
   late final TextEditingController _remotePhotoUrlController;
+  late final TextEditingController _linktreeController;
+  late final TextEditingController _instagramController;
 
   @override
   void initState() {
@@ -33,6 +35,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _remotePhotoUrlController = TextEditingController(
       text: settings.remoteImageBaseUrl,
     );
+    _linktreeController = TextEditingController(text: settings.linktreeUrl);
+    _instagramController = TextEditingController(text: settings.instagramUrl);
   }
 
   @override
@@ -41,6 +45,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _whatsappController.dispose();
     _baseUrlController.dispose();
     _remotePhotoUrlController.dispose();
+    _linktreeController.dispose();
+    _instagramController.dispose();
     super.dispose();
   }
 
@@ -52,6 +58,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           whatsappNumber: _whatsappController.text,
           publicBaseUrl: _baseUrlController.text,
           remoteImageBaseUrl: _remotePhotoUrlController.text,
+          linktreeUrl: _linktreeController.text,
+          instagramUrl: _instagramController.text,
         );
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -272,6 +280,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     icon: Icons.cloud_download_outlined,
                     helper:
                         'As fotos devem seguir o padr\u00e3o da refer\u00eancia (ex.: REFERENCIA_principal, REFERENCIA_cor_preto) com extens\u00e3o de imagem.',
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            SectionCard(
+              title: 'Redes Sociais',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Esses links aparecem na última página do catálogo PDF como botões clicáveis.',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildField(
+                    controller: _linktreeController,
+                    label: 'Link do Linktree',
+                    hint: 'https://linktr.ee/sualoja',
+                    icon: Icons.link_outlined,
+                    helper: 'Link da sua página no Linktree',
+                  ),
+                  const SizedBox(height: 16),
+                  _buildField(
+                    controller: _instagramController,
+                    label: 'Instagram',
+                    hint: 'https://instagram.com/sualoja',
+                    icon: Icons.camera_alt_outlined,
+                    helper: 'Link do seu perfil no Instagram',
                   ),
                 ],
               ),

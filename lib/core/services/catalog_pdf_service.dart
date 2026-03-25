@@ -41,6 +41,8 @@ class CatalogPdfService {
     bool showPrice = true,
     bool useLoosePhotos = false,
     CatalogPdfStyle style = CatalogPdfStyle.classic,
+    String? linktreeUrl,
+    String? instagramUrl,
   }) async {
     // Parameters kept for API compatibility.
     final _ = catalogName;
@@ -194,10 +196,261 @@ class CatalogPdfService {
       }
     }
 
+    final hasLinktree = linktreeUrl != null && linktreeUrl.trim().isNotEmpty;
+    final hasInstagram = instagramUrl != null && instagramUrl.trim().isNotEmpty;
+    if (hasLinktree || hasInstagram) {
+      _addContactPage(
+        pdf,
+        pageFormat,
+        catalogName: catalogName,
+        linktreeUrl: hasLinktree ? linktreeUrl.trim() : null,
+        instagramUrl: hasInstagram ? instagramUrl.trim() : null,
+      );
+    }
+
     final result = await pdf.save();
     // Limpar cache após salvar para liberar memória
     _imageCache.clear();
     return result;
+  }
+
+  /// Adiciona a página final com links clicáveis para redes sociais.
+  static void _addContactPage(
+    pw.Document pdf,
+    PdfPageFormat pageFormat, {
+    required String catalogName,
+    String? linktreeUrl,
+    String? instagramUrl,
+  }) {
+    const bgColor = PdfColor(0.07, 0.07, 0.1);
+    const accentColor = PdfColor(0.6, 0.85, 0.65);
+    const textWhite = PdfColors.white;
+    const textMuted = PdfColor(0.65, 0.65, 0.7);
+    const pillColor = PdfColor(0.14, 0.14, 0.18);
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: pageFormat,
+        margin: pw.EdgeInsets.zero,
+        build: (context) {
+          return pw.Container(
+            color: bgColor,
+            width: pageFormat.width,
+            height: pageFormat.height,
+            child: pw.Stack(
+              children: [
+                // Decorative top arc
+                pw.Positioned(
+                  top: -pageFormat.width * 0.5,
+                  left: -pageFormat.width * 0.3,
+                  child: pw.Container(
+                    width: pageFormat.width * 1.6,
+                    height: pageFormat.width * 1.6,
+                    decoration: const pw.BoxDecoration(
+                      color: PdfColor(0.12, 0.12, 0.17),
+                      shape: pw.BoxShape.circle,
+                    ),
+                  ),
+                ),
+
+                // Content
+                pw.Positioned.fill(
+                  child: pw.Padding(
+                    padding: const pw.EdgeInsets.symmetric(
+                      horizontal: 28,
+                      vertical: 32,
+                    ),
+                    child: pw.Column(
+                      mainAxisAlignment: pw.MainAxisAlignment.center,
+                      crossAxisAlignment: pw.CrossAxisAlignment.center,
+                      children: [
+                        pw.Spacer(),
+
+                        // Greeting
+                        pw.Text(
+                          'OBRIGADO!',
+                          style: pw.TextStyle(
+                            color: accentColor,
+                            fontSize: 11,
+                            fontWeight: pw.FontWeight.bold,
+                            letterSpacing: 5,
+                          ),
+                        ),
+                        pw.SizedBox(height: 10),
+
+                        // Store / catalog name
+                        pw.Text(
+                          catalogName.toUpperCase(),
+                          style: pw.TextStyle(
+                            color: textWhite,
+                            fontSize: 22,
+                            fontWeight: pw.FontWeight.bold,
+                            letterSpacing: 2,
+                          ),
+                          textAlign: pw.TextAlign.center,
+                        ),
+                        pw.SizedBox(height: 8),
+
+                        // Divider
+                        pw.Container(
+                          width: 40,
+                          height: 2,
+                          color: accentColor,
+                          margin: const pw.EdgeInsets.symmetric(vertical: 12),
+                        ),
+
+                        pw.Text(
+                          'Siga-nos e fique por dentro\ndas novidades!',
+                          style: const pw.TextStyle(
+                            color: textMuted,
+                            fontSize: 11,
+                          ),
+                          textAlign: pw.TextAlign.center,
+                        ),
+
+                        pw.SizedBox(height: 32),
+
+                        // Link buttons
+                        ..._buildSocialLinkButtons(
+                          linktreeUrl: linktreeUrl,
+                          instagramUrl: instagramUrl,
+                          pillColor: pillColor,
+                          accentColor: accentColor,
+                          pageWidth: pageFormat.width - 56,
+                        ),
+
+                        pw.Spacer(),
+
+                        // Footer note
+                        pw.Text(
+                          'Toque nos links acima para visitar nossas redes sociais',
+                          style: const pw.TextStyle(
+                            color: textMuted,
+                            fontSize: 8,
+                          ),
+                          textAlign: pw.TextAlign.center,
+                        ),
+                        pw.SizedBox(height: 8),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  static List<pw.Widget> _buildSocialLinkButtons({
+    String? linktreeUrl,
+    String? instagramUrl,
+    required PdfColor pillColor,
+    required PdfColor accentColor,
+    required double pageWidth,
+  }) {
+    final widgets = <pw.Widget>[];
+
+    if (linktreeUrl != null && linktreeUrl.isNotEmpty) {
+      widgets.add(
+        pw.UrlLink(
+          destination: linktreeUrl,
+          child: pw.Container(
+            width: pageWidth,
+            padding: const pw.EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+            decoration: pw.BoxDecoration(
+              color: pillColor,
+              borderRadius: pw.BorderRadius.circular(10),
+              border: pw.Border.all(color: accentColor, width: 1),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.center,
+              children: [
+                pw.Container(
+                  width: 14,
+                  height: 14,
+                  decoration: pw.BoxDecoration(
+                    color: accentColor,
+                    shape: pw.BoxShape.circle,
+                  ),
+                ),
+                pw.SizedBox(width: 10),
+                pw.Text(
+                  'Linktree',
+                  style: pw.TextStyle(
+                    color: PdfColors.white,
+                    fontSize: 13,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.Spacer(),
+                pw.Text(
+                  linktreeUrl.replaceFirst(RegExp(r'^https?://'), ''),
+                  style: const pw.TextStyle(
+                    color: PdfColor(0.5, 0.75, 0.55),
+                    fontSize: 9,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      widgets.add(pw.SizedBox(height: 14));
+    }
+
+    if (instagramUrl != null && instagramUrl.isNotEmpty) {
+      widgets.add(
+        pw.UrlLink(
+          destination: instagramUrl,
+          child: pw.Container(
+            width: pageWidth,
+            padding: const pw.EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+            decoration: pw.BoxDecoration(
+              color: pillColor,
+              borderRadius: pw.BorderRadius.circular(10),
+              border: pw.Border.all(
+                color: const PdfColor(0.85, 0.4, 0.55),
+                width: 1,
+              ),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.center,
+              children: [
+                pw.Container(
+                  width: 14,
+                  height: 14,
+                  decoration: const pw.BoxDecoration(
+                    color: PdfColor(0.85, 0.4, 0.55),
+                    shape: pw.BoxShape.circle,
+                  ),
+                ),
+                pw.SizedBox(width: 10),
+                pw.Text(
+                  'Instagram',
+                  style: pw.TextStyle(
+                    color: PdfColors.white,
+                    fontSize: 13,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.Spacer(),
+                pw.Text(
+                  instagramUrl.replaceFirst(RegExp(r'^https?://(www\.)?instagram\.com/'), '@').replaceAll('/', ''),
+                  style: const pw.TextStyle(
+                    color: PdfColor(0.85, 0.4, 0.55),
+                    fontSize: 9,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return widgets;
   }
 
   static Future<void> _preloadImages(List<ProductImage> imageObjects) async {
