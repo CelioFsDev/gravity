@@ -8,7 +8,9 @@ import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
 import 'package:catalogo_ja/viewmodels/global_sync_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart'; // Para SyncProgress
-import 'package:catalogo_ja/features/admin/dashboard/dashboard_screen.dart'; // Acesso a ícones se necessário
+import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -73,6 +75,50 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _whatsappController.dispose();
     _tenantController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickProfileImage() async {
+    final user = ref.read(authViewModelProvider).valueOrNull;
+    if (user == null || user.email == null) return;
+
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+        withData: kIsWeb, // Necessário no Web para acessar bytes
+      );
+
+      if (result != null && result.files.single.path != null ||
+          (kIsWeb && result?.files.single.bytes != null)) {
+        setState(() => _isLoading = true);
+
+        final file = result!.files.single;
+        final storage = ref.read(saasPhotoStorageProvider);
+
+        final String? downloadUrl = await storage.uploadProfileImage(
+          tenantId: _tenantController.text.trim(),
+          email: user.email!,
+          localPath: file.path,
+          bytes: file.bytes,
+        );
+
+        if (downloadUrl != null && mounted) {
+          setState(() {
+            _photoUrlController.text = downloadUrl;
+          });
+          // Opcional: Salvar logo após upload
+          await _save();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao selecionar imagem: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _save() async {
@@ -159,16 +205,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               )
                             : null,
                       ),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: const BoxDecoration(
-                          color: AppTokens.accentBlue,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.camera_alt,
-                          size: 20,
-                          color: Colors.white,
+                      InkWell(
+                        onTap: _pickProfileImage,
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: const BoxDecoration(
+                            color: AppTokens.accentBlue,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.camera_alt,
+                            size: 20,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ],

@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -106,6 +107,45 @@ class SaaSPhotoStorageService {
     
     for (var item in listResult.items) {
       await item.delete();
+    }
+  }
+
+  /// Sobe uma imagem de perfil
+  Future<String?> uploadProfileImage({
+    required String? tenantId,
+    required String email,
+    required String? localPath,
+    List<int>? bytes, // Para suporte Web
+  }) async {
+    try {
+      final String refPath = (tenantId != null && tenantId.isNotEmpty)
+          ? 'tenants/$tenantId/profile/avatar_${DateTime.now().millisecondsSinceEpoch}.jpg'
+          : 'users/$email/profile/avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      
+      final ref = _storage.ref().child(refPath);
+      final metadata = SettableMetadata(
+        contentType: 'image/jpeg',
+        customMetadata: {
+          'email': email,
+          if (tenantId != null) 'tenantId': tenantId,
+        },
+      );
+
+      TaskSnapshot task;
+      if (bytes != null) {
+        task = await ref.putData(Uint8List.fromList(bytes), metadata);
+      } else if (localPath != null) {
+        final file = File(localPath);
+        if (!file.existsSync()) return null;
+        task = await ref.putFile(file, metadata);
+      } else {
+        return null;
+      }
+
+      return await task.ref.getDownloadURL();
+    } catch (e) {
+      print('Erro no upload da foto de perfil: $e');
+      return null;
     }
   }
 }
