@@ -1,27 +1,27 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'categories_viewmodel.dart';
+part of 'global_sync_viewmodel.dart';
 
 // **************************************************************************
 // RiverpodGenerator
 // **************************************************************************
 
-String _$categoriesViewModelHash() =>
-    r'9a16a33df9096477d2aaba4c1c54a39ddd20e2b3';
+String _$globalSyncViewModelHash() =>
+    r'4f5f0ab99eb8c1d2c3613139e884b4fb58edd219';
 
-/// See also [CategoriesViewModel].
-@ProviderFor(CategoriesViewModel)
-final categoriesViewModelProvider = AutoDisposeAsyncNotifierProvider<
-    CategoriesViewModel, CategoriesState>.internal(
-  CategoriesViewModel.new,
-  name: r'categoriesViewModelProvider',
+/// See also [GlobalSyncViewModel].
+@ProviderFor(GlobalSyncViewModel)
+final globalSyncViewModelProvider =
+    AutoDisposeNotifierProvider<GlobalSyncViewModel, void>.internal(
+  GlobalSyncViewModel.new,
+  name: r'globalSyncViewModelProvider',
   debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
       ? null
-      : _$categoriesViewModelHash,
+      : _$globalSyncViewModelHash,
   dependencies: null,
   allTransitiveDependencies: null,
 );
 
-typedef _$CategoriesViewModel = AutoDisposeAsyncNotifier<CategoriesState>;
+typedef _$GlobalSyncViewModel = AutoDisposeNotifier<void>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member

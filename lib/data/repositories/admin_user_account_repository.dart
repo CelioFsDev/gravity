@@ -49,8 +49,14 @@ class AdminUserAccountRepository {
         'password': password,
         'role': role,
       });
-
-      return CreatedUserAccount.fromMap(response.data.cast<Object?, Object?>());
+      // Cloud Function succeeded — also ensure the Firestore doc exists locally
+      final result = CreatedUserAccount.fromMap(response.data.cast<Object?, Object?>());
+      await _ensureFirestoreUserDoc(
+        email: normalizedEmail,
+        uid: result.uid,
+        role: role,
+      );
+      return result;
     } on FirebaseFunctionsException catch (error) {
       if (!_shouldUseLocalFallback(error)) rethrow;
       return _createEmailPasswordUserLocally(
@@ -59,6 +65,29 @@ class AdminUserAccountRepository {
         role: role,
       );
     }
+  }
+
+  /// Garante que o documento do usuário existe no Firestore.
+  /// Não sobrescreve campos existentes.
+  Future<void> _ensureFirestoreUserDoc({
+    required String email,
+    required String uid,
+    required String role,
+  }) async {
+    final validRole =
+        UserRole.values.any((r) => r.name == role) ? role : UserRole.viewer.name;
+    await _firestore.collection('users').doc(email).set({
+      'authUid': uid,
+      'createdAt': FieldValue.serverTimestamp(),
+      'disabled': false,
+      'displayName': '',
+      'email': email,
+      'lastRefreshAt': FieldValue.serverTimestamp(),
+      'photoURL': '',
+      'providerIds': const ['password'],
+      'role': validRole,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   Future<void> updateUserAccess({
@@ -102,7 +131,8 @@ class AdminUserAccountRepository {
   bool _shouldUseLocalFallback(FirebaseFunctionsException error) {
     return error.code == 'internal' ||
         error.code == 'not-found' ||
-        error.code == 'unavailable';
+        error.code == 'unavailable' ||
+        error.code == 'permission-denied';
   }
 
   Future<CreatedUserAccount> _createEmailPasswordUserLocally({

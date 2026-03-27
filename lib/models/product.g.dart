@@ -83,6 +83,7 @@ class ProductAdapter extends TypeAdapter<Product> {
       tags: (fields[20] as List).cast<String>(),
       remoteImages: (fields[21] as List).cast<String>(),
       variants: (fields[22] as List).cast<ProductVariant>(),
+      tenantId: fields[25] as String?,
       updatedAt: fields[23] as DateTime?,
     );
   }
@@ -90,7 +91,7 @@ class ProductAdapter extends TypeAdapter<Product> {
   @override
   void write(BinaryWriter writer, Product obj) {
     writer
-      ..writeByte(24)
+      ..writeByte(25)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -138,7 +139,9 @@ class ProductAdapter extends TypeAdapter<Product> {
       ..writeByte(23)
       ..write(obj.updatedAt)
       ..writeByte(24)
-      ..write(obj.photos);
+      ..write(obj.photos)
+      ..writeByte(25)
+      ..write(obj.tenantId);
   }
 
   @override

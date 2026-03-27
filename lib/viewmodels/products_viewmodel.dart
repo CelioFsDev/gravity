@@ -1,5 +1,9 @@
+import 'package:catalogo_ja/data/repositories/firestore_products_repository.dart';
 import 'package:catalogo_ja/data/repositories/categories_repository.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
+import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
+import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:catalogo_ja/core/services/photo_classification_service.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/category.dart';
@@ -9,8 +13,13 @@ import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
 import 'package:catalogo_ja/core/error/app_failure.dart';
 import 'package:catalogo_ja/core/services/app_logger.dart';
+import 'package:catalogo_ja/core/services/image_cache_service.dart';
 import 'package:path/path.dart' as p;
+import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:async';
 
 part 'products_viewmodel.g.dart';
 
@@ -112,12 +121,56 @@ class ProductsState {
   }
 }
 
+class SyncProgress {
+  final double progress;
+  final String message;
+  final bool isSyncing;
+
+  SyncProgress({this.progress = 0.0, this.message = '', this.isSyncing = false});
+
+  SyncProgress copyWith({double? progress, String? message, bool? isSyncing}) {
+    return SyncProgress(
+      progress: progress ?? this.progress,
+      message: message ?? this.message,
+      isSyncing: isSyncing ?? this.isSyncing,
+    );
+  }
+}
+
+class SyncProgressNotifier extends StateNotifier<SyncProgress> {
+  SyncProgressNotifier() : super(SyncProgress());
+
+  void startSync(String message) {
+    state = SyncProgress(isSyncing: true, progress: 0.0, message: message);
+  }
+
+  void updateProgress(double progress, String message) {
+    state = state.copyWith(progress: progress, message: message);
+  }
+
+  void stopSync({String? message}) {
+    state = SyncProgress(isSyncing: false, progress: 1.0, message: message ?? '');
+  }
+
+  void reset() {
+    state = SyncProgress();
+  }
+}
+
+final syncProgressProvider = StateNotifierProvider<SyncProgressNotifier, SyncProgress>((ref) => SyncProgressNotifier());
+
 @riverpod
 class ProductsViewModel extends _$ProductsViewModel {
   @override
   FutureOr<ProductsState> build() async {
     try {
-      final productRepository = ref.watch(productsRepositoryProvider);
+      // ✨ Garantia de SaaS: Se o usuário está logado, aguardamos o tenantId ser identificado
+      final authUser = ref.watch(authViewModelProvider).valueOrNull;
+      if (authUser != null) {
+        await ref.watch(currentTenantProvider.future);
+      }
+
+      final productRepository = ref.watch(syncProductsRepositoryProvider);
       final categoryRepository = ref.watch(categoriesRepositoryProvider);
       final products = await productRepository.getProducts();
       final categories = await categoryRepository.getCategories();
@@ -204,7 +257,7 @@ class ProductsViewModel extends _$ProductsViewModel {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       try {
-        final repository = ref.read(productsRepositoryProvider);
+        final repository = ref.read(syncProductsRepositoryProvider);
         for (final id in state.value!.selectedProductIds) {
           await repository.deleteProduct(id);
         }
@@ -222,7 +275,7 @@ class ProductsViewModel extends _$ProductsViewModel {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       try {
-        final repository = ref.read(productsRepositoryProvider);
+        final repository = ref.read(syncProductsRepositoryProvider);
         for (final id in state.value!.selectedProductIds) {
           final product = state.value!.allProducts.firstWhere(
             (p) => p.id == id,
@@ -246,7 +299,7 @@ class ProductsViewModel extends _$ProductsViewModel {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       try {
-        final repository = ref.read(productsRepositoryProvider);
+        final repository = ref.read(syncProductsRepositoryProvider);
         for (final id in state.value!.selectedProductIds) {
           final product = state.value!.allProducts.firstWhere(
             (p) => p.id == id,
@@ -279,9 +332,11 @@ class ProductsViewModel extends _$ProductsViewModel {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       try {
-        final repository = ref.read(productsRepositoryProvider);
+        final repository = ref.read(syncProductsRepositoryProvider);
         for (final id in state.value!.selectedProductIds) {
-          final product = state.value!.allProducts.firstWhere((p) => p.id == id);
+          final product = state.value!.allProducts.firstWhere(
+            (p) => p.id == id,
+          );
           final updatedIds = {...product.categoryIds, ...idsToAdd}.toList();
           await repository.updateProduct(
             product.copyWith(categoryIds: updatedIds),
@@ -304,10 +359,14 @@ class ProductsViewModel extends _$ProductsViewModel {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       try {
-        final repository = ref.read(productsRepositoryProvider);
+        final repository = ref.read(syncProductsRepositoryProvider);
         for (final id in state.value!.selectedProductIds) {
-          final product = state.value!.allProducts.firstWhere((p) => p.id == id);
-          await repository.updateProduct(product.copyWith(categoryIds: const []));
+          final product = state.value!.allProducts.firstWhere(
+            (p) => p.id == id,
+          );
+          await repository.updateProduct(
+            product.copyWith(categoryIds: const []),
+          );
         }
         await refresh();
         _notifyChanges();
@@ -325,7 +384,7 @@ class ProductsViewModel extends _$ProductsViewModel {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       try {
-        final repository = ref.read(productsRepositoryProvider);
+        final repository = ref.read(syncProductsRepositoryProvider);
         await repository.deleteProduct(id);
         await refresh();
         _notifyChanges();
@@ -343,7 +402,7 @@ class ProductsViewModel extends _$ProductsViewModel {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       try {
-        final repository = ref.read(productsRepositoryProvider);
+        final repository = ref.read(syncProductsRepositoryProvider);
         await repository.addProduct(product);
         await refresh();
         _notifyChanges();
@@ -364,7 +423,7 @@ class ProductsViewModel extends _$ProductsViewModel {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       try {
-        final repository = ref.read(productsRepositoryProvider);
+        final repository = ref.read(syncProductsRepositoryProvider);
         await repository.updateProduct(product);
         await refresh();
         _notifyChanges();
@@ -381,9 +440,196 @@ class ProductsViewModel extends _$ProductsViewModel {
     });
   }
 
+  Future<int> syncAllToCloud() async {
+    final progressNotifier = ref.read(syncProgressProvider.notifier);
+    progressNotifier.startSync('Iniciando sincronização...');
+    
+    try {
+      // 1. Pega o repositório local explicitamente para ler o que está no celular
+      final localRepo = ref.read(productsRepositoryProvider) as HiveProductsRepository;
+      final localProducts = await localRepo.getProducts();
+      
+      if (localProducts.isEmpty) {
+        progressNotifier.stopSync();
+        return 0;
+      }
+
+      // 2. Tenta pegar o tenant e o tenantId
+      var tenant = await ref.read(currentTenantProvider.future);
+      String? tenantId = tenant?.id;
+
+      // Fallback
+      if (tenantId == null) {
+        final authUser = ref.read(authViewModelProvider).value;
+        if (authUser?.email != null) {
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(authUser!.email!.toLowerCase().trim())
+              .get();
+          tenantId = userDoc.data()?['tenantId'] as String?;
+        }
+      }
+
+      if (tenantId == null || tenantId.isEmpty) {
+        throw Exception('Você precisa estar logado em uma empresa para sincronizar.');
+      }
+
+      // 3. Pega o repositório do Firestore
+      final storageService = ref.read(saasPhotoStorageProvider);
+      final firestoreRepo = FirestoreProductsRepository(
+        localRepo,
+        storageService,
+        tenantId,
+      );
+
+      var syncedCount = 0;
+      final total = localProducts.length;
+
+      for (var i = 0; i < total; i++) {
+        final product = localProducts[i];
+        final progress = (i + 1) / total;
+        
+        progressNotifier.updateProgress(
+          progress,
+          'Sincronizando: ${i + 1}/$total - ${product.name}',
+        );
+
+        try {
+          await firestoreRepo.addProduct(product);
+          syncedCount++;
+        } catch (e) {
+          print('Erro ao sincronizar produto ${product.id}: $e');
+        }
+      }
+
+      progressNotifier.stopSync(message: 'Sincronização concluída: $syncedCount produtos!');
+      await refresh();
+      _notifyChanges();
+      return syncedCount;
+    } catch (e) {
+      progressNotifier.stopSync(message: 'Erro: $e');
+      debugPrint('Erro fatal na sincronização: $e');
+      rethrow; 
+    }
+  }
+
+  /// Baixa todos os produtos da nuvem para o celular local
+  Future<int> syncFromCloud() async {
+    final progressNotifier = ref.read(syncProgressProvider.notifier);
+    progressNotifier.startSync('Buscando produtos na nuvem...');
+
+    try {
+      final tenant = await ref.read(currentTenantProvider.future);
+      String? tenantId = tenant?.id;
+
+      // Fallback para o documento do usuário
+      if (tenantId == null) {
+        final authUser = ref.read(authViewModelProvider).value;
+        if (authUser?.email != null) {
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(authUser!.email!.toLowerCase().trim())
+              .get();
+          tenantId = userDoc.data()?['tenantId'] as String?;
+        }
+      }
+
+      if (tenantId == null || tenantId.isEmpty) {
+        throw Exception('Você precisa estar logado em uma empresa para baixar os dados.');
+      }
+
+      // 1. Pega os repositórios e serviços
+
+      final localRepo = ref.read(productsRepositoryProvider) as HiveProductsRepository;
+      final cacheService = ref.read(imageCacheServiceProvider);
+      final storageService = ref.read(saasPhotoStorageProvider);
+      final firestoreRepo = FirestoreProductsRepository(
+        localRepo,
+        storageService,
+        tenantId,
+      );
+
+      // 2. Busca na Nuvem
+      print('Buscando produtos na nuvem...');
+      final cloudProducts = await firestoreRepo.getProducts();
+      
+      if (cloudProducts.isEmpty) return 0;
+
+      if (cloudProducts.isEmpty) {
+        progressNotifier.stopSync(message: 'Nenhum produto encontrado na nuvem.');
+        return 0;
+      }
+
+      var downloadedCount = 0;
+      for (var i = 0; i < cloudProducts.length; i++) {
+        final p = cloudProducts[i];
+        final progress = (i + 1) / cloudProducts.length;
+        
+        progressNotifier.updateProgress(
+          progress,
+          'Baixando: ${i + 1}/${cloudProducts.length} - ${p.name}',
+        );
+
+        try {
+          // Processa as imagens (legado e moderno) para download físico
+          final List<ProductImage> updatedImages = [];
+          
+          // Se images estiver vazio, tenta resgatar do legado 'photos'
+          var imagesToDownload = List<ProductImage>.from(p.images);
+          if (imagesToDownload.isEmpty && p.photos.isNotEmpty) {
+            imagesToDownload = p.photos.map((ph) => ph.toProductImage()).toList();
+          }
+
+          for (var img in imagesToDownload) {
+            if (img.sourceType == ProductImageSource.networkUrl && img.uri.startsWith('http')) {
+              try {
+                final localPath = await cacheService.downloadAndCacheImage(img.uri);
+                updatedImages.add(img.copyWith(
+                  uri: localPath,
+                  sourceType: ProductImageSource.localPath,
+                ));
+              } catch (e) {
+                print('Erro ao baixar imagem: $e');
+                updatedImages.add(img); // Mantem rede se falhar
+              }
+            } else {
+              updatedImages.add(img);
+            }
+          }
+
+          // Salva Local
+          final localProduct = p.copyWith(
+            images: updatedImages,
+            photos: updatedImages.map((img) => ProductPhoto(
+              path: img.uri,
+              isPrimary: img.label?.toLowerCase() == 'p' || img.label?.toLowerCase() == 'principal',
+              photoType: img.label,
+              colorKey: img.colorTag,
+            )).toList(),
+          );
+
+          await localRepo.addProduct(localProduct);
+          downloadedCount++;
+          
+          await refresh();
+          _notifyChanges();
+        } catch (e) {
+          print('Erro crítico ao baixar produto ${p.id}: $e');
+        }
+      }
+
+    progressNotifier.stopSync(message: 'Download concluído: $downloadedCount produtos!');
+    return downloadedCount;
+  } catch (e) {
+    progressNotifier.stopSync(message: 'Erro: $e');
+    debugPrint('Erro ao baixar dados da nuvem: $e');
+    rethrow;
+  }
+}
+
   Future<int> reorganizePhotosPriority() async {
     try {
-      final repository = ref.read(productsRepositoryProvider);
+      final repository = ref.read(syncProductsRepositoryProvider);
       final products = await repository.getProducts();
       var updatedCount = 0;
 
@@ -462,18 +708,20 @@ class ProductsViewModel extends _$ProductsViewModel {
           if ((normalized.photoType ?? '').startsWith('C')) {
             colors = classifier.organizeColors(colors, normalized);
           } else {
-            fallback.add(normalized.copyWith(
-              photoType: normalized.photoType,
-              isPrimary: false,
-            ));
+            fallback.add(
+              normalized.copyWith(
+                photoType: normalized.photoType,
+                isPrimary: false,
+              ),
+            );
           }
       }
     }
 
     primary ??= fallback.isNotEmpty
-        ? fallback.removeAt(0).copyWith(
-            photoType: PhotoClassificationService.typePrimary,
-          )
+        ? fallback
+              .removeAt(0)
+              .copyWith(photoType: PhotoClassificationService.typePrimary)
         : null;
 
     final organized = <ProductPhoto>[
@@ -492,9 +740,7 @@ class ProductsViewModel extends _$ProductsViewModel {
           isPrimary: false,
           photoType: PhotoClassificationService.typeDetail2,
         ),
-      ...colors.take(4).map(
-        (photo) => photo.copyWith(isPrimary: false),
-      ),
+      ...colors.take(4).map((photo) => photo.copyWith(isPrimary: false)),
     ];
 
     return _dedupePhotosByPath(organized);
@@ -504,7 +750,8 @@ class ProductsViewModel extends _$ProductsViewModel {
     if (product.images.isEmpty) return const [];
     return product.images.asMap().entries.map((entry) {
       final image = entry.value;
-      final isPrimary = entry.key == product.mainImageIndex ||
+      final isPrimary =
+          entry.key == product.mainImageIndex ||
           image.label == PhotoClassificationService.typePrimary ||
           image.label?.toLowerCase() == 'principal';
       return ProductPhoto(
@@ -520,7 +767,8 @@ class ProductsViewModel extends _$ProductsViewModel {
     final classifier = ref.read(photoClassificationServiceProvider.notifier);
     final fileName = p.basename(photo.path);
     final classification = classifier.classifyFileName(fileName);
-    final matchesProduct = classification != null &&
+    final matchesProduct =
+        classification != null &&
         _matchesProductReference(product, classification.ref);
 
     final inferredColor = matchesProduct
@@ -532,8 +780,9 @@ class ProductsViewModel extends _$ProductsViewModel {
     final inferredType = matchesProduct
         ? classification.photoType
         : _normalizeLegacyPhotoType(photo.photoType, photo.isPrimary);
-    final normalizedType =
-        inferredType == null && normalizedColor != null ? 'C' : inferredType;
+    final normalizedType = inferredType == null && normalizedColor != null
+        ? 'C'
+        : inferredType;
 
     if (normalizedType == null && !photo.isPrimary) {
       return photo.copyWith(
@@ -678,7 +927,7 @@ class ProductsViewModel extends _$ProductsViewModel {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       try {
-        final repository = ref.read(productsRepositoryProvider);
+        final repository = ref.read(syncProductsRepositoryProvider);
         final categoriesRepository = ref.read(categoriesRepositoryProvider);
         final products = await repository.getProducts();
         final categories = await categoriesRepository.getCategories();

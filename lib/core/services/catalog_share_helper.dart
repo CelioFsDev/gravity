@@ -183,6 +183,7 @@ class CatalogShareHelper {
             pdfStyle: options.pdfStyle,
             coverTypeOverride: options.coverType,
             collectionIdOverride: options.collectionId,
+            includeContactPage: options.includeContactPage,
           ),
         );
 
@@ -199,28 +200,34 @@ class CatalogShareHelper {
         if (!kIsWeb) {
           savedPath = await _writePdfToDevice(pdfBytes, fileName);
         }
-
-        try {
-          await WhatsAppShareService.shareFile(
+        if (kIsWeb) {
+          // No Web, sharing direto via navigator.share é bloqueado após async gaps (PDF generation)
+          // Usamos Printing.sharePdf que é o padrão ouro para Web browsers
+          await Printing.sharePdf(
             bytes: pdfBytes,
-            fileName: fileName,
-            text: 'Confira nosso catálogo ${catalog.name}!',
-            mimeType: 'application/pdf',
+            filename: fileName,
           );
-        } catch (shareError) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  !kIsWeb && savedPath != null
-                      ? 'PDF gerado, mas não foi possível compartilhar: $shareError. '
-                            'Arquivo salvo em $savedPath'
-                      : 'PDF gerado, mas não foi possível compartilhar: $shareError.',
-                ),
-              ),
+        } else {
+          try {
+            await WhatsAppShareService.shareFile(
+              bytes: pdfBytes,
+              fileName: fileName,
+              text: 'Confira nosso catálogo ${catalog.name}!',
+              mimeType: 'application/pdf',
             );
+          } catch (shareError) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    savedPath != null
+                        ? 'PDF gerado e salvo em: $savedPath. Erro ao compartilhar: $shareError'
+                        : 'PDF gerado, mas não foi possível compartilhar: $shareError',
+                  ),
+                ),
+              );
+            }
           }
-          return;
         }
       }
     } catch (e) {
@@ -550,6 +557,7 @@ class CatalogShareHelper {
             pdfStyle: options.pdfStyle,
             coverTypeOverride: options.coverType,
             collectionIdOverride: options.collectionId,
+            includeContactPage: options.includeContactPage,
           ),
         );
         final settings = ref.read(settingsRepositoryProvider).getSettings();
@@ -601,10 +609,18 @@ class CatalogShareHelper {
     CatalogPdfStyle pdfStyle = CatalogPdfStyle.classic,
     String? coverTypeOverride,
     String? collectionIdOverride,
+    bool includeContactPage = true,
   }) async {
     // Wait for products to load if they haven't yet
     final productsState = await ref.read(productsViewModelProvider.future);
     final allProducts = productsState.allProducts;
+    final settings = ref.read(settingsRepositoryProvider).getSettings();
+    final linktreeUrl = (includeContactPage && settings.linktreeUrl.trim().isNotEmpty)
+        ? settings.linktreeUrl.trim()
+        : null;
+    final instagramUrl = (includeContactPage && settings.instagramUrl.trim().isNotEmpty)
+        ? settings.instagramUrl.trim()
+        : null;
 
     final catalogProducts = allProducts
         .where((p) => catalog.productIds.contains(p.id))
@@ -750,6 +766,8 @@ class CatalogShareHelper {
         includeCover: resolvedIncludeCover,
         collectionsMap: collectionsMap,
         mainCoverCollectionId: fbId,
+        linktreeUrl: linktreeUrl,
+        instagramUrl: instagramUrl,
       );
     }
 
@@ -770,6 +788,8 @@ class CatalogShareHelper {
       includeCover: resolvedIncludeCover,
       collectionsMap: collectionsMap,
       mainCoverCollectionId: mainCoverCollectionId,
+      linktreeUrl: linktreeUrl,
+      instagramUrl: instagramUrl,
     );
   }
 
@@ -805,6 +825,7 @@ class CatalogShareHelper {
     CatalogMode selectedMode = CatalogMode.varejo;
     bool showPrice = true;
     bool useLoosePhotos = false;
+    bool includeContactPage = true;
     CatalogExportFileFormat fileFormat = CatalogExportFileFormat.pdf;
     CatalogPdfStyle selectedPdfStyle = CatalogPdfStyle.classic;
     String selectedCoverType = 'collection';
@@ -1004,6 +1025,26 @@ class CatalogShareHelper {
                               ),
                             const SizedBox(height: 24),
 
+                            // CONTACT PAGE SECTION
+                            _buildSubHeader(context, 'Página Final de Contato'),
+                            const SizedBox(height: 12),
+                            SwitchListTile.adaptive(
+                              contentPadding: EdgeInsets.zero,
+                              title: const Text(
+                                'Incluir página de contato',
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                              subtitle: const Text(
+                                'Adiciona última página com links do Instagram e Linktree.',
+                              ),
+                              value: includeContactPage,
+                              onChanged: (value) =>
+                                  setState(() => includeContactPage = value),
+                              activeThumbColor: AppTokens.accentBlue,
+                            ),
+
+                            const SizedBox(height: 24),
+
                             // COVER SECTION
                             _buildSubHeader(context, 'Capa do Cat\u00e1logo'),
                             const SizedBox(height: 12),
@@ -1114,6 +1155,7 @@ class CatalogShareHelper {
                                 useLoosePhotos,
                                 fileFormat,
                                 selectedPdfStyle,
+                                includeContactPage: includeContactPage,
                               ),
                             ),
                             child: const Text(
@@ -1410,6 +1452,7 @@ class CatalogExportOptions {
   final bool useLoosePhotos;
   final CatalogExportFileFormat fileFormat;
   final CatalogPdfStyle pdfStyle;
+  final bool includeContactPage;
   CatalogExportOptions(
     this.mode,
     this.coverType,
@@ -1417,8 +1460,9 @@ class CatalogExportOptions {
     this.showPrice,
     this.useLoosePhotos,
     this.fileFormat,
-    this.pdfStyle,
-  );
+    this.pdfStyle, {
+    this.includeContactPage = true,
+  });
 }
 
 enum CatalogExportFileFormat { pdf, image }

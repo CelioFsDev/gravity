@@ -7,7 +7,7 @@ part of 'photo_classification_service.dart';
 // **************************************************************************
 
 String _$photoClassificationServiceHash() =>
-    r'd7a080a072f2ae7e828031f16a4fa1af422e991f';
+    r'da82ce0d41c77cb1567668535077ab405f6de0bf';
 
 /// See also [PhotoClassificationService].
 @ProviderFor(PhotoClassificationService)

@@ -14,6 +14,34 @@ class CatalogBanner {
   final String? title;
 
   CatalogBanner({required this.id, required this.imagePath, this.title});
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'imagePath': imagePath,
+      'title': title,
+    };
+  }
+
+  factory CatalogBanner.fromMap(Map<String, dynamic> map) {
+    return CatalogBanner(
+      id: map['id'] ?? '',
+      imagePath: map['imagePath'] ?? '',
+      title: map['title'],
+    );
+  }
+
+  CatalogBanner copyWith({
+    String? id,
+    String? imagePath,
+    String? title,
+  }) {
+    return CatalogBanner(
+      id: id ?? this.id,
+      imagePath: imagePath ?? this.imagePath,
+      title: title ?? this.title,
+    );
+  }
 }
 
 @HiveType(typeId: 21)
@@ -85,6 +113,9 @@ class Catalog {
   @HiveField(17)
   final String? coverType; // "standard", "collection", "none" (maps to legacy includeCover=false)
 
+  @HiveField(18)
+  final String? tenantId;
+
   Catalog({
     required this.id,
     required this.name,
@@ -104,6 +135,7 @@ class Catalog {
     this.ownerUid = '',
     this.includeCover = true,
     this.coverType,
+    this.tenantId,
   });
 
   Catalog copyWith({
@@ -125,6 +157,7 @@ class Catalog {
     String? ownerUid,
     bool? includeCover,
     String? coverType,
+    String? tenantId,
   }) {
     return Catalog(
       id: id ?? this.id,
@@ -145,6 +178,60 @@ class Catalog {
       ownerUid: ownerUid ?? this.ownerUid,
       includeCover: includeCover ?? this.includeCover,
       coverType: coverType ?? this.coverType,
+      tenantId: tenantId ?? this.tenantId,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'slug': slug,
+      'active': active,
+      'productIds': productIds,
+      'requireCustomerData': requireCustomerData,
+      'photoLayout': photoLayout,
+      'announcementEnabled': announcementEnabled,
+      'announcementText': announcementText,
+      'banners': banners.map((b) => b.toMap()).toList(),
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+      'mode': mode.name,
+      'isPublic': isPublic,
+      'shareCode': shareCode,
+      'ownerUid': ownerUid,
+      'includeCover': includeCover,
+      'coverType': coverType,
+      'tenantId': tenantId,
+    };
+  }
+
+  factory Catalog.fromMap(Map<String, dynamic> map) {
+    return Catalog(
+      id: map['id'] ?? '',
+      name: map['name'] ?? '',
+      slug: map['slug'] ?? '',
+      active: map['active'] ?? true,
+      productIds: List<String>.from(map['productIds'] ?? []),
+      requireCustomerData: map['requireCustomerData'] ?? false,
+      photoLayout: map['photoLayout'] ?? 'grid',
+      announcementEnabled: map['announcementEnabled'] ?? false,
+      announcementText: map['announcementText'],
+      banners: (map['banners'] as List? ?? [])
+          .map((b) => CatalogBanner.fromMap(Map<String, dynamic>.from(b)))
+          .toList(),
+      createdAt: DateTime.parse(map['createdAt']),
+      updatedAt: DateTime.parse(map['updatedAt']),
+      mode: CatalogMode.values.firstWhere(
+        (e) => e.name == map['mode'],
+        orElse: () => CatalogMode.varejo,
+      ),
+      isPublic: map['isPublic'] ?? false,
+      shareCode: map['shareCode'] ?? '',
+      ownerUid: map['ownerUid'] ?? '',
+      includeCover: map['includeCover'] ?? true,
+      coverType: map['coverType'],
+      tenantId: map['tenantId'],
     );
   }
 }

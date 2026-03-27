@@ -17,13 +17,15 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       updatedAt: fields[3] as DateTime,
       remoteImageBaseUrl: (fields[4] as String?) ?? '',
       geminiApiKey: (fields[5] as String?) ?? '',
+      linktreeUrl: (fields[6] as String?) ?? '',
+      instagramUrl: (fields[7] as String?) ?? '',
     );
   }
 
   @override
   void write(BinaryWriter writer, AppSettings obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(8)
       ..writeByte(0)
       ..write(obj.storeName)
       ..writeByte(1)
@@ -35,7 +37,11 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       ..writeByte(4)
       ..write(obj.remoteImageBaseUrl)
       ..writeByte(5)
-      ..write(obj.geminiApiKey);
+      ..write(obj.geminiApiKey)
+      ..writeByte(6)
+      ..write(obj.linktreeUrl)
+      ..writeByte(7)
+      ..write(obj.instagramUrl);
   }
 }
 
@@ -46,6 +52,8 @@ class AppSettings {
   final DateTime updatedAt;
   final String remoteImageBaseUrl;
   final String geminiApiKey;
+  final String linktreeUrl;
+  final String instagramUrl;
 
   AppSettings({
     required this.storeName,
@@ -54,6 +62,8 @@ class AppSettings {
     required this.updatedAt,
     this.remoteImageBaseUrl = '',
     this.geminiApiKey = '',
+    this.linktreeUrl = '',
+    this.instagramUrl = '',
   });
 
   AppSettings copyWith({
@@ -63,6 +73,8 @@ class AppSettings {
     DateTime? updatedAt,
     String? remoteImageBaseUrl,
     String? geminiApiKey,
+    String? linktreeUrl,
+    String? instagramUrl,
   }) {
     return AppSettings(
       storeName: storeName ?? this.storeName,
@@ -71,6 +83,8 @@ class AppSettings {
       updatedAt: updatedAt ?? this.updatedAt,
       remoteImageBaseUrl: remoteImageBaseUrl ?? this.remoteImageBaseUrl,
       geminiApiKey: geminiApiKey ?? this.geminiApiKey,
+      linktreeUrl: linktreeUrl ?? this.linktreeUrl,
+      instagramUrl: instagramUrl ?? this.instagramUrl,
     );
   }
 
@@ -82,6 +96,8 @@ class AppSettings {
       updatedAt: DateTime.now(),
       remoteImageBaseUrl: '',
       geminiApiKey: '',
+      linktreeUrl: '',
+      instagramUrl: '',
     );
   }
 }

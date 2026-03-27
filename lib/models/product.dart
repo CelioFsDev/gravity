@@ -135,6 +135,9 @@ class Product {
   @HiveField(24)
   final List<ProductPhoto> photos; // Legacy photos
 
+  @HiveField(25)
+  final String? tenantId;
+
   Product({
     required this.id,
     required this.name,
@@ -159,6 +162,7 @@ class Product {
     this.tags = const [],
     this.remoteImages = const [],
     this.variants = const [],
+    this.tenantId,
     DateTime? updatedAt,
   }) : updatedAt = updatedAt ?? createdAt;
 
@@ -187,6 +191,7 @@ class Product {
     List<ProductVariant>? variants,
     DateTime? updatedAt,
     List<ProductPhoto>? photos,
+    String? tenantId,
   }) {
     return Product(
       id: id ?? this.id,
@@ -213,6 +218,83 @@ class Product {
       variants: variants ?? this.variants,
       updatedAt: updatedAt ?? this.updatedAt,
       photos: photos ?? this.photos,
+      tenantId: tenantId ?? this.tenantId,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'ref': ref,
+      'sku': sku,
+      'categoryIds': categoryIds,
+      'priceRetail': priceRetail,
+      'priceWholesale': priceWholesale,
+      'minWholesaleQty': minWholesaleQty,
+      'sizes': sizes,
+      'colors': colors,
+      'images': images.map((i) => i.toMap()).toList(),
+      'mainImageIndex': mainImageIndex,
+      'isActive': isActive,
+      'isOutOfStock': isOutOfStock,
+      'promoEnabled': promoEnabled,
+      'promoPercent': promoPercent,
+      'slug': slug,
+      'description': description,
+      'tags': tags,
+      'remoteImages': remoteImages,
+      'variants': variants.map((v) => v.toMap()).toList(),
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+      'photos': photos.map((p) => {
+        'path': p.path,
+        'colorKey': p.colorKey,
+        'isPrimary': p.isPrimary,
+        'photoType': p.photoType,
+      }).toList(),
+      'tenantId': tenantId,
+    };
+  }
+
+  factory Product.fromMap(Map<String, dynamic> map) {
+    return Product(
+      id: map['id'] ?? '',
+      name: map['name'] ?? '',
+      ref: map['ref'] ?? '',
+      sku: map['sku'] ?? '',
+      categoryIds: List<String>.from(map['categoryIds'] ?? []),
+      priceRetail: (map['priceRetail'] ?? 0.0).toDouble(),
+      priceWholesale: (map['priceWholesale'] ?? 0.0).toDouble(),
+      minWholesaleQty: map['minWholesaleQty'] ?? 1,
+      sizes: List<String>.from(map['sizes'] ?? []),
+      colors: List<String>.from(map['colors'] ?? []),
+      images: (map['images'] as List? ?? [])
+          .map((i) => ProductImage.fromMap(Map<String, dynamic>.from(i)))
+          .toList(),
+      mainImageIndex: map['mainImageIndex'] ?? 0,
+      isActive: map['isActive'] ?? true,
+      isOutOfStock: map['isOutOfStock'] ?? false,
+      promoEnabled: map['promoEnabled'] ?? false,
+      promoPercent: (map['promoPercent'] ?? 0.0).toDouble(),
+      slug: map['slug'] ?? '',
+      description: map['description'],
+      tags: List<String>.from(map['tags'] ?? []),
+      remoteImages: List<String>.from(map['remoteImages'] ?? []),
+      variants: (map['variants'] as List? ?? [])
+          .map((v) => ProductVariant.fromMap(Map<String, dynamic>.from(v)))
+          .toList(),
+      createdAt: DateTime.parse(map['createdAt']),
+      updatedAt: DateTime.parse(map['updatedAt']),
+      photos: (map['photos'] as List? ?? [])
+          .map((p) => ProductPhoto(
+                path: p['path'] ?? '',
+                colorKey: p['colorKey'],
+                isPrimary: p['isPrimary'] ?? false,
+                photoType: p['photoType'],
+              ))
+          .toList(),
+      tenantId: map['tenantId'],
     );
   }
 

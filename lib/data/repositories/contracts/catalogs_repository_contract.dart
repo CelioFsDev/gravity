@@ -12,4 +12,5 @@ abstract class CatalogsRepositoryContract {
   Future<Catalog?> getByShareCode(String shareCode);
 
   Stream<List<Catalog>> watchCatalogs();
+  Future<void> clearAll();
 }

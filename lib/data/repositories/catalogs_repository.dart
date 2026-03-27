@@ -71,6 +71,9 @@ class HiveCatalogsRepository implements CatalogsRepositoryContract {
 
   @override
   Stream<List<Catalog>> watchCatalogs() => _boxValuesStream(_catalogsBox);
+
+  @override
+  Future<void> clearAll() async => _catalogsBox.clear();
 }
 
 @Riverpod(keepAlive: true)

@@ -104,6 +104,45 @@ class CollectionCover {
       coverPagePath: coverPagePath ?? this.coverPagePath,
     );
   }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'mode': mode.name,
+      'coverImagePath': coverImagePath,
+      'title': title,
+      'brand': brand,
+      'subtitle': subtitle,
+      'backgroundColor': backgroundColor,
+      'overlayOpacity': overlayOpacity,
+      'bannerImagePath': bannerImagePath,
+      'heroImagePath': heroImagePath,
+      'coverHeaderImagePath': coverHeaderImagePath,
+      'coverMainImagePath': coverMainImagePath,
+      'coverMiniPath': coverMiniPath,
+      'coverPagePath': coverPagePath,
+    };
+  }
+
+  factory CollectionCover.fromMap(Map<String, dynamic> map) {
+    return CollectionCover(
+      mode: CollectionCoverMode.values.firstWhere(
+        (e) => e.name == map['mode'],
+        orElse: () => CollectionCoverMode.template,
+      ),
+      coverImagePath: map['coverImagePath'],
+      title: map['title'],
+      brand: map['brand'],
+      subtitle: map['subtitle'],
+      backgroundColor: map['backgroundColor'],
+      overlayOpacity: map['overlayOpacity'],
+      bannerImagePath: map['bannerImagePath'],
+      heroImagePath: map['heroImagePath'],
+      coverHeaderImagePath: map['coverHeaderImagePath'],
+      coverMainImagePath: map['coverMainImagePath'],
+      coverMiniPath: map['coverMiniPath'],
+      coverPagePath: map['coverPagePath'],
+    );
+  }
 }
 
 @HiveType(typeId: 3)
@@ -135,6 +174,9 @@ class Category {
   @HiveField(8)
   final bool isActive;
 
+  @HiveField(9)
+  final String? tenantId;
+
   Category({
     required this.id,
     required this.order,
@@ -143,6 +185,7 @@ class Category {
     this.type = CategoryType.productType,
     this.cover,
     this.isActive = true,
+    this.tenantId,
     String? name,
     String? slug,
   }) : name = name,
@@ -166,6 +209,7 @@ class Category {
     CollectionCover? cover,
     String? slug,
     bool? isActive,
+    String? tenantId,
   }) {
     return Category(
       id: id ?? this.id,
@@ -177,6 +221,42 @@ class Category {
       cover: cover ?? this.cover,
       slug: slug ?? this.slug,
       isActive: isActive ?? this.isActive,
+      tenantId: tenantId ?? this.tenantId,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'order': order,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+      'type': type.name,
+      'cover': cover?.toMap(),
+      'slug': slug,
+      'isActive': isActive,
+      'tenantId': tenantId,
+    };
+  }
+
+  factory Category.fromMap(Map<String, dynamic> map) {
+    return Category(
+      id: map['id'] ?? '',
+      name: map['name'],
+      order: map['order'] ?? 0,
+      createdAt: DateTime.parse(map['createdAt']),
+      updatedAt: DateTime.parse(map['updatedAt']),
+      type: CategoryType.values.firstWhere(
+        (e) => e.name == map['type'],
+        orElse: () => CategoryType.productType,
+      ),
+      cover: map['cover'] != null
+          ? CollectionCover.fromMap(Map<String, dynamic>.from(map['cover']))
+          : null,
+      slug: map['slug'],
+      isActive: map['isActive'] ?? true,
+      tenantId: map['tenantId'],
     );
   }
 

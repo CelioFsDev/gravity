@@ -210,10 +210,26 @@ class AppProductListTile extends StatelessWidget {
   }
 
   Widget _buildImage(String? path) {
-    if (path == null) {
-      return const Icon(Icons.image_not_supported);
+    if (path == null || path.isEmpty) {
+      return const Icon(Icons.image_not_supported, size: 20);
     }
 
+    // 1. Imagem de Rede (Nuvem)
+    if (path.startsWith('http://') ||
+        path.startsWith('https://') ||
+        path.startsWith('blob:')) {
+      return Image.network(
+        path,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+        },
+        errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported, size: 20),
+      );
+    }
+
+    // 2. Base64
     if (path.startsWith('data:')) {
       final commaIndex = path.indexOf(',');
       if (commaIndex != -1 && commaIndex + 1 < path.length) {
@@ -221,34 +237,27 @@ class AppProductListTile extends StatelessWidget {
           return Image.memory(
             base64Decode(path.substring(commaIndex + 1)),
             fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => const Icon(Icons.image_not_supported),
+            errorBuilder: (_, _, _) => const Icon(Icons.image_not_supported, size: 20),
           );
         } catch (_) {
-          return const Icon(Icons.image_not_supported);
+          return const Icon(Icons.image_not_supported, size: 20);
         }
       }
-      return const Icon(Icons.image_not_supported);
     }
 
-    if (path.startsWith('http://') ||
-        path.startsWith('https://') ||
-        path.startsWith('blob:')) {
-      return Image.network(
-        path,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => const Icon(Icons.image_not_supported),
-      );
-    }
-
+    // 3. Arquivo Local (Celular)
     if (!kIsWeb) {
-      return Image.file(
-        File(path),
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => const Icon(Icons.image_not_supported),
-      );
+      final file = File(path);
+      if (file.existsSync()) {
+        return Image.file(
+          file,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => const Icon(Icons.image_not_supported, size: 20),
+        );
+      }
     }
 
-    return const Icon(Icons.image_not_supported);
+    return const Icon(Icons.image_not_supported, size: 20);
   }
 
   ProductImage? _resolvePrimaryImage(Product product) {

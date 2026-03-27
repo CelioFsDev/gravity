@@ -1,0 +1,225 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
+import 'package:catalogo_ja/data/repositories/firestore_products_repository.dart';
+import 'package:catalogo_ja/data/repositories/firestore_categories_repository.dart';
+import 'package:catalogo_ja/data/repositories/firestore_catalogs_repository.dart';
+
+class DashboardScreen extends ConsumerWidget {
+  const DashboardScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final productsAsync = ref.watch(syncProductsRepositoryProvider).watchProducts();
+    final categoriesAsync = ref.watch(syncCategoriesRepositoryProvider).watchCategories();
+    final catalogsAsync = ref.watch(syncCatalogsRepositoryProvider).watchCatalogs();
+
+    return AppScaffold(
+      title: 'Painel de Controle',
+      subtitle: 'Bem-vindo ao seu Catálogo SaaS',
+      body: StreamBuilder(
+        stream: productsAsync,
+        builder: (context, productsSnapshot) {
+          return StreamBuilder(
+            stream: categoriesAsync,
+            builder: (context, categoriesSnapshot) {
+              return StreamBuilder(
+                stream: catalogsAsync,
+                builder: (context, catalogsSnapshot) {
+                  final productCount = productsSnapshot.data?.length ?? 0;
+                  final categoryCount = categoriesSnapshot.data?.length ?? 0;
+                  final catalogCount = catalogsSnapshot.data?.length ?? 0;
+
+                  return CustomScrollView(
+                    slivers: [
+                      SliverPadding(
+                        padding: const EdgeInsets.all(AppTokens.space24),
+                        sliver: SliverGrid.count(
+                          crossAxisCount: MediaQuery.of(context).size.width > 600 ? 3 : 1,
+                          mainAxisSpacing: AppTokens.space16,
+                          crossAxisSpacing: AppTokens.space16,
+                          childAspectRatio: 1.5,
+                          children: [
+                            _StatCard(
+                              title: 'Produtos',
+                              value: productCount.toString(),
+                              icon: Icons.inventory_2_outlined,
+                              color: AppTokens.accentBlue,
+                            ),
+                            _StatCard(
+                              title: 'Coleções',
+                              value: categoryCount.toString(),
+                              icon: Icons.collections_bookmark_outlined,
+                              color: AppTokens.accentGreen,
+                            ),
+                            _StatCard(
+                              title: 'Catálogos',
+                              value: catalogCount.toString(),
+                              icon: Icons.menu_book_outlined,
+                              color: Colors.orange,
+                            ),
+                          ],
+                        ),
+                      ),
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
+                        sliver: SliverToBoxAdapter(
+                          child: Text(
+                            'Ações Rápidas',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
+                      ),
+                      SliverPadding(
+                        padding: const EdgeInsets.all(AppTokens.space24),
+                        sliver: SliverGrid.count(
+                          crossAxisCount: MediaQuery.of(context).size.width > 600 ? 4 : 2,
+                          mainAxisSpacing: AppTokens.space12,
+                          crossAxisSpacing: AppTokens.space12,
+                          children: [
+                            _QuickActionCard(
+                              label: 'Novo Produto',
+                              icon: Icons.add_box_outlined,
+                              onTap: () => context.go('/admin/products'),
+                            ),
+                            _QuickActionCard(
+                              label: 'Criar Catálogo',
+                              icon: Icons.auto_awesome_motion_outlined,
+                              onTap: () => context.go('/admin/catalogs'),
+                            ),
+                            _QuickActionCard(
+                              label: 'Importar PDF',
+                              icon: Icons.picture_as_pdf_outlined,
+                              onTap: () => context.go('/admin/imports/stock-update'),
+                            ),
+                            _QuickActionCard(
+                              label: 'Backup Cloud',
+                              icon: Icons.cloud_upload_outlined,
+                              onTap: () => context.go('/admin/imports/backup'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  const _StatCard({
+    required this.title,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppTokens.space20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+        border: Border.all(color: Theme.of(context).dividerColor, width: 0.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              Icon(Icons.trending_up, color: color.withOpacity(0.5), size: 16),
+            ],
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickActionCard extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _QuickActionCard({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+      child: Container(
+        padding: const EdgeInsets.all(AppTokens.space12),
+        decoration: BoxDecoration(
+          border: Border.all(color: Theme.of(context).dividerColor, width: 0.5),
+          borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: AppTokens.textSecondary, size: 28),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 11,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

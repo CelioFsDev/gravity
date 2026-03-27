@@ -709,7 +709,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         .where((photo) => _isColorPhoto(photo) && photo.path != primaryPath)
         .take(4);
     return _prioritizePrimaryPhoto(_dedupePhotosByPath([
-      ?primary,
+      if (primary != null) primary,
       ...details,
       ...colors,
     ]));

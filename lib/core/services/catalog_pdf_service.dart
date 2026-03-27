@@ -41,6 +41,8 @@ class CatalogPdfService {
     bool showPrice = true,
     bool useLoosePhotos = false,
     CatalogPdfStyle style = CatalogPdfStyle.classic,
+    String? linktreeUrl,
+    String? instagramUrl,
   }) async {
     // Parameters kept for API compatibility.
     final _ = catalogName;
@@ -135,17 +137,20 @@ class CatalogPdfService {
               pw.Page(
                 pageFormat: pageFormat,
                 margin: const pw.EdgeInsets.symmetric(vertical: 18),
-                build: (context) => _buildProductPage(
-                  product,
-                  mode,
-                  currencyFormat,
-                  pageFormat,
-                  collectionName: collectionName,
-                  defaultSubtitle: defaultSubtitle,
-                  showPrice: showPrice,
-                  useLoosePhotos: true,
-                  forcedHeroPath: photo?.uri,
-                  style: style,
+                build: (context) => pw.Container(
+                  color: PdfColors.white,
+                  child: _buildProductPage(
+                    product,
+                    mode,
+                    currencyFormat,
+                    pageFormat,
+                    collectionName: collectionName,
+                    defaultSubtitle: defaultSubtitle,
+                    showPrice: showPrice,
+                    useLoosePhotos: true,
+                    forcedHeroPath: photo?.uri,
+                    style: style,
+                  ),
                 ),
               ),
             );
@@ -160,7 +165,8 @@ class CatalogPdfService {
             build: (context) {
               final double itemHeight =
                   (pageFormat.height - 36) / itemsPerPage;
-              return pw.Padding(
+              return pw.Container(
+                color: PdfColors.white,
                 padding: const pw.EdgeInsets.symmetric(vertical: 18),
                 child: pw.Column(
                   mainAxisAlignment: pw.MainAxisAlignment.start,
@@ -190,10 +196,247 @@ class CatalogPdfService {
       }
     }
 
+    final hasLinktree = linktreeUrl != null && linktreeUrl.trim().isNotEmpty;
+    final hasInstagram = instagramUrl != null && instagramUrl.trim().isNotEmpty;
+    if (hasLinktree || hasInstagram) {
+      _addContactPage(
+        pdf,
+        pageFormat,
+        catalogName: catalogName,
+        linktreeUrl: hasLinktree ? linktreeUrl.trim() : null,
+        instagramUrl: hasInstagram ? instagramUrl.trim() : null,
+      );
+    }
+
     final result = await pdf.save();
     // Limpar cache após salvar para liberar memória
     _imageCache.clear();
     return result;
+  }
+
+  /// Adiciona a página final com links clicáveis para redes sociais.
+  static void _addContactPage(
+    pw.Document pdf,
+    PdfPageFormat pageFormat, {
+    required String catalogName,
+    String? linktreeUrl,
+    String? instagramUrl,
+  }) {
+    const bgColor = PdfColor(0.07, 0.07, 0.1);
+    const accentColor = PdfColor(0.6, 0.85, 0.65);
+    const textWhite = PdfColors.white;
+    const textMuted = PdfColor(0.65, 0.65, 0.7);
+    const pillColor = PdfColor(0.14, 0.14, 0.18);
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: pageFormat,
+        margin: pw.EdgeInsets.zero,
+        build: (context) {
+          return pw.Container(
+            color: bgColor,
+            width: pageFormat.width,
+            height: pageFormat.height,
+            child: pw.Stack(
+              children: [
+                // Decorative top arc
+                pw.Positioned(
+                  top: -pageFormat.width * 0.5,
+                  left: -pageFormat.width * 0.3,
+                  child: pw.Container(
+                    width: pageFormat.width * 1.6,
+                    height: pageFormat.width * 1.6,
+                    decoration: const pw.BoxDecoration(
+                      color: PdfColor(0.12, 0.12, 0.17),
+                      shape: pw.BoxShape.circle,
+                    ),
+                  ),
+                ),
+
+                // Content
+                pw.Positioned.fill(
+                  child: pw.Padding(
+                    padding: const pw.EdgeInsets.symmetric(
+                      horizontal: 28,
+                      vertical: 32,
+                    ),
+                    child: pw.Column(
+                      mainAxisAlignment: pw.MainAxisAlignment.center,
+                      crossAxisAlignment: pw.CrossAxisAlignment.center,
+                      children: [
+                        pw.Spacer(),
+
+                        // Greeting
+                        pw.Text(
+                          'OBRIGADO!',
+                          style: pw.TextStyle(
+                            color: accentColor,
+                            fontSize: 11,
+                            fontWeight: pw.FontWeight.bold,
+                            letterSpacing: 5,
+                          ),
+                        ),
+                        pw.SizedBox(height: 10),
+
+                        // Store / catalog name
+                        pw.Text(
+                          catalogName.toUpperCase(),
+                          style: pw.TextStyle(
+                            color: textWhite,
+                            fontSize: 22,
+                            fontWeight: pw.FontWeight.bold,
+                            letterSpacing: 2,
+                          ),
+                          textAlign: pw.TextAlign.center,
+                        ),
+                        pw.SizedBox(height: 8),
+
+                        // Divider
+                        pw.Container(
+                          width: 40,
+                          height: 2,
+                          color: accentColor,
+                          margin: const pw.EdgeInsets.symmetric(vertical: 12),
+                        ),
+
+                        pw.Text(
+                          'Siga-nos e fique por dentro\ndas novidades!',
+                          style: const pw.TextStyle(
+                            color: textMuted,
+                            fontSize: 11,
+                          ),
+                          textAlign: pw.TextAlign.center,
+                        ),
+
+                        pw.SizedBox(height: 32),
+
+                        // Link buttons
+                        ..._buildSocialLinkButtons(
+                          linktreeUrl: linktreeUrl,
+                          instagramUrl: instagramUrl,
+                          pillColor: pillColor,
+                          accentColor: accentColor,
+                          pageWidth: pageFormat.width - 56,
+                        ),
+
+                        pw.Spacer(),
+
+                        // Footer note
+                        pw.Text(
+                          'Toque nos links acima para visitar nossas redes sociais',
+                          style: const pw.TextStyle(
+                            color: textMuted,
+                            fontSize: 8,
+                          ),
+                          textAlign: pw.TextAlign.center,
+                        ),
+                        pw.SizedBox(height: 8),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  static List<pw.Widget> _buildSocialLinkButtons({
+    String? linktreeUrl,
+    String? instagramUrl,
+    required PdfColor pillColor,
+    required PdfColor accentColor,
+    required double pageWidth,
+  }) {
+    final widgets = <pw.Widget>[];
+
+    if (linktreeUrl != null && linktreeUrl.isNotEmpty) {
+      widgets.add(
+        pw.UrlLink(
+          destination: linktreeUrl,
+          child: pw.Container(
+            width: pageWidth,
+            padding: const pw.EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+            decoration: pw.BoxDecoration(
+              color: pillColor,
+              borderRadius: pw.BorderRadius.circular(12),
+              border: pw.Border.all(color: accentColor, width: 1.5),
+            ),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Text(
+                  'Clique aqui para falar com as vendedoras',
+                  style: pw.TextStyle(
+                    color: PdfColors.white,
+                    fontSize: 13,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                  textAlign: pw.TextAlign.center,
+                ),
+                pw.SizedBox(height: 4),
+                pw.Text(
+                  'Acesse nosso Linktree →',
+                  style: const pw.TextStyle(
+                    color: PdfColor(0.6, 0.85, 0.65),
+                    fontSize: 10,
+                  ),
+                  textAlign: pw.TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      widgets.add(pw.SizedBox(height: 14));
+    }
+
+    if (instagramUrl != null && instagramUrl.isNotEmpty) {
+      widgets.add(
+        pw.UrlLink(
+          destination: instagramUrl,
+          child: pw.Container(
+            width: pageWidth,
+            padding: const pw.EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+            decoration: pw.BoxDecoration(
+              color: pillColor,
+              borderRadius: pw.BorderRadius.circular(12),
+              border: pw.Border.all(
+                color: const PdfColor(0.85, 0.4, 0.55),
+                width: 1.5,
+              ),
+            ),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Text(
+                  'Veja nosso Instagram clicando aqui',
+                  style: pw.TextStyle(
+                    color: PdfColors.white,
+                    fontSize: 13,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                  textAlign: pw.TextAlign.center,
+                ),
+                pw.SizedBox(height: 4),
+                pw.Text(
+                  'Siga-nos no Instagram →',
+                  style: const pw.TextStyle(
+                    color: PdfColor(0.85, 0.4, 0.55),
+                    fontSize: 10,
+                  ),
+                  textAlign: pw.TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return widgets;
   }
 
   static Future<void> _preloadImages(List<ProductImage> imageObjects) async {
@@ -1232,32 +1475,38 @@ class CatalogPdfService {
   ) {
     final count = variants.length;
 
-    if (count == 4) {
-      // Caso 4: Grade 2x2 (Dividir o espaço)
+    if (count >= 3) {
+      // Caso 3 ou 4+: Grade 2x2 ou 2xN (Dividir o espaço para não estourar a margem)
+      final rows = <pw.Widget>[];
+      final thumbWidth = count >= 4 ? 45.0 : 48.0;
+
+      for (var i = 0; i < count; i += 2) {
+        final hasNext = i + 1 < count;
+        rows.add(
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.end,
+            mainAxisSize: pw.MainAxisSize.min,
+            children: [
+              _buildSwatchThumb(variants[i].key, variants[i].value, width: thumbWidth),
+              if (hasNext) ...[
+                pw.SizedBox(width: 8),
+                _buildSwatchThumb(variants[i + 1].key, variants[i + 1].value, width: thumbWidth),
+              ] else if (count == 3) ...[
+                 // Se for exatamente 3, adicionamos um espaço invisível para manter a 3ª foto no lugar (abaixo da primeira)
+                 pw.SizedBox(width: 8 + thumbWidth),
+              ],
+            ],
+          ),
+        );
+        if (i + 2 < count) {
+          rows.add(pw.SizedBox(height: 8));
+        }
+      }
+
       return pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.end,
         mainAxisSize: pw.MainAxisSize.min,
-        children: [
-          pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.end,
-            mainAxisSize: pw.MainAxisSize.min,
-            children: [
-              _buildSwatchThumb(variants[0].key, variants[0].value, width: 45),
-              pw.SizedBox(width: 8),
-              _buildSwatchThumb(variants[1].key, variants[1].value, width: 45),
-            ],
-          ),
-          pw.SizedBox(height: 8),
-          pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.end,
-            mainAxisSize: pw.MainAxisSize.min,
-            children: [
-              _buildSwatchThumb(variants[2].key, variants[2].value, width: 45),
-              pw.SizedBox(width: 8),
-              _buildSwatchThumb(variants[3].key, variants[3].value, width: 45),
-            ],
-          ),
-        ],
+        children: rows,
       );
     } else if (count == 2) {
       // Caso 2: Duas fotos grandes ocupando o espaço lateral
@@ -1271,21 +1520,13 @@ class CatalogPdfService {
         ],
       );
     } else {
-      // Casos 1 ou 3
-      final thumbWidth = (count == 3) ? 48.0 : 65.0;
+      // Caso 1
       return pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.end,
         mainAxisSize: pw.MainAxisSize.min,
-        children: variants.asMap().entries.map((entry) {
-          return pw.Padding(
-            padding: pw.EdgeInsets.only(left: entry.key == 0 ? 0 : 8),
-            child: _buildSwatchThumb(
-              entry.value.key,
-              entry.value.value,
-              width: thumbWidth,
-            ),
-          );
-        }).toList(),
+        children: [
+          _buildSwatchThumb(variants[0].key, variants[0].value, width: 65),
+        ],
       );
     }
   }

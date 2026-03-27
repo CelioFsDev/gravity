@@ -1,8 +1,15 @@
+import 'dart:async';
 import 'package:catalogo_ja/data/repositories/categories_repository.dart';
+import 'package:catalogo_ja/data/repositories/firestore_categories_repository.dart';
+import 'package:catalogo_ja/data/repositories/firestore_products_repository.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:catalogo_ja/core/error/app_failure.dart';
+import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
 
@@ -41,6 +48,12 @@ class CategoriesViewModel extends _$CategoriesViewModel {
   @override
   FutureOr<CategoriesState> build() async {
     try {
+      // ✨ Garantia de SaaS: Se o usuário está logado, aguardamos o tenantId ser identificado
+      // Isso evita que a tela comece "Vazia" usando o Repo Local enquanto o Firestore ainda carrega o perfil.
+      final authUser = ref.watch(authViewModelProvider).valueOrNull;
+      if (authUser != null) {
+        await ref.watch(currentTenantProvider.future);
+      }
       return await _fetchData();
     } catch (e) {
       throw e.toAppFailure(action: 'build', entity: 'Categories');
@@ -48,8 +61,8 @@ class CategoriesViewModel extends _$CategoriesViewModel {
   }
 
   Future<CategoriesState> _fetchData() async {
-    final categoriesRepository = ref.watch(categoriesRepositoryProvider);
-    final productRepository = ref.watch(productsRepositoryProvider);
+    final categoriesRepository = ref.watch(syncCategoriesRepositoryProvider);
+    final productRepository = ref.watch(syncProductsRepositoryProvider);
     final allCategories = await categoriesRepository.getCategories();
     final allProducts = await productRepository.getProducts();
 
@@ -138,7 +151,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     String? id,
   }) async {
     try {
-      final categoriesRepo = ref.read(categoriesRepositoryProvider);
+      final categoriesRepo = ref.read(syncCategoriesRepositoryProvider);
       final currentCategories = await categoriesRepo.getCategories();
 
       if (currentCategories.any(
@@ -146,7 +159,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
             c.safeName.trim().toLowerCase() == name.trim().toLowerCase() &&
             c.type == type,
       )) {
-        return 'Categoria j\u00e1 existe';
+        return 'Categoria já existe';
       }
 
       final maxOrder = currentCategories.isNotEmpty
@@ -184,7 +197,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     String? id,
   }) async {
     try {
-      final categoriesRepo = ref.read(categoriesRepositoryProvider);
+      final categoriesRepo = ref.read(syncCategoriesRepositoryProvider);
       final currentCategories = await categoriesRepo.getCategories();
 
       if (currentCategories.any(
@@ -192,7 +205,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
             c.type == CategoryType.collection &&
             c.safeSlug.trim().toLowerCase() == slug.trim().toLowerCase(),
       )) {
-        return 'Slug j\u00e1 existe';
+        return 'Slug já existe';
       }
 
       if (currentCategories.any(
@@ -200,11 +213,11 @@ class CategoriesViewModel extends _$CategoriesViewModel {
             c.type == CategoryType.collection &&
             c.safeName.trim().toLowerCase() == name.trim().toLowerCase(),
       )) {
-        return 'Cole\u00e7\u00e3o j\u00e1 existe';
+        return 'Coleção já existe';
       }
 
       if (coverMiniPath.trim().isEmpty) {
-        return 'Mini capa \u00e9 obrigat\u00f3ria';
+        return 'Mini capa é obrigatória';
       }
 
       final maxOrder = currentCategories.isNotEmpty
@@ -243,7 +256,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     CollectionCover? cover,
   }) async {
     try {
-      final categoriesRepo = ref.read(categoriesRepositoryProvider);
+      final categoriesRepo = ref.read(syncCategoriesRepositoryProvider);
       final currentCategories = await categoriesRepo.getCategories();
 
       if (currentCategories.any(
@@ -251,7 +264,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
             c.id != id &&
             c.safeName.trim().toLowerCase() == newName.trim().toLowerCase(),
       )) {
-        return 'Nome j\u00e1 em uso';
+        return 'Nome já em uso';
       }
 
       final cat = currentCategories.firstWhere((c) => c.id == id);
@@ -278,7 +291,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     required bool isActive,
   }) async {
     try {
-      final categoriesRepo = ref.read(categoriesRepositoryProvider);
+      final categoriesRepo = ref.read(syncCategoriesRepositoryProvider);
       final currentCategories = await categoriesRepo.getCategories();
 
       if (currentCategories.any(
@@ -287,11 +300,11 @@ class CategoriesViewModel extends _$CategoriesViewModel {
             c.type == CategoryType.collection &&
             c.safeSlug.trim().toLowerCase() == slug.trim().toLowerCase(),
       )) {
-        return 'Slug j\u00e1 existe';
+        return 'Slug já existe';
       }
 
       if (coverMiniPath.trim().isEmpty) {
-        return 'Mini capa \u00e9 obrigat\u00f3ria';
+        return 'Mini capa é obrigatória';
       }
 
       final cat = currentCategories.firstWhere((c) => c.id == id);
@@ -328,7 +341,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     list.insert(newIndex, item);
 
     try {
-      final categoriesRepo = ref.read(categoriesRepositoryProvider);
+      final categoriesRepo = ref.read(syncCategoriesRepositoryProvider);
       for (var i = 0; i < list.length; i++) {
         final cat = list[i].copyWith(order: i);
         await categoriesRepo.updateCategory(cat);
@@ -349,8 +362,8 @@ class CategoriesViewModel extends _$CategoriesViewModel {
 
   Future<CategoryDeleteResult> checkDelete(String id) async {
     try {
-      final productRepository = ref.read(productsRepositoryProvider);
-      final categoriesRepo = ref.read(categoriesRepositoryProvider);
+      final productRepository = ref.read(syncProductsRepositoryProvider);
+      final categoriesRepo = ref.read(syncCategoriesRepositoryProvider);
       final products = await productRepository.getProductsByCategory(id);
 
       if (products.isEmpty) {
@@ -374,7 +387,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       try {
-        final categoriesRepo = ref.read(categoriesRepositoryProvider);
+        final categoriesRepo = ref.read(syncCategoriesRepositoryProvider);
         await categoriesRepo.reassignCategory(id, targetCategoryId);
         await categoriesRepo.deleteCategory(id);
         return await _fetchData();
@@ -388,7 +401,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       try {
-        final categoriesRepo = ref.read(categoriesRepositoryProvider);
+        final categoriesRepo = ref.read(syncCategoriesRepositoryProvider);
         await categoriesRepo.reassignCategory(id, '');
         await categoriesRepo.deleteCategory(id);
         return await _fetchData();
@@ -399,5 +412,126 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         );
       }
     });
+  }
+
+  /// Sincroniza todas as categorias/coleções locais para a nuvem
+  Future<int> syncAllToCloud() async {
+    final progressNotifier = ref.read(syncProgressProvider.notifier);
+    try {
+      progressNotifier.startSync('Iniciando sincronização de categorias...');
+      
+      final localRepo = ref.read(categoriesRepositoryProvider) as HiveCategoriesRepository;
+      final localCategories = await localRepo.getCategories();
+      
+      if (localCategories.isEmpty) {
+        progressNotifier.stopSync();
+        return 0;
+      }
+
+      // Busca o tenantId
+      final tenant = await ref.read(currentTenantProvider.future);
+      String? tenantId = tenant?.id;
+      if (tenantId == null) {
+        final authUser = ref.read(authViewModelProvider).value;
+        if (authUser?.email != null) {
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(authUser!.email!.toLowerCase().trim())
+              .get();
+          tenantId = userDoc.data()?['tenantId'] as String?;
+        }
+      }
+
+      if (tenantId == null) {
+        progressNotifier.stopSync();
+        throw Exception('Empresa não identificada. Verifique seu login.');
+      }
+      
+      final storageService = ref.read(saasPhotoStorageProvider);
+      final firestoreRepo = FirestoreCategoriesRepository(localRepo, storageService, tenantId);
+      var syncedCount = 0;
+      final total = localCategories.length;
+
+      for (var i = 0; i < total; i++) {
+        final cat = localCategories[i];
+        try {
+          progressNotifier.updateProgress(
+            (i + 1) / total,
+            'Sincronizando: ${i + 1}/$total - ${cat.name}',
+          );
+          await firestoreRepo.addCategory(cat);
+          syncedCount++;
+        } catch (e) {
+          print('❌ Erro ao sincronizar categoria ${cat.name}: $e');
+        }
+      }
+
+      progressNotifier.stopSync();
+      ref.invalidateSelf();
+      return syncedCount;
+    } catch (e) {
+      progressNotifier.stopSync();
+      print('Erro ao sincronizar categorias: $e');
+      rethrow;
+    }
+  }
+
+  /// Baixa todas as categorias/coleções da nuvem para o celular
+  Future<int> syncFromCloud() async {
+    final progressNotifier = ref.read(syncProgressProvider.notifier);
+    try {
+      progressNotifier.startSync('Buscando categorias na nuvem...');
+      
+      final tenant = await ref.read(currentTenantProvider.future);
+      String? tenantId = tenant?.id;
+      if (tenantId == null) {
+        final authUser = ref.read(authViewModelProvider).value;
+        if (authUser?.email != null) {
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(authUser!.email!.toLowerCase().trim())
+              .get();
+          tenantId = userDoc.data()?['tenantId'] as String?;
+        }
+      }
+
+      if (tenantId == null) {
+        progressNotifier.stopSync();
+        throw Exception('Empresa não identificada.');
+      }
+
+      final storageService = ref.read(saasPhotoStorageProvider);
+      final localRepo = ref.read(categoriesRepositoryProvider) as HiveCategoriesRepository;
+      final firestoreRepo = FirestoreCategoriesRepository(localRepo, storageService, tenantId);
+
+      final cloudCategories = await firestoreRepo.getCategories();
+      if (cloudCategories.isEmpty) {
+        progressNotifier.stopSync();
+        return 0;
+      }
+
+      var downloadedCount = 0;
+      final total = cloudCategories.length;
+
+      for (var i = 0; i < total; i++) {
+        final cat = cloudCategories[i];
+        try {
+          progressNotifier.updateProgress(
+            (i + 1) / total,
+            'Baixando: ${i + 1}/$total - ${cat.name}',
+          );
+          await localRepo.addCategory(cat);
+          downloadedCount++;
+        } catch (_) {}
+      }
+
+      progressNotifier.stopSync();
+      await _refresh();
+      return downloadedCount;
+    } catch (e) {
+      progressNotifier.stopSync();
+      print('Erro ao baixar categorias: $e');
+      rethrow;
+    }
   }
 }

@@ -5,10 +5,16 @@ import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/core/services/dto/catalogo_ja_export_dtos.dart';
 import 'package:catalogo_ja/data/repositories/contracts/categories_repository_contract.dart';
 import 'package:catalogo_ja/data/repositories/contracts/products_repository_contract.dart';
+import 'package:catalogo_ja/data/repositories/contracts/catalogs_repository_contract.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/data/repositories/categories_repository.dart';
+import 'package:catalogo_ja/data/repositories/catalogs_repository.dart';
+import 'package:catalogo_ja/data/repositories/firestore_products_repository.dart';
+import 'package:catalogo_ja/data/repositories/firestore_categories_repository.dart';
+import 'package:catalogo_ja/data/repositories/firestore_catalogs_repository.dart';
 import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/core/utils/encoding_utils.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:path_provider/path_provider.dart';
@@ -61,11 +67,13 @@ class ImportResult {
 class ExportImportService {
   final ProductsRepositoryContract _productsRepo;
   final CategoriesRepositoryContract _categoriesRepo;
+  final CatalogsRepositoryContract _catalogsRepo;
   final SettingsRepository _settingsRepo;
 
   ExportImportService(
     this._productsRepo,
     this._categoriesRepo,
+    this._catalogsRepo,
     this._settingsRepo,
   );
 
@@ -73,9 +81,11 @@ class ExportImportService {
   Future<CatalogoJaExportPayload> generatePayload({
     List<Product>? products,
     List<Category>? categories,
+    List<Catalog>? catalogs,
   }) async {
     final allProducts = products ?? await _productsRepo.getProducts();
     final allCategories = categories ?? await _categoriesRepo.getCategories();
+    final allCatalogs = catalogs ?? await _catalogsRepo.getCatalogs();
     final settings = _settingsRepo.getSettings();
 
     // Split categories and collections
@@ -93,6 +103,10 @@ class ExportImportService {
         .map((p) => ProductDTO.fromModel(p))
         .toList();
 
+    final catalogDTOs = allCatalogs
+        .map((c) => CatalogDTO.fromModel(c))
+        .toList();
+
     return CatalogoJaExportPayload(
       app: 'CatalogoJa',
       version: 1,
@@ -104,6 +118,7 @@ class ExportImportService {
       categories: categoryDTOs,
       collections: collectionDTOs,
       products: productDTOs,
+      catalogs: catalogDTOs,
     );
   }
 
@@ -222,6 +237,7 @@ class ExportImportService {
     if (mode == ImportMode.replaceAll) {
       await _productsRepo.clearAll();
       await _categoriesRepo.clearAll();
+      await _catalogsRepo.clearAll();
     }
 
     // 2. Import Categories & Collections
@@ -319,14 +335,37 @@ class ExportImportService {
             categoryIds: newCategoryIds,
           );
 
-          await _productsRepo.addProduct(productToSave);
-          success++;
+            await _productsRepo.addProduct(productToSave);
+            success++;
+          }
+        } catch (e) {
+          errors++;
+          errorList.add('Error importing product ${pDTO.name}: $e');
         }
-      } catch (e) {
-        errors++;
-        errorList.add('Error importing product ${pDTO.name}: $e');
       }
-    }
+
+      // 4. Import Catalogs
+      for (final cDTO in payload.catalogs) {
+        try {
+          final existing = await _catalogsRepo.getBySlug(cDTO.slug);
+
+          if (existing != null) {
+            if (mode == ImportMode.replaceAll) {
+              await _catalogsRepo.addCatalog(cDTO.toModel());
+            } else if (mode == ImportMode.merge) {
+              // Update logic: map product IDs if they changed?
+              // Assuming IDs are consistent for Catalogs link.
+              await _catalogsRepo.updateCatalog(
+                cDTO.toModel().copyWith(id: existing.id),
+              );
+            }
+          } else {
+            await _catalogsRepo.addCatalog(cDTO.toModel());
+          }
+        } catch (e) {
+          errorList.add('Error importing catalog ${cDTO.name}: $e');
+        }
+      }
 
     return ImportResult(
       successCount: success,
@@ -340,8 +379,9 @@ class ExportImportService {
 @Riverpod(keepAlive: true)
 ExportImportService exportImportService(ExportImportServiceRef ref) {
   return ExportImportService(
-    ref.read(productsRepositoryProvider),
-    ref.read(categoriesRepositoryProvider),
+    ref.read(syncProductsRepositoryProvider),
+    ref.read(syncCategoriesRepositoryProvider),
+    ref.read(syncCatalogsRepositoryProvider),
     ref.read(settingsRepositoryProvider),
   );
 }

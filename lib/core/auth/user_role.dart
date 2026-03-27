@@ -143,7 +143,11 @@ extension UserRoleGuards on UserRole {
   bool get canEditSettings => this == UserRole.admin;
 
   /// Full User Management (Limited to specific Super Admin emails)
-  bool canManageUsers(String? email) => this == UserRole.admin;
+  bool canManageUsers(String? email) {
+    if (this != UserRole.admin) return false;
+    final normalized = _normalizeEmail(email);
+    return UserRole.superAdminEmails.contains(normalized);
+  }
 
   /// Global access to Admin Panel screens
   bool get canAccessAdmin => this != UserRole.viewer;

@@ -93,4 +93,29 @@ class ProductImage {
       colorTag: colorTag ?? this.colorTag,
     );
   }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'sourceType': sourceType.name,
+      'uri': uri,
+      'label': label,
+      'order': order,
+      'colorTag': colorTag,
+    };
+  }
+
+  factory ProductImage.fromMap(Map<String, dynamic> map) {
+    return ProductImage(
+      id: map['id'] ?? '',
+      sourceType: ProductImageSource.values.firstWhere(
+        (e) => e.name == map['sourceType'],
+        orElse: () => ProductImageSource.unknown,
+      ),
+      uri: map['uri'] ?? '',
+      label: map['label'],
+      order: map['order'] ?? 0,
+      colorTag: map['colorTag'],
+    );
+  }
 }

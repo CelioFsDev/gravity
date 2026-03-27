@@ -1,4 +1,5 @@
-import 'package:catalogo_ja/data/repositories/catalogs_repository.dart';
+import 'dart:async';
+import 'package:catalogo_ja/data/repositories/firestore_catalogs_repository.dart';
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/viewmodels/catalog_public_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
@@ -186,7 +187,7 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
         return false;
       }
 
-      final repository = ref.read(catalogsRepositoryProvider);
+      final repository = ref.read(syncCatalogsRepositoryProvider);
       final isTaken = await repository.isSlugTaken(
         state.catalog.slug,
         excludeId: state.catalog.id,
@@ -195,7 +196,7 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
       if (isTaken) {
         state = state.copyWith(
           isSaving: false,
-          slugError: 'Esta URL j\u00e1 est\u00e1 em uso.',
+          slugError: 'Esta URL já está em uso.',
         );
         return false;
       }

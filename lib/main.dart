@@ -21,9 +21,13 @@ import 'package:catalogo_ja/features/admin/categories/categories_screen.dart';
 import 'package:catalogo_ja/features/admin/collections/collections_screen.dart';
 import 'package:catalogo_ja/features/admin/collections/collection_form_screen.dart';
 import 'package:catalogo_ja/features/admin/catalogs/catalogs_screen.dart';
+import 'package:catalogo_ja/features/admin/import/import_menu_screen.dart';
 import 'package:catalogo_ja/features/admin/import/nuvemshop_import_screen.dart';
+import 'package:catalogo_ja/features/admin/import/stock_update_screen.dart';
+import 'package:catalogo_ja/features/admin/import/catalogo_ja_import_screen.dart';
 import 'package:catalogo_ja/features/admin/settings/settings_screen.dart';
 import 'package:catalogo_ja/features/admin/users/user_management_screen.dart';
+import 'package:catalogo_ja/features/admin/dashboard/dashboard_screen.dart';
 import 'package:catalogo_ja/features/theme/theme_providers.dart';
 import 'package:catalogo_ja/features/public/catalog_home_page.dart';
 import 'package:catalogo_ja/features/public/product_detail_screen.dart';
@@ -161,7 +165,7 @@ class _MyAppState extends ConsumerState<MyApp> {
         }
 
         if (isAuthRoute) {
-          return '/admin/products';
+          return '/admin/dashboard';
         }
 
         return null;
@@ -215,6 +219,14 @@ class _MyAppState extends ConsumerState<MyApp> {
             StatefulShellBranch(
               routes: [
                 GoRoute(
+                  path: '/admin/dashboard',
+                  builder: (context, state) => const DashboardScreen(),
+                ),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
                   path: '/admin/products',
                   builder: (context, state) => const ProductsScreen(),
                 ),
@@ -259,8 +271,22 @@ class _MyAppState extends ConsumerState<MyApp> {
             StatefulShellBranch(
               routes: [
                 GoRoute(
-                  path: '/admin/imports/nuvemshop',
-                  builder: (context, state) => const NuvemshopImportScreen(),
+                  path: '/admin/imports',
+                  builder: (context, state) => const ImportMenuScreen(),
+                  routes: [
+                    GoRoute(
+                      path: 'nuvemshop',
+                      builder: (context, state) => const NuvemshopImportScreen(),
+                    ),
+                    GoRoute(
+                      path: 'stock-update',
+                      builder: (context, state) => const StockUpdateScreen(),
+                    ),
+                    GoRoute(
+                      path: 'backup',
+                      builder: (context, state) => const CatalogoJaImportScreen(),
+                    ),
+                  ],
                 ),
               ],
             ),

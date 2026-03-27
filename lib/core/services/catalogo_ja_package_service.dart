@@ -1,15 +1,18 @@
 import 'dart:convert';
 import 'dart:io' as io;
+import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:archive/archive_io.dart';
 import 'package:flutter/foundation.dart' hide Category;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
+import 'package:http/http.dart' as http;
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:catalogo_ja/core/services/dto/catalogo_ja_export_dtos.dart';
 import 'package:catalogo_ja/core/services/export_import_service.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/category.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 typedef ProgressCallback = void Function(double progress, String message);
 
@@ -45,7 +48,7 @@ class CatalogoJaPackageService {
       products: products,
       categories: collections,
     );
-    onProgress?.call(0.10, 'Lendo dados do cat\u00e1logo...');
+    onProgress?.call(0.10, 'Lendo dados do catálogo...');
     await Future.delayed(const Duration(milliseconds: 10));
 
     final archive = Archive();
@@ -66,51 +69,53 @@ class CatalogoJaPackageService {
       }
       final newPhotos = <ProductPhotoDTO>[];
 
-      // Map paths from photos list
+      // Parallelize downloads for this product's photos (max 4-5 photos usually)
+      final photoFutures = <Future<ProductPhotoDTO?>>[];
+
       for (int i = 0; i < product.photos.length; i++) {
         final photo = product.photos[i];
         final imagePath = photo.path;
-        Uint8List? fileBytes;
+        final photoIndex = i;
 
-        if (imagePath.startsWith('data:')) {
-          try {
-            final commaIndex = imagePath.indexOf(',');
-            if (commaIndex != -1) {
-              fileBytes = base64Decode(imagePath.substring(commaIndex + 1));
+        photoFutures.add(() async {
+          final fileBytes = await _readImageBytes(imagePath);
+          if (fileBytes != null) {
+            // Safe extension for URLs with query params
+            final cleanPath = imagePath.split('?').first;
+            final ext = p.extension(cleanPath).isEmpty ? '.jpg' : p.extension(cleanPath);
+            
+            String baseName = '';
+            if (imagePath.startsWith('data:')) {
+              baseName = 'photo_${DateTime.now().millisecondsSinceEpoch}_$photoIndex';
+            } else if (imagePath.startsWith('http')) {
+               baseName = p.basenameWithoutExtension(cleanPath);
+            } else {
+               baseName = p.basenameWithoutExtension(imagePath);
             }
-          } catch (e) {
-            debugPrint('Error decoding base64 image: $e');
-          }
-        } else if (!kIsWeb) {
-          fileBytes = await _readLocalFile(imagePath);
-        }
+            
+            if (baseName.length > 50) baseName = baseName.substring(0, 50);
+            final relativeName = '${photoIndex.toString().padLeft(2, '0')}__$baseName$ext';
+            final relativePackagePath = 'images/${product.id}/$relativeName';
 
-        if (fileBytes != null) {
-          final ext = p.extension(imagePath).isEmpty
-              ? '.jpg'
-              : p.extension(imagePath);
-          String baseName = '';
-          if (imagePath.startsWith('data:')) {
-            baseName = 'photo_${DateTime.now().millisecondsSinceEpoch}_$i';
-          } else {
-            baseName = p.basenameWithoutExtension(imagePath);
-          }
-          if (baseName.length > 50) baseName = baseName.substring(0, 50);
-          final relativeName = '${i.toString().padLeft(2, '0')}__$baseName$ext';
-          final relativePackagePath = 'images/${product.id}/$relativeName';
+            archive.addFile(
+              ArchiveFile(relativePackagePath, fileBytes.length, fileBytes),
+            );
 
-          archive.addFile(
-            ArchiveFile(relativePackagePath, fileBytes.length, fileBytes),
-          );
-
-          newPhotos.add(
-            ProductPhotoDTO(
+            return ProductPhotoDTO(
               path: relativePackagePath,
               colorKey: photo.colorKey,
               isPrimary: photo.isPrimary,
               photoType: photo.photoType,
-            ),
-          );
+            );
+          }
+          return null;
+        }());
+      }
+
+      final results = await Future.wait(photoFutures);
+      for (final res in results) {
+        if (res != null) {
+          newPhotos.add(res);
           imageCount++;
         }
       }
@@ -152,41 +157,37 @@ class CatalogoJaPackageService {
       currentCol++;
       onProgress?.call(
         0.65 + (0.15 * (currentCol / totalCollections)),
-        'Processando cole\u00e7\u00e3o $currentCol de $totalCollections...',
+        'Processando coleção $currentCol de $totalCollections...',
       );
       String? newMiniPath = collection.cover?.coverMiniPath;
       String? newPagePath = collection.cover?.coverPagePath;
+      String? newHeaderPath = collection.cover?.coverHeaderImagePath;
+      String? newMainPath = collection.cover?.coverMainImagePath;
+      String? newBannerPath = collection.cover?.bannerImagePath;
+      String? newHeroPath = collection.cover?.heroImagePath;
 
       if (collection.cover != null) {
-        // Process Mini Cover
-        if (collection.cover!.coverMiniPath != null) {
-          final bytes = await _readImageBytes(collection.cover!.coverMiniPath!);
+        // Helper to process collection image
+        Future<String?> processCollectionImage(String? path, String suffix) async {
+          if (path == null) return null;
+          final bytes = await _readImageBytes(path);
           if (bytes != null) {
-            final ext = p.extension(collection.cover!.coverMiniPath!).isEmpty
-                ? '.jpg'
-                : p.extension(collection.cover!.coverMiniPath!);
-            final targetName = 'mini$ext';
-            final relPath = 'images/collections/${collection.id}/$targetName';
+            final cleanPath = path.split('?').first;
+            final ext = p.extension(cleanPath).isEmpty ? '.jpg' : p.extension(cleanPath);
+            final relPath = 'images/collections/${collection.id}/$suffix$ext';
             archive.addFile(ArchiveFile(relPath, bytes.length, bytes));
-            newMiniPath = relPath;
             imageCount++;
+            return relPath;
           }
+          return path;
         }
 
-        // Process Page Cover
-        if (collection.cover!.coverPagePath != null) {
-          final bytes = await _readImageBytes(collection.cover!.coverPagePath!);
-          if (bytes != null) {
-            final ext = p.extension(collection.cover!.coverPagePath!).isEmpty
-                ? '.jpg'
-                : p.extension(collection.cover!.coverPagePath!);
-            final targetName = 'page$ext';
-            final relPath = 'images/collections/${collection.id}/$targetName';
-            archive.addFile(ArchiveFile(relPath, bytes.length, bytes));
-            newPagePath = relPath;
-            imageCount++;
-          }
-        }
+        newMiniPath = await processCollectionImage(collection.cover!.coverMiniPath, 'mini');
+        newPagePath = await processCollectionImage(collection.cover!.coverPagePath, 'page');
+        newHeaderPath = await processCollectionImage(collection.cover!.coverHeaderImagePath, 'header');
+        newMainPath = await processCollectionImage(collection.cover!.coverMainImagePath, 'main');
+        newBannerPath = await processCollectionImage(collection.cover!.bannerImagePath, 'banner');
+        newHeroPath = await processCollectionImage(collection.cover!.heroImagePath, 'hero');
       }
 
       updatedCollections.add(
@@ -204,11 +205,41 @@ class CatalogoJaPackageService {
                   coverImagePath: collection.cover!.coverImagePath,
                   coverMiniPath: newMiniPath,
                   coverPagePath: newPagePath,
+                  coverHeaderImagePath: newHeaderPath,
+                  coverMainImagePath: newMainPath,
+                  bannerImagePath: newBannerPath,
+                  heroImagePath: newHeroPath,
                 )
               : null,
           createdAt: collection.createdAt,
           updatedAt: collection.updatedAt,
         ),
+      );
+    }
+
+    // 2.3 Process Catalog Banners
+    final updatedCatalogs = <CatalogDTO>[];
+    for (final catalog in payload.catalogs) {
+      final updatedBanners = <CatalogBannerDTO>[];
+      for (final banner in catalog.banners) {
+        if (banner.imagePath.isNotEmpty) {
+          final bytes = await _readImageBytes(banner.imagePath);
+          if (bytes != null) {
+            final cleanPath = banner.imagePath.split('?').first;
+            final ext = p.extension(cleanPath).isEmpty ? '.jpg' : p.extension(cleanPath);
+            final relPath = 'images/catalogs/${catalog.id}/${banner.id}$ext';
+            archive.addFile(ArchiveFile(relPath, bytes.length, bytes));
+            imageCount++;
+            updatedBanners.add(banner.copyWith(imagePath: relPath));
+          } else {
+            updatedBanners.add(banner);
+          }
+        } else {
+          updatedBanners.add(banner);
+        }
+      }
+      updatedCatalogs.add(
+        catalog.copyWith(banners: updatedBanners),
       );
     }
 
@@ -221,6 +252,7 @@ class CatalogoJaPackageService {
       categories: payload.categories,
       collections: updatedCollections,
       products: updatedProducts,
+      catalogs: updatedCatalogs,
     );
 
     // 4. Add products.json to archive
@@ -246,38 +278,72 @@ class CatalogoJaPackageService {
 
     onProgress?.call(0.95, 'Finalizando arquivo...');
     final zipEnabledBits = ZipEncoder().encode(archive);
-    return Uint8List.fromList(zipEnabledBits);
-  }
-
-  Future<Uint8List?> _readLocalFile(String path) async {
-    if (kIsWeb) return null;
-    try {
-      final file = io.File(path);
-      if (file.existsSync()) return await file.readAsBytes();
-
-      final appDocDir = await getApplicationDocumentsDirectory();
-      final file2 = io.File(p.join(appDocDir.path, p.basename(path)));
-      if (file2.existsSync()) return await file2.readAsBytes();
-
-      final file3 = io.File(
-        p.join(appDocDir.path, 'product_images', p.basename(path)),
-      );
-      if (file3.existsSync()) return await file3.readAsBytes();
-    } catch (e) {
-      debugPrint('Error reading local file $path: $e');
-    }
-    return null;
+    return Uint8List.fromList(zipEnabledBits ?? []);
   }
 
   Future<Uint8List?> _readImageBytes(String path) async {
-    if (path.startsWith('data:')) {
-      final commaIndex = path.indexOf(',');
-      if (commaIndex != -1) {
-        return base64Decode(path.substring(commaIndex + 1));
+    if (path.isEmpty) return null;
+
+    try {
+      if (path.startsWith('data:')) {
+        final commaIndex = path.indexOf(',');
+        if (commaIndex != -1) {
+          return base64Decode(path.substring(commaIndex + 1));
+        }
+        return null;
       }
-      return null;
+
+      if (path.startsWith('http')) {
+        // Try Cache first to speed up and save data
+        try {
+          final fileInfo = await DefaultCacheManager().getFileFromCache(path);
+          if (fileInfo != null) {
+            return await fileInfo.file.readAsBytes();
+          }
+        } catch (e) {
+          debugPrint('⚠️ Cache check skipped for $path: $e');
+        }
+
+        debugPrint('🌐 Baixando imagem da nuvem para o backup: $path');
+        final response = await http.get(Uri.parse(path)).timeout(
+          const Duration(seconds: 20),
+        );
+        if (response.statusCode == 200) {
+          // Put in cache for future use
+          try {
+            await DefaultCacheManager().putFile(path, response.bodyBytes);
+          } catch (_) {}
+          
+          return response.bodyBytes;
+        }
+        return null;
+      }
+
+      // Local file
+      if (!kIsWeb) {
+        final file = io.File(path);
+        if (await file.exists()) {
+          return await file.readAsBytes();
+        }
+
+        final appDocDir = await getApplicationDocumentsDirectory();
+        // Try alternate locations
+        final altPaths = [
+          p.join(appDocDir.path, p.basename(path)),
+          p.join(appDocDir.path, 'product_images', p.basename(path)),
+          p.join(appDocDir.path, 'product_photos', p.basename(path)),
+        ];
+
+        for (final alt in altPaths) {
+          final altFile = io.File(alt);
+          if (await altFile.exists()) {
+            return await altFile.readAsBytes();
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Falha ao ler bytes da imagem ($path): $e');
     }
-    if (!kIsWeb) return _readLocalFile(path);
     return null;
   }
 
@@ -438,40 +504,34 @@ class CatalogoJaPackageService {
     for (final collection in payload.collections) {
       String? absMiniPath = collection.cover?.coverMiniPath;
       String? absPagePath = collection.cover?.coverPagePath;
+      String? absHeaderPath = collection.cover?.coverHeaderImagePath;
+      String? absMainPath = collection.cover?.coverMainImagePath;
+      String? absBannerPath = collection.cover?.bannerImagePath;
+      String? absHeroPath = collection.cover?.heroImagePath;
 
       if (collection.cover != null) {
-        // Mini
-        if (collection.cover!.coverMiniPath != null) {
-          final sourceFile = io.File(
-            p.join(extractDir.path, collection.cover!.coverMiniPath!),
-          );
+        Future<String?> restoreCollectionImage(String? relPath, String suffix) async {
+          if (relPath == null) return null;
+          final sourceFile = io.File(p.join(extractDir.path, relPath));
           if (await sourceFile.exists()) {
             final newName = _buildSafeImportedFileName(
-              prefix: 'coll_${collection.id}_mini',
-              originalPath: collection.cover!.coverMiniPath!,
+              prefix: 'coll_${collection.id}_$suffix',
+              originalPath: relPath,
               fallbackExtension: p.extension(sourceFile.path),
             );
             final targetFile = io.File(p.join(appImagesDir.path, newName));
             await sourceFile.copy(targetFile.path);
-            absMiniPath = targetFile.path;
+            return targetFile.path;
           }
+          return relPath;
         }
-        // Page
-        if (collection.cover!.coverPagePath != null) {
-          final sourceFile = io.File(
-            p.join(extractDir.path, collection.cover!.coverPagePath!),
-          );
-          if (await sourceFile.exists()) {
-            final newName = _buildSafeImportedFileName(
-              prefix: 'coll_${collection.id}_page',
-              originalPath: collection.cover!.coverPagePath!,
-              fallbackExtension: p.extension(sourceFile.path),
-            );
-            final targetFile = io.File(p.join(appImagesDir.path, newName));
-            await sourceFile.copy(targetFile.path);
-            absPagePath = targetFile.path;
-          }
-        }
+
+        absMiniPath = await restoreCollectionImage(collection.cover!.coverMiniPath, 'mini');
+        absPagePath = await restoreCollectionImage(collection.cover!.coverPagePath, 'page');
+        absHeaderPath = await restoreCollectionImage(collection.cover!.coverHeaderImagePath, 'header');
+        absMainPath = await restoreCollectionImage(collection.cover!.coverMainImagePath, 'main');
+        absBannerPath = await restoreCollectionImage(collection.cover!.bannerImagePath, 'banner');
+        absHeroPath = await restoreCollectionImage(collection.cover!.heroImagePath, 'hero');
       }
 
       restoredCollections.add(
@@ -489,12 +549,41 @@ class CatalogoJaPackageService {
                   coverImagePath: collection.cover!.coverImagePath,
                   coverMiniPath: absMiniPath,
                   coverPagePath: absPagePath,
+                  coverHeaderImagePath: absHeaderPath,
+                  coverMainImagePath: absMainPath,
+                  bannerImagePath: absBannerPath,
+                  heroImagePath: absHeroPath,
                 )
               : null,
           createdAt: collection.createdAt,
           updatedAt: collection.updatedAt,
         ),
       );
+    }
+
+    // 4.3 Restore Catalog Banners
+    final restoredCatalogs = <CatalogDTO>[];
+    for (final catalog in payload.catalogs) {
+      final restoredBanners = <CatalogBannerDTO>[];
+      for (final banner in catalog.banners) {
+        if (banner.imagePath.isNotEmpty) {
+          final sourceFile = io.File(p.join(extractDir.path, banner.imagePath));
+          if (await sourceFile.exists()) {
+            final newName = _buildSafeImportedFileName(
+              prefix: 'cat_${catalog.id}',
+              originalPath: banner.imagePath,
+            );
+            final targetFile = io.File(p.join(appImagesDir.path, newName));
+            await sourceFile.copy(targetFile.path);
+            restoredBanners.add(banner.copyWith(imagePath: targetFile.path));
+          } else {
+            restoredBanners.add(banner);
+          }
+        } else {
+          restoredBanners.add(banner);
+        }
+      }
+      restoredCatalogs.add(catalog.copyWith(banners: restoredBanners));
     }
 
     final importPayload = CatalogoJaExportPayload(
@@ -505,6 +594,7 @@ class CatalogoJaPackageService {
       categories: payload.categories,
       collections: restoredCollections,
       products: restoredProducts,
+      catalogs: payload.catalogs,
     );
 
     final result = await _exportImportService.executeImport(
@@ -616,22 +706,27 @@ class CatalogoJaPackageService {
     for (final collection in payload.collections) {
       String? coverMiniPath = collection.cover?.coverMiniPath;
       String? coverPagePath = collection.cover?.coverPagePath;
+      String? coverHeaderPath = collection.cover?.coverHeaderImagePath;
+      String? coverMainPath = collection.cover?.coverMainImagePath;
+      String? bannerPath = collection.cover?.bannerImagePath;
+      String? heroPath = collection.cover?.heroImagePath;
 
-      if (collection.cover?.coverMiniPath != null) {
-        final archived = archiveFiles[collection.cover!.coverMiniPath!];
+      String? restoreFromArchive(String? relPath) {
+        if (relPath == null) return null;
+        final archived = archiveFiles[relPath];
         if (archived != null) {
           final bytes = Uint8List.fromList((archived.content as List).cast<int>());
-          coverMiniPath = _bytesToDataUrl(collection.cover!.coverMiniPath!, bytes);
+          return _bytesToDataUrl(relPath, bytes);
         }
+        return relPath;
       }
 
-      if (collection.cover?.coverPagePath != null) {
-        final archived = archiveFiles[collection.cover!.coverPagePath!];
-        if (archived != null) {
-          final bytes = Uint8List.fromList((archived.content as List).cast<int>());
-          coverPagePath = _bytesToDataUrl(collection.cover!.coverPagePath!, bytes);
-        }
-      }
+      coverMiniPath = restoreFromArchive(collection.cover?.coverMiniPath);
+      coverPagePath = restoreFromArchive(collection.cover?.coverPagePath);
+      coverHeaderPath = restoreFromArchive(collection.cover?.coverHeaderImagePath);
+      coverMainPath = restoreFromArchive(collection.cover?.coverMainImagePath);
+      bannerPath = restoreFromArchive(collection.cover?.bannerImagePath);
+      heroPath = restoreFromArchive(collection.cover?.heroImagePath);
 
       restoredCollections.add(
         CategoryDTO(
@@ -648,12 +743,36 @@ class CatalogoJaPackageService {
                   coverImagePath: collection.cover!.coverImagePath,
                   coverMiniPath: coverMiniPath,
                   coverPagePath: coverPagePath,
+                  coverHeaderImagePath: coverHeaderPath,
+                  coverMainImagePath: coverMainPath,
+                  bannerImagePath: bannerPath,
+                  heroImagePath: heroPath,
                 )
               : null,
           createdAt: collection.createdAt,
           updatedAt: collection.updatedAt,
         ),
       );
+    }
+
+    final restoredCatalogs = <CatalogDTO>[];
+    for (final catalog in payload.catalogs) {
+      final restoredBanners = <CatalogBannerDTO>[];
+      for (final banner in catalog.banners) {
+        if (banner.imagePath.isNotEmpty) {
+          final archived = archiveFiles[banner.imagePath];
+          if (archived != null) {
+            final bytes = Uint8List.fromList((archived.content as List).cast<int>());
+            final dataUrl = _bytesToDataUrl(banner.imagePath, bytes);
+            restoredBanners.add(banner.copyWith(imagePath: dataUrl));
+          } else {
+            restoredBanners.add(banner);
+          }
+        } else {
+          restoredBanners.add(banner);
+        }
+      }
+      restoredCatalogs.add(catalog.copyWith(banners: restoredBanners));
     }
 
     final importPayload = CatalogoJaExportPayload(
@@ -664,6 +783,7 @@ class CatalogoJaPackageService {
       categories: payload.categories,
       collections: restoredCollections,
       products: restoredProducts,
+      catalogs: restoredCatalogs,
     );
 
     final result = await _exportImportService.executeImport(importPayload, mode);

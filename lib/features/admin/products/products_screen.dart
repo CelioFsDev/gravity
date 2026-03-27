@@ -320,14 +320,37 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     return PopupMenuButton<String>(
       icon: const Icon(Icons.more_vert_rounded),
       onSelected: (value) {
-        if (value == 'export') _showExportOptions(context);
+        if (value == 'sync_upload') _startCloudSync(context);
+        if (value == 'sync_download') _startCloudDownload(context);
         if (value == 'bulk_edit') {
           Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const ProductBulkEditScreen()),
           );
         }
+        if (value == 'export') _showExportOptions(context);
       },
       itemBuilder: (context) => const [
+        PopupMenuItem(
+          value: 'sync_upload',
+          child: Row(
+            children: [
+              Icon(Icons.cloud_upload_outlined, size: 18, color: AppTokens.accentBlue),
+              SizedBox(width: 8),
+              Text('Subir Catálogo (Nuvem)', style: TextStyle(color: AppTokens.accentBlue)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'sync_download',
+          child: Row(
+            children: [
+              Icon(Icons.cloud_download_outlined, size: 18, color: AppTokens.accentBlue),
+              SizedBox(width: 8),
+              Text('Baixar Catálogo (Nuvem)'),
+            ],
+          ),
+        ),
+        PopupMenuDivider(),
         PopupMenuItem(
           value: 'bulk_edit',
           child: Row(
@@ -516,21 +539,15 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   final viewModel = ref.read(
                     productExportViewModelProvider.notifier,
                   );
-                  _showExportProgressDialog(context);
-
-                  viewModel
-                      .exportPackage()
-                      .then((_) {
-                        if (context.mounted) Navigator.pop(context);
-                      })
-                      .catchError((e) {
-                        if (context.mounted) {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(
-                            context,
-                          ).showSnackBar(SnackBar(content: Text('Erro: $e')));
-                        }
-                      });
+                  // Dispara e deixa o GlobalLoadingIndicator cuidar da UI
+                  viewModel.exportPackage();
+                  
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Gerando backup completo em segundo plano...'),
+                      backgroundColor: AppTokens.accentBlue,
+                    ),
+                  );
                 },
               ),
               ListTile(
@@ -563,233 +580,17 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   }
 
   void _startPhotoReferenceLinking() {
-    final screenContext = context;
     ref.read(productImportViewModelProvider.notifier).reset();
-    _showVincularProgressDialog(screenContext);
-
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      try {
-        await ref
-            .read(productImportViewModelProvider.notifier)
-            .pickAndMatchImagesToExistingProducts();
-
-        if (!mounted) return;
-        final stateAfter = ref.read(productImportViewModelProvider);
-        final rootNav = Navigator.of(screenContext, rootNavigator: true);
-        if (rootNav.canPop()) {
-          rootNav.pop();
-        }
-
-        if (stateAfter.errorMessage != null) {
-          ScaffoldMessenger.of(
-            screenContext,
-          ).showSnackBar(SnackBar(content: Text(stateAfter.errorMessage!)));
-          return;
-        }
-
-        final msg = stateAfter.imagesMatchedCount > 0
-            ? 'Vinculação concluída: ${stateAfter.imagesMatchedCount} fotos vinculadas.'
-            : 'Vinculação concluída sem correspondências.';
-        ScaffoldMessenger.of(
-          screenContext,
-        ).showSnackBar(SnackBar(content: Text(msg)));
-      } catch (e) {
-        if (!mounted) return;
-        final rootNav = Navigator.of(screenContext, rootNavigator: true);
-        if (rootNav.canPop()) {
-          rootNav.pop();
-        }
-        ScaffoldMessenger.of(
-          screenContext,
-        ).showSnackBar(SnackBar(content: Text('Erro ao vincular: $e')));
-      }
-    });
-  }
-
-  void _showVincularProgressDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return Consumer(
-          builder: (context, ref, _) {
-            final importState = ref.watch(productImportViewModelProvider);
-            final failures = importState.linkReport
-                .where((item) => !item.linked)
-                .toList();
-            return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-              ),
-              title: const Text('Vinculando Fotos'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const SizedBox(height: 8),
-                    LinearProgressIndicator(
-                      value: importState.progress,
-                      backgroundColor: AppTokens.accentBlue.withOpacity(0.1),
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        AppTokens.accentBlue,
-                      ),
-                      minHeight: 8,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      importState.message ?? 'Iniciando...',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${(importState.progress * 100).toInt()}%',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (importState.imagesMatchedCount > 0) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        '${importState.imagesMatchedCount} fotos vinculadas',
-                        style: TextStyle(
-                          color: importState.imagesMatchedCount > 0
-                              ? AppTokens.accentGreen
-                              : Colors.orange,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                    if (importState.isDone &&
-                        importState.linkReport.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        'Relatório: ${importState.imagesMatchedCount}/${importState.imagesTotalCount} vinculadas',
-                        style: const TextStyle(fontSize: 12),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                    if (importState.isDone && failures.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Não vinculadas (${failures.length})',
-                          style: Theme.of(context).textTheme.labelMedium
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      SizedBox(
-                        height: 140,
-                        width: 320,
-                        child: ListView.separated(
-                          shrinkWrap: true,
-                          itemCount: failures.length,
-                          separatorBuilder: (_, _) => const Divider(height: 10),
-                          itemBuilder: (context, index) {
-                            final item = failures[index];
-                            return Text(
-                              '${item.fileName}: ${item.reason}',
-                              style: const TextStyle(fontSize: 11),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                    if (importState.errorMessage != null ||
-                        (importState.isDone &&
-                            importState.imagesMatchedCount == 0)) ...[
-                      const SizedBox(height: 20),
-                      if (importState.errorMessage != null)
-                        Text(
-                          importState.errorMessage!,
-                          style: const TextStyle(color: Colors.red, fontSize: 12),
-                          textAlign: TextAlign.center,
-                        )
-                      else
-                        const Text(
-                          'Nenhuma foto correspondeu às referências dos produtos selecionados.',
-                          style: TextStyle(fontSize: 12),
-                          textAlign: TextAlign.center,
-                        ),
-                      const SizedBox(height: 16),
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Fechar'),
-                      ),
-                    ],
-                    if (!importState.isLoading &&
-                        importState.errorMessage == null &&
-                        !importState.isDone) ...[
-                      const SizedBox(height: 16),
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Fechar'),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showExportProgressDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return Consumer(
-          builder: (context, ref, _) {
-            final exportState = ref.watch(productExportViewModelProvider);
-            return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-              ),
-              title: const Text('Preparando Backup'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const SizedBox(height: 8),
-                    LinearProgressIndicator(
-                      value: exportState.progress,
-                      backgroundColor: AppTokens.accentBlue.withOpacity(0.1),
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        AppTokens.accentBlue,
-                      ),
-                      minHeight: 8,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      exportState.message ?? 'Iniciando...',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${(exportState.progress * 100).toInt()}%',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
+    
+    // Dispara em background usando o novo sistema do AppScaffold
+    ref.read(productImportViewModelProvider.notifier)
+        .pickAndMatchImagesToExistingProducts();
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Iniciando vinculação de fotos em segundo plano...'),
+        backgroundColor: AppTokens.accentBlue,
+      ),
     );
   }
 
@@ -797,6 +598,78 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => ProductDetailScreen(product: product)),
     );
+  }
+
+  void _startCloudSync(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    
+    // 1. Avisa que começou em segundo plano
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('Sincronizando produtos com a nuvem em segundo plano...'),
+        duration: Duration(seconds: 3),
+        backgroundColor: Colors.blue,
+      ),
+    );
+
+    // 2. Dispara a sincronização sem 'await' para não travar a tela
+    ref.read(productsViewModelProvider.notifier).syncAllToCloud().then((count) {
+      if (context.mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Sincronização concluída! $count produtos enviados para a nuvem.'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }).catchError((e) {
+      if (context.mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Erro na sincronização em segundo plano: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    });
+  }
+
+  void _startCloudDownload(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    
+    // 1. Avisa que começou em segundo plano
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('Baixando catálogo da nuvem em segundo plano...'),
+        duration: Duration(seconds: 3),
+        backgroundColor: Colors.blue,
+      ),
+    );
+
+    // 2. Dispara a descarga sem 'await' para não travar a tela
+    ref.read(productsViewModelProvider.notifier).syncFromCloud().then((count) {
+      if (context.mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Sucesso! $count produtos baixados da nuvem para o seu celular.'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }).catchError((e) {
+      if (context.mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Erro ao baixar catálogo: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    });
   }
 
   void _openEdit(BuildContext context, Product product) {
@@ -833,7 +706,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   }
 }
 
-class _ProductsContent extends StatelessWidget {
+class _ProductsContent extends ConsumerWidget {
   final ProductsState state;
   final TextEditingController searchController;
   final ValueChanged<String> onSearchChanged;
@@ -871,10 +744,10 @@ class _ProductsContent extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final hasFilters =
-        state.searchQuery.isNotEmpty ||
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hasFilters = state.searchQuery.isNotEmpty ||
         state.productTypeFilterId != null ||
+        state.collectionFilterId != null ||
         state.statusFilter != ProductStatusFilter.all ||
         state.sortOption != ProductSort.recent;
 
@@ -885,41 +758,104 @@ class _ProductsContent extends StatelessWidget {
       );
     }
 
-    return RefreshIndicator(
-      onRefresh: onRefresh,
-      displacement: 20,
-      color: AppTokens.accentBlue,
-      child: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
-        physics:
-            const AlwaysScrollableScrollPhysics(), // Important for Pull-to-Refresh
-        children: [
-          const SizedBox(height: AppTokens.space16),
-          _KpiSection(state: state),
-          const SizedBox(height: AppTokens.space24),
-          _SearchAndFiltersSection(
-            state: state,
-            controller: searchController,
-            onSearchChanged: onSearchChanged,
-            onClearFilters: hasFilters ? onClearFilters : null,
+    final syncProgress = ref.watch(syncProgressProvider);
 
-            onSelectCategory: onSelectCategory,
-            onSelectStatus: onSelectStatus,
-            onSelectSort: onSelectSort,
+    return Column(
+      children: [
+        if (syncProgress.isSyncing)
+          _buildSyncProgressBanner(context, syncProgress),
+        Expanded( // Added Expanded to make RefreshIndicator take available space
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
+            child: RefreshIndicator(
+              onRefresh: onRefresh,
+              displacement: 20,
+              color: AppTokens.accentBlue,
+              child: ListView(
+                physics:
+                    const AlwaysScrollableScrollPhysics(), // Important for Pull-to-Refresh
+                children: [
+                  const SizedBox(height: AppTokens.space16),
+                  _KpiSection(state: state),
+                  const SizedBox(height: AppTokens.space24),
+                  _SearchAndFiltersSection(
+                    state: state,
+                    controller: searchController,
+                    onSearchChanged: onSearchChanged,
+                    onClearFilters: hasFilters ? onClearFilters : null,
+
+                    onSelectCategory: onSelectCategory,
+                    onSelectStatus: onSelectStatus,
+                    onSelectSort: onSelectSort,
+                  ),
+                  const SizedBox(height: AppTokens.space24),
+                  _ProductsListSection(
+                    state: state,
+                    onNewProduct: onNewProduct,
+                    onViewProduct: onViewProduct,
+                    onEditProduct: onEditProduct,
+                    onDeleteProduct: onDeleteProduct,
+                    onDuplicateProduct: onDuplicateProduct,
+                    onTogglePromo: onTogglePromo,
+                    selectedIds: state.selectedProductIds,
+                    onToggleSelection: onToggleSelection,
+                  ),
+                  const SizedBox(height: AppTokens.space48),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: AppTokens.space24),
-          _ProductsListSection(
-            state: state,
-            onNewProduct: onNewProduct,
-            onViewProduct: onViewProduct,
-            onEditProduct: onEditProduct,
-            onDeleteProduct: onDeleteProduct,
-            onDuplicateProduct: onDuplicateProduct,
-            onTogglePromo: onTogglePromo,
-            selectedIds: state.selectedProductIds,
-            onToggleSelection: onToggleSelection,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSyncProgressBanner(BuildContext context, SyncProgress sync) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.95),
+        border: const Border(bottom: BorderSide(color: Colors.black12)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  sync.message,
+                  style:
+                      const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '${(sync.progress * 100).toInt()}%',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: Theme.of(context).colorScheme.primary,
+                  fontSize: 12,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: AppTokens.space48),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: LinearProgressIndicator(
+              value: sync.progress,
+              minHeight: 4,
+            ),
+          ),
         ],
       ),
     );
