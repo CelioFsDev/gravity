@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/product_image.dart';
 import 'package:catalogo_ja/models/category.dart';
@@ -41,17 +40,6 @@ class ProductDetailScreen extends ConsumerWidget {
       subtitle: 'REF: ${updatedProduct.reference}',
       useAppBar: false,
       actions: [
-        IconButton(
-          tooltip: 'Voltar',
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            if (Navigator.of(context).canPop()) {
-              Navigator.of(context).pop();
-            } else {
-              context.go('/admin/products');
-            }
-          },
-        ),
         IconButton(
           icon: const Icon(Icons.edit_outlined),
           onPressed: () {

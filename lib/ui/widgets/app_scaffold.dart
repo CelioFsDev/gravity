@@ -15,6 +15,7 @@ class AppScaffold extends ConsumerWidget {
   final Widget? bottomNavigationBar;
   final bool useAppBar;
   final Widget? bottom;
+  final bool? showBackButton;
 
   const AppScaffold({
     super.key,
@@ -28,12 +29,15 @@ class AppScaffold extends ConsumerWidget {
     this.bottomNavigationBar,
     this.useAppBar = false,
     this.bottom,
+    this.showBackButton,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final hasTitle = title != null;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final canPop = Navigator.of(context).canPop();
+    final shouldShowBackButton = showBackButton ?? canPop;
     
     // Background Tasks logic
     final _ = ref.watch(globalLoadingProvider);
@@ -44,6 +48,7 @@ class AppScaffold extends ConsumerWidget {
       extendBodyBehindAppBar: true,
       appBar: (useAppBar && hasTitle)
           ? AppBar(
+              automaticallyImplyLeading: shouldShowBackButton,
               title: Text(title!),
               actions: actions,
               elevation: 0,
@@ -64,7 +69,14 @@ class AppScaffold extends ConsumerWidget {
           SafeArea(
             bottom: bottomNavigationBar == null,
             child: Center(
-              child: _buildContent(context, ref, hasTitle, isDark, activeTask),
+              child: _buildContent(
+                context,
+                ref,
+                hasTitle,
+                isDark,
+                activeTask,
+                shouldShowBackButton,
+              ),
             ),
           ),
         ],
@@ -74,13 +86,20 @@ class AppScaffold extends ConsumerWidget {
     );
   }
 
-  Widget _buildContent(BuildContext context, WidgetRef ref, bool hasTitle, bool isDark, BackgroundTask? activeTask) {
+  Widget _buildContent(
+    BuildContext context,
+    WidgetRef ref,
+    bool hasTitle,
+    bool isDark,
+    BackgroundTask? activeTask,
+    bool shouldShowBackButton,
+  ) {
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (activeTask != null) _buildGlobalProgress(context, activeTask),
         if (!useAppBar && showHeader && hasTitle)
-          _buildGlassHeader(context, isDark),
+          _buildGlassHeader(context, isDark, shouldShowBackButton),
         if (bottom != null) ...[bottom!],
         Expanded(child: body),
       ],
@@ -140,7 +159,11 @@ class AppScaffold extends ConsumerWidget {
     );
   }
 
-  Widget _buildGlassHeader(BuildContext context, bool isDark) {
+  Widget _buildGlassHeader(
+    BuildContext context,
+    bool isDark,
+    bool shouldShowBackButton,
+  ) {
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
@@ -163,6 +186,14 @@ class AppScaffold extends ConsumerWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              if (shouldShowBackButton) ...[
+                IconButton(
+                  tooltip: 'Voltar',
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: const Icon(Icons.arrow_back_rounded),
+                ),
+                const SizedBox(width: AppTokens.space8),
+              ],
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
