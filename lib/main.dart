@@ -35,6 +35,7 @@ import 'package:catalogo_ja/features/public/catalog_home_page.dart';
 import 'package:catalogo_ja/features/public/product_detail_screen.dart';
 import 'package:catalogo_ja/ui/theme/app_theme.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/features/auth/tenant_selection_screen.dart';
 import 'package:catalogo_ja/features/auth/login_screen.dart';
 import 'package:catalogo_ja/features/splash/splash_screen.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
@@ -178,7 +179,7 @@ class _MyAppState extends ConsumerState<MyApp> {
         }
 
         if (isAuthRoute) {
-          return '/admin/dashboard';
+          return '/select-tenant';
         }
 
         return null;
@@ -195,6 +196,10 @@ class _MyAppState extends ConsumerState<MyApp> {
         GoRoute(
           path: '/register',
           builder: (context, state) => const PublicRegisterScreen(),
+        ),
+        GoRoute(
+          path: '/select-tenant',
+          builder: (context, state) => const TenantSelectionScreen(),
         ),
         GoRoute(
           path: '/',
