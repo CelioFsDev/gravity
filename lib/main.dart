@@ -8,6 +8,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/firebase_options.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/category.dart';
@@ -58,7 +60,13 @@ void main() async {
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
   // Initialize Hive
-  await Hive.initFlutter();
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+    final dir = await getApplicationSupportDirectory();
+    final hivePath = p.join(dir.path, 'catalogo_ja', 'db');
+    await Hive.initFlutter(hivePath);
+  } else {
+    await Hive.initFlutter();
+  }
 
   // Register Adapters
   Hive.registerAdapter(CategoryTypeAdapter());
@@ -100,7 +108,12 @@ void main() async {
   }
 
   // Configuração do Crashlytics
-  if (!kIsWeb) {
+  final isMobile = !kIsWeb && 
+                   (defaultTargetPlatform == TargetPlatform.android || 
+                    defaultTargetPlatform == TargetPlatform.iOS ||
+                    defaultTargetPlatform == TargetPlatform.macOS);
+
+  if (isMobile) {
     FlutterError.onError = (errorDetails) {
       FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
     };
@@ -113,7 +126,7 @@ void main() async {
 
   runApp(const ProviderScope(child: MyApp()));
 
-  // Remove a splash nativa logo que o app está pronto
+  // Remove a splash nativa
   FlutterNativeSplash.remove();
 }
 

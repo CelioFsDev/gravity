@@ -1,6 +1,7 @@
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -16,8 +17,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _useEmailPassword = false;
+  late bool _useEmailPassword;
   bool _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // No Windows, forçamos o login por email por padrão
+    _useEmailPassword = defaultTargetPlatform == TargetPlatform.windows;
+  }
 
   @override
   void dispose() {
@@ -157,36 +165,40 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             Text(
                               _useEmailPassword
                                   ? 'Entre com email e senha cadastrados pelo administrador.'
-                                  : 'Entre com sua conta Google para gerenciar produtos e catalogos.',
+                                  : (defaultTargetPlatform == TargetPlatform.windows
+                                      ? 'Login pelo Google indisponível no Windows. Use o login por Email para entrar.'
+                                      : 'Entre com sua conta Google para gerenciar produtos e catalogos.'),
                               style: const TextStyle(
-                                fontSize: 14,
+                                fontSize: 13,
                                 color: AppTokens.textSecondary,
                                 height: 1.4,
                               ),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: AppTokens.space24),
-                            SegmentedButton<bool>(
-                              segments: const [
-                                ButtonSegment<bool>(
-                                  value: false,
-                                  label: Text('Google'),
-                                  icon: Icon(Icons.g_mobiledata),
-                                ),
-                                ButtonSegment<bool>(
-                                  value: true,
-                                  label: Text('Email'),
-                                  icon: Icon(Icons.alternate_email_outlined),
-                                ),
-                              ],
-                              selected: {_useEmailPassword},
-                              onSelectionChanged: (selection) {
-                                setState(() {
-                                  _useEmailPassword = selection.first;
-                                });
-                              },
-                            ),
-                            const SizedBox(height: AppTokens.space24),
+                            if (defaultTargetPlatform != TargetPlatform.windows) ...[
+                              SegmentedButton<bool>(
+                                segments: const [
+                                  ButtonSegment<bool>(
+                                    value: false,
+                                    label: Text('Google'),
+                                    icon: Icon(Icons.g_mobiledata),
+                                  ),
+                                  ButtonSegment<bool>(
+                                    value: true,
+                                    label: Text('Email'),
+                                    icon: Icon(Icons.alternate_email_outlined),
+                                  ),
+                                ],
+                                selected: {_useEmailPassword},
+                                onSelectionChanged: (selection) {
+                                  setState(() {
+                                    _useEmailPassword = selection.first;
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: AppTokens.space24),
+                            ],
                             authState.when(
                               data: (_) => _useEmailPassword
                                   ? _EmailPasswordForm(

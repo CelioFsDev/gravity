@@ -28,6 +28,12 @@ class FirebaseAuthRepository implements AuthRepository {
   Future<void> _ensureInitialized() async {
     if (_initialized) return;
 
+    // Google Sign in não suporta Windows nativamente ainda
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+      _initialized = true;
+      return;
+    }
+
     await GoogleSignIn.instance.initialize(serverClientId: _serverClientId);
     _initialized = true;
   }
@@ -46,6 +52,12 @@ class FirebaseAuthRepository implements AuthRepository {
         provider.addScope('email');
         provider.addScope('profile');
         return await _auth.signInWithPopup(provider);
+      }
+
+      if (defaultTargetPlatform == TargetPlatform.windows) {
+        throw UnsupportedError(
+          'Login pelo Google não suportado no Windows. Use Email e Senha.',
+        );
       }
 
       await _ensureInitialized();
@@ -88,11 +100,20 @@ class FirebaseAuthRepository implements AuthRepository {
     );
   }
 
-  @override
-  Future<void> signOut() async {
-    if (!kIsWeb) {
+  Future<void> _signOutGoogle() async {
+    final isMobile = !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS ||
+            defaultTargetPlatform == TargetPlatform.macOS);
+
+    if (isMobile) {
       await GoogleSignIn.instance.signOut();
     }
+  }
+
+  @override
+  Future<void> signOut() async {
+    await _signOutGoogle();
     await _auth.signOut();
   }
 }
