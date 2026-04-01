@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
@@ -68,14 +69,10 @@ class SaaSPhotoStorageService {
     required String tenantId,
     required String productId,
     required String localPath,
+    Uint8List? bytes, // Adicionado para suporte Web
     String? label,
   }) async {
-    final file = File(localPath);
-    if (!await file.exists()) {
-      throw Exception('Arquivo local n\u00e3o encontrado: $localPath');
-    }
-
-    final ext = p.extension(localPath);
+    final ext = p.extension(localPath).isNotEmpty ? p.extension(localPath) : '.jpg';
     final fileName = '${label ?? "image"}_${DateTime.now().millisecondsSinceEpoch}$ext';
     
     // Organiza por Empresa -> Produto -> Arquivo
@@ -91,7 +88,23 @@ class SaaSPhotoStorageService {
       },
     );
 
-    final uploadTask = await ref.putFile(file, metadata);
+    TaskSnapshot uploadTask;
+    
+    if (kIsWeb || bytes != null) {
+      // Caso Web ou se já tivermos os bytes na memória
+      if (bytes == null) {
+        throw Exception('Para fazer upload na web, os bytes da imagem devem ser fornecidos.');
+      }
+      uploadTask = await ref.putData(bytes, metadata);
+    } else {
+      // Caso Celular/Desktop (Android, iOS, Windows)
+      final file = File(localPath);
+      if (!await file.exists()) {
+        throw Exception('Arquivo local não encontrado: $localPath');
+      }
+      uploadTask = await ref.putFile(file, metadata);
+    }
+    
     return await uploadTask.ref.getDownloadURL();
   }
 
@@ -132,16 +145,14 @@ class SaaSPhotoStorageService {
       );
 
       TaskSnapshot task;
-      if (bytes != null) {
+      if (kIsWeb || bytes != null) {
+        if (bytes == null) return null;
         task = await ref.putData(Uint8List.fromList(bytes), metadata);
-      } else if (localPath != null) {
-        final file = File(localPath);
+      } else {
+        final file = File(localPath!);
         if (!file.existsSync()) return null;
         task = await ref.putFile(file, metadata);
-      } else {
-        return null;
       }
-
       return await task.ref.getDownloadURL();
     } catch (e) {
       print('Erro no upload da foto de perfil: $e');
