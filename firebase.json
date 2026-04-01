@@ -1,27 +1,17 @@
 {
-    "hosting": {
-        "site": "catalogo-ja-89aae-3e4ff",
-        "public": "build/web",
-        "ignore": [
-            "firebase.json",
-            "**/.*",
-            "**/node_modules/**"
-        ],
-        "rewrites": [
-            {
-                "source": "/s/**",
-                "function": "catalogSharePreview"
-            },
-            {
-                "source": "**",
-                "destination": "/index.html"
-            }
-        ]
-    },
-    "firestore": {
-        "rules": "firestore.rules"
-    },
-    "functions": {
-        "source": "functions"
-    }
+  "hosting": {
+    "site": "catalogoja",
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
 }
