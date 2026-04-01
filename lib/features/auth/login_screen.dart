@@ -17,14 +17,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  late bool _useEmailPassword;
   bool _obscurePassword = true;
 
   @override
   void initState() {
     super.initState();
-    // No Windows, forçamos o login por email por padrão
-    _useEmailPassword = defaultTargetPlatform == TargetPlatform.windows;
   }
 
   @override
@@ -32,10 +29,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
-  }
-
-  void _handleGoogleLogin() {
-    ref.read(authViewModelProvider.notifier).signInWithGoogle();
   }
 
   void _handleEmailPasswordLogin() {
@@ -154,101 +147,59 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             const Text(
                               'Acesse sua conta',
                               style: TextStyle(
-                                fontSize: 22,
+                                fontSize: 26,
                                 fontWeight: FontWeight.w800,
                                 color: AppTokens.textPrimary,
-                                letterSpacing: -0.4,
+                                letterSpacing: -0.5,
                               ),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: AppTokens.space8),
-                            Text(
-                              _useEmailPassword
-                                  ? 'Entre com email e senha cadastrados pelo administrador.'
-                                  : (defaultTargetPlatform == TargetPlatform.windows
-                                      ? 'Login pelo Google indisponível no Windows. Use o login por Email para entrar.'
-                                      : 'Entre com sua conta Google para gerenciar produtos e catalogos.'),
-                              style: const TextStyle(
+                            const Text(
+                              'Entre com seu e-mail e senha para gerenciar seus produtos.',
+                              style: TextStyle(
                                 fontSize: 13,
                                 color: AppTokens.textSecondary,
                                 height: 1.4,
                               ),
                               textAlign: TextAlign.center,
                             ),
-                            const SizedBox(height: AppTokens.space24),
-                            if (defaultTargetPlatform != TargetPlatform.windows) ...[
-                              SegmentedButton<bool>(
-                                segments: const [
-                                  ButtonSegment<bool>(
-                                    value: false,
-                                    label: Text('Google'),
-                                    icon: Icon(Icons.g_mobiledata),
-                                  ),
-                                  ButtonSegment<bool>(
-                                    value: true,
-                                    label: Text('Email'),
-                                    icon: Icon(Icons.alternate_email_outlined),
-                                  ),
-                                ],
-                                selected: {_useEmailPassword},
-                                onSelectionChanged: (selection) {
-                                  setState(() {
-                                    _useEmailPassword = selection.first;
-                                  });
-                                },
-                              ),
-                              const SizedBox(height: AppTokens.space24),
-                            ],
+                            const SizedBox(height: AppTokens.space32),
                             authState.when(
-                              data: (_) => _useEmailPassword
-                                  ? _EmailPasswordForm(
-                                      formKey: _formKey,
-                                      emailController: _emailController,
-                                      passwordController: _passwordController,
-                                      obscurePassword: _obscurePassword,
-                                      onTogglePassword: () {
-                                        setState(() {
-                                          _obscurePassword = !_obscurePassword;
-                                        });
-                                      },
-                                      onSubmit: _handleEmailPasswordLogin,
-                                    )
-                                  : _GoogleButton(
-                                      onPressed: _handleGoogleLogin,
-                                    ),
+                              data: (_) => _EmailPasswordForm(
+                                formKey: _formKey,
+                                emailController: _emailController,
+                                passwordController: _passwordController,
+                                obscurePassword: _obscurePassword,
+                                onTogglePassword: () => setState(
+                                  () => _obscurePassword = !_obscurePassword,
+                                ),
+                                onSubmit: _handleEmailPasswordLogin,
+                              ),
                               loading: () => const Center(
                                 child: CircularProgressIndicator(),
                               ),
-                              error: (error, _) => Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                              error: (e, _) => Column(
                                 children: [
-                                  Text(
-                                    _authErrorMessage(error),
-                                    style: const TextStyle(
-                                      color: AppTokens.accentRed,
-                                      fontSize: 12,
+                                  _EmailPasswordForm(
+                                    formKey: _formKey,
+                                    emailController: _emailController,
+                                    passwordController: _passwordController,
+                                    obscurePassword: _obscurePassword,
+                                    onTogglePassword: () => setState(
+                                      () => _obscurePassword =
+                                          !_obscurePassword,
                                     ),
+                                    onSubmit: _handleEmailPasswordLogin,
+                                  ),
+                                  const SizedBox(height: AppTokens.space16),
+                                  Text(
+                                    _authErrorMessage(e),
+                                    style: const TextStyle(
+                                        color: AppTokens.accentRed,
+                                        fontSize: 12),
                                     textAlign: TextAlign.center,
                                   ),
-                                  const SizedBox(height: 16),
-                                  _useEmailPassword
-                                      ? _EmailPasswordForm(
-                                          formKey: _formKey,
-                                          emailController: _emailController,
-                                          passwordController:
-                                              _passwordController,
-                                          obscurePassword: _obscurePassword,
-                                          onTogglePassword: () {
-                                            setState(() {
-                                              _obscurePassword =
-                                                  !_obscurePassword;
-                                            });
-                                          },
-                                          onSubmit: _handleEmailPasswordLogin,
-                                        )
-                                      : _GoogleButton(
-                                          onPressed: _handleGoogleLogin,
-                                        ),
                                 ],
                               ),
                             ),
@@ -267,18 +218,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: AppTokens.space24),
-                      Text(
-                        _useEmailPassword
-                            ? 'O cadastro por email e senha e criado apenas pelo super admin.'
-                            : 'Ao entrar, voce concorda com nossos Termos de Uso e Politica de Privacidade.',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.white.withValues(alpha: 0.64),
-                          height: 1.5,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
+                      const SizedBox(height: AppTokens.space48),
                     ],
                   ),
                 ),
@@ -291,39 +231,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 }
 
-class _GoogleButton extends StatelessWidget {
-  const _GoogleButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton(
-      onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-        side: const BorderSide(color: Color(0xFFE5E7EB)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        backgroundColor: Colors.white,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Image.asset('assets/images/google_logo.png', height: 24, width: 24),
-          const SizedBox(width: 12),
-          const Text(
-            'Entrar com Google',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF374151),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _EmailPasswordForm extends StatelessWidget {
   const _EmailPasswordForm({

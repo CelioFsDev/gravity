@@ -5,6 +5,7 @@ import 'package:catalogo_ja/data/repositories/user_repository.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/data/repositories/categories_repository.dart';
 import 'package:catalogo_ja/data/repositories/catalogs_repository.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
@@ -47,17 +48,40 @@ class AuthViewModel extends StreamNotifier<User?> {
 
   void _triggerInitialDataDownload() async {
     try {
-      // Aguarda o tenant ser carregado (o que acontece logo após o ensureUserProfile sincronizar o Firestore)
-      final tenant = await ref.read(currentTenantProvider.future);
+      if (kDebugMode) {
+        debugPrint('🚀 [AppLogger] Iniciando sincronização de dados após login...');
+      }
+      
+      // Aguarda um pequeno momento para garantir que o Firestore tenha propagado o perfil
+      await Future.delayed(const Duration(seconds: 1));
+
+      // Tenta obter o tenant. Se falhar, tentamos mais uma vez após 2 segundos
+      var tenant = await ref.read(currentTenantProvider.future);
+      
+      if (tenant == null) {
+        if (kDebugMode) {
+          debugPrint('⚠️ [AppLogger] Tenant não encontrado no primeiro segundo. Tentando novamente...');
+        }
+        await Future.delayed(const Duration(seconds: 2));
+        tenant = await ref.read(currentTenantProvider.future);
+      }
+
       if (tenant != null) {
-        // Iniciamos o download em background. 
-        // Os métodos syncFromCloud já lidam com o estado de progresso se o usuário abrir as telas.
-        ref.read(categoriesViewModelProvider.notifier).syncFromCloud();
-        ref.read(productsViewModelProvider.notifier).syncFromCloud();
-        ref.read(catalogsViewModelProvider.notifier).syncFromCloud();
+        if (kDebugMode) {
+          debugPrint('🚀 [AppLogger] Empresa (Tenant) identificada: ${tenant.id}. Baixando catálogos...');
+        }
+        
+        // Dispara o download em paralelo
+        Future.wait([
+          ref.read(categoriesViewModelProvider.notifier).syncFromCloud(),
+          ref.read(productsViewModelProvider.notifier).syncFromCloud(),
+          ref.read(catalogsViewModelProvider.notifier).syncFromCloud(),
+        ]);
+      } else {
+        _logger.logError('Não foi possível identificar a empresa vinculada a este usuário após o login.');
       }
     } catch (e) {
-      _logger.logError('Erro no disparo do download inicial', error: e);
+      _logger.logError('Erro crítico no disparo do download inicial', error: e);
     }
   }
 
