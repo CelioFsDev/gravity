@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/viewmodels/settings_viewmodel.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
@@ -109,6 +110,60 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
+      }
+    }
+  }
+
+  Future<void> _findMyLostData() async {
+    final email = ref.read(authViewModelProvider).valueOrNull?.email;
+    if (email == null) return;
+    final emailDoc = email.toLowerCase().trim();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final query = await FirebaseFirestore.instance.collection('products').limit(1).get();
+      if (mounted) Navigator.pop(context); // Fecha loading
+
+      if (query.docs.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Nenhum dado encontrado no banco global.')),
+          );
+        }
+        return;
+      }
+
+      final legacyTenantId = query.docs.first.data()['tenantId'] as String?;
+      if (legacyTenantId != null && mounted) {
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Resgate de Dados'),
+            content: Text('Detectamos produtos antigos sob o código: "$legacyTenantId".\nDeseja vincular sua conta a esses dados e reiniciar o app?'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCELAR')),
+              FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('RESGATAR E ENTRAR')),
+            ],
+          ),
+        );
+
+        if (confirm == true) {
+          await FirebaseFirestore.instance.collection('users').doc(emailDoc).update({
+            'tenantId': legacyTenantId,
+            'tenantIds': FieldValue.arrayUnion([legacyTenantId]),
+          });
+          if (mounted) context.go('/admin/dashboard');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        if (Navigator.canPop(context)) Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
       }
     }
   }
@@ -321,6 +376,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
+            const SizedBox(height: 24),
+            if (ref.watch(currentRoleProvider).canManageUsers(
+                  ref.watch(authViewModelProvider).valueOrNull?.email,
+                ))
+              SectionCard(
+                title: 'Manutenção e Resgate',
+                child: Column(
+                  children: [
+                    const Text(
+                      'Use esta ferramenta para escanear o banco de dados em busca de catálogos antigos que não aparecem na sua conta atual.',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppTokens.accentOrange,
+                        ),
+                        onPressed: _findMyLostData,
+                        icon: const Icon(Icons.history_outlined),
+                        label: const Text('ESCANEAR E RESGATAR DADOS'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),

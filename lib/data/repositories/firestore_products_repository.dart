@@ -4,6 +4,7 @@ import 'package:catalogo_ja/models/product_image.dart';
 import 'package:catalogo_ja/data/repositories/contracts/products_repository_contract.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 
@@ -169,6 +170,18 @@ final syncProductsRepositoryProvider = Provider<ProductsRepositoryContract>((
   return tenantAsync.when(
     data: (tenant) {
       if (tenant != null) {
+        // ✨ SaaS Logic: Na Web, usamos a nuvem em tempo real (Live Cloud)
+        // No Celular/Desktop, usamos o cache local resiliente.
+        if (kIsWeb) {
+          // O FirestoreProductsRepository lida com Firestore e Hive. 
+          // Mas aqui garantimos que a fonte da verdade na Web é sempre a nuvem.
+          return FirestoreProductsRepository(
+            localRepo,
+            storageService,
+            tenant.id,
+          );
+        }
+        
         return FirestoreProductsRepository(
           localRepo,
           storageService,

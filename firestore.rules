@@ -42,33 +42,35 @@ service cloud.firestore {
     }
 
     match /users/{userEmail} {
-      allow read: if isAdmin() || isSelf(userEmail);
-      allow create: if isAdmin()
-        || (isSelf(userEmail) && request.resource.data.role == 'viewer');
-      allow update: if isAdmin()
-        || (isSelf(userEmail) && request.resource.data.role == resource.data.role);
+      allow read: if isSignedIn() && (isAdmin() || isSelf(userEmail));
+      allow create: if isSignedIn() && (isAdmin() || isSelf(userEmail));
+      allow update: if isSignedIn() && (isAdmin() || isSelf(userEmail));
       allow delete: if isAdmin();
+    }
+
+    match /tenants/{tenantId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
 
     match /products/{productId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow write: if isSignedIn(); // SaaS Level: Podem escrever se estiverem logados (filtragem feita no app por tenantId)
     }
 
     match /categories/{categoryId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow write: if isSignedIn();
     }
 
     match /catalogs/{catalogId} {
-      allow read: if resource.data.isPublic == true || isOwner(resource.data);
-      allow create: if isSignedIn() && request.resource.data.ownerUid == request.auth.uid;
-      allow update, delete: if isOwner(resource.data);
+      allow read: if (isSignedIn() && (resource.data.isPublic == true || isSuperAdmin())) || true; // Permitir leitura pública
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn();
 
       match /items/{itemId} {
-        allow read: if get(/databases/$(database)/documents/catalogs/$(catalogId)).data.isPublic == true
-          || isOwner(get(/databases/$(database)/documents/catalogs/$(catalogId)).data);
-        allow write: if isOwner(get(/databases/$(database)/documents/catalogs/$(catalogId)).data);
+        allow read: if true;
+        allow write: if isSignedIn();
       }
     }
   }

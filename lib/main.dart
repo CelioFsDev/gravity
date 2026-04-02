@@ -39,6 +39,7 @@ import 'package:catalogo_ja/features/auth/tenant_selection_screen.dart';
 import 'package:catalogo_ja/features/auth/login_screen.dart';
 import 'package:catalogo_ja/features/splash/splash_screen.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -176,6 +177,16 @@ class _MyAppState extends ConsumerState<MyApp> {
 
         if (user == null) {
           return isAuthRoute ? null : '/login';
+        }
+
+        // ✨ SaaS Logic: Se logado mas sem tenant ativo, FORÇA a seleção de empresa
+        final currentTenantAsync = ref.read(currentTenantProvider);
+        final isSelectingTenant = state.matchedLocation == '/select-tenant';
+        
+        // Só redireciona se já terminou de carregar (AsyncData) e o valor for nulo
+        if (currentTenantAsync is AsyncData && currentTenantAsync.value == null &&
+            !isSelectingTenant && !isAuthRoute && !isSplash) {
+          return '/select-tenant';
         }
 
         if (isAuthRoute) {

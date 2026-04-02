@@ -17,7 +17,10 @@ class Tenant {
     this.banners = const [],
     this.primaryColor,
     this.metadata = const {},
+    this.stores = const [], // Adicionado suporte a múltiplas lojas
   });
+
+  final List<String> stores;
 
   Map<String, dynamic> toMap() {
     return {
@@ -28,6 +31,7 @@ class Tenant {
       'banners': banners,
       'primaryColor': primaryColor,
       'metadata': metadata,
+      'stores': stores,
     };
   }
 
@@ -40,6 +44,7 @@ class Tenant {
       banners: List<String>.from(map['banners'] ?? []),
       primaryColor: map['primaryColor'],
       metadata: Map<String, dynamic>.from(map['metadata'] ?? {}),
+      stores: List<String>.from(map['stores'] ?? []),
     );
   }
 
@@ -53,6 +58,7 @@ class Tenant {
     List<String>? banners,
     String? primaryColor,
     Map<String, dynamic>? metadata,
+    List<String>? stores,
   }) {
     return Tenant(
       id: id ?? this.id,
@@ -62,6 +68,7 @@ class Tenant {
       banners: banners ?? this.banners,
       primaryColor: primaryColor ?? this.primaryColor,
       metadata: metadata ?? this.metadata,
+      stores: stores ?? this.stores,
     );
   }
 }

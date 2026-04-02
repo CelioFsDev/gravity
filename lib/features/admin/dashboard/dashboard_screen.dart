@@ -6,6 +6,7 @@ import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/data/repositories/firestore_products_repository.dart';
 import 'package:catalogo_ja/data/repositories/firestore_categories_repository.dart';
 import 'package:catalogo_ja/data/repositories/firestore_catalogs_repository.dart';
+import 'package:catalogo_ja/viewmodels/global_sync_viewmodel.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -79,6 +80,30 @@ class DashboardScreen extends ConsumerWidget {
                           mainAxisSpacing: AppTokens.space12,
                           crossAxisSpacing: AppTokens.space12,
                           children: [
+                            _QuickActionCard(
+                              label: 'Sincronizar Cloud',
+                              icon: Icons.cloud_sync,
+                              onTap: () async {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Sincronizando com a Nuvem... ☁️📥'), duration: Duration(seconds: 2)),
+                                );
+                                try {
+                                  await ref.read(globalSyncViewModelProvider.notifier).syncDownEverything();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Catálogo Atualizado com Sucesso! ✅'), backgroundColor: AppTokens.accentGreen),
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Erro na sincronização: $e'), backgroundColor: Colors.red),
+                                    );
+                                  }
+                                }
+                              },
+                            ),
                             _QuickActionCard(
                               label: 'Novo Produto',
                               icon: Icons.add_box_outlined,
