@@ -1,7 +1,9 @@
-import 'dart:io';
 import 'dart:convert';
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/product_image.dart';
@@ -23,6 +25,8 @@ import 'package:catalogo_ja/features/admin/categories/widgets/category_create_mo
 import 'package:go_router/go_router.dart';
 import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
 import 'package:catalogo_ja/core/error/app_failure.dart';
+import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart'; // Para pegar tenantId
+
 
 class ProductFormScreen extends ConsumerStatefulWidget {
   final Product? product; // null for Create, non-null for Edit
@@ -61,6 +65,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   };
 
   final _formKey = GlobalKey<FormState>();
+  final _scrollController = ScrollController();
+
 
   // Controllers
   late TextEditingController _nameController;
@@ -81,11 +87,17 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   bool _isOutOfStock = false;
   bool _isOnSale = false;
   List<ProductPhoto> _photos = [];
+  late final String _draftProductId;
+  final Set<String> _pendingWebUploadUrls = <String>{};
+  bool _didPersistProduct = false;
+  bool _isUploadingWebPhoto = false;
+  String _webPhotoUploadMessage = 'Enviando foto...';
 
   @override
   void initState() {
     super.initState();
     final pr = widget.product;
+    _draftProductId = pr?.id ?? const Uuid().v4();
     _nameController = TextEditingController(text: pr?.name ?? '');
     _refController = TextEditingController(text: pr?.reference ?? '');
     _skuController = TextEditingController(text: pr?.sku ?? '');
@@ -130,6 +142,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
   @override
   void dispose() {
+    if (kIsWeb && !_didPersistProduct && _pendingWebUploadUrls.isNotEmpty) {
+      unawaited(_cleanupPendingWebUploads());
+    }
     _nameController.dispose();
     _refController.dispose();
     _skuController.dispose();
@@ -139,6 +154,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     _sizesController.dispose();
     _colorsController.dispose();
     _discountController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -158,8 +174,17 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   }
 
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_selectedCollectionId == null) {
+    if (!_formKey.currentState!.validate()) {
+      _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+      return;
+    }
+    
+    final currentTenant = ref.read(currentTenantProvider).value;
+    final tenantId = currentTenant?.id;
+
+    final requiresCollection = widget.product == null;
+    if (requiresCollection && _selectedCollectionId == null) {
+      _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('A cole\u00e7\u00e3o \u00e9 obrigat\u00f3ria'),
@@ -174,11 +199,11 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
     // Combine Collection + Categories
     final categoryIds = <String>[
-      _selectedCollectionId!,
+      if (_selectedCollectionId != null) _selectedCollectionId!,
       ..._selectedCategoryIds,
     ];
     final product = Product(
-      id: widget.product?.id ?? const Uuid().v4(),
+      id: _draftProductId,
       name: _nameController.text,
       ref: _refController.text,
       sku: _skuController.text,
@@ -208,9 +233,13 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           ? (int.tryParse(_discountController.text) ?? 0).toDouble()
           : 0.0,
       description: widget.product?.description,
+      tenantId: tenantId ?? widget.product?.tenantId,
     );
 
     try {
+      if (kIsWeb && _pendingWebUploadUrls.isNotEmpty) {
+        await _finalizePendingWebUploads();
+      }
       if (widget.product == null) {
         await ref.read(productsViewModelProvider.notifier).addProduct(product);
       } else {
@@ -218,6 +247,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
             .read(productsViewModelProvider.notifier)
             .updateProduct(product);
       }
+      _didPersistProduct = true;
+      _pendingWebUploadUrls.clear();
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
@@ -239,6 +270,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: false,
         type: FileType.any,
+        withData: kIsWeb,
       );
       if (result == null || result.files.isEmpty) return;
       final file = result.files.first;
@@ -255,9 +287,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       );
       if (resolved == null || !mounted) return;
 
-      setState(() {
-        // Clear previous primary and set this one
-        _photos = _photos.map((p) => p.copyWith(isPrimary: false)).toList();
+      await _replacePhotosWithCleanup((currentPhotos) {
+        final nextPhotos =
+            currentPhotos.map((p) => p.copyWith(isPrimary: false)).toList();
 
         final newPhoto = ProductPhoto(
           path: resolved,
@@ -265,13 +297,13 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           isPrimary: true,
         );
 
-        // Replace existing primary if it exists
-        final existingIdx = _photos.indexWhere((p) => p.photoType == 'P');
+        final existingIdx = nextPhotos.indexWhere((p) => p.photoType == 'P');
         if (existingIdx != -1) {
-          _photos[existingIdx] = newPhoto;
+          nextPhotos[existingIdx] = newPhoto;
         } else {
-          _photos.insert(0, newPhoto);
+          nextPhotos.insert(0, newPhoto);
         }
+        return nextPhotos;
       });
     } catch (e) {
       if (mounted) {
@@ -287,6 +319,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
         type: FileType.any,
+        withData: kIsWeb,
       );
       if (result == null || result.files.isEmpty) return;
 
@@ -325,9 +358,11 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           }
         }
 
-        setState(() {
+        await _replacePhotosWithCleanup((currentPhotos) {
+          var nextPhotos = List<ProductPhoto>.from(currentPhotos);
           if (isPrimary) {
-            _photos = _photos.map((p) => p.copyWith(isPrimary: false)).toList();
+            nextPhotos =
+                nextPhotos.map((p) => p.copyWith(isPrimary: false)).toList();
           }
 
           final newPhoto = ProductPhoto(
@@ -338,22 +373,22 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           );
 
           if (photoType != null && photoType.startsWith('C')) {
-            _photos = ref
+            nextPhotos = ref
                 .read(photoClassificationServiceProvider.notifier)
-                .organizeColors(_photos, newPhoto);
+                .organizeColors(nextPhotos, newPhoto);
           } else if (photoType != null) {
-            // P, D1, D2 - Replace if same type exists
-            final existingIdx = _photos.indexWhere(
+            final existingIdx = nextPhotos.indexWhere(
               (p) => p.photoType == photoType,
             );
             if (existingIdx != -1) {
-              _photos[existingIdx] = newPhoto;
+              nextPhotos[existingIdx] = newPhoto;
             } else {
-              _photos.add(newPhoto);
+              nextPhotos.add(newPhoto);
             }
           } else {
-            _photos.add(newPhoto);
+            nextPhotos.add(newPhoto);
           }
+          return nextPhotos;
         });
       }
     } catch (e) {
@@ -374,6 +409,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: currentDetails == 0,
         type: FileType.any,
+        withData: kIsWeb,
       );
       if (result == null || result.files.isEmpty) return;
 
@@ -401,18 +437,22 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
             classifiedType == 'D1' || classifiedType == 'D2'
             ? classifiedType
             : (existingDetails == 0 ? 'D1' : 'D2');
-        setState(() {
+        await _replacePhotosWithCleanup((currentPhotos) {
+          final nextPhotos = List<ProductPhoto>.from(currentPhotos);
           final newPhoto = ProductPhoto(
             path: resolved,
             photoType: nextType,
             isPrimary: false,
           );
-          final existingIdx = _photos.indexWhere((p) => p.photoType == nextType);
+          final existingIdx = nextPhotos.indexWhere(
+            (p) => p.photoType == nextType,
+          );
           if (existingIdx != -1) {
-            _photos[existingIdx] = newPhoto;
+            nextPhotos[existingIdx] = newPhoto;
           } else {
-            _photos.add(newPhoto);
+            nextPhotos.add(newPhoto);
           }
+          return nextPhotos;
         });
       }
     } catch (e) {
@@ -433,6 +473,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: false,
         type: FileType.any,
+        withData: kIsWeb,
       );
       if (result == null || result.files.isEmpty) return;
       final file = result.files.first;
@@ -478,16 +519,16 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       );
       if (resolved == null || !mounted) return;
 
-      setState(() {
+      await _replacePhotosWithCleanup((currentPhotos) {
         final newPhoto = ProductPhoto(
           path: resolved,
           colorKey: colorKey,
           photoType: photoType,
           isPrimary: false,
         );
-        _photos = ref
+        return ref
             .read(photoClassificationServiceProvider.notifier)
-            .organizeColors(_photos, newPhoto);
+            .organizeColors(List<ProductPhoto>.from(currentPhotos), newPhoto);
       });
     } catch (e) {
       if (mounted) {
@@ -663,39 +704,69 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     PlatformFile file, {
     PhotoClassification? classification,
   }) async {
-    final ext = p.extension(file.name).toLowerCase();
-    if (!_supportedImageExtensions.contains(ext)) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Arquivo "${file.name}" ignorado (n\u00e3o \u00e9 imagem).',
-            ),
-          ),
-        );
+    try {
+      final ext = (file.extension?.toLowerCase() ?? 'jpg').replaceAll('.', '');
+      final isImage = _supportedImageExtensions.contains('.$ext');
+      
+      if (!isImage) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Arquivo "${file.name}" ignorado (não é imagem).')),
+          );
+        }
+        return null;
       }
+
+      if (kIsWeb) {
+        final bytes = file.bytes;
+        if (bytes == null) return null;
+
+        final tenantId = ref.read(currentTenantProvider).value?.id;
+        if (tenantId == null || tenantId.isEmpty) {
+          throw Exception('Empresa não identificada para enviar imagem.');
+        }
+
+        final storageService = ref.read(saasPhotoStorageProvider);
+        if (mounted) {
+          setState(() {
+            _isUploadingWebPhoto = true;
+            _webPhotoUploadMessage = 'Enviando ${file.name}...';
+          });
+        }
+        final uploadedUrl = await storageService.uploadProductImage(
+          tenantId: tenantId,
+          productId: _draftProductId,
+          localPath: file.name,
+          bytes: bytes,
+          label: classification?.photoType,
+          temporary: true,
+        );
+        _pendingWebUploadUrls.add(uploadedUrl);
+        if (mounted) {
+          setState(() {
+            _isUploadingWebPhoto = false;
+            _webPhotoUploadMessage = 'Enviando foto...';
+          });
+        }
+        return uploadedUrl;
+      }
+
+      // 📱 MOBILE/DESKTOP: Salvamento em arquivo local persistente
+      final resolved = await _copyFileToPersistentStorage(
+        file,
+        classification: classification,
+      );
+      return resolved;
+    } catch (e) {
+      if (mounted && _isUploadingWebPhoto) {
+        setState(() {
+          _isUploadingWebPhoto = false;
+          _webPhotoUploadMessage = 'Enviando foto...';
+        });
+      }
+      debugPrint('Erro ao processar imagem escolhida: $e');
       return null;
     }
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Copiando ${file.name}...'),
-          duration: const Duration(milliseconds: 500),
-        ),
-      );
-    }
-
-    final resolved = await _copyFileToPersistentStorage(
-      file,
-      classification: classification,
-    );
-    if (resolved == null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Falha ao processar "${file.name}".')),
-      );
-    }
-    return resolved;
   }
 
   List<ProductPhoto> _normalizePhotosForSave() {
@@ -730,16 +801,26 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     if (photos.isEmpty) return const [];
     final updated = List<ProductPhoto>.from(photos);
 
+    // 1. Tenta encontrar a foto explicitamente marcada como 'P' (Principal)
     var primaryIndex = updated.indexWhere((p) => p.photoType == 'P');
-    primaryIndex = primaryIndex >= 0
-        ? primaryIndex
-        : updated.indexWhere((p) => p.isPrimary);
-    primaryIndex = primaryIndex >= 0 ? primaryIndex : 0;
+    
+    // 2. Se não achar 'P', tenta encontrar qualquer uma marcada como isPrimary
+    if (primaryIndex < 0) {
+      primaryIndex = updated.indexWhere((p) => p.isPrimary);
+    }
 
+    // 🚀 MUDANÇA CRUCIAL: Se não houver nenhuma marcada, NÃO force a primeira (índice 0).
+    // Deixe o slot principal vazio até que o usuário adicione uma.
+    if (primaryIndex < 0) {
+      return updated.map((p) => p.copyWith(isPrimary: false)).toList();
+    }
+
+    // Garante que apenas a escolhida seja isPrimary
     for (var i = 0; i < updated.length; i++) {
       updated[i] = updated[i].copyWith(isPrimary: i == primaryIndex);
     }
 
+    // Move a principal para o topo da lista interna para facilitar o processamento
     if (primaryIndex > 0) {
       final primary = updated.removeAt(primaryIndex);
       updated.insert(0, primary);
@@ -784,9 +865,11 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     });
   }
 
-  void _removePhoto(int index) {
+  Future<void> _removePhoto(int index) async {
+    if (index < 0 || index >= _photos.length) return;
+    final removedPhoto = _photos[index];
     setState(() {
-      final removedPrimary = _photos[index].isPrimary;
+      final removedPrimary = removedPhoto.isPrimary;
       _photos.removeAt(index);
       if (removedPrimary && _photos.isNotEmpty) {
         _photos = _photos.asMap().entries.map((entry) {
@@ -794,6 +877,59 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         }).toList();
       }
     });
+
+    if (kIsWeb && _pendingWebUploadUrls.remove(removedPhoto.path)) {
+      try {
+        await ref.read(saasPhotoStorageProvider).deleteFileByUrl(removedPhoto.path);
+      } catch (e) {
+        debugPrint('Erro ao apagar upload temporário: $e');
+      }
+    }
+  }
+
+  Future<void> _replacePhotosWithCleanup(
+    List<ProductPhoto> Function(List<ProductPhoto>) transform,
+  ) async {
+    final previousPhotos = List<ProductPhoto>.from(_photos);
+    final nextPhotos = transform(previousPhotos);
+    final nextPaths = nextPhotos.map((p) => p.path).toSet();
+
+    setState(() {
+      _photos = nextPhotos;
+    });
+
+    for (final photo in previousPhotos) {
+      if (!nextPaths.contains(photo.path)) {
+        await _deletePendingWebUploadIfNeeded(photo.path);
+      }
+    }
+  }
+
+  Future<void> _deletePendingWebUploadIfNeeded(String path) async {
+    if (!kIsWeb || !_pendingWebUploadUrls.remove(path)) return;
+    try {
+      await ref.read(saasPhotoStorageProvider).deleteFileByUrl(path);
+    } catch (e) {
+      debugPrint('Erro ao apagar upload temporário: $e');
+    }
+  }
+
+  Future<void> _finalizePendingWebUploads() async {
+    final storageService = ref.read(saasPhotoStorageProvider);
+    for (final url in _pendingWebUploadUrls.toList()) {
+      await storageService.finalizeProductImage(url);
+    }
+  }
+
+  Future<void> _cleanupPendingWebUploads() async {
+    final storageService = ref.read(saasPhotoStorageProvider);
+    for (final url in _pendingWebUploadUrls.toList()) {
+      try {
+        await storageService.deleteFileByUrl(url);
+      } catch (e) {
+        debugPrint('Erro ao limpar upload temporário: $e');
+      }
+    }
   }
 
   Future<String?> _copyFileToPersistentStorage(
@@ -921,7 +1057,14 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   @override
   Widget build(BuildContext context) {
     final productsState = ref.watch(productsViewModelProvider);
+    final syncProgress = ref.watch(syncProgressProvider);
+    
+    // 🤫 Só mostramos se estiver sincronizando E NÃO for um download de fundo (Baixando...)
+    final shouldShowOverlay = syncProgress.isSyncing && 
+                             !syncProgress.message.contains('Baixando');
+    
     productsState.showSnackbarOnError(context);
+
     final categories = productsState.hasValue
         ? productsState.value!.categories
         : <Category>[];
@@ -951,195 +1094,308 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       _categorySelectionInitialized = true;
     }
 
-    return AppScaffold(
-      title: widget.product == null ? 'Novo Produto' : 'Editar Produto',
-      subtitle: widget.product == null
-          ? 'Preencha os dados do novo item'
-          : 'Atualize as informa\u00e7\u00f5es do produto',
-      useAppBar: true,
-      actions: [
-        IconButton(
-          tooltip: 'Menu principal',
-          icon: const Icon(Icons.home_outlined),
-          onPressed: () => context.go('/admin/products'),
-        ),
-      ],
-      body: Form(
-        key: _formKey,
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppTokens.space24,
-                ),
-                children: [
-                  const SizedBox(height: AppTokens.space24),
-                  SectionCard(
-                    title: 'Informa\u00e7\u00f5es B\u00e1sicas',
-                    child: Column(
-                      children: [
-                        _buildTextField(
-                          _nameController,
-                          'Nome do Produto',
-                          validator: (v) =>
-                              v!.isEmpty ? 'Obrigat\u00f3rio' : null,
-                        ),
-                        const SizedBox(height: AppTokens.space16),
-                        Row(
+    return Stack(
+      children: [
+        AppScaffold(
+          title: widget.product == null ? 'Novo Produto' : 'Editar Produto',
+          subtitle: widget.product == null
+              ? 'Preencha os dados do novo item'
+              : 'Atualize as informa\u00e7\u00f5es do produto',
+          useAppBar: true,
+          actions: [
+            IconButton(
+              tooltip: 'Menu principal',
+              icon: const Icon(Icons.home_outlined),
+              onPressed: () => context.go('/admin/products'),
+            ),
+          ],
+          body: Form(
+            key: _formKey,
+            child: Column(
+              children: [
+                Expanded(
+                  child: ListView(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppTokens.space24,
+                    ),
+                    children: [
+                      const SizedBox(height: AppTokens.space24),
+                      SectionCard(
+                        title: 'Informa\u00e7\u00f5es B\u00e1sicas',
+                        child: Column(
                           children: [
-                            Expanded(
-                              child: _buildTextField(
-                                _refController,
-                                'REF (C\u00f3digo)',
+                            _buildTextField(
+                              _nameController,
+                              'Nome do Produto',
+                              validator: (v) =>
+                                  v!.isEmpty ? 'Obrigat\u00f3rio' : null,
+                            ),
+                            const SizedBox(height: AppTokens.space16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildTextField(
+                                    _refController,
+                                    'REF (C\u00f3digo)',
+                                    validator: (v) {
+                                      if (v == null || v.isEmpty) {
+                                        return 'Obrigat\u00f3rio';
+                                      }
+                                      final state = ref
+                                          .read(productsViewModelProvider)
+                                          .value;
+                                      if (state != null) {
+                                        final exists = state.allProducts.any(
+                                          (p) =>
+                                              p.ref.toUpperCase() ==
+                                                  v.toUpperCase() &&
+                                              p.id != widget.product?.id,
+                                        );
+                                        if (exists) return 'Indispon\u00edvel';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: AppTokens.space12),
+                                Expanded(
+                                  child: _buildTextField(_skuController, 'SKU'),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: AppTokens.space16),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: AppTokens.space24),
+                      SectionCard(
+                        title: 'Organiza\u00e7\u00e3o',
+                        child: _buildOrganizationSection(
+                          context,
+                          collections,
+                          productTypes,
+                        ),
+                      ),
+                      const SizedBox(height: AppTokens.space24),
+                      SectionCard(
+                        title: 'Pre\u00e7os e Estoque',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildTextField(
+                                    _retailController,
+                                    'Pre\u00e7o Varejo',
+                                    isPrice: true,
+                                  ),
+                                ),
+                                const SizedBox(width: AppTokens.space12),
+                                Expanded(
+                                  child: _buildTextField(
+                                    _wholesaleController,
+                                    'Pre\u00e7o Atacado',
+                                    isPrice: true,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: AppTokens.space16),
+                            _buildTextField(
+                              _minQtyController,
+                              'Quantidade M\u00ednima para Atacado',
+                              isNumber: true,
+                            ),
+                            const SizedBox(height: AppTokens.space12),
+                            Text(
+                              'O pre\u00e7o atacado ser\u00e1 aplicado automaticamente no carrinho para quantidades maiores que o m\u00ednimo.',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: AppTokens.space24),
+                      SectionCard(
+                        title: 'Varia\u00e7\u00f5es (Opcional)',
+                        child: Column(
+                          children: [
+                            _buildTextField(
+                              _sizesController,
+                              'Tamanhos (ex: P, M, G ou 38, 40)',
+                            ),
+                            const SizedBox(height: AppTokens.space16),
+                            _buildTextField(
+                              _colorsController,
+                              'Cores (ex: Preto, Branco, Azul)',
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: AppTokens.space24),
+                      SectionCard(
+                        title: 'Disponibilidade e Promo\u00e7\u00e3o',
+                        child: Column(
+                          children: [
+                            _buildSwitchTile(
+                              'Produto Ativo no Cat\u00e1logo',
+                              _isActive,
+                              (v) => setState(() => _isActive = v),
+                            ),
+                            const Divider(),
+                            _buildSwitchTile(
+                              'Produto Esgotado',
+                              _isOutOfStock,
+                              (v) => setState(() => _isOutOfStock = v),
+                            ),
+                            const Divider(),
+                            _buildSwitchTile(
+                              'Em Promo\u00e7\u00e3o',
+                              _isOnSale,
+                              (v) => setState(() => _isOnSale = v),
+                            ),
+                            if (_isOnSale) ...[
+                              const SizedBox(height: AppTokens.space16),
+                              _buildTextField(
+                                _discountController,
+                                'Porcentagem de Desconto (%)',
+                                isNumber: true,
                                 validator: (v) {
-                                  if (v == null || v.isEmpty) {
-                                    return 'Obrigat\u00f3rio';
+                                  if (_isOnSale && (v == null || v.isEmpty)) {
+                                    return 'Informe o desconto';
                                   }
-                                  final state = ref
-                                      .read(productsViewModelProvider)
-                                      .value;
-                                  if (state != null) {
-                                    final exists = state.allProducts.any(
-                                      (p) =>
-                                          p.ref.toUpperCase() ==
-                                              v.toUpperCase() &&
-                                          p.id != widget.product?.id,
-                                    );
-                                    if (exists) return 'Indispon\u00edvel';
-                                  }
+                                  final val = int.tryParse(v ?? '0') ?? 0;
+                                  if (val < 0 || val > 100) return '0 a 100%';
                                   return null;
                                 },
                               ),
-                            ),
-                            const SizedBox(width: AppTokens.space12),
-                            Expanded(
-                              child: _buildTextField(_skuController, 'SKU'),
-                            ),
+                              const SizedBox(height: AppTokens.space12),
+                              _buildPromoPreview(),
+                            ],
                           ],
                         ),
-                        const SizedBox(height: AppTokens.space16),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: AppTokens.space24),
+                      const SizedBox(height: AppTokens.space24),
+                      _buildImagesSection(),
+                      const SizedBox(height: AppTokens.space24),
+                      const SizedBox(height: AppTokens.space48),
+                    ],
                   ),
-                  const SizedBox(height: AppTokens.space24),
-                  SectionCard(
-                    title: 'Organiza\u00e7\u00e3o',
-                    child: _buildOrganizationSection(
-                      context,
-                      collections,
-                      productTypes,
-                    ),
-                  ),
-                  const SizedBox(height: AppTokens.space24),
-                  SectionCard(
-                    title: 'Pre\u00e7os e Estoque',
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildTextField(
-                                _retailController,
-                                'Pre\u00e7o Varejo',
-                                isPrice: true,
-                              ),
-                            ),
-                            const SizedBox(width: AppTokens.space12),
-                            Expanded(
-                              child: _buildTextField(
-                                _wholesaleController,
-                                'Pre\u00e7o Atacado',
-                                isPrice: true,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: AppTokens.space16),
-                        _buildTextField(
-                          _minQtyController,
-                          'Quantidade M\u00ednima para Atacado',
-                          isNumber: true,
-                        ),
-                        const SizedBox(height: AppTokens.space12),
-                        Text(
-                          'O pre\u00e7o atacado ser\u00e1 aplicado automaticamente no carrinho para quantidades maiores que o m\u00ednimo.',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: AppTokens.space24),
-                  SectionCard(
-                    title: 'Varia\u00e7\u00f5es (Opcional)',
-                    child: Column(
-                      children: [
-                        _buildTextField(
-                          _sizesController,
-                          'Tamanhos (ex: P, M, G ou 38, 40)',
-                        ),
-                        const SizedBox(height: AppTokens.space16),
-                        _buildTextField(
-                          _colorsController,
-                          'Cores (ex: Preto, Branco, Azul)',
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: AppTokens.space24),
-                  SectionCard(
-                    title: 'Disponibilidade e Promo\u00e7\u00e3o',
-                    child: Column(
-                      children: [
-                        _buildSwitchTile(
-                          'Produto Ativo no Cat\u00e1logo',
-                          _isActive,
-                          (v) => setState(() => _isActive = v),
-                        ),
-                        const Divider(),
-                        _buildSwitchTile(
-                          'Produto Esgotado',
-                          _isOutOfStock,
-                          (v) => setState(() => _isOutOfStock = v),
-                        ),
-                        const Divider(),
-                        _buildSwitchTile(
-                          'Em Promo\u00e7\u00e3o',
-                          _isOnSale,
-                          (v) => setState(() => _isOnSale = v),
-                        ),
-                        if (_isOnSale) ...[
-                          const SizedBox(height: AppTokens.space16),
-                          _buildTextField(
-                            _discountController,
-                            'Porcentagem de Desconto (%)',
-                            isNumber: true,
-                            validator: (v) {
-                              if (_isOnSale && (v == null || v.isEmpty)) {
-                                return 'Informe o desconto';
-                              }
-                              final val = int.tryParse(v ?? '0') ?? 0;
-                              if (val < 0 || val > 100) return '0 a 100%';
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: AppTokens.space12),
-                          _buildPromoPreview(),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: AppTokens.space24),
-                  const SizedBox(height: AppTokens.space24),
-                  _buildImagesSection(),
-                  const SizedBox(height: AppTokens.space24),
-                  const SizedBox(height: AppTokens.space48),
-                ],
-              ),
+                ),
+                _buildBottomBar(),
+              ],
             ),
-            _buildBottomBar(),
-          ],
+          ),
+        ),
+        if (shouldShowOverlay)
+          _buildSavingOverlay(syncProgress),
+        if (_isUploadingWebPhoto)
+          _buildWebPhotoUploadOverlay(),
+      ],
+    );
+  }
+
+  Widget _buildWebPhotoUploadOverlay() {
+    return Container(
+      color: Colors.black.withOpacity(0.35),
+      child: Center(
+        child: SectionCard(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTokens.space24,
+              vertical: AppTokens.space16,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    color: AppTokens.accentBlue,
+                  ),
+                ),
+                const SizedBox(height: AppTokens.space16),
+                Text(
+                  _webPhotoUploadMessage,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: AppTokens.space8),
+                Text(
+                  'A foto está sendo enviada para o Firebase.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSavingOverlay(SyncProgress progress) {
+    return Container(
+      color: Colors.black.withOpacity(0.5),
+      child: Center(
+        child: SectionCard(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTokens.space24,
+              vertical: AppTokens.space16,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    color: AppTokens.accentBlue,
+                  ),
+                ),
+                const SizedBox(height: AppTokens.space24),
+                Text(
+                  progress.message,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppTokens.space16),
+                LinearProgressIndicator(
+                  value: progress.progress,
+                  backgroundColor: AppTokens.border,
+                  valueColor: const AlwaysStoppedAnimation(AppTokens.accentBlue),
+                  minHeight: 10,
+                  borderRadius: BorderRadius.circular(AppTokens.radiusFull),
+                ),
+                const SizedBox(height: AppTokens.space8),
+                Text(
+                  '${(progress.progress * 100).toInt()}%',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: AppTokens.space16),
+                const Text(
+                  'Por favor, n\u00e3o feche o aplicativo enquanto as fotos s\u00e3o enviadas para a nuvem.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -1203,6 +1459,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                     child: _buildPhotoTile(
                       photoP,
                       key: ValueKey('primary_${photoP.path}'),
+                      onRemove: () => _removePhoto(_photos.indexOf(photoP)),
                     ),
                   ),
                 ),
@@ -1259,15 +1516,18 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                         onTap: _addDetailPhotos,
                       ),
                     if (detailPhotos.isNotEmpty) const SizedBox(width: 12),
-                    ...detailPhotos.map((photo) {
+                    ...detailPhotos.asMap().entries.map((entry) {
+                      final photo = entry.value;
+                      final globalIndex = _photos.indexOf(photo);
                       return Padding(
-                        key: ValueKey('detail_${photo.path}'),
+                        key: ValueKey('detail_${photo.path}_${entry.key}'),
                         padding: const EdgeInsets.only(right: 12),
                         child: SizedBox(
                           width: 110,
                           child: _buildPhotoTile(
                             photo,
                             key: ValueKey('tile_d_${photo.path}'),
+                            onRemove: () => _removePhoto(globalIndex),
                           ),
                         ),
                       );
@@ -1301,15 +1561,19 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                     if (colorPhotos.length < 4)
                       _buildAddTile(label: '+ Cor', onTap: _addColorPhotos),
                     if (colorPhotos.isNotEmpty) const SizedBox(width: 12),
-                    ...colorPhotos.map((photo) {
+                    ...colorPhotos.asMap().entries.map((entry) {
+                      final photo = entry.value;
+                      // Encontra o índice real na lista global _photos
+                      final globalIndex = _photos.indexOf(photo);
                       return Padding(
-                        key: ValueKey('color_${photo.path}'),
+                        key: ValueKey('color_${photo.path}_${entry.key}'),
                         padding: const EdgeInsets.only(right: 12),
                         child: SizedBox(
                           width: 110,
                           child: _buildPhotoTile(
                             photo,
                             key: ValueKey('tile_c_${photo.path}'),
+                            onRemove: () => _removePhoto(globalIndex),
                           ),
                         ),
                       );
@@ -1448,7 +1712,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     );
   }
 
-  Widget _buildPhotoTile(ProductPhoto photo, {Key? key}) {
+  Widget _buildPhotoTile(ProductPhoto photo, {Key? key, VoidCallback? onRemove}) {
     return Stack(
       key: key,
       children: [
@@ -1486,23 +1750,24 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
             ),
           ),
         Positioned(
-          top: -10,
-          right: -10,
-          child: IconButton(
-            icon: Container(
-              padding: const EdgeInsets.all(4),
+          top: 0,
+          right: 0,
+          child: GestureDetector(
+            onTap: onRemove ?? () => _removePhoto(_photos.indexOf(photo)),
+            child: Container(
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: Theme.of(context).cardColor,
+                color: AppTokens.accentRed.withOpacity(0.9),
                 shape: BoxShape.circle,
                 boxShadow: [AppTokens.shadowSm],
+                border: Border.all(color: Colors.white, width: 2),
               ),
               child: const Icon(
                 Icons.close,
-                size: 14,
-                color: AppTokens.accentRed,
+                size: 16,
+                color: Colors.white,
               ),
             ),
-            onPressed: () => _removePhoto(_photos.indexOf(photo)),
           ),
         ),
         if (!photo.isPrimary)

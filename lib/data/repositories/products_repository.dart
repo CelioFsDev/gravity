@@ -35,12 +35,13 @@ class HiveProductsRepository implements ProductsRepositoryContract {
   }
 
   @override
-  Future<void> addProduct(Product product) async {
+  Future<void> addProduct(Product product, {Function(double, String)? onProgress}) async {
     await _productsBox.put(product.id, product);
   }
 
   @override
-  Future<void> updateProduct(Product product) async => addProduct(product);
+  Future<void> updateProduct(Product product, {Function(double, String)? onProgress}) async => 
+      addProduct(product, onProgress: onProgress);
 
   @override
   Future<void> deleteProduct(String id) async {
@@ -50,6 +51,11 @@ class HiveProductsRepository implements ProductsRepositoryContract {
   @override
   Future<void> clearAll() async {
     await _productsBox.clear();
+  }
+
+  @override
+  Future<void> syncProductToCloud(Product product, {Function(double, String)? onProgress}) async {
+    await addProduct(product);
   }
 
   @override

@@ -37,7 +37,7 @@ class ProductDetailScreen extends ConsumerWidget {
 
     return AppScaffold(
       title: updatedProduct.name,
-      subtitle: 'REF: ${updatedProduct.reference}',
+      subtitle: 'REF: ${updatedProduct.ref}',
       useAppBar: false,
       actions: [
         IconButton(
@@ -67,13 +67,19 @@ class ProductDetailScreen extends ConsumerWidget {
           children: [
             const SizedBox(height: AppTokens.space16),
             // Images Carousel / Main Image
-            if (updatedProduct.images.isNotEmpty)
+            if (updatedProduct.images.isNotEmpty || updatedProduct.photos.isNotEmpty)
               SizedBox(
                 height: 320,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
-                  itemCount: updatedProduct.images.length,
+                  itemCount: updatedProduct.images.isNotEmpty 
+                      ? updatedProduct.images.length 
+                      : updatedProduct.photos.length,
                   itemBuilder: (context, index) {
+                    final img = updatedProduct.images.isNotEmpty 
+                        ? updatedProduct.images[index]
+                        : updatedProduct.photos[index].toProductImage();
+                        
                     return Container(
                       margin: const EdgeInsets.only(right: 16),
                       width: 280,
@@ -88,7 +94,7 @@ class ProductDetailScreen extends ConsumerWidget {
                           ),
                           child: _buildDetailImage(
                             context,
-                            updatedProduct.images[index],
+                            img,
                           ),
                         ),
                       ),
@@ -117,7 +123,7 @@ class ProductDetailScreen extends ConsumerWidget {
                   AppBadgePill(label: 'Inativo', color: Colors.grey),
                 if (updatedProduct.isOutOfStock)
                   AppBadgePill(label: 'Esgotado', color: AppTokens.accentRed),
-                if (updatedProduct.isOnSale)
+                if (updatedProduct.promoEnabled)
                   AppBadgePill(
                     label: 'Em Promo\u00e7\u00e3o',
                     color: AppTokens.accentOrange,
@@ -158,30 +164,30 @@ class ProductDetailScreen extends ConsumerWidget {
                       ? (constraints.maxWidth - 32) / 3
                       : constraints.maxWidth;
                   final retailEffective = PriceCalculator.effectiveRetail(
-                    updatedProduct.retailPrice,
-                    updatedProduct.isOnSale,
-                    updatedProduct.saleDiscountPercent.toDouble(),
+                    updatedProduct.priceRetail,
+                    updatedProduct.promoEnabled,
+                    updatedProduct.promoPercent,
                   );
                   final wholesaleEffective = PriceCalculator.effectiveWholesale(
-                    updatedProduct.wholesalePrice,
-                    updatedProduct.isOnSale,
-                    updatedProduct.saleDiscountPercent.toDouble(),
+                    updatedProduct.priceWholesale,
+                    updatedProduct.promoEnabled,
+                    updatedProduct.promoPercent,
                   );
                   final cards = [
                     _buildPriceCard(
                       context,
                       'Varejo',
-                      currency.format(updatedProduct.retailPrice),
+                      currency.format(updatedProduct.priceRetail),
                       currency.format(retailEffective),
-                      updatedProduct.isOnSale,
+                      updatedProduct.promoEnabled,
                       Icons.person_outline,
                     ),
                     _buildPriceCard(
                       context,
                       'Atacado',
-                      currency.format(updatedProduct.wholesalePrice),
+                      currency.format(updatedProduct.priceWholesale),
                       currency.format(wholesaleEffective),
-                      updatedProduct.isOnSale,
+                      updatedProduct.promoEnabled,
                       Icons.storefront_outlined,
                     ),
                     _buildInfoCard(
@@ -421,77 +427,85 @@ class ProductDetailScreen extends ConsumerWidget {
   }
 
   Widget _buildDetailImage(BuildContext context, ProductImage? image) {
-    if (image == null || image.uri.isEmpty) {
-      return Container(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        alignment: Alignment.center,
-        child: const Icon(Icons.image_not_supported_outlined, size: 48),
-      );
+    if (image == null || image.uri.trim().isEmpty) {
+      return _buildErrorImage(context, icon: Icons.image_not_supported_outlined);
     }
 
-    if (image.uri.startsWith('data:')) {
-      final commaIndex = image.uri.indexOf(',');
-      if (commaIndex != -1 && commaIndex + 1 < image.uri.length) {
+    final cleanUri = image.uri.trim();
+
+    if (cleanUri.startsWith('data:')) {
+      final commaIndex = cleanUri.indexOf(',');
+      if (commaIndex != -1 && commaIndex + 1 < cleanUri.length) {
         try {
           return Image.memory(
-            base64Decode(image.uri.substring(commaIndex + 1)),
+            base64Decode(cleanUri.substring(commaIndex + 1)),
             fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => Container(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              alignment: Alignment.center,
-              child: const Icon(
-                Icons.broken_image_outlined,
-                size: 48,
-                color: AppTokens.accentRed,
-              ),
-            ),
+            errorBuilder: (context, error, stackTrace) => _buildErrorImage(context),
           );
         } catch (_) {}
       }
     }
 
     if (image.sourceType == ProductImageSource.networkUrl ||
-        image.uri.startsWith('http://') ||
-        image.uri.startsWith('https://') ||
-        image.uri.startsWith('blob:')) {
+        cleanUri.startsWith('http://') ||
+        cleanUri.startsWith('https://') ||
+        cleanUri.startsWith('gs://') ||
+        cleanUri.startsWith('blob:')) {
+      
       return Image.network(
-        image.uri,
+        cleanUri,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => Container(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          alignment: Alignment.center,
-          child: const Icon(
-            Icons.broken_image_outlined,
-            size: 48,
-            color: AppTokens.accentRed,
-          ),
-        ),
+        cacheWidth: 800,
+        errorBuilder: (context, error, stackTrace) => _buildErrorImage(context, uri: cleanUri),
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                  : null,
+              strokeWidth: 2,
+            ),
+          );
+        },
       );
     }
 
     if (kIsWeb) {
-      return Container(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        alignment: Alignment.center,
-        child: const Icon(
-          Icons.image_not_supported_outlined,
-          size: 48,
-          color: AppTokens.accentRed,
-        ),
-      );
+      return _buildErrorImage(context, icon: Icons.web_asset_off_outlined);
     }
 
     return Image.file(
-      File(image.uri),
+      File(cleanUri),
       fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) => Container(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        alignment: Alignment.center,
-        child: const Icon(
-          Icons.broken_image_outlined,
-          size: 48,
-          color: AppTokens.accentRed,
-        ),
+      errorBuilder: (context, error, stackTrace) => _buildErrorImage(context),
+    );
+  }
+
+  Widget _buildErrorImage(BuildContext context, {IconData icon = Icons.broken_image_outlined, String? uri}) {
+    return Container(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            size: 48,
+            color: AppTokens.accentRed.withOpacity(0.5),
+          ),
+          if (uri != null && kDebugMode)
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text(
+                'Erro no link: $uri',
+                style: const TextStyle(fontSize: 8, color: Colors.grey),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+              ),
+            ),
+        ],
       ),
     );
   }

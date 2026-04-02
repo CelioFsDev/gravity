@@ -1,12 +1,16 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:catalogo_ja/models/product.dart';
-import 'package:catalogo_ja/models/product_image.dart';
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
 import 'package:catalogo_ja/data/repositories/contracts/products_repository_contract.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
-import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
+import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/models/product_image.dart';
+import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
+import 'package:image_picker/image_picker.dart';
 
 class FirestoreProductsRepository implements ProductsRepositoryContract {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -25,77 +29,185 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
 
   @override
   Future<List<Product>> getProducts() async {
-    final snapshot = await _collection
-        .where('tenantId', isEqualTo: _tenantId)
-        .get();
-    return snapshot.docs.map((doc) => Product.fromMap(doc.data())).toList();
+    try {
+      final snapshot = await _collection
+          .where('tenantId', isEqualTo: _tenantId)
+          .get()
+          .timeout(const Duration(seconds: 10));
+
+      final cloudProducts = snapshot.docs
+          .map((doc) => Product.fromMap(doc.data()))
+          .toList();
+      final localProducts = await _localRepo.getProducts();
+
+      final merged = <String, Product>{
+        for (final product in localProducts) product.id: product,
+      };
+
+      for (final cloudProduct in cloudProducts) {
+        final localProduct = merged[cloudProduct.id];
+        if (localProduct == null) {
+          merged[cloudProduct.id] = cloudProduct;
+          continue;
+        }
+
+        if (cloudProduct.updatedAt.isAfter(localProduct.updatedAt) &&
+            !_hasLocalOnlyPhotos(localProduct)) {
+          merged[cloudProduct.id] = cloudProduct;
+        }
+      }
+
+      return merged.values.toList()
+        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    } catch (e) {
+      debugPrint('Erro ao buscar produtos da nuvem (usando local): $e');
+      return await _localRepo.getProducts();
+    }
+  }
+
+  bool _hasLocalOnlyPhotos(Product product) {
+    final hasBase64Photos = product.photos.any((p) => p.path.startsWith('data:'));
+    final hasBase64Images = product.images.any((i) => i.uri.startsWith('data:'));
+    final hasLocalPathPhotos = product.photos.any(
+      (p) =>
+          !p.path.startsWith('http') &&
+          !p.path.startsWith('data:') &&
+          p.path.isNotEmpty,
+    );
+    final hasLocalPathImages = product.images.any(
+      (i) =>
+          !i.uri.startsWith('http') &&
+          !i.uri.startsWith('gs://') &&
+          !i.uri.startsWith('data:') &&
+          i.uri.isNotEmpty,
+    );
+    return hasBase64Photos ||
+        hasBase64Images ||
+        hasLocalPathPhotos ||
+        hasLocalPathImages;
   }
 
   @override
-  Future<void> addProduct(Product product) async {
-    // 1. Prepara a lista de imagens para upload (une o novo com o legado se necessário)
+  Future<void> addProduct(
+    Product product, {
+    Function(double, String)? onProgress,
+  }) async {
+    await syncProductToCloud(product, onProgress: onProgress);
+  }
+
+  @override
+  Future<void> syncProductToCloud(
+    Product product, {
+    Function(double, String)? onProgress,
+  }) async {
     var imagesToSync = List<ProductImage>.from(product.images);
-    
-    // Se a lista moderna estiver vazia, tenta converter do legado 'photos'
+
     if (imagesToSync.isEmpty && product.photos.isNotEmpty) {
-      imagesToSync = product.photos.map((p) => p.toProductImage()).toList();
+      imagesToSync =
+          product.photos.map((photo) => photo.toProductImage()).toList();
     }
 
-    // Sincroniza fotos locais com a nuvem uma por uma
-    final List<ProductImage> updatedImages = [];
-    for (var image in imagesToSync) {
-      final isLocal = !image.uri.startsWith('http') && !image.uri.startsWith('gs://');
-      
-      if (isLocal || image.sourceType == ProductImageSource.localPath) {
-        try {
-          print('🚀 Iniciando upload da imagem: ${image.uri}');
-          final cloudUrl = await _storageService.uploadProductImage(
-            localPath: image.uri,
-            productId: product.id,
-            tenantId: _tenantId,
-          ).timeout(const Duration(seconds: 60)); 
-          
-          if (cloudUrl.isNotEmpty) {
-            updatedImages.add(image.copyWith(
+    final totalImages = imagesToSync.length;
+    final updatedImages = <ProductImage>[];
+
+    for (var i = 0; i < totalImages; i++) {
+      final image = imagesToSync[i];
+      if (onProgress != null) {
+        onProgress(i / totalImages, 'Enviando foto ${i + 1} de $totalImages...');
+      }
+
+      final isLocal =
+          (!image.uri.startsWith('http') &&
+              !image.uri.startsWith('gs://') &&
+              image.sourceType != ProductImageSource.networkUrl) ||
+          image.uri.startsWith('data:');
+
+      if (!isLocal) {
+        updatedImages.add(image);
+        continue;
+      }
+
+      try {
+        Uint8List? webBytes;
+        if (kIsWeb) {
+          try {
+            if (image.uri.startsWith('data:')) {
+              final commaIndex = image.uri.indexOf(',');
+              if (commaIndex != -1) {
+                webBytes = base64Decode(image.uri.substring(commaIndex + 1));
+              }
+            } else if (image.uri.startsWith('blob:')) {
+              final xFile = XFile(image.uri);
+              webBytes = await xFile.readAsBytes();
+            }
+          } catch (e) {
+            debugPrint('Erro ao ler bytes na Web: $e');
+          }
+        }
+
+        final cloudUrl = await _storageService
+            .uploadProductImage(
+              localPath: image.uri,
+              productId: product.id,
+              tenantId: _tenantId,
+              bytes: webBytes,
+              label: image.label,
+            )
+            .timeout(const Duration(seconds: 90));
+
+        if (cloudUrl.isNotEmpty) {
+          updatedImages.add(
+            image.copyWith(
               uri: cloudUrl,
               sourceType: ProductImageSource.networkUrl,
-            ));
-            print('✅ Upload concluído: $cloudUrl');
-          } else {
-            updatedImages.add(image);
-          }
-        } catch (e) {
-          print('❌ Erro no upload da foto ${image.uri}: $e');
+            ),
+          );
+        } else {
           updatedImages.add(image);
         }
-      } else {
-        // Já é link de nuvem
+      } catch (e) {
+        debugPrint('Erro no upload: $e');
         updatedImages.add(image);
       }
     }
 
-    // Sincroniza o campo 'photos' (legado) com os novos links da nuvem
-    final updatedPhotos = updatedImages.map((img) => ProductPhoto(
-      path: img.uri,
-      isPrimary: img.label?.toLowerCase() == 'p' || img.label?.toLowerCase() == 'principal',
-      photoType: img.label,
-      colorKey: img.colorTag,
-    )).toList();
+    if (onProgress != null) {
+      onProgress(0.9, 'Finalizando na nuvem...');
+    }
+
+    final updatedPhotos = updatedImages
+        .map(
+          (img) => ProductPhoto(
+            path: img.uri,
+            isPrimary: img.label?.toLowerCase() == 'p' ||
+                img.label?.toLowerCase() == 'principal',
+            photoType: img.label,
+            colorKey: img.colorTag,
+          ),
+        )
+        .toList();
 
     final productWithSaaS = product.copyWith(
       tenantId: _tenantId,
       images: updatedImages,
       photos: updatedPhotos,
+      updatedAt: DateTime.now(),
     );
 
-    // 2. Salva na Nuvem (Firestore)
     await _collection.doc(product.id).set(productWithSaaS.toMap());
-    // 3. Salva no Local (Hive) para velocidade e offline imediato
     await _localRepo.addProduct(productWithSaaS);
+
+    if (onProgress != null) {
+      onProgress(1.0, 'Nuvem atualizada!');
+    }
   }
 
   @override
-  Future<void> updateProduct(Product product) async => addProduct(product);
+  Future<void> updateProduct(
+    Product product, {
+    Function(double, String)? onProgress,
+  }) async =>
+      addProduct(product, onProgress: onProgress);
 
   @override
   Future<void> deleteProduct(String id) async {
@@ -105,7 +217,6 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
 
   @override
   Future<void> clearAll() async {
-    // Nota: Deletar tudo no Firestore exige cuidado (batch), aqui limpamos o local
     await _localRepo.clearAll();
   }
 
@@ -124,15 +235,11 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
 
   @override
   Stream<List<Product>> watchProducts() {
-    // Sincronização Reativa: Escuta o Firestore e atualiza o estado
-    return _collection.where('tenantId', isEqualTo: _tenantId).snapshots().map((
-      snapshot,
-    ) {
-      final products = snapshot.docs
-          .map((doc) => Product.fromMap(doc.data()))
-          .toList();
-      // Opcional: Atualizar o Hive local em background aqui
-      return products;
+    return _collection
+        .where('tenantId', isEqualTo: _tenantId)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) => Product.fromMap(doc.data())).toList();
     });
   }
 
@@ -151,14 +258,12 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
         .where('tenantId', isEqualTo: _tenantId)
         .where('categoryIds', arrayContains: categoryId)
         .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs.map((doc) => Product.fromMap(doc.data())).toList(),
-        );
+        .map((snapshot) {
+      return snapshot.docs.map((doc) => Product.fromMap(doc.data())).toList();
+    });
   }
 }
 
-// Provedor que decide qual repositório usar baseado no login
 final syncProductsRepositoryProvider = Provider<ProductsRepositoryContract>((
   ref,
 ) {
@@ -170,18 +275,6 @@ final syncProductsRepositoryProvider = Provider<ProductsRepositoryContract>((
   return tenantAsync.when(
     data: (tenant) {
       if (tenant != null) {
-        // ✨ SaaS Logic: Na Web, usamos a nuvem em tempo real (Live Cloud)
-        // No Celular/Desktop, usamos o cache local resiliente.
-        if (kIsWeb) {
-          // O FirestoreProductsRepository lida com Firestore e Hive. 
-          // Mas aqui garantimos que a fonte da verdade na Web é sempre a nuvem.
-          return FirestoreProductsRepository(
-            localRepo,
-            storageService,
-            tenant.id,
-          );
-        }
-        
         return FirestoreProductsRepository(
           localRepo,
           storageService,

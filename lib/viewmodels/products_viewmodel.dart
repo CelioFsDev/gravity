@@ -386,12 +386,13 @@ class ProductsViewModel extends _$ProductsViewModel {
       try {
         final repository = ref.read(syncProductsRepositoryProvider);
         await repository.deleteProduct(id);
-        await refresh();
+        
         _notifyChanges();
-        ref
-            .read(appLoggerProvider.notifier)
-            .log(AppEvent.productDeleted, parameters: {'productId': id});
-        return state.value!;
+        ref.read(appLoggerProvider.notifier).log(
+              AppEvent.productDeleted,
+              parameters: {'productId': id},
+            );
+        return await build();
       } catch (e) {
         throw e.toAppFailure(action: 'deleteProduct', entity: 'Product');
       }
@@ -401,42 +402,60 @@ class ProductsViewModel extends _$ProductsViewModel {
   Future<void> addProduct(Product product) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
-      try {
-        final repository = ref.read(syncProductsRepositoryProvider);
-        await repository.addProduct(product);
-        await refresh();
-        _notifyChanges();
-        ref
-            .read(appLoggerProvider.notifier)
-            .log(
-              AppEvent.productCreated,
-              parameters: {'productId': product.id, 'name': product.name},
-            );
-        return state.value!;
-      } catch (e) {
-        throw e.toAppFailure(action: 'addProduct', entity: 'Product');
+      // 🚀 Estrat\u00e9gia H\u00edbrida: 
+      // Na WEB, precisamos da nuvem na hora porque o navegador apaga arquivos tempor\u00e1rios.
+      // No DESKTOP/MOBILE, seguimos o seu pedido de ser 100% Local-First.
+      
+      if (kIsWeb) {
+        final cloudRepository = ref.read(syncProductsRepositoryProvider);
+        final progressNotifier = ref.read(syncProgressProvider.notifier);
+        
+        progressNotifier.startSync('Salvando na nuvem (Web)...');
+        await cloudRepository.addProduct(
+          product,
+          onProgress: (p, m) => progressNotifier.updateProgress(p, m),
+        );
+        progressNotifier.stopSync();
+      } else {
+        final localRepository = ref.read(productsRepositoryProvider);
+        await localRepository.addProduct(product);
       }
+      
+      _notifyChanges();
+      ref.read(appLoggerProvider.notifier).log(
+            AppEvent.productCreated,
+            parameters: {'productId': product.id, 'name': product.name},
+          );
+          
+      return await build(); 
     });
   }
 
   Future<void> updateProduct(Product product) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
-      try {
-        final repository = ref.read(syncProductsRepositoryProvider);
-        await repository.updateProduct(product);
-        await refresh();
-        _notifyChanges();
-        ref
-            .read(appLoggerProvider.notifier)
-            .log(
-              AppEvent.productUpdated,
-              parameters: {'productId': product.id},
-            );
-        return state.value!;
-      } catch (e) {
-        throw e.toAppFailure(action: 'updateProduct', entity: 'Product');
+      if (kIsWeb) {
+        final cloudRepository = ref.read(syncProductsRepositoryProvider);
+        final progressNotifier = ref.read(syncProgressProvider.notifier);
+        
+        progressNotifier.startSync('Atualizando na nuvem (Web)...');
+        await cloudRepository.updateProduct(
+          product,
+          onProgress: (p, m) => progressNotifier.updateProgress(p, m),
+        );
+        progressNotifier.stopSync();
+      } else {
+        final localRepository = ref.read(productsRepositoryProvider);
+        await localRepository.updateProduct(product);
       }
+      
+      _notifyChanges();
+      ref.read(appLoggerProvider.notifier).log(
+            AppEvent.productUpdated,
+            parameters: {'productId': product.id},
+          );
+      
+      return await build();
     });
   }
 
@@ -495,7 +514,8 @@ class ProductsViewModel extends _$ProductsViewModel {
         );
 
         try {
-          await firestoreRepo.addProduct(product);
+          // 🔥 Aqui usamos o novo método que força o upload de fotos e sync Firestore
+          await firestoreRepo.syncProductToCloud(product);
           syncedCount++;
         } catch (e) {
           print('Erro ao sincronizar produto ${product.id}: $e');

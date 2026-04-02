@@ -76,6 +76,14 @@ class ProductImage {
     );
   }
 
+  factory ProductImage.unknown() {
+    return ProductImage(
+      id: 'unknown_${DateTime.now().millisecondsSinceEpoch}',
+      sourceType: ProductImageSource.unknown,
+      uri: '',
+    );
+  }
+
   ProductImage copyWith({
     String? id,
     ProductImageSource? sourceType,
@@ -106,12 +114,26 @@ class ProductImage {
   }
 
   factory ProductImage.fromMap(Map<String, dynamic> map) {
+    ProductImageSource parseSource(dynamic value) {
+      if (value == null) return ProductImageSource.unknown;
+      if (value is int) {
+        if (value >= 0 && value < ProductImageSource.values.length) {
+          return ProductImageSource.values[value];
+        }
+        return ProductImageSource.unknown;
+      }
+      if (value is String) {
+        return ProductImageSource.values.firstWhere(
+          (e) => e.name == value,
+          orElse: () => ProductImageSource.unknown,
+        );
+      }
+      return ProductImageSource.unknown;
+    }
+
     return ProductImage(
-      id: map['id'] ?? '',
-      sourceType: ProductImageSource.values.firstWhere(
-        (e) => e.name == map['sourceType'],
-        orElse: () => ProductImageSource.unknown,
-      ),
+      id: map['id'] ?? const Uuid().v4().substring(0, 8),
+      sourceType: parseSource(map['sourceType']),
       uri: map['uri'] ?? '',
       label: map['label'],
       order: map['order'] ?? 0,

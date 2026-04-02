@@ -71,6 +71,7 @@ class SaaSPhotoStorageService {
     required String localPath,
     Uint8List? bytes, // Adicionado para suporte Web
     String? label,
+    bool temporary = false,
   }) async {
     final ext = p.extension(localPath).isNotEmpty ? p.extension(localPath) : '.jpg';
     final fileName = '${label ?? "image"}_${DateTime.now().millisecondsSinceEpoch}$ext';
@@ -85,6 +86,7 @@ class SaaSPhotoStorageService {
         'tenantId': tenantId,
         'productId': productId,
         'label': label ?? '',
+        'temporary': temporary ? 'true' : 'false',
       },
     );
 
@@ -106,6 +108,21 @@ class SaaSPhotoStorageService {
     }
     
     return await uploadTask.ref.getDownloadURL();
+  }
+
+  Future<void> finalizeProductImage(String downloadUrl) async {
+    final ref = _storage.refFromURL(downloadUrl);
+    final current = await ref.getMetadata();
+    final updatedMetadata = <String, String>{
+      ...?current.customMetadata,
+      'temporary': 'false',
+    };
+    await ref.updateMetadata(SettableMetadata(customMetadata: updatedMetadata));
+  }
+
+  Future<void> deleteFileByUrl(String downloadUrl) async {
+    final ref = _storage.refFromURL(downloadUrl);
+    await ref.delete();
   }
 
   /// Limpa as fotos de um produto (opcional, quando o produto é deletado)

@@ -209,27 +209,31 @@ class AppProductListTile extends StatelessWidget {
     );
   }
 
-  Widget _buildImage(String? path) {
-    if (path == null || path.isEmpty) {
-      return const Icon(Icons.image_not_supported, size: 20);
+  Widget _buildImage(String? originalPath) {
+    if (originalPath == null || originalPath.trim().isEmpty) {
+      return const Icon(Icons.image_not_supported_outlined, size: 24, color: Colors.grey);
     }
 
-    // 1. Imagem de Rede (Nuvem)
+    final path = originalPath.trim();
+
+    // 1. Network / Cloud / Blob
     if (path.startsWith('http://') ||
         path.startsWith('https://') ||
+        path.startsWith('gs://') ||
         path.startsWith('blob:')) {
       return Image.network(
         path,
         fit: BoxFit.cover,
+        cacheWidth: 200, // Small for thumbnails
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
           return const Center(child: CircularProgressIndicator(strokeWidth: 2));
         },
-        errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported, size: 20),
+        errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined, size: 20, color: AppTokens.textMuted),
       );
     }
 
-    // 2. Base64
+    // 2. Data URI (Base64)
     if (path.startsWith('data:')) {
       final commaIndex = path.indexOf(',');
       if (commaIndex != -1 && commaIndex + 1 < path.length) {
@@ -237,27 +241,30 @@ class AppProductListTile extends StatelessWidget {
           return Image.memory(
             base64Decode(path.substring(commaIndex + 1)),
             fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => const Icon(Icons.image_not_supported, size: 20),
+            cacheWidth: 200,
+            errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined, size: 20),
           );
-        } catch (_) {
-          return const Icon(Icons.image_not_supported, size: 20);
-        }
+        } catch (_) {}
       }
     }
 
-    // 3. Arquivo Local (Celular)
+    // 3. Local File (Non-Web)
     if (!kIsWeb) {
-      final file = File(path);
-      if (file.existsSync()) {
-        return Image.file(
-          file,
-          fit: BoxFit.cover,
-          errorBuilder: (_, _, _) => const Icon(Icons.image_not_supported, size: 20),
-        );
-      }
+      try {
+        final file = File(path);
+        if (file.existsSync()) {
+          return Image.file(
+            file,
+            fit: BoxFit.cover,
+            cacheWidth: 200,
+            errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined, size: 20),
+          );
+        }
+      } catch (_) {}
     }
 
-    return const Icon(Icons.image_not_supported, size: 20);
+    // Final Fallback
+    return const Icon(Icons.image_not_supported_outlined, size: 24, color: Colors.grey);
   }
 
   ProductImage? _resolvePrimaryImage(Product product) {
