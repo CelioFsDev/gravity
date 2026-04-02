@@ -553,21 +553,29 @@ class ProductsViewModel extends _$ProductsViewModel {
       print('Buscando produtos na nuvem...');
       final cloudProducts = await firestoreRepo.getProducts();
       
-      if (cloudProducts.isEmpty) return 0;
-
       if (cloudProducts.isEmpty) {
         progressNotifier.stopSync(message: 'Nenhum produto encontrado na nuvem.');
         return 0;
       }
 
       var downloadedCount = 0;
+      final currentLocalProducts = await localRepo.getProducts();
+      final localMap = {for (var p in currentLocalProducts) p.id: p};
+
       for (var i = 0; i < cloudProducts.length; i++) {
         final p = cloudProducts[i];
         final progress = (i + 1) / cloudProducts.length;
         
+        // 🚀 Verificação de Diferença (Sincronização Incremental/Inteligente)
+        final localProduct = localMap[p.id];
+        if (localProduct != null && !p.updatedAt.isAfter(localProduct.updatedAt)) {
+          // Já estamos atualizados localmente, ignora o download deste item
+          continue; 
+        }
+
         progressNotifier.updateProgress(
           progress,
-          'Baixando: ${i + 1}/${cloudProducts.length} - ${p.name}',
+          'Baixando novidades: ${i + 1}/${cloudProducts.length} - ${p.name}',
         );
 
         try {
@@ -583,6 +591,7 @@ class ProductsViewModel extends _$ProductsViewModel {
           for (var img in imagesToDownload) {
             if (img.sourceType == ProductImageSource.networkUrl && img.uri.startsWith('http')) {
               try {
+                // Tenta reaproveitar cache por URL se possível
                 final localPath = await cacheService.downloadAndCacheImage(img.uri);
                 updatedImages.add(img.copyWith(
                   uri: localPath,
@@ -597,8 +606,8 @@ class ProductsViewModel extends _$ProductsViewModel {
             }
           }
 
-          // Salva Local
-          final localProduct = p.copyWith(
+          // Salva Local - Apenas se for NOVO ou ALTERADO
+          final finalProduct = p.copyWith(
             images: updatedImages,
             photos: updatedImages.map((img) => ProductPhoto(
               path: img.uri,
@@ -608,7 +617,7 @@ class ProductsViewModel extends _$ProductsViewModel {
             )).toList(),
           );
 
-          await localRepo.addProduct(localProduct);
+          await localRepo.addProduct(finalProduct);
           downloadedCount++;
           
           await refresh();

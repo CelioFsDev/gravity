@@ -511,14 +511,25 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       }
 
       var downloadedCount = 0;
+      final localCategories = await localRepo.getCategories();
+      final localMap = {for (var c in localCategories) c.id: c};
       final total = cloudCategories.length;
 
       for (var i = 0; i < total; i++) {
         final cat = cloudCategories[i];
+        final progress = (i + 1) / total;
+
+        // 🚀 Verificação de Diferença (Sincronização Incremental/Inteligente)
+        final localCat = localMap[cat.id];
+        if (localCat != null && !cat.updatedAt.isAfter(localCat.updatedAt)) {
+          // Já estamos atualizados localmente, pule para a próxima
+          continue; 
+        }
+
         try {
           progressNotifier.updateProgress(
-            (i + 1) / total,
-            'Baixando: ${i + 1}/$total - ${cat.name}',
+            progress,
+            'Baixando novidades: ${i + 1}/$total - ${cat.name}',
           );
           await localRepo.addCategory(cat);
           downloadedCount++;

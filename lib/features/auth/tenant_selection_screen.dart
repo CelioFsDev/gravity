@@ -24,8 +24,6 @@ class _TenantSelectionScreenState extends ConsumerState<TenantSelectionScreen> {
 
     if (user == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
-    final isSuperAdmin = UserRole.superAdminEmails.contains(user.email!.toLowerCase().trim());
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Catálogo SaaS - Acesso'),
@@ -36,13 +34,6 @@ class _TenantSelectionScreenState extends ConsumerState<TenantSelectionScreen> {
           ),
         ],
       ),
-      floatingActionButton: isSuperAdmin ? FloatingActionButton.extended(
-        onPressed: _syncWithCloud,
-        backgroundColor: AppTokens.accentOrange,
-        icon: const Icon(Icons.cloud_sync, color: Colors.white),
-        label: const Text('SINCRONIZAR COM A NUVEM', 
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-      ) : null,
       body: Stack(
         children: [
           FutureBuilder<Map<String, dynamic>?>(
@@ -88,7 +79,12 @@ class _TenantSelectionScreenState extends ConsumerState<TenantSelectionScreen> {
                               itemCount: docs.length,
                               itemBuilder: (context, index) {
                                 final id = docs[index].id;
-                                return _TenantTile(tenantId: id, onSelected: () => _selectTenant(id));
+                                return _TenantTile(
+                                  tenantId: id, 
+                                  onSelected: () => _selectTenant(id),
+                                  canDelete: isSuperAdminRaw,
+                                  onDelete: () => setState(() {}),
+                                );
                               },
                             ),
                       ),
@@ -151,13 +147,13 @@ class _TenantSelectionScreenState extends ConsumerState<TenantSelectionScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.cloud_off_outlined, size: 64, color: AppTokens.accentBlue),
+            const Icon(Icons.business_center_outlined, size: 64, color: AppTokens.accentBlue),
             const SizedBox(height: 16),
-            const Text('Aguardando Sincronização.',
+            const Text('Vincule sua Empresa',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            const Text('Para baixar os produtos da sua empresa, clique no botão de Sincronização ou digite o código manual.',
+            const Text('Para acessar os produtos, você deve inserir o código da empresa fornecido pelo seu administrador.',
               textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
             const SizedBox(height: 32),
             SizedBox(
@@ -168,70 +164,10 @@ class _TenantSelectionScreenState extends ConsumerState<TenantSelectionScreen> {
                 label: const Text('DIGITAR CÓDIGO DA EMPRESA'),
               ),
             ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _syncWithCloud,
-                icon: const Icon(Icons.cloud_sync_outlined),
-                label: const Text('SINCRONIZAR COM A NUVEM ☁️'),
-              ),
-            ),
           ],
         ),
       ),
     );
-  }
-
-  Future<void> _syncWithCloud() async {
-    setState(() {
-      _isLoading = true;
-      _loadingMessage = 'Sincronizando com a Nuvem...';
-    });
-    
-    try {
-      final email = ref.read(authViewModelProvider).valueOrNull?.email;
-      if (email == null) return;
-
-      // Busca qualquer produto para identificar a empresa legado
-      final query = await FirebaseFirestore.instance.collection('products').limit(1).get();
-      
-      if (query.docs.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Nenhum dado encontrado na nuvem para sincronizar.')),
-          );
-        }
-        return;
-      }
-
-      final foundTenantId = query.docs.first.data()['tenantId'] as String?;
-      
-      if (foundTenantId != null && mounted) {
-        final confirm = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Sincronização Cloud'),
-            content: Text('Encontramos seu catálogo sob o código: "$foundTenantId".\nDeseja baixar todos os produtos e vincular sua conta agora?'),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCELAR')),
-              FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('SIM, SINCRONIZAR')),
-            ],
-          ),
-        );
-
-        if (confirm == true) {
-          setState(() => _loadingMessage = 'Puxando 1000+ produtos... 📥');
-          await _selectAndLinkTenant(foundTenantId);
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro na sincronização: $e')));
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
   }
 
   Future<void> _showJoinByCodeDialog() async {
@@ -302,11 +238,11 @@ class _TenantSelectionScreenState extends ConsumerState<TenantSelectionScreen> {
         if (selectedStore == null) return;
       }
 
-      await FirebaseFirestore.instance.collection('users').doc(userEmail.toLowerCase().trim()).update({
+      await FirebaseFirestore.instance.collection('users').doc(userEmail.toLowerCase().trim()).set({
         'tenantId': tenantId,
         'tenantIds': FieldValue.arrayUnion([tenantId]),
         'currentStoreId': selectedStore,
-      });
+      }, SetOptions(merge: true));
       
       if (mounted) context.go('/admin/dashboard');
     } catch (e) {
@@ -348,10 +284,10 @@ class _TenantSelectionScreenState extends ConsumerState<TenantSelectionScreen> {
         if (selectedStore == null) return;
       }
 
-      await FirebaseFirestore.instance.collection('users').doc(userEmail.toLowerCase().trim()).update({
+      await FirebaseFirestore.instance.collection('users').doc(userEmail.toLowerCase().trim()).set({
         'tenantId': tenantId,
         'currentStoreId': selectedStore,
-      });
+      }, SetOptions(merge: true));
       if (mounted) context.go('/admin/dashboard');
     } catch (e) {
       if (mounted) {
@@ -366,7 +302,15 @@ class _TenantSelectionScreenState extends ConsumerState<TenantSelectionScreen> {
 class _TenantTile extends StatelessWidget {
   final String tenantId;
   final VoidCallback onSelected;
-  const _TenantTile({required this.tenantId, required this.onSelected});
+  final bool canDelete;
+  final VoidCallback? onDelete;
+
+  const _TenantTile({
+    required this.tenantId, 
+    required this.onSelected,
+    this.canDelete = false,
+    this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -386,7 +330,34 @@ class _TenantTile extends StatelessWidget {
             ),
             title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
             subtitle: Text('ID: $tenantId', style: const TextStyle(fontSize: 11)),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (canDelete) IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Deletar Empresa?'),
+                        content: Text('Isso removerá a empresa "$name" do sistema. Deseja continuar?'),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('NÃO')),
+                          FilledButton(onPressed: () => Navigator.pop(context, true), 
+                            style: FilledButton.styleFrom(backgroundColor: Colors.red), 
+                            child: const Text('DELETAR')),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) {
+                      await FirebaseFirestore.instance.collection('tenants').doc(tenantId).delete();
+                      onDelete?.call();
+                    }
+                  },
+                ),
+                const Icon(Icons.arrow_forward_ios, size: 16),
+              ],
+            ),
             onTap: onSelected,
           ),
         );

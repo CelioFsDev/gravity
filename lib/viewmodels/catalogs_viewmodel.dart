@@ -139,14 +139,25 @@ class CatalogsViewModel extends _$CatalogsViewModel {
       }
 
       var downloadedCount = 0;
+      final localCatalogs = await localRepo.getCatalogs();
+      final localMap = {for (var c in localCatalogs) c.id: c};
       final total = cloudCatalogs.length;
 
       for (var i = 0; i < total; i++) {
         final cat = cloudCatalogs[i];
+        final progress = (i + 1) / total;
+
+        // 🚀 Verificação de Diferença (Sincronização Incremental/Inteligente)
+        final localCat = localMap[cat.id];
+        if (localCat != null && !cat.updatedAt.isAfter(localCat.updatedAt)) {
+          // Já estamos atualizados localmente, ignore
+          continue; 
+        }
+
         try {
           progressNotifier.updateProgress(
-            (i + 1) / total,
-            'Baixando: ${i + 1}/$total - ${cat.name}',
+            progress,
+            'Baixando novidades: ${i + 1}/$total - ${cat.name}',
           );
           await localRepo.addCatalog(cat);
           downloadedCount++;
