@@ -50,6 +50,7 @@ class _ProductBulkEditScreenState extends ConsumerState<ProductBulkEditScreen> {
 
       final products = productsState.filteredProducts;
       final notifier = ref.read(productsViewModelProvider.notifier);
+      final productsToUpdate = <Product>[];
 
       for (var p in products) {
         final newRetail =
@@ -60,7 +61,7 @@ class _ProductBulkEditScreenState extends ConsumerState<ProductBulkEditScreen> {
             p.priceWholesale;
 
         if (newRetail != p.priceRetail || newWholesale != p.priceWholesale) {
-          await notifier.updateProduct(
+          productsToUpdate.add(
             p.copyWith(
               priceRetail: newRetail,
               priceWholesale: newWholesale,
@@ -68,6 +69,10 @@ class _ProductBulkEditScreenState extends ConsumerState<ProductBulkEditScreen> {
             ),
           );
         }
+      }
+
+      if (productsToUpdate.isNotEmpty) {
+        await notifier.updateProductsBulk(productsToUpdate);
       }
 
       if (mounted) {

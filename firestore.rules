@@ -24,11 +24,15 @@ service cloud.firestore {
     }
 
     function userDoc() {
-      return get(/databases/$(database)/documents/users/$(currentUserEmail()));
+      return get(/databases/$(database)/documents/users/$(currentUserEmail())).data;
     }
 
     function isAdmin() {
       return isSuperAdmin();
+    }
+
+    function getTenantId() {
+      return userDoc().tenantId;
     }
 
     function isSelf(userEmail) {
@@ -41,6 +45,15 @@ service cloud.firestore {
       return isSignedIn() && resourceData.ownerUid == request.auth.uid;
     }
 
+    // --- SaaS Rule: Ensure data belongs to current user's tenant ---
+    function isFromTenant(resourceData) {
+      return isSignedIn() && (resourceData.tenantId == getTenantId() || isAdmin());
+    }
+
+    function isWritingForTenant() {
+      return isSignedIn() && (request.resource.data.tenantId == getTenantId() || isAdmin());
+    }
+
     match /users/{userEmail} {
       allow read: if isSignedIn() && (isAdmin() || isSelf(userEmail));
       allow create: if isSignedIn() && (isAdmin() || isSelf(userEmail));
@@ -49,28 +62,34 @@ service cloud.firestore {
     }
 
     match /tenants/{tenantId} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() && (tenantId == getTenantId() || isAdmin());
       allow write: if isAdmin();
     }
 
     match /products/{productId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn(); // SaaS Level: Podem escrever se estiverem logados (filtragem feita no app por tenantId)
+      allow read: if isFromTenant(resource.data);
+      allow create: if isWritingForTenant();
+      allow update: if isFromTenant(resource.data) && isWritingForTenant();
+      allow delete: if isFromTenant(resource.data);
     }
 
     match /categories/{categoryId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow read: if isFromTenant(resource.data);
+      allow create: if isWritingForTenant();
+      allow update: if isFromTenant(resource.data) && isWritingForTenant();
+      allow delete: if isFromTenant(resource.data);
     }
 
     match /catalogs/{catalogId} {
-      allow read: if (isSignedIn() && (resource.data.isPublic == true || isSuperAdmin())) || true; // Permitir leitura pública
-      allow create: if isSignedIn();
-      allow update, delete: if isSignedIn();
+      // Permitir leitura se for o dono (tenant), superAdmin ou se for público (pelo tenantId)
+      allow read: if (isSignedIn() && (resource.data.isPublic == true || isFromTenant(resource.data))) || true; 
+      allow create: if isWritingForTenant();
+      allow update: if isFromTenant(resource.data) && isWritingForTenant();
+      allow delete: if isFromTenant(resource.data);
 
       match /items/{itemId} {
-        allow read: if true;
-        allow write: if isSignedIn();
+        allow read: if true; // Items de catálogo público são abertos para visualizadores
+        allow write: if isFromTenant(get(/databases/$(database)/documents/catalogs/$(catalogId)).data);
       }
     }
   }

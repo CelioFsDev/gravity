@@ -5,6 +5,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 class TenantRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  String? _cachedTenantId;
+
+  Future<String?> getCachedTenantId(String email) async {
+    if (_cachedTenantId != null) return _cachedTenantId;
+    final doc = await _firestore.collection('users').doc(email.trim().toLowerCase()).get();
+    _cachedTenantId = doc.data()?['tenantId'] as String?;
+    return _cachedTenantId;
+  }
+
+  void clearTenantCache() => _cachedTenantId = null;
+
   Future<Tenant?> getTenant(String tenantId) async {
     try {
       final doc = await _firestore.collection('tenants').doc(tenantId).get();

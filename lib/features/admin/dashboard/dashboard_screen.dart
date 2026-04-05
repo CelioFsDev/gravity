@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
-import 'package:catalogo_ja/data/repositories/firestore_products_repository.dart';
-import 'package:catalogo_ja/data/repositories/firestore_categories_repository.dart';
-import 'package:catalogo_ja/data/repositories/firestore_catalogs_repository.dart';
+import 'package:catalogo_ja/data/repositories/products_repository.dart';
+import 'package:catalogo_ja/data/repositories/categories_repository.dart';
+import 'package:catalogo_ja/data/repositories/catalogs_repository.dart';
+import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/viewmodels/global_sync_viewmodel.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -13,20 +16,23 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final productsAsync = ref.watch(syncProductsRepositoryProvider).watchProducts();
-    final categoriesAsync = ref.watch(syncCategoriesRepositoryProvider).watchCategories();
-    final catalogsAsync = ref.watch(syncCatalogsRepositoryProvider).watchCatalogs();
+    // ⚡️ OTIMIZAÇÃO SAAS: Usamos os repositórios LOCAIS (Hive) para as contagens do Dashboard.
+    // Isso reduz as leituras no Firestore a ZERO cada vez que o painel é aberto, 
+    // já que os dados locais são sincronizados no login e representam a realidade do device.
+    final productsAsync = ref.watch(productsRepositoryProvider).watchProducts();
+    final categoriesAsync = ref.watch(categoriesRepositoryProvider).watchCategories();
+    final catalogsAsync = ref.watch(catalogsRepositoryProvider).watchCatalogs();
 
     return AppScaffold(
       title: 'Painel de Controle',
       subtitle: 'Bem-vindo ao seu Catálogo SaaS',
-      body: StreamBuilder(
+      body: StreamBuilder<List<Product>>(
         stream: productsAsync,
         builder: (context, productsSnapshot) {
-          return StreamBuilder(
+          return StreamBuilder<List<Category>>(
             stream: categoriesAsync,
             builder: (context, categoriesSnapshot) {
-              return StreamBuilder(
+              return StreamBuilder<List<Catalog>>(
                 stream: catalogsAsync,
                 builder: (context, catalogsSnapshot) {
                   final productCount = productsSnapshot.data?.length ?? 0;

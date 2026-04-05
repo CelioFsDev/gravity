@@ -6,6 +6,7 @@ abstract class CategoriesRepositoryContract {
   Future<List<Category>> getCategories();
   Future<void> addCategory(Category category);
   Future<void> updateCategory(Category category);
+  Future<void> updateCategoriesBulk(List<Category> categories);
   Future<void> deleteCategory(String id);
   Future<void> reassignCategory(String oldCategoryId, String newCategoryId);
   Future<Category?> getBySlug(String slug);

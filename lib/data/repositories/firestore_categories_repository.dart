@@ -14,17 +14,85 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
 
   FirestoreCategoriesRepository(this._localRepo, this._storageService, this._tenantId);
 
+  // 🔑 Cache em memória
+  List<Category>? _memoryCache;
+  DateTime? _cacheTimestamp;
+  static const _cacheDuration = Duration(minutes: 5);
+
+  bool get _isCacheValid =>
+      _memoryCache != null &&
+      _cacheTimestamp != null &&
+      DateTime.now().difference(_cacheTimestamp!) < _cacheDuration;
+
+  void invalidateCache() {
+    _memoryCache = null;
+    _cacheTimestamp = null;
+  }
+
   CollectionReference<Map<String, dynamic>> get _collection =>
       _firestore.collection('categories');
 
   @override
   Future<List<Category>> getCategories() async {
-    final snapshot = await _collection
-        .where('tenantId', isEqualTo: _tenantId)
-        .get();
-    final categories = snapshot.docs.map((doc) => Category.fromMap(doc.data())).toList();
-    categories.sort((a, b) => a.order.compareTo(b.order));
-    return categories;
+    if (_isCacheValid) return List.from(_memoryCache!);
+
+    try {
+      final localCategories = await _localRepo.getCategories();
+      DateTime? mostRecentLocal;
+      if (localCategories.isNotEmpty) {
+        mostRecentLocal = localCategories
+            .map((c) => c.updatedAt)
+            .reduce((a, b) => a.isAfter(b) ? a : b);
+      }
+
+      Query<Map<String, dynamic>> query =
+          _collection.where('tenantId', isEqualTo: _tenantId);
+
+      if (mostRecentLocal != null) {
+        final since = mostRecentLocal.subtract(const Duration(seconds: 10));
+        query = query.where('updatedAt', isGreaterThan: Timestamp.fromDate(since));
+      }
+
+      final snapshot = await query.get().timeout(const Duration(seconds: 10));
+      final newCloudCategories = snapshot.docs
+          .map((doc) => Category.fromMap(doc.data()))
+          .toList();
+
+      final merged = <String, Category>{
+        for (final c in localCategories) c.id: c,
+      };
+
+      for (final cloudCat in newCloudCategories) {
+        final localCat = merged[cloudCat.id];
+        if (localCat == null || cloudCat.updatedAt.isAfter(localCat.updatedAt)) {
+          merged[cloudCat.id] = cloudCat;
+          await _localRepo.addCategory(cloudCat);
+        }
+      }
+
+      final result = merged.values.toList();
+      result.sort((a, b) => a.order.compareTo(b.order));
+
+      _memoryCache = result;
+      _cacheTimestamp = DateTime.now();
+      return result;
+    } catch (e) {
+      print('Erro ao buscar categorias do Firestore: $e');
+      return await _localRepo.getCategories();
+    }
+  }
+
+  /// Busca na nuvem sem merge (usado no sync manual)
+  Future<List<Category>> fetchFromCloudOnly({DateTime? since}) async {
+    Query<Map<String, dynamic>> query =
+        _collection.where('tenantId', isEqualTo: _tenantId);
+    if (since != null) {
+      query = query.where('updatedAt',
+          isGreaterThan: Timestamp.fromDate(
+              since.subtract(const Duration(seconds: 10))));
+    }
+    final snapshot = await query.get().timeout(const Duration(seconds: 15));
+    return snapshot.docs.map((doc) => Category.fromMap(doc.data())).toList();
   }
 
   @override
@@ -66,15 +134,31 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
 
     await _collection.doc(updatedCategory.id).set(updatedCategory.toMap());
     await _localRepo.addCategory(updatedCategory);
+    invalidateCache();
   }
 
   @override
   Future<void> updateCategory(Category category) async => addCategory(category);
 
   @override
+  Future<void> updateCategoriesBulk(List<Category> categories) async {
+    final batch = _firestore.batch();
+    for (final cat in categories) {
+      final updatedCat = cat.copyWith(tenantId: _tenantId);
+      batch.set(_collection.doc(updatedCat.id), updatedCat.toMap());
+    }
+    await batch.commit();
+
+    // Atualiza localmente em lote
+    await _localRepo.updateCategoriesBulk(categories);
+    invalidateCache();
+  }
+
+  @override
   Future<void> deleteCategory(String id) async {
     await _collection.doc(id).delete();
     await _localRepo.deleteCategory(id);
+    invalidateCache();
   }
 
   @override
@@ -100,6 +184,10 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
 
   @override
   Future<Category?> getBySlug(String slug) async {
+    // 🔑 Tenta local primeiro
+    final localDoc = await _localRepo.getBySlug(slug);
+    if (localDoc != null) return localDoc;
+
     final snapshot = await _collection
         .where('tenantId', isEqualTo: _tenantId)
         .where('slug', isEqualTo: slug)
@@ -108,7 +196,7 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
     if (snapshot.docs.isNotEmpty) {
       return Category.fromMap(snapshot.docs.first.data());
     }
-    return _localRepo.getBySlug(slug);
+    return null;
   }
 
   @override

@@ -1,15 +1,16 @@
 import 'dart:async';
 import 'package:catalogo_ja/data/repositories/categories_repository.dart';
 import 'package:catalogo_ja/data/repositories/firestore_categories_repository.dart';
-import 'package:catalogo_ja/data/repositories/firestore_products_repository.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:catalogo_ja/data/repositories/tenant_repository.dart';
 import 'package:catalogo_ja/core/error/app_failure.dart';
 import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
 
@@ -62,9 +63,11 @@ class CategoriesViewModel extends _$CategoriesViewModel {
 
   Future<CategoriesState> _fetchData() async {
     final categoriesRepository = ref.watch(syncCategoriesRepositoryProvider);
-    final productRepository = ref.watch(syncProductsRepositoryProvider);
+    // 🔑 Usa repositório LOCAL para contar produtos — evita leitura Firestore
+    // desnecessária (os dados locais já estão sincronizados).
+    final localProductRepo = ref.read(productsRepositoryProvider);
     final allCategories = await categoriesRepository.getCategories();
-    final allProducts = await productRepository.getProducts();
+    final allProducts = await localProductRepo.getProducts();
 
     // Count products
     final counts = <String, int>{};
@@ -151,8 +154,9 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     String? id,
   }) async {
     try {
-      final categoriesRepo = ref.read(syncCategoriesRepositoryProvider);
-      final currentCategories = await categoriesRepo.getCategories();
+      // Para validação de unicidade, sempre usamos o repo local (já sincronizado)
+      final localRepo = ref.read(categoriesRepositoryProvider);
+      final currentCategories = await localRepo.getCategories();
 
       if (currentCategories.any(
         (c) =>
@@ -179,7 +183,15 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         slug: Category.generateSlug(name),
       );
 
-      await categoriesRepo.addCategory(newCat);
+      if (kIsWeb) {
+        // 🌐 Web: vai direto à nuvem (sem cache local permanente confiável)
+        final cloudRepo = ref.read(syncCategoriesRepositoryProvider);
+        await cloudRepo.addCategory(newCat);
+      } else {
+        // 🖥️ Desktop/Mobile: salva LOCAL. Sincronize manualmente quando desejar.
+        await localRepo.addCategory(newCat);
+      }
+
       await _refresh();
       ref.invalidate(productsViewModelProvider);
       return null;
@@ -197,8 +209,8 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     String? id,
   }) async {
     try {
-      final categoriesRepo = ref.read(syncCategoriesRepositoryProvider);
-      final currentCategories = await categoriesRepo.getCategories();
+      final localRepo = ref.read(categoriesRepositoryProvider);
+      final currentCategories = await localRepo.getCategories();
 
       if (currentCategories.any(
         (c) =>
@@ -241,7 +253,13 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         ),
       );
 
-      await categoriesRepo.addCategory(newCollection);
+      if (kIsWeb) {
+        final cloudRepo = ref.read(syncCategoriesRepositoryProvider);
+        await cloudRepo.addCategory(newCollection);
+      } else {
+        await localRepo.addCategory(newCollection);
+      }
+
       await _refresh();
       ref.invalidate(productsViewModelProvider);
       return null;
@@ -256,8 +274,8 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     CollectionCover? cover,
   }) async {
     try {
-      final categoriesRepo = ref.read(syncCategoriesRepositoryProvider);
-      final currentCategories = await categoriesRepo.getCategories();
+      final localRepo = ref.read(categoriesRepositoryProvider);
+      final currentCategories = await localRepo.getCategories();
 
       if (currentCategories.any(
         (c) =>
@@ -273,7 +291,14 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         updatedAt: DateTime.now(),
         cover: cover,
       );
-      await categoriesRepo.updateCategory(updated);
+
+      if (kIsWeb) {
+        final cloudRepo = ref.read(syncCategoriesRepositoryProvider);
+        await cloudRepo.updateCategory(updated);
+      } else {
+        await localRepo.updateCategory(updated);
+      }
+
       await _refresh();
       ref.invalidate(productsViewModelProvider);
       return null;
@@ -291,8 +316,8 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     required bool isActive,
   }) async {
     try {
-      final categoriesRepo = ref.read(syncCategoriesRepositoryProvider);
-      final currentCategories = await categoriesRepo.getCategories();
+      final localRepo = ref.read(categoriesRepositoryProvider);
+      final currentCategories = await localRepo.getCategories();
 
       if (currentCategories.any(
         (c) =>
@@ -319,7 +344,13 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         ),
       );
 
-      await categoriesRepo.updateCategory(updated);
+      if (kIsWeb) {
+        final cloudRepo = ref.read(syncCategoriesRepositoryProvider);
+        await cloudRepo.updateCategory(updated);
+      } else {
+        await localRepo.updateCategory(updated);
+      }
+
       await _refresh();
       ref.invalidate(productsViewModelProvider);
       return null;
@@ -341,12 +372,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     list.insert(newIndex, item);
 
     try {
-      final categoriesRepo = ref.read(syncCategoriesRepositoryProvider);
-      for (var i = 0; i < list.length; i++) {
-        final cat = list[i].copyWith(order: i);
-        await categoriesRepo.updateCategory(cat);
-      }
-
+      // 1. Atualiza UI otimisticamente (sem esperar rede)
       state = AsyncData(
         CategoriesState(
           categories: list,
@@ -355,6 +381,25 @@ class CategoriesViewModel extends _$CategoriesViewModel {
           searchQuery: '',
         ),
       );
+
+      // 🎯 Coleta apenas o que mudou de fato na ordem
+      final updatedCategories = <Category>[];
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].order != i) {
+          updatedCategories.add(list[i].copyWith(order: i, updatedAt: DateTime.now()));
+        }
+      }
+
+      if (updatedCategories.isEmpty) return;
+
+      // ⚡ OTIMIZAÇÃO SAAS: Salva em Lote
+      if (kIsWeb) {
+        final cloudRepo = ref.read(syncCategoriesRepositoryProvider);
+        await cloudRepo.updateCategoriesBulk(updatedCategories);
+      } else {
+        final localRepo = ref.read(categoriesRepositoryProvider);
+        await localRepo.updateCategoriesBulk(updatedCategories);
+      }
     } catch (e) {
       throw e.toAppFailure(action: 'reorder', entity: 'Categories');
     }
@@ -362,7 +407,8 @@ class CategoriesViewModel extends _$CategoriesViewModel {
 
   Future<CategoryDeleteResult> checkDelete(String id) async {
     try {
-      final productRepository = ref.read(syncProductsRepositoryProvider);
+      // 🔑 Usa repositório LOCAL para verificar produtos — sem leitura Firestore
+      final productRepository = ref.read(productsRepositoryProvider);
       final categoriesRepo = ref.read(syncCategoriesRepositoryProvider);
       final products = await productRepository.getProductsByCategory(id);
 
@@ -432,13 +478,9 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       final tenant = await ref.read(currentTenantProvider.future);
       String? tenantId = tenant?.id;
       if (tenantId == null) {
-        final authUser = ref.read(authViewModelProvider).value;
-        if (authUser?.email != null) {
-          final userDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(authUser!.email!.toLowerCase().trim())
-              .get();
-          tenantId = userDoc.data()?['tenantId'] as String?;
+        final email = ref.read(authViewModelProvider).valueOrNull?.email;
+        if (email != null) {
+          tenantId = await ref.read(tenantRepositoryProvider).getCachedTenantId(email);
         }
       }
 
@@ -485,13 +527,9 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       final tenant = await ref.read(currentTenantProvider.future);
       String? tenantId = tenant?.id;
       if (tenantId == null) {
-        final authUser = ref.read(authViewModelProvider).value;
-        if (authUser?.email != null) {
-          final userDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(authUser!.email!.toLowerCase().trim())
-              .get();
-          tenantId = userDoc.data()?['tenantId'] as String?;
+        final email = ref.read(authViewModelProvider).valueOrNull?.email;
+        if (email != null) {
+          tenantId = await ref.read(tenantRepositoryProvider).getCachedTenantId(email);
         }
       }
 
@@ -504,7 +542,17 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       final localRepo = ref.read(categoriesRepositoryProvider) as HiveCategoriesRepository;
       final firestoreRepo = FirestoreCategoriesRepository(localRepo, storageService, tenantId);
 
-      final cloudCategories = await firestoreRepo.getCategories();
+      // 🔑 Usa fetchFromCloudOnly() para evitar double-merge com cache
+      final currentLocalCategories = await localRepo.getCategories();
+      DateTime? mostRecentLocal;
+      if (currentLocalCategories.isNotEmpty) {
+        mostRecentLocal = currentLocalCategories
+            .map((c) => c.updatedAt)
+            .reduce((a, b) => a.isAfter(b) ? a : b);
+      }
+      final cloudCategories = await firestoreRepo.fetchFromCloudOnly(
+        since: mostRecentLocal,
+      );
       if (cloudCategories.isEmpty) {
         progressNotifier.stopSync();
         return 0;
@@ -535,6 +583,9 @@ class CategoriesViewModel extends _$CategoriesViewModel {
           downloadedCount++;
         } catch (_) {}
       }
+
+      final box = await Hive.openBox('sync_meta');
+      await box.put('last_sync_categories', DateTime.now().millisecondsSinceEpoch);
 
       progressNotifier.stopSync();
       await _refresh();

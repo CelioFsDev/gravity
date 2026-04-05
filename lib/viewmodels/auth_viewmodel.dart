@@ -8,9 +8,11 @@ import 'package:catalogo_ja/data/repositories/catalogs_repository.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
+import 'package:catalogo_ja/data/repositories/tenant_repository.dart';
 import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 class AuthViewModel extends StreamNotifier<User?> {
   late AuthRepository _repository;
@@ -46,16 +48,22 @@ class AuthViewModel extends StreamNotifier<User?> {
     _triggerInitialDataDownload();
   }
 
+  Future<bool> _shouldSync(String key, {Duration maxAge = const Duration(hours: 4)}) async {
+    final box = await Hive.openBox('sync_meta');
+    final lastSyncMs = box.get('last_sync_$key') as int?;
+    if (lastSyncMs == null) return true;
+    final lastSync = DateTime.fromMillisecondsSinceEpoch(lastSyncMs);
+    return DateTime.now().difference(lastSync) > maxAge;
+  }
+
   void _triggerInitialDataDownload() async {
     try {
       if (kDebugMode) {
-        debugPrint('🚀 [AppLogger] Iniciando sincronização de dados após login...');
+        debugPrint('🚀 [AppLogger] Checando necessidades de sync de dados após login...');
       }
       
-      // Aguarda um pequeno momento para garantir que o Firestore tenha propagado o perfil
       await Future.delayed(const Duration(seconds: 1));
 
-      // Tenta obter o tenant. Se falhar, tentamos mais uma vez após 2 segundos
       var tenant = await ref.read(currentTenantProvider.future);
       
       if (tenant == null) {
@@ -67,15 +75,21 @@ class AuthViewModel extends StreamNotifier<User?> {
       }
 
       if (tenant != null) {
+        final shouldSyncCategories = await _shouldSync('categories');
+        final shouldSyncProducts = await _shouldSync('products');
+        final shouldSyncCatalogs = await _shouldSync('catalogs');
+        
         if (kDebugMode) {
-          debugPrint('🚀 [AppLogger] Empresa (Tenant) identificada: ${tenant.id}. Baixando catálogos...');
+          debugPrint('🚀 [AppLogger] Empresa (Tenant) identificada: ${tenant.id}. Sync pendente: Cat:$shouldSyncCategories Prod:$shouldSyncProducts Cata:$shouldSyncCatalogs');
         }
         
-        // Dispara o download em paralelo
-        Future.wait([
-          ref.read(categoriesViewModelProvider.notifier).syncFromCloud(),
-          ref.read(productsViewModelProvider.notifier).syncFromCloud(),
-          ref.read(catalogsViewModelProvider.notifier).syncFromCloud(),
+        await Future.wait([
+          if (shouldSyncCategories)
+            ref.read(categoriesViewModelProvider.notifier).syncFromCloud(),
+          if (shouldSyncProducts)
+            ref.read(productsViewModelProvider.notifier).syncFromCloud(),
+          if (shouldSyncCatalogs)
+            ref.read(catalogsViewModelProvider.notifier).syncFromCloud(),
         ]);
       } else {
         _logger.logError('Não foi possível identificar a empresa vinculada a este usuário após o login.');
@@ -191,6 +205,12 @@ class AuthViewModel extends StreamNotifier<User?> {
       await productsRepo.clearAll();
       await categoriesRepo.clearAll();
       await catalogsRepo.clearAll();
+
+      // 🔑 Reseta o guard de sessão para que o próximo login execute normalmente
+      UserRepository.resetSession();
+
+      // 🔑 Limpa o cache do TenantId para evitar conflito se outro user logar
+      ref.read(tenantRepositoryProvider).clearTenantCache();
 
       await _repository.signOut();
       _logger.log(AppEvent.logout);

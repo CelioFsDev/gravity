@@ -1,3 +1,4 @@
+import 'package:catalogo_ja/data/repositories/tenant_repository.dart';
 import 'package:catalogo_ja/data/repositories/firestore_products_repository.dart';
 import 'package:catalogo_ja/data/repositories/categories_repository.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
@@ -19,6 +20,7 @@ import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'dart:async';
 
 part 'products_viewmodel.g.dart';
@@ -126,7 +128,11 @@ class SyncProgress {
   final String message;
   final bool isSyncing;
 
-  SyncProgress({this.progress = 0.0, this.message = '', this.isSyncing = false});
+  SyncProgress({
+    this.progress = 0.0,
+    this.message = '',
+    this.isSyncing = false,
+  });
 
   SyncProgress copyWith({double? progress, String? message, bool? isSyncing}) {
     return SyncProgress(
@@ -149,7 +155,11 @@ class SyncProgressNotifier extends StateNotifier<SyncProgress> {
   }
 
   void stopSync({String? message}) {
-    state = SyncProgress(isSyncing: false, progress: 1.0, message: message ?? '');
+    state = SyncProgress(
+      isSyncing: false,
+      progress: 1.0,
+      message: message ?? '',
+    );
   }
 
   void reset() {
@@ -157,7 +167,10 @@ class SyncProgressNotifier extends StateNotifier<SyncProgress> {
   }
 }
 
-final syncProgressProvider = StateNotifierProvider<SyncProgressNotifier, SyncProgress>((ref) => SyncProgressNotifier());
+final syncProgressProvider =
+    StateNotifierProvider<SyncProgressNotifier, SyncProgress>(
+      (ref) => SyncProgressNotifier(),
+    );
 
 @riverpod
 class ProductsViewModel extends _$ProductsViewModel {
@@ -386,12 +399,11 @@ class ProductsViewModel extends _$ProductsViewModel {
       try {
         final repository = ref.read(syncProductsRepositoryProvider);
         await repository.deleteProduct(id);
-        
+
         _notifyChanges();
-        ref.read(appLoggerProvider.notifier).log(
-              AppEvent.productDeleted,
-              parameters: {'productId': id},
-            );
+        ref
+            .read(appLoggerProvider.notifier)
+            .log(AppEvent.productDeleted, parameters: {'productId': id});
         return await build();
       } catch (e) {
         throw e.toAppFailure(action: 'deleteProduct', entity: 'Product');
@@ -402,14 +414,14 @@ class ProductsViewModel extends _$ProductsViewModel {
   Future<void> addProduct(Product product) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
-      // 🚀 Estrat\u00e9gia H\u00edbrida: 
+      // 🚀 Estrat\u00e9gia H\u00edbrida:
       // Na WEB, precisamos da nuvem na hora porque o navegador apaga arquivos tempor\u00e1rios.
       // No DESKTOP/MOBILE, seguimos o seu pedido de ser 100% Local-First.
-      
+
       if (kIsWeb) {
         final cloudRepository = ref.read(syncProductsRepositoryProvider);
         final progressNotifier = ref.read(syncProgressProvider.notifier);
-        
+
         progressNotifier.startSync('Salvando na nuvem (Web)...');
         await cloudRepository.addProduct(
           product,
@@ -420,14 +432,16 @@ class ProductsViewModel extends _$ProductsViewModel {
         final localRepository = ref.read(productsRepositoryProvider);
         await localRepository.addProduct(product);
       }
-      
+
       _notifyChanges();
-      ref.read(appLoggerProvider.notifier).log(
+      ref
+          .read(appLoggerProvider.notifier)
+          .log(
             AppEvent.productCreated,
             parameters: {'productId': product.id, 'name': product.name},
           );
-          
-      return await build(); 
+
+      return await build();
     });
   }
 
@@ -437,7 +451,7 @@ class ProductsViewModel extends _$ProductsViewModel {
       if (kIsWeb) {
         final cloudRepository = ref.read(syncProductsRepositoryProvider);
         final progressNotifier = ref.read(syncProgressProvider.notifier);
-        
+
         progressNotifier.startSync('Atualizando na nuvem (Web)...');
         await cloudRepository.updateProduct(
           product,
@@ -448,13 +462,40 @@ class ProductsViewModel extends _$ProductsViewModel {
         final localRepository = ref.read(productsRepositoryProvider);
         await localRepository.updateProduct(product);
       }
-      
+
+      _notifyChanges();
+      ref
+          .read(appLoggerProvider.notifier)
+          .log(AppEvent.productUpdated, parameters: {'productId': product.id});
+
+      return await build();
+    });
+  }
+
+  Future<void> updateProductsBulk(List<Product> products) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      if (kIsWeb) {
+        final cloudRepository = ref.read(syncProductsRepositoryProvider);
+        final progressNotifier = ref.read(syncProgressProvider.notifier);
+
+        progressNotifier.startSync('Atualizando lote na nuvem (Web)...');
+        await cloudRepository.updateProductsBulk(
+          products,
+          onProgress: (p, m) => progressNotifier.updateProgress(p, m),
+        );
+        progressNotifier.stopSync();
+      } else {
+        final localRepository = ref.read(productsRepositoryProvider);
+        await localRepository.updateProductsBulk(products);
+      }
+
       _notifyChanges();
       ref.read(appLoggerProvider.notifier).log(
             AppEvent.productUpdated,
-            parameters: {'productId': product.id},
+            parameters: {'bulkCount': products.length},
           );
-      
+
       return await build();
     });
   }
@@ -462,12 +503,13 @@ class ProductsViewModel extends _$ProductsViewModel {
   Future<int> syncAllToCloud() async {
     final progressNotifier = ref.read(syncProgressProvider.notifier);
     progressNotifier.startSync('Iniciando sincronização...');
-    
+
     try {
       // 1. Pega o repositório local explicitamente para ler o que está no celular
-      final localRepo = ref.read(productsRepositoryProvider) as HiveProductsRepository;
+      final localRepo =
+          ref.read(productsRepositoryProvider) as HiveProductsRepository;
       final localProducts = await localRepo.getProducts();
-      
+
       if (localProducts.isEmpty) {
         progressNotifier.stopSync();
         return 0;
@@ -490,7 +532,9 @@ class ProductsViewModel extends _$ProductsViewModel {
       }
 
       if (tenantId == null || tenantId.isEmpty) {
-        throw Exception('Você precisa estar logado em uma empresa para sincronizar.');
+        throw Exception(
+          'Você precisa estar logado em uma empresa para sincronizar.',
+        );
       }
 
       // 3. Pega o repositório do Firestore
@@ -507,7 +551,7 @@ class ProductsViewModel extends _$ProductsViewModel {
       for (var i = 0; i < total; i++) {
         final product = localProducts[i];
         final progress = (i + 1) / total;
-        
+
         progressNotifier.updateProgress(
           progress,
           'Sincronizando: ${i + 1}/$total - ${product.name}',
@@ -522,14 +566,16 @@ class ProductsViewModel extends _$ProductsViewModel {
         }
       }
 
-      progressNotifier.stopSync(message: 'Sincronização concluída: $syncedCount produtos!');
+      progressNotifier.stopSync(
+        message: 'Sincronização concluída: $syncedCount produtos!',
+      );
       await refresh();
       _notifyChanges();
       return syncedCount;
     } catch (e) {
       progressNotifier.stopSync(message: 'Erro: $e');
       debugPrint('Erro fatal na sincronização: $e');
-      rethrow; 
+      rethrow;
     }
   }
 
@@ -544,23 +590,24 @@ class ProductsViewModel extends _$ProductsViewModel {
 
       // Fallback para o documento do usuário
       if (tenantId == null) {
-        final authUser = ref.read(authViewModelProvider).value;
-        if (authUser?.email != null) {
-          final userDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(authUser!.email!.toLowerCase().trim())
-              .get();
-          tenantId = userDoc.data()?['tenantId'] as String?;
+        final email = ref.read(authViewModelProvider).valueOrNull?.email;
+        if (email != null) {
+          tenantId = await ref
+              .read(tenantRepositoryProvider)
+              .getCachedTenantId(email);
         }
       }
 
       if (tenantId == null || tenantId.isEmpty) {
-        throw Exception('Você precisa estar logado em uma empresa para baixar os dados.');
+        throw Exception(
+          'Você precisa estar logado em uma empresa para baixar os dados.',
+        );
       }
 
       // 1. Pega os repositórios e serviços
 
-      final localRepo = ref.read(productsRepositoryProvider) as HiveProductsRepository;
+      final localRepo =
+          ref.read(productsRepositoryProvider) as HiveProductsRepository;
       final cacheService = ref.read(imageCacheServiceProvider);
       final storageService = ref.read(saasPhotoStorageProvider);
       final firestoreRepo = FirestoreProductsRepository(
@@ -569,28 +616,45 @@ class ProductsViewModel extends _$ProductsViewModel {
         tenantId,
       );
 
-      // 2. Busca na Nuvem
+      // 2. Busca na Nuvem (apenas novidades)
       print('Buscando produtos na nuvem...');
-      final cloudProducts = await firestoreRepo.getProducts();
-      
+      final currentLocalProducts = await localRepo.getProducts();
+      DateTime? mostRecentLocal;
+      if (currentLocalProducts.isNotEmpty) {
+        mostRecentLocal = currentLocalProducts
+            .map((p) => p.updatedAt)
+            .reduce((a, b) => a.isAfter(b) ? a : b);
+      }
+
+      final cloudProducts = await firestoreRepo.fetchFromCloudOnly(
+        since: mostRecentLocal,
+      );
+
       if (cloudProducts.isEmpty) {
-        progressNotifier.stopSync(message: 'Nenhum produto encontrado na nuvem.');
+        progressNotifier.stopSync(
+          message: 'Nenhum produto novo encontrado na nuvem.',
+        );
+        final box = await Hive.openBox('sync_meta');
+        await box.put(
+          'last_sync_products',
+          DateTime.now().millisecondsSinceEpoch,
+        );
         return 0;
       }
 
       var downloadedCount = 0;
-      final currentLocalProducts = await localRepo.getProducts();
       final localMap = {for (var p in currentLocalProducts) p.id: p};
 
       for (var i = 0; i < cloudProducts.length; i++) {
         final p = cloudProducts[i];
         final progress = (i + 1) / cloudProducts.length;
-        
+
         // 🚀 Verificação de Diferença (Sincronização Incremental/Inteligente)
         final localProduct = localMap[p.id];
-        if (localProduct != null && !p.updatedAt.isAfter(localProduct.updatedAt)) {
+        if (localProduct != null &&
+            !p.updatedAt.isAfter(localProduct.updatedAt)) {
           // Já estamos atualizados localmente, ignora o download deste item
-          continue; 
+          continue;
         }
 
         progressNotifier.updateProgress(
@@ -601,22 +665,29 @@ class ProductsViewModel extends _$ProductsViewModel {
         try {
           // Processa as imagens (legado e moderno) para download físico
           final List<ProductImage> updatedImages = [];
-          
+
           // Se images estiver vazio, tenta resgatar do legado 'photos'
           var imagesToDownload = List<ProductImage>.from(p.images);
           if (imagesToDownload.isEmpty && p.photos.isNotEmpty) {
-            imagesToDownload = p.photos.map((ph) => ph.toProductImage()).toList();
+            imagesToDownload = p.photos
+                .map((ph) => ph.toProductImage())
+                .toList();
           }
 
           for (var img in imagesToDownload) {
-            if (img.sourceType == ProductImageSource.networkUrl && img.uri.startsWith('http')) {
+            if (img.sourceType == ProductImageSource.networkUrl &&
+                img.uri.startsWith('http')) {
               try {
                 // Tenta reaproveitar cache por URL se possível
-                final localPath = await cacheService.downloadAndCacheImage(img.uri);
-                updatedImages.add(img.copyWith(
-                  uri: localPath,
-                  sourceType: ProductImageSource.localPath,
-                ));
+                final localPath = await cacheService.downloadAndCacheImage(
+                  img.uri,
+                );
+                updatedImages.add(
+                  img.copyWith(
+                    uri: localPath,
+                    sourceType: ProductImageSource.localPath,
+                  ),
+                );
               } catch (e) {
                 print('Erro ao baixar imagem: $e');
                 updatedImages.add(img); // Mantem rede se falhar
@@ -629,17 +700,23 @@ class ProductsViewModel extends _$ProductsViewModel {
           // Salva Local - Apenas se for NOVO ou ALTERADO
           final finalProduct = p.copyWith(
             images: updatedImages,
-            photos: updatedImages.map((img) => ProductPhoto(
-              path: img.uri,
-              isPrimary: img.label?.toLowerCase() == 'p' || img.label?.toLowerCase() == 'principal',
-              photoType: img.label,
-              colorKey: img.colorTag,
-            )).toList(),
+            photos: updatedImages
+                .map(
+                  (img) => ProductPhoto(
+                    path: img.uri,
+                    isPrimary:
+                        img.label?.toLowerCase() == 'p' ||
+                        img.label?.toLowerCase() == 'principal',
+                    photoType: img.label,
+                    colorKey: img.colorTag,
+                  ),
+                )
+                .toList(),
           );
 
           await localRepo.addProduct(finalProduct);
           downloadedCount++;
-          
+
           await refresh();
           _notifyChanges();
         } catch (e) {
@@ -647,20 +724,31 @@ class ProductsViewModel extends _$ProductsViewModel {
         }
       }
 
-    progressNotifier.stopSync(message: 'Download concluído: $downloadedCount produtos!');
-    return downloadedCount;
-  } catch (e) {
-    progressNotifier.stopSync(message: 'Erro: $e');
-    debugPrint('Erro ao baixar dados da nuvem: $e');
-    rethrow;
+      final box = await Hive.openBox('sync_meta');
+      await box.put(
+        'last_sync_products',
+        DateTime.now().millisecondsSinceEpoch,
+      );
+
+      progressNotifier.stopSync(
+        message: 'Download concluído: $downloadedCount produtos!',
+      );
+      return downloadedCount;
+    } catch (e) {
+      progressNotifier.stopSync(message: 'Erro: $e');
+      debugPrint('Erro ao baixar dados da nuvem: $e');
+      rethrow;
+    }
   }
-}
 
   Future<int> reorganizePhotosPriority() async {
     try {
       final repository = ref.read(syncProductsRepositoryProvider);
-      final products = await repository.getProducts();
-      var updatedCount = 0;
+      // 🔥 Melhoria SaaS: busca local de alta velocidade primeiro
+      final localRepo = ref.read(productsRepositoryProvider);
+      final products = await localRepo.getProducts(); 
+      
+      final productsToUpdate = <Product>[];
 
       for (final product in products) {
         final reorganized = _reorganizeProductPhotos(product);
@@ -675,22 +763,29 @@ class ProductsViewModel extends _$ProductsViewModel {
           updatedImages,
           mainImageIndex,
         )) {
-          await repository.updateProduct(
+          productsToUpdate.add(
             product.copyWith(
               photos: reorganized,
               images: updatedImages,
               mainImageIndex: mainImageIndex,
+              updatedAt: DateTime.now(),
             ),
           );
-          updatedCount++;
         }
       }
 
-      if (updatedCount > 0) {
+      if (productsToUpdate.isNotEmpty) {
+        // ⚡ OTIMIZAÇÃO SAAS: Salva em Lote (Batch Firestore no Web)
+        if (kIsWeb) {
+          await repository.updateProductsBulk(productsToUpdate);
+        } else {
+          await localRepo.updateProductsBulk(productsToUpdate);
+        }
+        
         await refresh();
         _notifyChanges();
       }
-      return updatedCount;
+      return productsToUpdate.length;
     } catch (e) {
       throw e.toAppFailure(
         action: 'reorganizePhotosPriority',

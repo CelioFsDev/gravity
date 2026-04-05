@@ -44,6 +44,16 @@ class HiveProductsRepository implements ProductsRepositoryContract {
       addProduct(product, onProgress: onProgress);
 
   @override
+  Future<void> updateProductsBulk(List<Product> products, {Function(double, String)? onProgress}) async {
+    final Map<String, Product> updates = {for (var p in products) p.id: p};
+    await _productsBox.putAll(updates);
+    
+    if (onProgress != null) {
+      onProgress(1.0, 'Produtos locais atualizados!');
+    }
+  }
+
+  @override
   Future<void> deleteProduct(String id) async {
     await _productsBox.delete(id);
   }

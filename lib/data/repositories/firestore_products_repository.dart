@@ -24,45 +24,103 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
     this._tenantId,
   );
 
+  // 🔑 Cache em memória: evita re-leituras do Firestore dentro da mesma sessão.
+  // Cada getProducts() sem cache = 1 leitura full da collection (cara!).
+  List<Product>? _memoryCache;
+  DateTime? _cacheTimestamp;
+  static const _cacheDuration = Duration(minutes: 5);
+
+  bool get _isCacheValid =>
+      _memoryCache != null &&
+      _cacheTimestamp != null &&
+      DateTime.now().difference(_cacheTimestamp!) < _cacheDuration;
+
+  /// Invalida o cache. Chame após qualquer escrita local ou nuvem.
+  void invalidateCache() {
+    _memoryCache = null;
+    _cacheTimestamp = null;
+  }
+
   CollectionReference<Map<String, dynamic>> get _collection =>
       _firestore.collection('products');
 
   @override
   Future<List<Product>> getProducts() async {
-    try {
-      final snapshot = await _collection
-          .where('tenantId', isEqualTo: _tenantId)
-          .get()
-          .timeout(const Duration(seconds: 10));
+    // 🌟 Cache hit: retorna dados em memória sem tocar o Firestore
+    if (_isCacheValid) return List.from(_memoryCache!);
 
-      final cloudProducts = snapshot.docs
-          .map((doc) => Product.fromMap(doc.data()))
-          .toList();
+    try {
       final localProducts = await _localRepo.getProducts();
 
+      // Busca incremental: só documentos mais novos que o mais recente local.
+      // Se não há nada local, busca tudo (primeira vez).
+      DateTime? mostRecentLocal;
+      if (localProducts.isNotEmpty) {
+        mostRecentLocal = localProducts
+            .map((p) => p.updatedAt)
+            .reduce((a, b) => a.isAfter(b) ? a : b);
+      }
+
+      Query<Map<String, dynamic>> query =
+          _collection.where('tenantId', isEqualTo: _tenantId);
+
+      if (mostRecentLocal != null) {
+        // 10 segundos de folga para clock skew entre dispositivos
+        final since = mostRecentLocal.subtract(const Duration(seconds: 10));
+        query = query.where('updatedAt',
+            isGreaterThan: Timestamp.fromDate(since));
+      }
+
+      final snapshot =
+          await query.get().timeout(const Duration(seconds: 10));
+
+      final newCloudProducts = snapshot.docs
+          .map((doc) => Product.fromMap(doc.data()))
+          .toList();
+
+      // Merge: local como base, novidades da nuvem têm prioridade
       final merged = <String, Product>{
-        for (final product in localProducts) product.id: product,
+        for (final p in localProducts) p.id: p,
       };
 
-      for (final cloudProduct in cloudProducts) {
+      for (final cloudProduct in newCloudProducts) {
         final localProduct = merged[cloudProduct.id];
         if (localProduct == null) {
           merged[cloudProduct.id] = cloudProduct;
-          continue;
-        }
-
-        if (cloudProduct.updatedAt.isAfter(localProduct.updatedAt) &&
+          // Persiste localmente para próximas sessões offline
+          await _localRepo.addProduct(cloudProduct);
+        } else if (cloudProduct.updatedAt.isAfter(localProduct.updatedAt) &&
             !_hasLocalOnlyPhotos(localProduct)) {
           merged[cloudProduct.id] = cloudProduct;
+          await _localRepo.addProduct(cloudProduct);
         }
       }
 
-      return merged.values.toList()
+      final result = merged.values.toList()
         ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+      // Guarda em cache
+      _memoryCache = result;
+      _cacheTimestamp = DateTime.now();
+      return result;
     } catch (e) {
       debugPrint('Erro ao buscar produtos da nuvem (usando local): $e');
       return await _localRepo.getProducts();
     }
+  }
+
+  /// Busca SOMENTE na nuvem, sem merge local.
+  /// Usado pelo syncFromCloud() para evitar trabalho duplo.
+  Future<List<Product>> fetchFromCloudOnly({DateTime? since}) async {
+    Query<Map<String, dynamic>> query =
+        _collection.where('tenantId', isEqualTo: _tenantId);
+    if (since != null) {
+      query = query.where('updatedAt',
+          isGreaterThan: Timestamp.fromDate(
+              since.subtract(const Duration(seconds: 10))));
+    }
+    final snapshot = await query.get().timeout(const Duration(seconds: 15));
+    return snapshot.docs.map((doc) => Product.fromMap(doc.data())).toList();
   }
 
   bool _hasLocalOnlyPhotos(Product product) {
@@ -196,6 +254,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
 
     await _collection.doc(product.id).set(productWithSaaS.toMap());
     await _localRepo.addProduct(productWithSaaS);
+    invalidateCache(); // 🔑 Invalida cache após escrita
 
     if (onProgress != null) {
       onProgress(1.0, 'Nuvem atualizada!');
@@ -210,9 +269,39 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
       addProduct(product, onProgress: onProgress);
 
   @override
+  Future<void> updateProductsBulk(
+    List<Product> products, {
+    Function(double, String)? onProgress,
+  }) async {
+    final batch = _firestore.batch();
+    final total = products.length;
+
+    for (var i = 0; i < total; i++) {
+      final p = products[i];
+      // ✨ Segurança Adicional: Garante que o tenantId do lote seja o correto
+      final pWithTenant = p.copyWith(tenantId: _tenantId);
+      final docRef = _collection.doc(p.id);
+      batch.set(docRef, pWithTenant.toMap());
+    }
+
+    await batch.commit();
+
+    // Atualiza cache local e de memória em lote
+    for (final p in products) {
+      await _localRepo.addProduct(p.copyWith(tenantId: _tenantId));
+    }
+    invalidateCache();
+
+    if (onProgress != null) {
+      onProgress(1.0, '$total produtos atualizados na nuvem!');
+    }
+  }
+
+  @override
   Future<void> deleteProduct(String id) async {
     await _collection.doc(id).delete();
     await _localRepo.deleteProduct(id);
+    invalidateCache(); // 🔑 Invalida cache após deletão
   }
 
   @override
@@ -222,15 +311,22 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
 
   @override
   Future<Product?> getByRef(String ref) async {
+    // 🔑 Local-First: Tenta primeiro no cache de memória ou repo local
+    final localMatch = await _localRepo.getByRef(ref);
+    if (localMatch != null) return localMatch;
+
+    // Se não achar local, tenta na nuvem (pode ser um item novo recém criado por outro device)
     final snapshot = await _collection
         .where('tenantId', isEqualTo: _tenantId)
         .where('ref', isEqualTo: ref)
         .limit(1)
         .get();
     if (snapshot.docs.isNotEmpty) {
-      return Product.fromMap(snapshot.docs.first.data());
+      final cloudProduct = Product.fromMap(snapshot.docs.first.data());
+      await _localRepo.addProduct(cloudProduct); // Salva local para a próxima vez
+      return cloudProduct;
     }
-    return _localRepo.getByRef(ref);
+    return null;
   }
 
   @override

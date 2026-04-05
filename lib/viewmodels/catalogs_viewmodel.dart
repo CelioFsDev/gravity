@@ -1,13 +1,14 @@
 import 'dart:async';
+import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/data/repositories/catalogs_repository.dart';
 import 'package:catalogo_ja/data/repositories/firestore_catalogs_repository.dart';
-import 'package:catalogo_ja/models/catalog.dart';
+import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
-import 'package:catalogo_ja/viewmodels/products_viewmodel.dart'; // Import for SyncProgress
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:catalogo_ja/core/error/app_failure.dart';
 import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:catalogo_ja/data/repositories/tenant_repository.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'catalogs_viewmodel.g.dart';
@@ -60,13 +61,9 @@ class CatalogsViewModel extends _$CatalogsViewModel {
       final tenant = await ref.read(currentTenantProvider.future);
       String? tenantId = tenant?.id;
       if (tenantId == null) {
-        final authUser = ref.read(authViewModelProvider).value;
-        if (authUser?.email != null) {
-          final userDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(authUser!.email!.toLowerCase().trim())
-              .get();
-          tenantId = userDoc.data()?['tenantId'] as String?;
+        final email = ref.read(authViewModelProvider).valueOrNull?.email;
+        if (email != null) {
+          tenantId = await ref.read(tenantRepositoryProvider).getCachedTenantId(email);
         }
       }
 
@@ -113,13 +110,9 @@ class CatalogsViewModel extends _$CatalogsViewModel {
       final tenant = await ref.read(currentTenantProvider.future);
       String? tenantId = tenant?.id;
       if (tenantId == null) {
-        final authUser = ref.read(authViewModelProvider).value;
-        if (authUser?.email != null) {
-          final userDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(authUser!.email!.toLowerCase().trim())
-              .get();
-          tenantId = userDoc.data()?['tenantId'] as String?;
+        final email = ref.read(authViewModelProvider).valueOrNull?.email;
+        if (email != null) {
+          tenantId = await ref.read(tenantRepositoryProvider).getCachedTenantId(email);
         }
       }
 
@@ -132,7 +125,17 @@ class CatalogsViewModel extends _$CatalogsViewModel {
       final storageService = ref.read(saasPhotoStorageProvider);
       final firestoreRepo = FirestoreCatalogsRepository(localRepo, storageService, tenantId);
 
-      final cloudCatalogs = await firestoreRepo.getCatalogs();
+      // 🔑 Usa fetchFromCloudOnly() para evitar double-merge com cache
+      final currentLocalCatalogs = await localRepo.getCatalogs();
+      DateTime? mostRecentLocal;
+      if (currentLocalCatalogs.isNotEmpty) {
+        mostRecentLocal = currentLocalCatalogs
+            .map((c) => c.updatedAt)
+            .reduce((a, b) => a.isAfter(b) ? a : b);
+      }
+      final cloudCatalogs = await firestoreRepo.fetchFromCloudOnly(
+        since: mostRecentLocal,
+      );
       if (cloudCatalogs.isEmpty) {
         progressNotifier.stopSync();
         return 0;
@@ -163,6 +166,9 @@ class CatalogsViewModel extends _$CatalogsViewModel {
           downloadedCount++;
         } catch (_) {}
       }
+
+      final box = await Hive.openBox('sync_meta');
+      await box.put('last_sync_catalogs', DateTime.now().millisecondsSinceEpoch);
 
       progressNotifier.stopSync();
       ref.invalidateSelf();

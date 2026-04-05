@@ -41,6 +41,12 @@ class HiveCategoriesRepository implements CategoriesRepositoryContract {
   }
 
   @override
+  Future<void> updateCategoriesBulk(List<Category> categories) async {
+    final Map<String, Category> updates = {for (var c in categories) c.id: c};
+    await _categoriesBox.putAll(updates);
+  }
+
+  @override
   Future<void> deleteCategory(String id) async {
     await _categoriesBox.delete(id);
   }

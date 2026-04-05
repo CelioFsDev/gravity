@@ -6,6 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 class UserRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  // 🔑 Guard: garante que ensureUserProfile só executa 1x por sessão ativa.
+  // authStateChanges pode emitir múltiplas vezes (token refresh), este flag
+  // evita leituras/escritas duplicadas no Firestore.
+  static bool _profileSyncedThisSession = false;
+
+  /// Reseta o guard. Deve ser chamado no signOut().
+  static void resetSession() => _profileSyncedThisSession = false;
+
   String _normalizeEmail(String email) => email.trim().toLowerCase();
 
   /// Fetches a user's role by their email.
@@ -102,7 +110,13 @@ class UserRepository {
     }, SetOptions(merge: true));
   }
 
-  Future<void> ensureUserProfileFromAuth(User user) {
+  Future<void> ensureUserProfileFromAuth(User user) async {
+    // 🔑 Guard de sessão: só executa 1x por sessão ativa.
+    // authStateChanges emite múltiplas vezes (token refresh, re-auth).
+    // Cada execução = 1 read + 1 write no Firestore — evitamos isso.
+    if (_profileSyncedThisSession) return;
+    _profileSyncedThisSession = true;
+
     final email = user.email?.trim().toLowerCase() ?? '';
     return ensureUserProfile(
       email: email,
