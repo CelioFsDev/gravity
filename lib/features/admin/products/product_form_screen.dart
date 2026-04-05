@@ -25,7 +25,11 @@ import 'package:catalogo_ja/features/admin/categories/widgets/category_create_mo
 import 'package:go_router/go_router.dart';
 import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
 import 'package:catalogo_ja/core/error/app_failure.dart';
-import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart'; // Para pegar tenantId
+import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
+import 'package:catalogo_ja/features/admin/products/widgets/store_override_controls.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 
 
 class ProductFormScreen extends ConsumerStatefulWidget {
@@ -93,7 +97,13 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   bool _isUploadingWebPhoto = false;
   String _webPhotoUploadMessage = 'Enviando foto...';
 
-  @override
+  // Multi-Store SaaS Overrides
+  bool _isIndividualStoreConfig = false;
+  List<String> _unavailableSizes = [];
+  List<String> _unavailableColors = [];
+  String? _currentStoreId;
+
+@override
   void initState() {
     super.initState();
     final pr = widget.product;
@@ -139,6 +149,40 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     }
     _photos = _prioritizePrimaryPhoto(_photos);
   }
+  void _loadOverrides(String storeId) {
+    final pr = widget.product;
+    if (pr == null) return;
+
+    final override = pr.storeOverrides[storeId];
+    if (override != null) {
+      setState(() {
+        _isIndividualStoreConfig = true;
+        _unavailableSizes = List<String>.from(override['unavailableSizes'] ?? []);
+        _unavailableColors = List<String>.from(override['unavailableColors'] ?? []);
+        
+        final f = NumberFormat.decimalPattern('pt_BR');
+        if (override['priceRetail'] != null) {
+          _retailController.text = f.format(override['priceRetail']);
+        }
+        if (override['priceWholesale'] != null) {
+          _wholesaleController.text = f.format(override['priceWholesale']);
+        }
+        if (override['isActive'] != null) {
+          _isActive = override['isActive'];
+        }
+      });
+    }
+  }
+
+  List<String> _getUnavailableSizes(List<String> allSizes) {
+    return _unavailableSizes;
+  }
+
+  List<String> _getUnavailableColors(List<String> allColors) {
+    return _unavailableColors;
+  }
+
+
 
   @override
   void dispose() {
@@ -202,7 +246,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       if (_selectedCollectionId != null) _selectedCollectionId!,
       ..._selectedCategoryIds,
     ];
-    final product = Product(
+    var product = Product(
       id: _draftProductId,
       name: _nameController.text,
       ref: _refController.text,
@@ -233,8 +277,31 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           ? (int.tryParse(_discountController.text) ?? 0).toDouble()
           : 0.0,
       description: widget.product?.description,
-      tenantId: tenantId ?? widget.product?.tenantId,
+            tenantId: tenantId ?? widget.product?.tenantId,
+      storeOverrides: widget.product?.storeOverrides ?? {},
     );
+
+    // SaaS Overrides Logic
+    if (_isIndividualStoreConfig && _currentStoreId != null) {
+      final override = {
+        'priceRetail': product.priceRetail,
+        'priceWholesale': product.priceWholesale,
+        'isActive': _isActive,
+        'unavailableSizes': _getUnavailableSizes(product.sizes),
+        'unavailableColors': _getUnavailableColors(product.colors),
+        'updatedAt': DateTime.now().toIso8601String(),
+      };
+      
+      final newOverrides = Map<String, Map<String, dynamic>>.from(product.storeOverrides);
+      newOverrides[_currentStoreId!] = override;
+      
+      if (widget.product != null) {
+        product = widget.product!.copyWith(storeOverrides: newOverrides);
+      } else {
+        product = product.copyWith(storeOverrides: newOverrides);
+      }
+    }
+
 
     try {
       if (kIsWeb && _pendingWebUploadUrls.isNotEmpty) {
@@ -1121,6 +1188,52 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                     ),
                     children: [
                       const SizedBox(height: AppTokens.space24),
+                      if (_currentStoreId == null)
+                        Builder(
+                          builder: (context) {
+                            final userEmail = ref.watch(authViewModelProvider).valueOrNull?.email;
+                            if (userEmail != null) {
+                              FirebaseFirestore.instance.collection('users').doc(userEmail.toLowerCase().trim()).get().then((doc) {
+                                final sid = doc.data()?['currentStoreId'] as String?;
+                                if (sid != null && mounted) {
+                                  setState(() {
+                                    _currentStoreId = sid;
+                                    _loadOverrides(sid);
+                                  });
+                                }
+                              });
+                            }
+                            return const SizedBox.shrink();
+                          },
+                        ),
+                      if (_currentStoreId != null)
+                        StoreOverrideControls(
+                          storeId: _currentStoreId!,
+                          isIndividual: _isIndividualStoreConfig,
+                          onToggleIndividual: (v) => setState(() => _isIndividualStoreConfig = v),
+                          allSizes: _sizesController.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
+                          allColors: _colorsController.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
+                          unavailableSizes: _unavailableSizes,
+                          unavailableColors: _unavailableColors,
+                          onToggleSize: (size, unavailable) {
+                             setState(() {
+                               if (unavailable) {
+                                 if (!_unavailableSizes.contains(size)) _unavailableSizes.add(size);
+                               } else {
+                                 _unavailableSizes.remove(size);
+                               }
+                             });
+                          },
+                          onToggleColor: (color, unavailable) {
+                             setState(() {
+                               if (unavailable) {
+                                 if (!_unavailableColors.contains(color)) _unavailableColors.add(color);
+                               } else {
+                                 _unavailableColors.remove(color);
+                               }
+                             });
+                          },
+                        ),
                       SectionCard(
                         title: 'Informa\u00e7\u00f5es B\u00e1sicas',
                         child: Column(

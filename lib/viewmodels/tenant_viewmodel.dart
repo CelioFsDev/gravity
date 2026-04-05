@@ -33,3 +33,17 @@ final currentTenantProvider = StreamProvider<Tenant?>((ref) {
 final tenantViewModelProvider = Provider<TenantRepository>((ref) {
   return ref.watch(tenantRepositoryProvider);
 });
+
+/// Provider que observa a unidade (loja) atual selecionada pelo usuário.
+final currentStoreIdProvider = StreamProvider<String?>((ref) {
+  final authUser = ref.watch(authViewModelProvider).valueOrNull;
+  if (authUser == null || authUser.email == null) return Stream.value(null);
+
+  final email = authUser.email!.trim().toLowerCase();
+
+  return FirebaseFirestore.instance
+      .collection('users')
+      .doc(email)
+      .snapshots()
+      .map((doc) => doc.data()?['currentStoreId'] as String?);
+});

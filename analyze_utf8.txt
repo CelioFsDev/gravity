@@ -1,0 +1,177 @@
+﻿Analyzing gravity...                                            
+
+   info - The file name 'catalog_pdf_service_HEAD_cmd.dart' isn't a lower_case_with_underscores identifier - catalog_pdf_service_HEAD_cmd.dart:1:1 - file_names
+   info - Don't invoke 'print' in production code - fix_pdf_service.dart:124:3 - avoid_print
+   info - Missing type annotation - lib\core\auth\user_role.dart:158:32 - strict_top_level_inference
+   info - Don't invoke 'print' in production code - lib\core\services\ai_description_service.dart:48:7 - avoid_print
+warning - Dead code - lib\core\services\catalog_pdf_service.dart:550:51 - dead_code
+warning - The left operand can't be null, so the right operand is never executed - lib\core\services\catalog_pdf_service.dart:550:54 - dead_null_aware_expression
+warning - Dead code - lib\core\services\catalog_pdf_service.dart:588:51 - dead_code
+warning - The left operand can't be null, so the right operand is never executed - lib\core\services\catalog_pdf_service.dart:588:54 - dead_null_aware_expression
+warning - The declaration '_resolveColorLabel' isn't referenced - lib\core\services\catalog_pdf_service.dart:1649:17 - unused_element
+   info - Don't invoke 'print' in production code - lib\core\services\catalog_pdf_service.dart:1777:7 - avoid_print
+warning - The declaration '_addCollectionOpeningPage' isn't referenced - lib\core\services\catalog_pdf_service.dart:1986:15 - unused_element
+   info - Don't use 'BuildContext's across async gaps - lib\core\services\catalog_share_helper.dart:98:59 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\core\services\catalog_share_helper.dart:106:9 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\core\services\catalog_share_helper.dart:263:9 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\core\services\catalog_share_helper.dart:484:59 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\core\services\catalog_share_helper.dart:492:9 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\core\services\catalog_share_helper.dart:505:11 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\core\services\catalog_share_helper.dart:549:11 - use_build_context_synchronously
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\core\services\catalog_share_helper.dart:1188:54 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\core\services\catalog_share_helper.dart:1254:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\core\services\catalog_share_helper.dart:1561:40 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\core\services\catalog_share_helper.dart:1565:28 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\core\services\catalog_share_helper.dart:1566:27 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\core\services\catalog_share_helper.dart:1678:38 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\core\services\catalog_share_helper.dart:1734:55 - deprecated_member_use
+   info - The import of 'dart:typed_data' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/foundation.dart' - lib\core\services\catalogo_ja_package_service.dart:3:8 - unnecessary_import
+   info - The imported package 'flutter_cache_manager' isn't a dependency of the importing package - lib\core\services\catalogo_ja_package_service.dart:11:8 - depend_on_referenced_packages
+warning - Dead code - lib\core\services\catalogo_ja_package_service.dart:281:46 - dead_code
+warning - The left operand can't be null, so the right operand is never executed - lib\core\services\catalogo_ja_package_service.dart:281:49 - dead_null_aware_expression
+warning - Unused import: 'package:catalogo_ja/data/repositories/products_repository.dart' - lib\core\services\export_import_service.dart:9:8 - unused_import
+warning - Unused import: 'package:catalogo_ja/data/repositories/categories_repository.dart' - lib\core\services\export_import_service.dart:10:8 - unused_import
+warning - Unused import: 'package:catalogo_ja/data/repositories/catalogs_repository.dart' - lib\core\services\export_import_service.dart:11:8 - unused_import
+   info - Don't invoke 'print' in production code - lib\core\services\export_import_service.dart:282:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\core\services\image_optimizer_service.dart:43:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\core\services\image_optimizer_service.dart:64:7 - avoid_print
+   info - Don't use 'BuildContext's across async gaps - lib\core\services\product_transfer_service.dart:42:9 - use_build_context_synchronously
+   info - The import of 'dart:typed_data' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/foundation.dart' - lib\core\services\saas_photo_storage_service.dart:1:8 - unnecessary_import
+   info - Don't invoke 'print' in production code - lib\core\services\saas_photo_storage_service.dart:35:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\core\services\saas_photo_storage_service.dart:61:7 - avoid_print
+   info - Use the null-aware marker '?' rather than a null check via an 'if' - lib\core\services\saas_photo_storage_service.dart:160:11 - use_null_aware_elements
+   info - Don't invoke 'print' in production code - lib\core\services\saas_photo_storage_service.dart:175:7 - avoid_print
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\core\widgets\kpi_card.dart:32:27 - deprecated_member_use
+   info - Don't invoke 'print' in production code - lib\data\repositories\firestore_catalogs_repository.dart:80:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\data\repositories\firestore_catalogs_repository.dart:105:11 - avoid_print
+   info - Don't invoke 'print' in production code - lib\data\repositories\firestore_catalogs_repository.dart:113:13 - avoid_print
+   info - Don't invoke 'print' in production code - lib\data\repositories\firestore_catalogs_repository.dart:118:11 - avoid_print
+   info - Don't invoke 'print' in production code - lib\data\repositories\firestore_categories_repository.dart:80:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\data\repositories\firestore_categories_repository.dart:109:13 - avoid_print
+   info - Don't invoke 'print' in production code - lib\data\repositories\firestore_categories_repository.dart:116:13 - avoid_print
+   info - The import of 'dart:typed_data' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/foundation.dart' - lib\data\repositories\firestore_products_repository.dart:2:8 - unnecessary_import
+   info - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor or activeTrackColor instead. This feature was deprecated after v3.31.0-2.0.pre - lib\features\admin\admin_shell_screen.dart:137:27 - deprecated_member_use
+   info - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor or activeTrackColor instead. This feature was deprecated after v3.31.0-2.0.pre - lib\features\admin\admin_shell_screen.dart:251:31 - deprecated_member_use
+   info - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor or activeTrackColor instead. This feature was deprecated after v3.31.0-2.0.pre - lib\features\admin\catalogs\catalog_editor_screen.dart:347:7 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\catalogs\catalogs_screen.dart:146:63 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\catalogs\tabs\products_selection_tab.dart:138:61 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\catalogs\tabs\products_selection_tab.dart:339:36 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\catalogs\tabs\products_selection_tab.dart:467:63 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\categories\categories_screen.dart:311:63 - deprecated_member_use
+   info - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor or activeTrackColor instead. This feature was deprecated after v3.31.0-2.0.pre - lib\features\admin\collections\collection_form_screen.dart:273:23 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\collections\collection_form_screen.dart:324:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\collections\collection_form_screen.dart:450:45 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\collections\collection_form_screen.dart:457:49 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\collections\collection_form_screen.dart:482:55 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\collections\collection_form_screen.dart:499:50 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\collections\collection_form_screen.dart:505:52 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\dashboard\dashboard_screen.dart:171:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\dashboard\dashboard_screen.dart:187:32 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\dashboard\dashboard_screen.dart:192:52 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\import\catalogo_ja_import_screen.dart:287:37 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\import\catalogo_ja_import_screen.dart:385:32 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\import\catalogo_ja_import_screen.dart:386:33 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\admin\import\catalogo_ja_import_screen.dart:399:9 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\admin\import\catalogo_ja_import_screen.dart:400:9 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\import\import_menu_screen.dart:65:41 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\import\nuvemshop_import_screen.dart:226:47 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\import\nuvemshop_import_screen.dart:229:56 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\products\product_detail_screen.dart:496:40 - deprecated_member_use
+  error - Undefined name '_isIndividualStoreConfig' - lib\features\admin\products\product_form_screen.dart:151:9 - undefined_identifier
+  error - Undefined name '_unavailableSizes' - lib\features\admin\products\product_form_screen.dart:152:9 - undefined_identifier
+  error - Undefined name '_unavailableColors' - lib\features\admin\products\product_form_screen.dart:153:9 - undefined_identifier
+  error - Undefined name '_unavailableSizes' - lib\features\admin\products\product_form_screen.dart:170:12 - undefined_identifier
+  error - Undefined name '_unavailableColors' - lib\features\admin\products\product_form_screen.dart:174:12 - undefined_identifier
+   info - Use the null-aware marker '?' rather than a null check via an 'if' - lib\features\admin\products\product_form_screen.dart:238:7 - use_null_aware_elements
+  error - Undefined name '_isIndividualStoreConfig' - lib\features\admin\products\product_form_screen.dart:277:9 - undefined_identifier
+  error - Undefined name '_currentStoreId' - lib\features\admin\products\product_form_screen.dart:277:37 - undefined_identifier
+  error - Undefined name '_currentStoreId' - lib\features\admin\products\product_form_screen.dart:288:20 - undefined_identifier
+  error - The final variable 'product' can only be set once - lib\features\admin\products\product_form_screen.dart:291:9 - assignment_to_final_local
+  error - The final variable 'product' can only be set once - lib\features\admin\products\product_form_screen.dart:293:9 - assignment_to_final_local
+   info - Don't use 'BuildContext's across async gaps - lib\features\admin\products\product_form_screen.dart:556:11 - use_build_context_synchronously
+   info - Use the null-aware marker '?' rather than a null check via an 'if' - lib\features\admin\products\product_form_screen.dart:842:7 - use_null_aware_elements
+  error - Undefined name '_currentStoreId' - lib\features\admin\products\product_form_screen.dart:1183:27 - undefined_identifier
+  error - Undefined name 'authViewModelProvider' - lib\features\admin\products\product_form_screen.dart:1186:57 - undefined_identifier
+  error - Undefined name '_currentStoreId' - lib\features\admin\products\product_form_screen.dart:1192:37 - undefined_identifier
+  error - Undefined name '_currentStoreId' - lib\features\admin\products\product_form_screen.dart:1201:27 - undefined_identifier
+  error - Undefined name '_currentStoreId' - lib\features\admin\products\product_form_screen.dart:1203:36 - undefined_identifier
+  error - Undefined name '_isIndividualStoreConfig' - lib\features\admin\products\product_form_screen.dart:1204:41 - undefined_identifier
+  error - Undefined name '_isIndividualStoreConfig' - lib\features\admin\products\product_form_screen.dart:1205:69 - undefined_identifier
+  error - Undefined name '_unavailableSizes' - lib\features\admin\products\product_form_screen.dart:1208:45 - undefined_identifier
+  error - Undefined name '_unavailableColors' - lib\features\admin\products\product_form_screen.dart:1209:46 - undefined_identifier
+  error - Undefined name '_unavailableSizes' - lib\features\admin\products\product_form_screen.dart:1213:39 - undefined_identifier
+  error - Undefined name '_unavailableSizes' - lib\features\admin\products\product_form_screen.dart:1213:73 - undefined_identifier
+  error - Undefined name '_unavailableSizes' - lib\features\admin\products\product_form_screen.dart:1215:34 - undefined_identifier
+  error - Undefined name '_unavailableColors' - lib\features\admin\products\product_form_screen.dart:1222:39 - undefined_identifier
+  error - Undefined name '_unavailableColors' - lib\features\admin\products\product_form_screen.dart:1222:75 - undefined_identifier
+  error - Undefined name '_unavailableColors' - lib\features\admin\products\product_form_screen.dart:1224:34 - undefined_identifier
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\products\product_form_screen.dart:1407:27 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\products\product_form_screen.dart:1454:27 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\products\product_form_screen.dart:1516:33 - deprecated_member_use
+warning - The declaration '_buildAddSecondaryTile' isn't referenced - lib\features\admin\products\product_form_screen.dart:1696:10 - unused_element
+   info - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor or activeTrackColor instead. This feature was deprecated after v3.31.0-2.0.pre - lib\features\admin\products\product_form_screen.dart:1753:15 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\products\product_form_screen.dart:1844:37 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\products\product_form_screen.dart:1865:44 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\products\product_form_screen.dart:1892:56 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\products\product_form_screen.dart:1988:39 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\products\product_form_screen.dart:1990:58 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\products\products_screen.dart:280:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\products\products_screen.dart:817:63 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\products\products_screen.dart:1178:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\products\products_screen.dart:1197:43 - deprecated_member_use
+   info - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor or activeTrackColor instead. This feature was deprecated after v3.31.0-2.0.pre - lib\features\admin\products\widgets\store_override_controls.dart:44:13 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\products\widgets\store_override_controls.dart:69:57 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\products\widgets\store_override_controls.dart:87:57 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\profile\profile_screen.dart:190:63 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\profile\profile_screen.dart:322:53 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\profile\profile_screen.dart:342:35 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\admin\settings\settings_screen.dart:459:66 - use_build_context_synchronously
+   info - Unnecessary use of multiple underscores - lib\features\admin\settings\settings_screen.dart:482:18 - unnecessary_underscores
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\admin\users\user_management_screen.dart:493:19 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\admin\users\user_management_screen.dart:495:19 - deprecated_member_use
+   info - The import of 'package:flutter/foundation.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart' - lib\features\auth\login_screen.dart:4:8 - unnecessary_import
+warning - The value of the local variable 'tenantId' isn't used - lib\features\auth\tenant_selection_screen.dart:263:13 - unused_local_variable
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\public\catalog_home_page.dart:155:49 - deprecated_member_use
+   info - The imported package 'flutter_native_splash' isn't a dependency of the importing package - lib\main.dart:44:8 - depend_on_referenced_packages
+   info - Use an initializing formal to assign a parameter to a field - lib\models\category.dart:191:8 - prefer_initializing_formals
+   info - Use an initializing formal to assign a parameter to a field - lib\models\category.dart:192:8 - prefer_initializing_formals
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\ui\theme\app_theme.dart:11:36 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\ui\theme\app_theme.dart:61:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\ui\theme\app_theme.dart:138:36 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\ui\theme\app_theme.dart:192:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\ui\widgets\app_badge_pill.dart:24:22 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\ui\widgets\app_badge_pill.dart:26:41 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\ui\widgets\app_card.dart:38:53 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\ui\widgets\app_empty_state.dart:41:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\ui\widgets\app_empty_state.dart:42:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\ui\widgets\app_empty_state.dart:48:50 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\ui\widgets\app_empty_state.dart:57:46 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\ui\widgets\app_product_card.dart:60:41 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\ui\widgets\app_product_list_tile.dart:52:46 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\ui\widgets\app_product_list_tile.dart:232:27 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\ui\widgets\app_product_list_tile.dart:232:31 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\ui\widgets\app_product_list_tile.dart:245:31 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\ui\widgets\app_product_list_tile.dart:245:35 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\ui\widgets\app_product_list_tile.dart:260:31 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\ui\widgets\app_product_list_tile.dart:260:35 - unnecessary_underscores
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\ui\widgets\app_scaffold.dart:60:71 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\ui\widgets\app_scaffold.dart:121:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\ui\widgets\app_scaffold.dart:154:51 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\ui\widgets\app_scaffold.dart:178:63 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\ui\widgets\app_scaffold.dart:181:63 - deprecated_member_use
+   info - Use the null-aware marker '?' rather than a null check via an 'if' - lib\ui\widgets\section_card.dart:42:17 - use_null_aware_elements
+   info - Don't invoke 'print' in production code - lib\viewmodels\catalogs_viewmodel.dart:90:11 - avoid_print
+   info - Don't invoke 'print' in production code - lib\viewmodels\catalogs_viewmodel.dart:99:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\viewmodels\catalogs_viewmodel.dart:178:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\viewmodels\categories_viewmodel.dart:507:11 - avoid_print
+   info - Don't invoke 'print' in production code - lib\viewmodels\categories_viewmodel.dart:516:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\viewmodels\categories_viewmodel.dart:595:7 - avoid_print
+warning - The declaration '_syncFromPublicDriveFolder' isn't referenced - lib\viewmodels\product_import_viewmodel.dart:667:16 - unused_element
+   info - Don't invoke 'print' in production code - lib\viewmodels\products_viewmodel.dart:565:11 - avoid_print
+   info - Don't invoke 'print' in production code - lib\viewmodels\products_viewmodel.dart:620:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\viewmodels\products_viewmodel.dart:692:17 - avoid_print
+   info - Don't invoke 'print' in production code - lib\viewmodels\products_viewmodel.dart:723:11 - avoid_print
+   info - Don't invoke 'print' in production code - refactor.dart:137:3 - avoid_print
+   info - Don't invoke 'print' in production code - scripts\refactor_styles.dart:17:5 - avoid_print
+   info - Don't invoke 'print' in production code - tmp_test_zip.dart:8:3 - avoid_print
+

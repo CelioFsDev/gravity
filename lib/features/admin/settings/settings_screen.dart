@@ -10,6 +10,8 @@ import 'package:catalogo_ja/core/auth/user_role.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:go_router/go_router.dart';
+import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
+import 'package:catalogo_ja/data/repositories/tenant_repository.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -179,6 +181,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         padding: const EdgeInsets.all(AppTokens.space24),
         child: Column(
           children: [
+            _buildStoreManagementSection(),
+            const SizedBox(height: 24),
             SectionCard(
               title: 'Perfil da Loja',
               child: Column(
@@ -407,6 +411,109 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildStoreManagementSection() {
+    final tenantAsync = ref.watch(currentTenantProvider);
+    final user = ref.watch(authViewModelProvider).valueOrNull;
+
+    return tenantAsync.when(
+      data: (tenant) {
+        if (tenant == null) return const SizedBox.shrink();
+        final stores = tenant.stores;
+        
+        return FutureBuilder<DocumentSnapshot>(
+          future: FirebaseFirestore.instance.collection('users').doc(user?.email?.trim().toLowerCase()).get(),
+          builder: (context, snapshot) {
+            final currentStore = snapshot.data?.data() as Map<String, dynamic>?;
+            final currentStoreId = currentStore?['currentStoreId'] as String? ?? (stores.isNotEmpty ? stores[0] : null);
+
+            return SectionCard(
+              title: 'Unidades do Grupo',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Empresa: ${tenant.name}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppTokens.accentBlue),
+                  ),
+                  const SizedBox(height: 12),
+                  ...stores.map((s) => Card(
+                        color: s == currentStoreId ? AppTokens.accentBlue.withAlpha(20) : null,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          side: BorderSide(
+                            color: s == currentStoreId ? AppTokens.accentBlue : Colors.transparent,
+                            width: 1,
+                          ),
+                        ),
+                        child: ListTile(
+                          leading: Icon(Icons.store, color: s == currentStoreId ? AppTokens.accentBlue : Colors.grey),
+                          title: Text(s, style: TextStyle(fontWeight: s == currentStoreId ? FontWeight.bold : FontWeight.normal)),
+                          subtitle: s == currentStoreId ? const Text('Unidade Selecionada', style: TextStyle(fontSize: 11)) : null,
+                          onTap: () async {
+                             if (s != currentStoreId) {
+                               await FirebaseFirestore.instance.collection('users').doc(user?.email?.trim().toLowerCase()).update({
+                                 'currentStoreId': s,
+                               });
+                               if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Unidade alterada para: $s')));
+                             }
+                          },
+                        ),
+                      )),
+                  if (stores.length < 2) ...[
+                    const Divider(height: 32),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _showAddStoreDialog(tenant.id),
+                        icon: const Icon(Icons.add_location_alt_outlined),
+                        label: const Text('ADICIONAR 2ª UNIDADE'),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+
+  Future<void> _showAddStoreDialog(String tenantId) async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Adicionar Unidade'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(labelText: 'Nome da Unidade (ex: Shopping)', border: OutlineInputBorder()),
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCELAR')),
+          FilledButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text('ADICIONAR')),
+        ],
+      ),
+    );
+
+    if (result != null && result.isNotEmpty) {
+      try {
+        await ref.read(tenantRepositoryProvider).addStoreToTenant(tenantId, result);
+        if (mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Unidade adicionada com sucesso!')));
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
+        }
+      }
+    }
   }
 
   Widget _buildField({

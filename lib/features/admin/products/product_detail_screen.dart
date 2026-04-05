@@ -14,6 +14,7 @@ import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/ui/widgets/section_card.dart';
 import 'package:catalogo_ja/ui/widgets/app_badge_pill.dart';
+import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 
 class ProductDetailScreen extends ConsumerWidget {
   final Product product;
@@ -24,6 +25,7 @@ class ProductDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Watch for updates (e.g. if edited)
     final productsState = ref.watch(productsViewModelProvider);
+    final currentStoreId = ref.watch(currentStoreIdProvider).valueOrNull;
     final updatedProduct =
         productsState.value?.allProducts.firstWhere(
           (p) => p.id == product.id,
@@ -119,7 +121,7 @@ class ProductDetailScreen extends ConsumerWidget {
             // Header Info & Status
             Row(
               children: [
-                if (!updatedProduct.isActive)
+                if (!updatedProduct.getIsActive(currentStoreId))
                   AppBadgePill(label: 'Inativo', color: Colors.grey),
                 if (updatedProduct.isOutOfStock)
                   AppBadgePill(label: 'Esgotado', color: AppTokens.accentRed),
@@ -164,12 +166,12 @@ class ProductDetailScreen extends ConsumerWidget {
                       ? (constraints.maxWidth - 32) / 3
                       : constraints.maxWidth;
                   final retailEffective = PriceCalculator.effectiveRetail(
-                    updatedProduct.priceRetail,
+                    updatedProduct.getRetailPrice(currentStoreId),
                     updatedProduct.promoEnabled,
                     updatedProduct.promoPercent,
                   );
                   final wholesaleEffective = PriceCalculator.effectiveWholesale(
-                    updatedProduct.priceWholesale,
+                    updatedProduct.getWholesalePrice(currentStoreId),
                     updatedProduct.promoEnabled,
                     updatedProduct.promoPercent,
                   );
@@ -177,7 +179,7 @@ class ProductDetailScreen extends ConsumerWidget {
                     _buildPriceCard(
                       context,
                       'Varejo',
-                      currency.format(updatedProduct.priceRetail),
+                      currency.format(updatedProduct.getRetailPrice(currentStoreId)),
                       currency.format(retailEffective),
                       updatedProduct.promoEnabled,
                       Icons.person_outline,
@@ -185,7 +187,7 @@ class ProductDetailScreen extends ConsumerWidget {
                     _buildPriceCard(
                       context,
                       'Atacado',
-                      currency.format(updatedProduct.priceWholesale),
+                      currency.format(updatedProduct.getWholesalePrice(currentStoreId)),
                       currency.format(wholesaleEffective),
                       updatedProduct.promoEnabled,
                       Icons.storefront_outlined,
@@ -224,14 +226,14 @@ class ProductDetailScreen extends ConsumerWidget {
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: updatedProduct.sizes.isEmpty
+                    children: updatedProduct.getAvailableSizes(currentStoreId).isEmpty
                         ? [
                             const Text(
                               '-',
                               style: TextStyle(color: AppTokens.textMuted),
                             ),
                           ]
-                        : updatedProduct.sizes
+                        : updatedProduct.getAvailableSizes(currentStoreId)
                               .map((s) => _buildAttributeChip(context, s))
                               .toList(),
                   ),
@@ -248,14 +250,14 @@ class ProductDetailScreen extends ConsumerWidget {
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: updatedProduct.colors.isEmpty
+                    children: updatedProduct.getAvailableColors(currentStoreId).isEmpty
                         ? [
                             const Text(
                               '-',
                               style: TextStyle(color: AppTokens.textMuted),
                             ),
                           ]
-                        : updatedProduct.colors
+                        : updatedProduct.getAvailableColors(currentStoreId)
                               .map((c) => _buildAttributeChip(context, c))
                               .toList(),
                   ),

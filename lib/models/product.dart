@@ -139,6 +139,9 @@ class Product {
   @HiveField(25)
   final String? tenantId;
 
+  @HiveField(26)
+  final Map<String, Map<String, dynamic>> storeOverrides;
+
   Product({
     required this.id,
     required this.name,
@@ -164,6 +167,7 @@ class Product {
     this.remoteImages = const [],
     this.variants = const [],
     this.tenantId,
+    this.storeOverrides = const {},
     DateTime? updatedAt,
   }) : updatedAt = updatedAt ?? createdAt;
 
@@ -193,6 +197,7 @@ class Product {
     DateTime? updatedAt,
     List<ProductPhoto>? photos,
     String? tenantId,
+    Map<String, Map<String, dynamic>>? storeOverrides,
   }) {
     return Product(
       id: id ?? this.id,
@@ -220,6 +225,7 @@ class Product {
       updatedAt: updatedAt ?? this.updatedAt,
       photos: photos ?? this.photos,
       tenantId: tenantId ?? this.tenantId,
+      storeOverrides: storeOverrides ?? this.storeOverrides,
     );
   }
 
@@ -266,6 +272,7 @@ class Product {
         'photoType': p.photoType,
       }).toList(),
       'tenantId': tenantId,
+      'storeOverrides': storeOverrides,
     };
   }
 
@@ -321,6 +328,10 @@ class Product {
               ))
           .toList(),
       tenantId: map['tenantId'],
+      storeOverrides: (map['storeOverrides'] as Map?)?.map(
+            (k, v) => MapEntry(k.toString(), Map<String, dynamic>.from(v as Map)),
+          ) ??
+          {},
     );
   }
 
@@ -428,4 +439,40 @@ class Product {
             promoPercent,
           );
   }
+
+  // --- STORE SPECIFIC RESOLVERS ---
+
+  Map<String, dynamic>? _getOverride(String? storeId) =>
+      storeId != null ? storeOverrides[storeId] : null;
+
+  double getRetailPrice(String? storeId) =>
+      (_getOverride(storeId)?['priceRetail'] as num?)?.toDouble() ??
+      priceRetail;
+
+  double getWholesalePrice(String? storeId) =>
+      (_getOverride(storeId)?['priceWholesale'] as num?)?.toDouble() ??
+      priceWholesale;
+
+  bool getIsActive(String? storeId) =>
+      _getOverride(storeId)?['isActive'] as bool? ?? isActive;
+
+  List<String> getAvailableSizes(String? storeId) {
+    final unavailable =
+        List<String>.from(_getOverride(storeId)?['unavailableSizes'] ?? []);
+    if (unavailable.isEmpty) return sizes;
+    return sizes.where((s) => !unavailable.contains(s)).toList();
+  }
+
+  List<String> getAvailableColors(String? storeId) {
+    final unavailable =
+        List<String>.from(_getOverride(storeId)?['unavailableColors'] ?? []);
+    if (unavailable.isEmpty) return colors;
+    return colors.where((c) => !unavailable.contains(c)).toList();
+  }
+
+  bool isSizeAvailable(String size, String? storeId) =>
+      getAvailableSizes(storeId).contains(size);
+
+  bool isColorAvailable(String color, String? storeId) =>
+      getAvailableColors(storeId).contains(color);
 }

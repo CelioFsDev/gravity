@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:catalogo_ja/data/repositories/tenant_repository.dart';
 
 class TenantSelectionScreen extends ConsumerStatefulWidget {
   const TenantSelectionScreen({super.key});
@@ -164,10 +165,120 @@ class _TenantSelectionScreenState extends ConsumerState<TenantSelectionScreen> {
                 label: const Text('DIGITAR CÓDIGO DA EMPRESA'),
               ),
             ),
+            const SizedBox(height: 12),
+            const Text('OU', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _showCreateTenantDialog,
+                icon: const Icon(Icons.add_business_outlined),
+                label: const Text('CRIAR MINHA EMPRESA'),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: AppTokens.accentBlue),
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _showCreateTenantDialog() async {
+    final companyController = TextEditingController();
+    final storeController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Nova Empresa'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Crie sua conta administrativa e comece a cadastrar seus produtos.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const SizedBox(height: 20),
+              TextFormField(
+                controller: companyController,
+                decoration: const InputDecoration(
+                  labelText: 'Nome da Empresa',
+                  hintText: 'Ex: Atacado Vitoria',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (v) => v == null || v.isEmpty ? 'Obrigatório' : null,
+                textCapitalization: TextCapitalization.words,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: storeController,
+                decoration: const InputDecoration(
+                  labelText: 'Nome da 1ª Unidade',
+                  hintText: 'Ex: Matriz',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (v) => v == null || v.isEmpty ? 'Obrigatório' : null,
+                textCapitalization: TextCapitalization.words,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCELAR'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (formKey.currentState?.validate() ?? false) {
+                Navigator.pop(context, true);
+              }
+            },
+            child: const Text('CRIAR AGORA'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true && mounted) {
+      _createTenant(companyController.text, storeController.text);
+    }
+  }
+
+  Future<void> _createTenant(String companyName, String storeName) async {
+    setState(() {
+      _isLoading = true;
+      _loadingMessage = 'Criando sua empresa...';
+    });
+
+    try {
+      final user = ref.read(authViewModelProvider).value;
+      if (user == null || user.email == null) throw Exception('Usuário não autenticado');
+
+      await ref.read(tenantRepositoryProvider).createTenantWithStore(
+            companyName: companyName,
+            storeName: storeName,
+            adminEmail: user.email!,
+          );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Empresa criada com sucesso! Boas vendas.')),
+        );
+        context.go('/admin/dashboard');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _showJoinByCodeDialog() async {

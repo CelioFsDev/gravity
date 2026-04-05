@@ -1,0 +1,303 @@
+﻿Compiling lib\main.dart for the Web...                          
+flutter : Wasm dry run findings:
+No linha:1 caractere:1
++ flutter build web > build_log.txt 2>&1; Get-Content build_log.txt -En ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Wasm dry run findings::String) [ 
+   ], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Found incompatibilities with WebAssembly.
+
+file:///C:/Users/celio/AppData/Local/Pub/Cache/hosted/pub.dev/image-4.5.4/lib/
+src/exif/ifd_directory.dart 174:26 - avoid_double_and_int_checks lint 
+violation: Explicit check for double or int. (13)
+file:///C:/Users/celio/AppData/Local/Pub/Cache/hosted/pub.dev/image-4.5.4/lib/
+src/exif/ifd_directory.dart 183:26 - avoid_double_and_int_checks lint 
+violation: Explicit check for double or int. (13)
+
+Consider addressing these issues to enable wasm builds. See docs for more 
+info: https://docs.flutter.dev/platform-integration/web/wasm
+
+Use --no-wasm-dry-run to disable these warnings.
+Target dart2js failed: ProcessException: Process exited abnormally with exit 
+code 1:
+lib/features/admin/products/product_form_screen.dart:151:9:
+Error: The setter '_isIndividualStoreConfig' isn't defined for the type 
+'_ProductFormScreenState'.
+ - '_ProductFormScreenState' is from 
+'package:catalogo_ja/features/admin/products/product_form_screen.dart' 
+('lib/features/admin/products/product_form_screen.dart').
+        _isIndividualStoreConfig = true;
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+lib/features/admin/products/product_form_screen.dart:152:9:
+Error: The setter '_unavailableSizes' isn't defined for the type 
+'_ProductFormScreenState'.
+ - '_ProductFormScreenState' is from 
+'package:catalogo_ja/features/admin/products/product_form_screen.dart' 
+('lib/features/admin/products/product_form_screen.dart').
+        _unavailableSizes = List<String>.from(override['unavailableSizes'] ?? 
+[]);
+        ^^^^^^^^^^^^^^^^^
+lib/features/admin/products/product_form_screen.dart:153:9:
+Error: The setter '_unavailableColors' isn't defined for the type 
+'_ProductFormScreenState'.
+ - '_ProductFormScreenState' is from 
+'package:catalogo_ja/features/admin/products/product_form_screen.dart' 
+('lib/features/admin/products/product_form_screen.dart').
+        _unavailableColors = List<String>.from(override['unavailableColors'] 
+?? []);
+        ^^^^^^^^^^^^^^^^^^
+lib/features/admin/products/product_form_screen.dart:170:12:
+Error: The getter '_unavailableSizes' isn't defined for the type 
+'_ProductFormScreenState'.
+ - '_ProductFormScreenState' is from 
+'package:catalogo_ja/features/admin/products/product_form_screen.dart' 
+('lib/features/admin/products/product_form_screen.dart').
+    return _unavailableSizes;
+           ^^^^^^^^^^^^^^^^^
+lib/features/admin/products/product_form_screen.dart:174:12:
+Error: The getter '_unavailableColors' isn't defined for the type 
+'_ProductFormScreenState'.
+ - '_ProductFormScreenState' is from 
+'package:catalogo_ja/features/admin/products/product_form_screen.dart' 
+('lib/features/admin/products/product_form_screen.dart').
+    return _unavailableColors;
+           ^^^^^^^^^^^^^^^^^^
+lib/features/admin/products/product_form_screen.dart:291:9:
+Error: Can't assign to the final variable 'product'.
+        product = widget.product!.copyWith(storeOverrides: newOverrides);
+        ^^^^^^^
+lib/features/admin/products/product_form_screen.dart:293:9:
+Error: Can't assign to the final variable 'product'.
+        product = product.copyWith(storeOverrides: newOverrides);
+        ^^^^^^^
+lib/features/admin/products/product_form_screen.dart:277:9:
+Error: The getter '_isIndividualStoreConfig' isn't defined for the type 
+'_ProductFormScreenState'.
+ - '_ProductFormScreenState' is from 
+'package:catalogo_ja/features/admin/products/product_form_screen.dart' 
+('lib/features/admin/products/product_form_screen.dart').
+    if (_isIndividualStoreConfig && _currentStoreId != null) {
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+lib/features/admin/products/product_form_screen.dart:277:37:
+Error: The getter '_currentStoreId' isn't defined for the type 
+'_ProductFormScreenState'.
+ - '_ProductFormScreenState' is from 
+'package:catalogo_ja/features/admin/products/product_form_screen.dart' 
+('lib/features/admin/products/product_form_screen.dart').
+    if (_isIndividualStoreConfig && _currentStoreId != null) {
+                                    ^^^^^^^^^^^^^^^
+lib/features/admin/products/product_form_screen.dart:288:20:
+Error: The getter '_currentStoreId' isn't defined for the type 
+'_ProductFormScreenState'.
+ - '_ProductFormScreenState' is from 
+'package:catalogo_ja/features/admin/products/product_form_screen.dart' 
+('lib/features/admin/products/product_form_screen.dart').
+      newOverrides[_currentStoreId!] = override;
+                   ^^^^^^^^^^^^^^^
+lib/features/admin/products/product_form_screen.dart:1183:27:
+Error: The getter '_currentStoreId' isn't defined for the type 
+'_ProductFormScreenState'.
+ - '_ProductFormScreenState' is from 
+'package:catalogo_ja/features/admin/products/product_form_screen.dart' 
+('lib/features/admin/products/product_form_screen.dart').
+                      if (_currentStoreId == null)
+                          ^^^^^^^^^^^^^^^
+lib/features/admin/products/product_form_screen.dart:1186:57:
+Error: The getter 'authViewModelProvider' isn't defined for the type 
+'_ProductFormScreenState'.
+ - '_ProductFormScreenState' is from 
+'package:catalogo_ja/features/admin/products/product_form_screen.dart' 
+('lib/features/admin/products/product_form_screen.dart').
+                            final userEmail = 
+ref.watch(authViewModelProvider).valueOrNull?.email;
+                                                        ^^^^^^^^^^^^^^^^^^^^^
+lib/features/admin/products/product_form_screen.dart:1192:37:
+Error: The setter '_currentStoreId' isn't defined for the type 
+'_ProductFormScreenState'.
+ - '_ProductFormScreenState' is from 
+'package:catalogo_ja/features/admin/products/product_form_screen.dart' 
+('lib/features/admin/products/product_form_screen.dart').
+                                    _currentStoreId = sid;
+                                    ^^^^^^^^^^^^^^^
+lib/features/admin/products/product_form_screen.dart:1201:27:
+Error: The getter '_currentStoreId' isn't defined for the type 
+'_ProductFormScreenState'.
+ - '_ProductFormScreenState' is from 
+'package:catalogo_ja/features/admin/products/product_form_screen.dart' 
+('lib/features/admin/products/product_form_screen.dart').
+                      if (_currentStoreId != null)
+                          ^^^^^^^^^^^^^^^
+lib/features/admin/products/product_form_screen.dart:1203:36:
+Error: The getter '_currentStoreId' isn't defined for the type 
+'_ProductFormScreenState'.
+ - '_ProductFormScreenState' is from 
+'package:catalogo_ja/features/admin/products/product_form_screen.dart' 
+('lib/features/admin/products/product_form_screen.dart').
+                          storeId: _currentStoreId!,
+                                   ^^^^^^^^^^^^^^^
+lib/features/admin/products/product_form_screen.dart:1204:41:
+Error: The getter '_isIndividualStoreConfig' isn't defined for the type 
+'_ProductFormScreenState'.
+ - '_ProductFormScreenState' is from 
+'package:catalogo_ja/features/admin/products/product_form_screen.dart' 
+('lib/features/admin/products/product_form_screen.dart').
+                          isIndividual: _isIndividualStoreConfig,
+                                        ^^^^^^^^^^^^^^^^^^^^^^^^
+lib/features/admin/products/product_form_screen.dart:1208:45:
+Error: The getter '_unavailableSizes' isn't defined for the type 
+'_ProductFormScreenState'.
+ - '_ProductFormScreenState' is from 
+'package:catalogo_ja/features/admin/products/product_form_screen.dart' 
+('lib/features/admin/products/product_form_screen.dart').
+                          unavailableSizes: _unavailableSizes,
+                                            ^^^^^^^^^^^^^^^^^
+lib/features/admin/products/product_form_screen.dart:1209:46:
+Error: The getter '_unavailableColors' isn't defined for the type 
+'_ProductFormScreenState'.
+ - '_ProductFormScreenState' is from 
+'package:catalogo_ja/features/admin/products/product_form_screen.dart' 
+('lib/features/admin/products/product_form_screen.dart').
+                          unavailableColors: _unavailableColors,
+                                             ^^^^^^^^^^^^^^^^^^
+lib/features/admin/products/product_form_screen.dart:1205:69:
+Error: The setter '_isIndividualStoreConfig' isn't defined for the type 
+'_ProductFormScreenState'.
+ - '_ProductFormScreenState' is from 
+'package:catalogo_ja/features/admin/products/product_form_screen.dart' 
+('lib/features/admin/products/product_form_screen.dart').
+                          onToggleIndividual: (v) => setState(() => 
+_isIndividualStoreConfig = v),
+                                                                    
+^^^^^^^^^^^^^^^^^^^^^^^^
+lib/features/admin/products/product_form_screen.dart:1213:39:
+Error: The getter '_unavailableSizes' isn't defined for the type 
+'_ProductFormScreenState'.
+ - '_ProductFormScreenState' is from 
+'package:catalogo_ja/features/admin/products/product_form_screen.dart' 
+('lib/features/admin/products/product_form_screen.dart').
+                                 if (!_unavailableSizes.contains(size)) 
+_unavailableSizes.add(size);
+                                      ^^^^^^^^^^^^^^^^^
+lib/features/admin/products/product_form_screen.dart:1213:73:
+Error: The getter '_unavailableSizes' isn't defined for the type 
+'_ProductFormScreenState'.
+ - '_ProductFormScreenState' is from 
+'package:catalogo_ja/features/admin/products/product_form_screen.dart' 
+('lib/features/admin/products/product_form_screen.dart').
+                                 if (!_unavailableSizes.contains(size)) 
+_unavailableSizes.add(size);
+                                                                        
+^^^^^^^^^^^^^^^^^
+lib/features/admin/products/product_form_screen.dart:1215:34:
+Error: The getter '_unavailableSizes' isn't defined for the type 
+'_ProductFormScreenState'.
+ - '_ProductFormScreenState' is from 
+'package:catalogo_ja/features/admin/products/product_form_screen.dart' 
+('lib/features/admin/products/product_form_screen.dart').
+                                 _unavailableSizes.remove(size);
+                                 ^^^^^^^^^^^^^^^^^
+lib/features/admin/products/product_form_screen.dart:1222:39:
+Error: The getter '_unavailableColors' isn't defined for the type 
+'_ProductFormScreenState'.
+ - '_ProductFormScreenState' is from 
+'package:catalogo_ja/features/admin/products/product_form_screen.dart' 
+('lib/features/admin/products/product_form_screen.dart').
+                                 if (!_unavailableColors.contains(color)) 
+_unavailableColors.add(color);
+                                      ^^^^^^^^^^^^^^^^^^
+lib/features/admin/products/product_form_screen.dart:1222:75:
+Error: The getter '_unavailableColors' isn't defined for the type 
+'_ProductFormScreenState'.
+ - '_ProductFormScreenState' is from 
+'package:catalogo_ja/features/admin/products/product_form_screen.dart' 
+('lib/features/admin/products/product_form_screen.dart').
+                                 if (!_unavailableColors.contains(color)) 
+_unavailableColors.add(color);
+                                                                          
+^^^^^^^^^^^^^^^^^^
+lib/features/admin/products/product_form_screen.dart:1224:34:
+Error: The getter '_unavailableColors' isn't defined for the type 
+'_ProductFormScreenState'.
+Compiling lib\main.dart for the Web...                             52,5s
+ - '_ProductFormScreenState' is from 
+'package:catalogo_ja/features/admin/products/product_form_screen.dart' 
+('lib/features/admin/products/product_form_screen.dart').
+                                 _unavailableColors.remove(color);
+                                 ^^^^^^^^^^^^^^^^^^
+Error: Compilation failed.
+  Command: C:\src\flutter\bin\cache\dart-sdk\bin\dart.exe compile js 
+--platform-binaries=C:\src\flutter\bin\cache\flutter_web_sdk\kernel 
+--invoker=flutter_tool -Ddart.vm.product=true -DFLUTTER_VERSION=3.41.6 
+-DFLUTTER_CHANNEL=stable 
+-DFLUTTER_GIT_URL=https://github.com/flutter/flutter.git 
+-DFLUTTER_FRAMEWORK_REVISION=db50e20168 -DFLUTTER_ENGINE_REVISION=425cfb54d0 
+-DFLUTTER_DART_VERSION=3.11.4 -DFLUTTER_WEB_USE_SKIA=true 
+-DFLUTTER_WEB_USE_SKWASM=false -DFLUTTER_WEB_CANVASKIT_URL=https://www.gstatic
+.com/flutter-canvaskit/425cfb54d01a9472b3e81d9e76fd63a4a44cfbcb/ 
+--native-null-assertions --no-source-maps -O4 --minify -o D:\REPOSITORIO GIT\g
+ravity\.dart_tool\flutter_build\3ca56120bed1869a61efa22581168a88\app.dill 
+--packages=D:\REPOSITORIO GIT\gravity\.dart_tool\package_config.json 
+--cfe-only D:\REPOSITORIO GIT\gravity\.dart_tool\flutter_build\3ca56120bed1869
+a61efa22581168a88\main.dart
+#0      RunResult.throwException 
+(package:flutter_tools/src/base/process.dart:153:5)
+#1      _DefaultProcessUtils.run 
+(package:flutter_tools/src/base/process.dart:379:19)
+<asynchronous suspension>
+#2      Dart2JSTarget.build 
+(package:flutter_tools/src/build_system/targets/web.dart:208:5)
+<asynchronous suspension>
+#3      _BuildInstance._invokeInternal 
+(package:flutter_tools/src/build_system/build_system.dart:937:9)
+<asynchronous suspension>
+#4      Future.wait.<anonymous closure> (dart:async/future.dart:546:21)
+<asynchronous suspension>
+#5      _BuildInstance.invokeTarget 
+(package:flutter_tools/src/build_system/build_system.dart:875:32)
+<asynchronous suspension>
+#6      Future.wait.<anonymous closure> (dart:async/future.dart:546:21)
+<asynchronous suspension>
+#7      _BuildInstance.invokeTarget 
+(package:flutter_tools/src/build_system/build_system.dart:875:32)
+<asynchronous suspension>
+#8      FlutterBuildSystem.build 
+(package:flutter_tools/src/build_system/build_system.dart:684:16)
+<asynchronous suspension>
+#9      WebBuilder.buildWeb 
+(package:flutter_tools/src/web/compile.dart:107:34)
+<asynchronous suspension>
+#10     BuildWebCommand.runCommand 
+(package:flutter_tools/src/commands/build_web.dart:300:5)
+<asynchronous suspension>
+#11     FlutterCommand.run.<anonymous closure> 
+(package:flutter_tools/src/runner/flutter_command.dart:1590:27)
+<asynchronous suspension>
+#12     AppContext.run.<anonymous closure> 
+(package:flutter_tools/src/base/context.dart:154:19)
+<asynchronous suspension>
+#13     CommandRunner.runCommand (package:args/command_runner.dart:212:13)
+<asynchronous suspension>
+#14     FlutterCommandRunner.runCommand.<anonymous closure> 
+(package:flutter_tools/src/runner/flutter_command_runner.dart:496:9)
+<asynchronous suspension>
+#15     AppContext.run.<anonymous closure> 
+(package:flutter_tools/src/base/context.dart:154:19)
+<asynchronous suspension>
+#16     FlutterCommandRunner.runCommand 
+(package:flutter_tools/src/runner/flutter_command_runner.dart:431:5)
+<asynchronous suspension>
+#17     FlutterCommandRunner.run.<anonymous closure> 
+(package:flutter_tools/src/runner/flutter_command_runner.dart:307:33)
+<asynchronous suspension>
+#18     run.<anonymous closure>.<anonymous closure> 
+(package:flutter_tools/runner.dart:104:11)
+<asynchronous suspension>
+#19     AppContext.run.<anonymous closure> 
+(package:flutter_tools/src/base/context.dart:154:19)
+<asynchronous suspension>
+#20     main (package:flutter_tools/executable.dart:103:3)
+<asynchronous suspension>
+
+Error: Failed to compile application for the Web.
