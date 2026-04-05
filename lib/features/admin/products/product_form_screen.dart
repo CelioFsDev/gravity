@@ -316,7 +316,17 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       }
       _didPersistProduct = true;
       _pendingWebUploadUrls.clear();
-      if (mounted) Navigator.of(context).pop();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Salvo localmente! Lembre-se de Sincronizar para enviar à nuvem.'),
+            backgroundColor: Colors.blue,
+            duration: Duration(seconds: 4),
+          ),
+        );
+        Navigator.of(context).pop();
+      }
     } catch (e) {
       if (mounted) {
         final failure = e is AppFailure

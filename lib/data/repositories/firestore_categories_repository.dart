@@ -97,6 +97,19 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
 
   @override
   Future<void> addCategory(Category category) async {
+    // 🏠 Local-First: Salva no Hive instantaneamente
+    await _localRepo.addCategory(category);
+    invalidateCache();
+  }
+
+  @override
+  Future<void> updateCategory(Category category) async {
+    await _localRepo.updateCategory(category);
+    invalidateCache();
+  }
+
+  /// 🔄 Sincroniza uma única categoria para a nuvem (com upload de fotos)
+  Future<void> syncCategoryToCloud(Category category) async {
     Category updatedCategory = category.copyWith(tenantId: _tenantId);
 
     // ✨ Upload de Fotos da Capa/Coleção
@@ -106,7 +119,6 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
       Future<String?> uploadIfNeeded(String? path) async {
         if (path != null && path.isNotEmpty && !path.startsWith('http') && !path.startsWith('gs://')) {
           try {
-            print('🚀 Subindo imagem de coleção: $path');
             return await _storageService.uploadCategoryImage(
               localPath: path,
               categoryId: updatedCategory.id,
@@ -129,7 +141,7 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
         coverPagePath: await uploadIfNeeded(cover.coverPagePath),
       );
       
-      updatedCategory = updatedCategory.copyWith(cover: updatedCover);
+      updatedCategory = updatedCategory.copyWith(cover: updatedCover, updatedAt: DateTime.now());
     }
 
     await _collection.doc(updatedCategory.id).set(updatedCategory.toMap());
@@ -137,8 +149,40 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
     invalidateCache();
   }
 
-  @override
-  Future<void> updateCategory(Category category) async => addCategory(category);
+  /// 🔄 Sincroniza todas as categorias pendentes
+  Future<int> syncAllPending({Function(double, String)? onProgress}) async {
+    final localCategories = await _localRepo.getCategories();
+    
+    // Identifica categorias com fotos locais ou modificações
+    final toSync = localCategories.where((c) {
+      if (c.cover == null) return false;
+      final cv = c.cover!;
+      return [
+        cv.coverImagePath, cv.bannerImagePath, cv.heroImagePath,
+        cv.coverHeaderImagePath, cv.coverMainImagePath, 
+        cv.coverMiniPath, cv.coverPagePath
+      ].any((p) => p != null && !p.startsWith('http') && !p.startsWith('gs://'));
+    }).toList();
+
+    if (toSync.isEmpty) {
+      if (onProgress != null) onProgress(1.0, 'Categorias sincronizadas!');
+      return 0;
+    }
+
+    int syncedCount = 0;
+    final total = toSync.length;
+    for (var i = 0; i < total; i++) {
+      final cat = toSync[i];
+      if (onProgress != null) {
+        onProgress(i / total, 'Sincronizando categoria: ${cat.name}...');
+      }
+      await syncCategoryToCloud(cat);
+      syncedCount++;
+    }
+
+    if (onProgress != null) onProgress(1.0, 'Sincronização de categorias concluída!');
+    return syncedCount;
+  }
 
   @override
   Future<void> updateCategoriesBulk(List<Category> categories) async {
@@ -168,18 +212,8 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
 
   @override
   Stream<List<Category>> watchCategories() {
-    return _collection
-        .where('tenantId', isEqualTo: _tenantId)
-        .snapshots()
-        .map(
-          (snapshot) {
-            final categories = snapshot.docs
-                .map((doc) => Category.fromMap(doc.data()))
-                .toList();
-            categories.sort((a, b) => a.order.compareTo(b.order));
-            return categories;
-          },
-        );
+    // 🔑 Local-First: Observa apenas o Hive para respostas instantâneas
+    return _localRepo.watchCategories();
   }
 
   @override

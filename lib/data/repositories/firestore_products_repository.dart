@@ -150,7 +150,18 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
     Product product, {
     Function(double, String)? onProgress,
   }) async {
-    await syncProductToCloud(product, onProgress: onProgress);
+    // 🏠 Local-First: Salva no Hive instantaneamente
+    await _localRepo.addProduct(product);
+    invalidateCache();
+  }
+
+  @override
+  Future<void> updateProduct(
+    Product product, {
+    Function(double, String)? onProgress,
+  }) async {
+    await _localRepo.updateProduct(product);
+    invalidateCache();
   }
 
   @override
@@ -261,12 +272,42 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
     }
   }
 
-  @override
-  Future<void> updateProduct(
-    Product product, {
-    Function(double, String)? onProgress,
-  }) async =>
-      addProduct(product, onProgress: onProgress);
+  /// 🔄 Sincroniza todos os produtos que possuem mudanças locais pendentes.
+  /// Retorna o total de produtos sincronizados.
+  Future<int> syncAllPending({Function(double, String)? onProgress}) async {
+    final localProducts = await _localRepo.getProducts();
+    final toSync = localProducts.where(_hasLocalOnlyPhotos).toList();
+
+    if (toSync.isEmpty) {
+      if (onProgress != null) onProgress(1.0, 'Tudo sincronizado!');
+      return 0;
+    }
+
+    final total = toSync.length;
+    var syncedCount = 0;
+    for (var i = 0; i < total; i++) {
+      final p = toSync[i];
+      final currentProgress = i / total;
+      if (onProgress != null) {
+        onProgress(currentProgress, 'Sincronizando ${p.name} ($i de $total)...');
+      }
+      
+      try {
+        await syncProductToCloud(p, onProgress: (subProgress, msg) {
+          if (onProgress != null) {
+            final overall = currentProgress + (subProgress / total);
+            onProgress(overall, msg);
+          }
+        });
+        syncedCount++;
+      } catch (e) {
+        debugPrint('Erro ao sincronizar ${p.id}: $e');
+      }
+    }
+
+    if (onProgress != null) onProgress(1.0, 'Sincronização concluída!');
+    return syncedCount;
+  }
 
   @override
   Future<void> updateProductsBulk(
@@ -331,32 +372,19 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
 
   @override
   Stream<List<Product>> watchProducts() {
-    return _collection
-        .where('tenantId', isEqualTo: _tenantId)
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) => Product.fromMap(doc.data())).toList();
-    });
+    // 🔑 Local-First: Observa o repositório local (Hive)
+    // Isso garante que mudanças salvas localmente apareçam instantaneamente.
+    return _localRepo.watchProducts();
   }
 
   @override
   Future<List<Product>> getProductsByCategory(String categoryId) async {
-    final snapshot = await _collection
-        .where('tenantId', isEqualTo: _tenantId)
-        .where('categoryIds', arrayContains: categoryId)
-        .get();
-    return snapshot.docs.map((doc) => Product.fromMap(doc.data())).toList();
+    return _localRepo.getProductsByCategory(categoryId);
   }
 
   @override
   Stream<List<Product>> watchProductsByCategory(String categoryId) {
-    return _collection
-        .where('tenantId', isEqualTo: _tenantId)
-        .where('categoryIds', arrayContains: categoryId)
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) => Product.fromMap(doc.data())).toList();
-    });
+    return _localRepo.watchProductsByCategory(categoryId);
   }
 }
 

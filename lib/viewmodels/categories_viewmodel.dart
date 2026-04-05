@@ -9,7 +9,6 @@ import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:catalogo_ja/data/repositories/tenant_repository.dart';
 import 'package:catalogo_ja/core/error/app_failure.dart';
 import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
@@ -183,14 +182,9 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         slug: Category.generateSlug(name),
       );
 
-      if (kIsWeb) {
-        // 🌐 Web: vai direto à nuvem (sem cache local permanente confiável)
-        final cloudRepo = ref.read(syncCategoriesRepositoryProvider);
-        await cloudRepo.addCategory(newCat);
-      } else {
-        // 🖥️ Desktop/Mobile: salva LOCAL. Sincronize manualmente quando desejar.
-        await localRepo.addCategory(newCat);
-      }
+      // 🏠 Local-First: Salva no Hive. Sincronização é manual.
+      await localRepo.addCategory(newCat);
+
 
       await _refresh();
       ref.invalidate(productsViewModelProvider);
@@ -253,12 +247,8 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         ),
       );
 
-      if (kIsWeb) {
-        final cloudRepo = ref.read(syncCategoriesRepositoryProvider);
-        await cloudRepo.addCategory(newCollection);
-      } else {
-        await localRepo.addCategory(newCollection);
-      }
+      // 🏠 Local-First: Salva no Hive. 
+      await localRepo.addCategory(newCollection);
 
       await _refresh();
       ref.invalidate(productsViewModelProvider);
@@ -292,12 +282,8 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         cover: cover,
       );
 
-      if (kIsWeb) {
-        final cloudRepo = ref.read(syncCategoriesRepositoryProvider);
-        await cloudRepo.updateCategory(updated);
-      } else {
-        await localRepo.updateCategory(updated);
-      }
+      // 🏠 Local-First: Salva no Hive. 
+      await localRepo.updateCategory(updated);
 
       await _refresh();
       ref.invalidate(productsViewModelProvider);
@@ -344,12 +330,8 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         ),
       );
 
-      if (kIsWeb) {
-        final cloudRepo = ref.read(syncCategoriesRepositoryProvider);
-        await cloudRepo.updateCategory(updated);
-      } else {
-        await localRepo.updateCategory(updated);
-      }
+      // 🏠 Local-First: Salva no Hive.
+      await localRepo.updateCategory(updated);
 
       await _refresh();
       ref.invalidate(productsViewModelProvider);
@@ -392,14 +374,9 @@ class CategoriesViewModel extends _$CategoriesViewModel {
 
       if (updatedCategories.isEmpty) return;
 
-      // ⚡ OTIMIZAÇÃO SAAS: Salva em Lote
-      if (kIsWeb) {
-        final cloudRepo = ref.read(syncCategoriesRepositoryProvider);
-        await cloudRepo.updateCategoriesBulk(updatedCategories);
-      } else {
-        final localRepo = ref.read(categoriesRepositoryProvider);
-        await localRepo.updateCategoriesBulk(updatedCategories);
-      }
+      // 🏠 Local-First: Salva em Lote no Hive
+      final localRepo = ref.read(categoriesRepositoryProvider);
+      await localRepo.updateCategoriesBulk(updatedCategories);
     } catch (e) {
       throw e.toAppFailure(action: 'reorder', entity: 'Categories');
     }
@@ -489,30 +466,29 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         throw Exception('Empresa não identificada. Verifique seu login.');
       }
       
-      final storageService = ref.read(saasPhotoStorageProvider);
-      final firestoreRepo = FirestoreCategoriesRepository(localRepo, storageService, tenantId);
+      final repository = ref.read(syncCategoriesRepositoryProvider);
       var syncedCount = 0;
-      final total = localCategories.length;
 
-      for (var i = 0; i < total; i++) {
-        final cat = localCategories[i];
-        try {
-          progressNotifier.updateProgress(
-            (i + 1) / total,
-            'Sincronizando: ${i + 1}/$total - ${cat.name}',
-          );
-          await firestoreRepo.addCategory(cat);
+      if (repository is FirestoreCategoriesRepository) {
+        syncedCount = await repository.syncAllPending(
+          onProgress: (p, m) => progressNotifier.updateProgress(p, m),
+        );
+      } else {
+        // Fallback comportamento antigo se não for firestore
+        final localCategories = await localRepo.getCategories();
+        for (var i = 0; i < localCategories.length; i++) {
+          final cat = localCategories[i];
+          progressNotifier.updateProgress((i + 1) / localCategories.length, 'Sincronizando: ${cat.name}');
+          await repository.addCategory(cat);
           syncedCount++;
-        } catch (e) {
-          print('❌ Erro ao sincronizar categoria ${cat.name}: $e');
         }
       }
 
-      progressNotifier.stopSync();
-      ref.invalidateSelf();
+      progressNotifier.stopSync(message: 'Sincronização concluída: $syncedCount itens.');
+      await _refresh();
       return syncedCount;
     } catch (e) {
-      progressNotifier.stopSync();
+      progressNotifier.stopSync(message: 'Erro: $e');
       print('Erro ao sincronizar categorias: $e');
       rethrow;
     }

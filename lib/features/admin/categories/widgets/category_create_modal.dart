@@ -41,6 +41,13 @@ class _CategoryCreateModalState extends ConsumerState<CategoryCreateModal> {
         }
       } else {
         if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Categoria salva localmente! Sincronize para subir à nuvem.'),
+              duration: Duration(seconds: 3),
+              backgroundColor: Colors.blue,
+            ),
+          );
           context.pop(newId);
         }
       }

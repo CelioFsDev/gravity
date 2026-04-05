@@ -17,7 +17,6 @@ import 'package:catalogo_ja/core/services/app_logger.dart';
 import 'package:catalogo_ja/core/services/image_cache_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -414,24 +413,9 @@ class ProductsViewModel extends _$ProductsViewModel {
   Future<void> addProduct(Product product) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
-      // 🚀 Estrat\u00e9gia H\u00edbrida:
-      // Na WEB, precisamos da nuvem na hora porque o navegador apaga arquivos tempor\u00e1rios.
-      // No DESKTOP/MOBILE, seguimos o seu pedido de ser 100% Local-First.
-
-      if (kIsWeb) {
-        final cloudRepository = ref.read(syncProductsRepositoryProvider);
-        final progressNotifier = ref.read(syncProgressProvider.notifier);
-
-        progressNotifier.startSync('Salvando na nuvem (Web)...');
-        await cloudRepository.addProduct(
-          product,
-          onProgress: (p, m) => progressNotifier.updateProgress(p, m),
-        );
-        progressNotifier.stopSync();
-      } else {
-        final localRepository = ref.read(productsRepositoryProvider);
-        await localRepository.addProduct(product);
-      }
+      // 🏠 Local-First: Salva apenas localmente (Hive).
+      final localRepository = ref.read(productsRepositoryProvider);
+      await localRepository.addProduct(product);
 
       _notifyChanges();
       ref
@@ -448,20 +432,9 @@ class ProductsViewModel extends _$ProductsViewModel {
   Future<void> updateProduct(Product product) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
-      if (kIsWeb) {
-        final cloudRepository = ref.read(syncProductsRepositoryProvider);
-        final progressNotifier = ref.read(syncProgressProvider.notifier);
-
-        progressNotifier.startSync('Atualizando na nuvem (Web)...');
-        await cloudRepository.updateProduct(
-          product,
-          onProgress: (p, m) => progressNotifier.updateProgress(p, m),
-        );
-        progressNotifier.stopSync();
-      } else {
-        final localRepository = ref.read(productsRepositoryProvider);
-        await localRepository.updateProduct(product);
-      }
+      // 🏠 Local-First: Atualiza apenas o Hive.
+      final localRepository = ref.read(productsRepositoryProvider);
+      await localRepository.updateProduct(product);
 
       _notifyChanges();
       ref
@@ -505,76 +478,39 @@ class ProductsViewModel extends _$ProductsViewModel {
     progressNotifier.startSync('Iniciando sincronização...');
 
     try {
-      // 1. Pega o repositório local explicitamente para ler o que está no celular
-      final localRepo =
-          ref.read(productsRepositoryProvider) as HiveProductsRepository;
-      final localProducts = await localRepo.getProducts();
+      // 1. Primeiro sincroniza Categorias/Coleções (importante para integridade)
+      final categoriesNotifier = ref.read(categoriesViewModelProvider.notifier);
+      await categoriesNotifier.syncAllToCloud();
+      
+      // 2. Depois sincroniza Produtos
+      final repository = ref.read(syncProductsRepositoryProvider);
+      int count = 0;
 
-      if (localProducts.isEmpty) {
-        progressNotifier.stopSync();
-        return 0;
-      }
-
-      // 2. Tenta pegar o tenant e o tenantId
-      var tenant = await ref.read(currentTenantProvider.future);
-      String? tenantId = tenant?.id;
-
-      // Fallback
-      if (tenantId == null) {
-        final authUser = ref.read(authViewModelProvider).value;
-        if (authUser?.email != null) {
-          final userDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(authUser!.email!.toLowerCase().trim())
-              .get();
-          tenantId = userDoc.data()?['tenantId'] as String?;
+      if (repository is FirestoreProductsRepository) {
+        count = await repository.syncAllPending(
+          onProgress: (p, m) => progressNotifier.updateProgress(p, m),
+        );
+      } else {
+        final localProducts = await (ref.read(productsRepositoryProvider)
+                as HiveProductsRepository)
+            .getProducts();
+        for (var i = 0; i < localProducts.length; i++) {
+          await repository.syncProductToCloud(localProducts[i]);
+          progressNotifier.updateProgress(
+            (i + 1) / localProducts.length,
+            'Sincronizando ${i + 1}/${localProducts.length}',
+          );
+          count++;
         }
       }
 
-      if (tenantId == null || tenantId.isEmpty) {
-        throw Exception(
-          'Você precisa estar logado em uma empresa para sincronizar.',
-        );
-      }
-
-      // 3. Pega o repositório do Firestore
-      final storageService = ref.read(saasPhotoStorageProvider);
-      final firestoreRepo = FirestoreProductsRepository(
-        localRepo,
-        storageService,
-        tenantId,
-      );
-
-      var syncedCount = 0;
-      final total = localProducts.length;
-
-      for (var i = 0; i < total; i++) {
-        final product = localProducts[i];
-        final progress = (i + 1) / total;
-
-        progressNotifier.updateProgress(
-          progress,
-          'Sincronizando: ${i + 1}/$total - ${product.name}',
-        );
-
-        try {
-          // 🔥 Aqui usamos o novo método que força o upload de fotos e sync Firestore
-          await firestoreRepo.syncProductToCloud(product);
-          syncedCount++;
-        } catch (e) {
-          print('Erro ao sincronizar produto ${product.id}: $e');
-        }
-      }
-
-      progressNotifier.stopSync(
-        message: 'Sincronização concluída: $syncedCount produtos!',
-      );
+      progressNotifier.stopSync(message: 'Sincronização concluída com sucesso!');
       await refresh();
       _notifyChanges();
-      return syncedCount;
+      return count;
     } catch (e) {
-      progressNotifier.stopSync(message: 'Erro: $e');
-      debugPrint('Erro fatal na sincronização: $e');
+      progressNotifier.stopSync(message: 'Erro na sincronização: $e');
+      debugPrint('Erro na sincronização: $e');
       rethrow;
     }
   }
@@ -716,13 +652,13 @@ class ProductsViewModel extends _$ProductsViewModel {
 
           await localRepo.addProduct(finalProduct);
           downloadedCount++;
-
-          await refresh();
-          _notifyChanges();
         } catch (e) {
           print('Erro crítico ao baixar produto ${p.id}: $e');
         }
       }
+
+      await refresh();
+      _notifyChanges();
 
       final box = await Hive.openBox('sync_meta');
       await box.put(

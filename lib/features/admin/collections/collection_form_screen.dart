@@ -209,6 +209,13 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
         }
       } else {
         if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Coleção salva localmente! Sincronize para subir à nuvem.'),
+              duration: Duration(seconds: 4),
+              backgroundColor: Colors.blue,
+            ),
+          );
           context.pop(successId);
         }
       }
