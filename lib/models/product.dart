@@ -470,9 +470,24 @@ class Product {
     return colors.where((c) => !unavailable.contains(c)).toList();
   }
 
-  bool isSizeAvailable(String size, String? storeId) =>
-      getAvailableSizes(storeId).contains(size);
-
   bool isColorAvailable(String color, String? storeId) =>
       getAvailableColors(storeId).contains(color);
+
+  /// 🔄 Verifica se o produto tem fotos locais pendentes de sincronização
+  bool get hasLocalOnlyPhotos {
+    // Verifica na lista moderna de images
+    final hasLocalImages = images.any((i) =>
+        i.sourceType == ProductImageSource.localPath ||
+        i.uri.startsWith('data:') ||
+        i.uri.startsWith('blob:') ||
+        (!i.uri.startsWith('http') && !i.uri.startsWith('gs://')));
+
+    if (hasLocalImages) return true;
+
+    // Verifica na lista legado de photos
+    return photos.any((p) =>
+        (!p.path.startsWith('http') && !p.path.startsWith('gs://')) ||
+        p.path.startsWith('data:') ||
+        p.path.startsWith('blob:'));
+  }
 }

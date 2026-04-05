@@ -270,4 +270,24 @@ class Category {
         .replaceAll(RegExp(r'-+'), '-')
         .replaceAll(RegExp(r'^-|-$'), '');
   }
+
+  /// 🔄 Verifica se a categoria/coleção tem capas locais pendentes de sincronização
+  bool get hasLocalOnlyCover {
+    if (cover == null) return false;
+    final cv = cover!;
+    final paths = [
+      cv.coverImagePath,
+      cv.bannerImagePath,
+      cv.heroImagePath,
+      cv.coverHeaderImagePath,
+      cv.coverMainImagePath,
+      cv.coverMiniPath,
+      cv.coverPagePath
+    ];
+
+    return paths.any((p) =>
+        p != null &&
+        p.isNotEmpty &&
+        (!p.startsWith('http') && !p.startsWith('gs://') && !p.startsWith('data:')));
+  }
 }

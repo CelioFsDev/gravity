@@ -107,6 +107,15 @@ class AppProductListTile extends StatelessWidget {
                         label: 'ESGOTADO',
                         color: AppTokens.textMuted,
                       ),
+                    if (product.hasLocalOnlyPhotos)
+                      const Padding(
+                        padding: EdgeInsets.only(left: 4),
+                        child: Icon(
+                          Icons.cloud_off_outlined,
+                          size: 16,
+                          color: Colors.orange,
+                        ),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 4),

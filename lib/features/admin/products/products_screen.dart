@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
 import 'package:catalogo_ja/features/admin/products/product_form_screen.dart';
 import 'package:catalogo_ja/features/admin/products/product_detail_screen.dart';
 import 'package:catalogo_ja/core/services/product_transfer_service.dart';
@@ -58,6 +59,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       body: Column(
         children: [
           _buildBulkActionsBar(context),
+          _buildSyncReminderBanner(context),
           Expanded(
             child: state.whenStandard(
               onRetry: () =>
@@ -312,6 +314,62 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 ],
               )
             : const SizedBox.shrink(),
+      ),
+    );
+  }
+
+  Widget _buildSyncReminderBanner(BuildContext context) {
+    final stateValue = ref.watch(productsViewModelProvider);
+    final categoriesValue = ref.watch(categoriesViewModelProvider);
+    
+    final state = stateValue.valueOrNull;
+    final categoriesState = categoriesValue.valueOrNull;
+
+    if (state == null || categoriesState == null) return const SizedBox.shrink();
+
+    final pendingProducts = state.allProducts.where((p) => p.hasLocalOnlyPhotos).length;
+    final pendingCategories = categoriesState.categories.where((c) => c.hasLocalOnlyCover).length;
+    final totalPending = pendingProducts + pendingCategories;
+
+    if (totalPending == 0) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+        border: Border.all(color: Colors.orange.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.sync_problem_rounded, color: Colors.orange, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Alterações Pendentes ($totalPending)',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                Text(
+                  'Novos arquivos para sincronizar.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () => _startCloudSync(context),
+            style: TextButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              foregroundColor: Colors.orange[800],
+            ),
+            child: const Text('SINCRONIZAR'),
+          ),
+        ],
       ),
     );
   }
