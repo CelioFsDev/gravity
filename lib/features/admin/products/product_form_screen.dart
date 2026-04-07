@@ -1453,7 +1453,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                 ),
                 const SizedBox(height: AppTokens.space8),
                 Text(
-                  'A foto está sendo enviada para o Firebase.',
+                  'A foto está sendo enviada para o servidor.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,
