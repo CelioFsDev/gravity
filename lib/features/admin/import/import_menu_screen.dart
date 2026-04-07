@@ -36,6 +36,14 @@ class ImportMenuScreen extends StatelessWidget {
             subtitle: 'Restaurar dados de um arquivo .zip ou .json.',
             route: '/admin/imports/backup',
           ),
+          const SizedBox(height: AppTokens.space16),
+          _buildItem(
+            context,
+            icon: Icons.storage_rounded,
+            title: 'Migra\u00e7\u00e3o de Storage',
+            subtitle: 'Mover fotos do Firebase para o servidor MinIO local.',
+            route: '/admin/imports/storage-migration',
+          ),
         ],
       ),
     );

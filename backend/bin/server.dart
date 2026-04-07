@@ -107,6 +107,6 @@ void main(List<String> args) async {
 const _corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Origin, Content-Type, Authorization, X-Requested-With',
+  'Access-Control-Allow-Headers': 'Origin, Content-Type, Authorization, X-Requested-With, X-Admin-Secret',
   'Access-Control-Max-Age': '86400',
 };

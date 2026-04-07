@@ -44,6 +44,8 @@ import 'package:catalogo_ja/core/auth/user_role.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart' hide Category;
+import 'package:catalogo_ja/features/admin/migration/storage_migration_screen.dart';
+
 
 /// Provider that checks if the user is disabled, manually defined to avoid build issues.
 final currentUserStatusProvider = StreamProvider<bool>((ref) {
@@ -314,6 +316,10 @@ class _MyAppState extends ConsumerState<MyApp> {
                     GoRoute(
                       path: 'backup',
                       builder: (context, state) => const CatalogoJaImportScreen(),
+                    ),
+                    GoRoute(
+                      path: 'storage-migration',
+                      builder: (context, state) => const StorageMigrationScreen(),
                     ),
                   ],
                 ),

@@ -1,0 +1,13 @@
+name: migration_tool
+description: "Ferramenta isolada para migrar imagens do Firebase Storage para o MinIO."
+version: 1.0.0
+publish_to: 'none'
+
+environment:
+  sdk: ^3.0.0
+
+dependencies:
+  dart_firebase_admin: ^0.4.1
+  http: ^1.2.0
+  path: ^1.9.0
+  uuid: ^4.0.0

