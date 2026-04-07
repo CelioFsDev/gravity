@@ -5,7 +5,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
-class SaaSPhotoStorageService {
+import 'storage_service_interface.dart';
+
+class SaaSPhotoStorageService implements IPhotoStorageService {
   // Bucket fornecido pelo usuário
   final FirebaseStorage _storage = FirebaseStorage.instanceFor(
     bucket: 'gs://catalogo-ja-89aae.firebasestorage.app',
@@ -16,20 +18,25 @@ class SaaSPhotoStorageService {
     required String localPath,
     required String categoryId,
     required String tenantId,
+    Uint8List? bytes,
   }) async {
     try {
-      final file = File(localPath);
-      if (!file.existsSync()) return null;
-
-      final fileName = p.basename(localPath); // Use p.basename for consistency
-      final ref = _storage.ref().child('$tenantId/categories/$categoryId/$fileName');
+      final ref = _storage.ref().child('$tenantId/categories/$categoryId/${p.basename(localPath)}');
       
       final metadata = SettableMetadata(
         contentType: 'image/jpeg',
         customMetadata: {'processed': 'true', 'tenant': tenantId},
       );
 
-      final task = await ref.putFile(file, metadata);
+      TaskSnapshot task;
+      if (kIsWeb || bytes != null) {
+        if (bytes == null) return null;
+        task = await ref.putData(bytes, metadata);
+      } else {
+        final file = File(localPath);
+        if (!file.existsSync()) return null;
+        task = await ref.putFile(file, metadata);
+      }
       return await task.ref.getDownloadURL();
     } catch (e) {
       print('Erro no upload da imagem da categoria: $e');
@@ -42,20 +49,25 @@ class SaaSPhotoStorageService {
     required String localPath,
     required String catalogId,
     required String tenantId,
+    Uint8List? bytes,
   }) async {
     try {
-      final file = File(localPath);
-      if (!file.existsSync()) return null;
-
-      final fileName = p.basename(localPath); // Use p.basename for consistency
-      final ref = _storage.ref().child('$tenantId/catalogs/$catalogId/$fileName');
+      final ref = _storage.ref().child('$tenantId/catalogs/$catalogId/${p.basename(localPath)}');
       
       final metadata = SettableMetadata(
         contentType: 'image/jpeg',
         customMetadata: {'processed': 'true', 'tenant': tenantId},
       );
 
-      final task = await ref.putFile(file, metadata);
+      TaskSnapshot task;
+      if (kIsWeb || bytes != null) {
+        if (bytes == null) return null;
+        task = await ref.putData(bytes, metadata);
+      } else {
+        final file = File(localPath);
+        if (!file.existsSync()) return null;
+        task = await ref.putFile(file, metadata);
+      }
       return await task.ref.getDownloadURL();
     } catch (e) {
       print('Erro no upload da imagem do catálogo: $e');
@@ -145,7 +157,7 @@ class SaaSPhotoStorageService {
     required String? tenantId,
     required String email,
     required String? localPath,
-    List<int>? bytes, // Para suporte Web
+    Uint8List? bytes, // Para suporte Web
   }) async {
     try {
       final String refPath = (tenantId != null && tenantId.isNotEmpty)
@@ -164,7 +176,7 @@ class SaaSPhotoStorageService {
       TaskSnapshot task;
       if (kIsWeb || bytes != null) {
         if (bytes == null) return null;
-        task = await ref.putData(Uint8List.fromList(bytes), metadata);
+        task = await ref.putData(bytes, metadata);
       } else {
         final file = File(localPath!);
         if (!file.existsSync()) return null;
@@ -176,7 +188,26 @@ class SaaSPhotoStorageService {
       return null;
     }
   }
+
+  @override
+  Future<String?> uploadCatalogPdf({
+    required String tenantId,
+    required String catalogId,
+    required Uint8List pdfBytes,
+    String name = 'catalogo',
+  }) async {
+    // Firebase implementation legacy — optional, but let's implement for completeness
+    try {
+      final ref = _storage.ref().child('$tenantId/catalogs/$catalogId/pdf/$name.pdf');
+      final metadata = SettableMetadata(contentType: 'application/pdf');
+      final task = await ref.putData(pdfBytes, metadata);
+      return await task.ref.getDownloadURL();
+    } catch (e) {
+      print('Erro no upload do PDF (Firebase): $e');
+      return null;
+    }
+  }
 }
 
-// Provedor do Serviço de Storage do SaaS
-final saasPhotoStorageProvider = Provider((ref) => SaaSPhotoStorageService());
+// Provedor do Serviço de Storage do SaaS (LEGADO - ver lib/core/providers/storage_provider.dart)
+// final saasPhotoStorageProvider = Provider<IPhotoStorageService>((ref) => SaaSPhotoStorageService());

@@ -8,7 +8,8 @@ import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:catalogo_ja/data/repositories/tenant_repository.dart';
 import 'package:catalogo_ja/core/error/app_failure.dart';
-import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
+import 'package:catalogo_ja/core/services/storage_service_interface.dart';
+import 'package:catalogo_ja/core/providers/storage_provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
@@ -514,7 +515,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         throw Exception('Empresa não identificada.');
       }
 
-      final storageService = ref.read(saasPhotoStorageProvider);
+      final storageService = ref.read(storageServiceProvider);
       final localRepo = ref.read(categoriesRepositoryProvider) as HiveCategoriesRepository;
       final firestoreRepo = FirestoreCategoriesRepository(localRepo, storageService, tenantId);
 

@@ -4,12 +4,13 @@ import 'package:catalogo_ja/data/repositories/contracts/catalogs_repository_cont
 import 'package:catalogo_ja/data/repositories/catalogs_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
-import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
+import 'package:catalogo_ja/core/services/storage_service_interface.dart';
+import 'package:catalogo_ja/core/providers/storage_provider.dart';
 
 class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final HiveCatalogsRepository _localRepo;
-  final SaaSPhotoStorageService _storageService;
+  final IPhotoStorageService _storageService;
   final String _tenantId;
 
   FirestoreCatalogsRepository(this._localRepo, this._storageService, this._tenantId);
@@ -208,7 +209,7 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
 final syncCatalogsRepositoryProvider = Provider<CatalogsRepositoryContract>((ref) {
   final tenantAsync = ref.watch(currentTenantProvider);
   final localRepo = ref.watch(catalogsRepositoryProvider) as HiveCatalogsRepository;
-  final storageService = ref.watch(saasPhotoStorageProvider);
+  final storageService = ref.watch(storageServiceProvider);
 
   return tenantAsync.when(
     data: (tenant) {

@@ -6,7 +6,8 @@ import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:catalogo_ja/core/error/app_failure.dart';
-import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
+import 'package:catalogo_ja/core/services/storage_service_interface.dart';
+import 'package:catalogo_ja/core/providers/storage_provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:catalogo_ja/data/repositories/tenant_repository.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -72,7 +73,7 @@ class CatalogsViewModel extends _$CatalogsViewModel {
         throw Exception('Empresa não identificada.');
       }
 
-      final storageService = ref.read(saasPhotoStorageProvider);
+      final storageService = ref.read(storageServiceProvider);
       final firestoreRepo = FirestoreCatalogsRepository(localRepo, storageService, tenantId);
       var syncedCount = 0;
       final total = localCatalogs.length;
@@ -122,7 +123,7 @@ class CatalogsViewModel extends _$CatalogsViewModel {
       }
 
       final localRepo = ref.read(catalogsRepositoryProvider) as HiveCatalogsRepository;
-      final storageService = ref.read(saasPhotoStorageProvider);
+      final storageService = ref.read(storageServiceProvider);
       final firestoreRepo = FirestoreCatalogsRepository(localRepo, storageService, tenantId);
 
       // 🔑 Usa fetchFromCloudOnly() para evitar double-merge com cache

@@ -8,7 +8,8 @@ import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
 import 'package:catalogo_ja/viewmodels/global_sync_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart'; // Para SyncProgress
-import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
+import 'package:catalogo_ja/core/services/storage_service_interface.dart';
+import 'package:catalogo_ja/core/providers/storage_provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 
@@ -93,7 +94,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         setState(() => _isLoading = true);
 
         final file = result!.files.single;
-        final storage = ref.read(saasPhotoStorageProvider);
+        final storage = ref.read(storageServiceProvider);
 
         final String? downloadUrl = await storage.uploadProfileImage(
           tenantId: _tenantController.text.trim(),

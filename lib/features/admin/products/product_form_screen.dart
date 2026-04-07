@@ -3,7 +3,8 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
+import 'package:catalogo_ja/core/services/storage_service_interface.dart';
+import 'package:catalogo_ja/core/providers/storage_provider.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/product_image.dart';
@@ -803,7 +804,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           throw Exception('Empresa não identificada para enviar imagem.');
         }
 
-        final storageService = ref.read(saasPhotoStorageProvider);
+        final storageService = ref.read(storageServiceProvider);
         if (mounted) {
           setState(() {
             _isUploadingWebPhoto = true;
@@ -957,7 +958,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
     if (kIsWeb && _pendingWebUploadUrls.remove(removedPhoto.path)) {
       try {
-        await ref.read(saasPhotoStorageProvider).deleteFileByUrl(removedPhoto.path);
+        await ref.read(storageServiceProvider).deleteFileByUrl(removedPhoto.path);
       } catch (e) {
         debugPrint('Erro ao apagar upload temporário: $e');
       }
@@ -985,21 +986,21 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   Future<void> _deletePendingWebUploadIfNeeded(String path) async {
     if (!kIsWeb || !_pendingWebUploadUrls.remove(path)) return;
     try {
-      await ref.read(saasPhotoStorageProvider).deleteFileByUrl(path);
+      await ref.read(storageServiceProvider).deleteFileByUrl(path);
     } catch (e) {
       debugPrint('Erro ao apagar upload temporário: $e');
     }
   }
 
   Future<void> _finalizePendingWebUploads() async {
-    final storageService = ref.read(saasPhotoStorageProvider);
+    final storageService = ref.read(storageServiceProvider);
     for (final url in _pendingWebUploadUrls.toList()) {
       await storageService.finalizeProductImage(url);
     }
   }
 
   Future<void> _cleanupPendingWebUploads() async {
-    final storageService = ref.read(saasPhotoStorageProvider);
+    final storageService = ref.read(storageServiceProvider);
     for (final url in _pendingWebUploadUrls.toList()) {
       try {
         await storageService.deleteFileByUrl(url);

@@ -1,0 +1,56 @@
+# ─────────────────────────────────────────────────
+# Gravity Stack — API + MinIO
+# ─────────────────────────────────────────────────
+# Nota: Se o MinIO já estiver rodando em outro
+# docker-compose, remova o serviço 'minio' daqui
+# e ajuste MINIO_ENDPOINT para o host correto.
+# ─────────────────────────────────────────────────
+
+version: "3.8"
+
+services:
+  # ── Gravity API ──────────────────────────────
+  gravity-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: 8080
+      HOST: 0.0.0.0
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_USE_SSL: "false"
+      MINIO_BUCKET: gravity
+      FIREBASE_PROJECT_ID: catalogoja-app
+      PRESIGNED_URL_EXPIRY: 3600
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── MinIO (Object Storage) ──────────────────
+  # Remova este serviço se já tiver MinIO rodando.
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"   # API
+      - "9001:9001"   # Console
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  minio-data:

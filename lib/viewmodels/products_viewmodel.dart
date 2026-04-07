@@ -3,7 +3,7 @@ import 'package:catalogo_ja/data/repositories/firestore_products_repository.dart
 import 'package:catalogo_ja/data/repositories/categories_repository.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
-import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
+import 'package:catalogo_ja/core/providers/storage_provider.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:catalogo_ja/core/services/photo_classification_service.dart';
 import 'package:catalogo_ja/models/product.dart';
@@ -545,7 +545,7 @@ class ProductsViewModel extends _$ProductsViewModel {
       final localRepo =
           ref.read(productsRepositoryProvider) as HiveProductsRepository;
       final cacheService = ref.read(imageCacheServiceProvider);
-      final storageService = ref.read(saasPhotoStorageProvider);
+      final storageService = ref.read(storageServiceProvider);
       final firestoreRepo = FirestoreProductsRepository(
         localRepo,
         storageService,

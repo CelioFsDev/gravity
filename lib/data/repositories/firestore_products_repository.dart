@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
+import 'package:catalogo_ja/core/services/storage_service_interface.dart';
+import 'package:catalogo_ja/core/providers/storage_provider.dart';
 import 'package:catalogo_ja/data/repositories/contracts/products_repository_contract.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/models/product.dart';
@@ -15,7 +16,7 @@ import 'package:image_picker/image_picker.dart';
 class FirestoreProductsRepository implements ProductsRepositoryContract {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final HiveProductsRepository _localRepo;
-  final SaaSPhotoStorageService _storageService;
+  final IPhotoStorageService _storageService;
   final String _tenantId;
 
   FirestoreProductsRepository(
@@ -394,7 +395,7 @@ final syncProductsRepositoryProvider = Provider<ProductsRepositoryContract>((
   final tenantAsync = ref.watch(currentTenantProvider);
   final localRepo =
       ref.watch(productsRepositoryProvider) as HiveProductsRepository;
-  final storageService = ref.watch(saasPhotoStorageProvider);
+  final storageService = ref.watch(storageServiceProvider);
 
   return tenantAsync.when(
     data: (tenant) {
