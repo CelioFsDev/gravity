@@ -88,14 +88,45 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
 
       for (final cloudProduct in newCloudProducts) {
         final localProduct = merged[cloudProduct.id];
+        
         if (localProduct == null) {
           final pWithSync = cloudProduct.copyWith(syncStatus: SyncStatus.synced);
           merged[cloudProduct.id] = pWithSync;
-          // Persiste localmente para próximas sessões offline
           await _localRepo.addProduct(pWithSync);
         } else if (cloudProduct.updatedAt.isAfter(localProduct.updatedAt) &&
             localProduct.syncStatus != SyncStatus.pendingUpdate) {
-          final pWithSync = cloudProduct.copyWith(syncStatus: SyncStatus.synced);
+          
+          // 🛡️ PRESERVAÇÃO DE CAMINHOS LOCAIS
+          // Se o produto local já tem caminhos físicos (localPath), mantemos eles
+          // para evitar que o app volte a mostrar o "carregando" da nuvem.
+          final preservedImages = cloudProduct.images.map((cloudImg) {
+            final localImg = localProduct.images.firstWhere(
+              (l) => l.id == cloudImg.id || l.uri == cloudImg.uri,
+              orElse: () => cloudImg,
+            );
+            if (localImg.sourceType == ProductImageSource.localPath) {
+              return cloudImg.copyWith(
+                sourceType: ProductImageSource.localPath,
+                uri: localImg.uri,
+              );
+            }
+            return cloudImg;
+          }).toList();
+
+          final preservedPhotos = cloudProduct.photos.map((cloudPhoto) {
+            final localPhoto = localProduct.photos.firstWhere(
+              (l) => l.path == cloudPhoto.path,
+              orElse: () => cloudPhoto,
+            );
+            return cloudPhoto; // Para fotos o path geralmente é a URL, o ProductImage que guarda o local
+          }).toList();
+
+          final pWithSync = cloudProduct.copyWith(
+            images: preservedImages,
+            // photos: preservedPhotos, // Mantemos as URLs nas fotos para compatibilidade, mas o item local usa ProductImage
+            syncStatus: SyncStatus.synced,
+          );
+          
           merged[cloudProduct.id] = pWithSync;
           await _localRepo.addProduct(pWithSync);
         }
@@ -155,9 +186,9 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
     Product product, {
     Function(double, String)? onProgress,
   }) async {
-    final productToSave = product.copyWith(
-      syncStatus: SyncStatus.pendingUpdate,
-    );
+    final productToSave = product.syncStatus == SyncStatus.synced
+        ? product
+        : product.copyWith(syncStatus: SyncStatus.pendingUpdate);
     // 🏠 Local-First: Salva no Hive instantaneamente
     await _localRepo.addProduct(productToSave);
     invalidateCache();
@@ -176,10 +207,12 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
       return; 
     }
     
-    final productToSave = product.copyWith(
-      syncStatus: SyncStatus.pendingUpdate,
-      updatedAt: DateTime.now(),
-    );
+    final productToSave = product.syncStatus == SyncStatus.synced
+        ? product
+        : product.copyWith(
+            syncStatus: SyncStatus.pendingUpdate,
+            updatedAt: DateTime.now(),
+          );
 
     await _localRepo.updateProduct(productToSave);
     invalidateCache();
@@ -310,7 +343,9 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
   /// Retorna o total de produtos sincronizados.
   Future<int> syncAllPending({Function(double, String)? onProgress}) async {
     final localProducts = await _localRepo.getProducts();
-    final toSync = localProducts.where((p) => p.syncStatus == SyncStatus.pendingUpdate || p.hasLocalOnlyPhotos).toList();
+    final toSync = localProducts
+        .where((p) => p.syncStatus == SyncStatus.pendingUpdate)
+        .toList();
 
     if (toSync.isEmpty) {
       if (onProgress != null) onProgress(1.0, 'Tudo sincronizado!');

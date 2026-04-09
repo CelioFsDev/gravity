@@ -1,5 +1,6 @@
 import 'package:hive/hive.dart';
 import 'package:catalogo_ja/models/category_type.dart';
+import 'package:catalogo_ja/models/sync_status.dart';
 
 export 'category_type.dart';
 
@@ -177,6 +178,9 @@ class Category {
   @HiveField(9)
   final String? tenantId;
 
+  @HiveField(10)
+  final SyncStatus syncStatus;
+
   Category({
     required this.id,
     required this.order,
@@ -186,6 +190,7 @@ class Category {
     this.cover,
     this.isActive = true,
     this.tenantId,
+    this.syncStatus = SyncStatus.pendingUpdate,
     String? name,
     String? slug,
   }) : name = name,
@@ -210,6 +215,7 @@ class Category {
     String? slug,
     bool? isActive,
     String? tenantId,
+    SyncStatus? syncStatus,
   }) {
     return Category(
       id: id ?? this.id,
@@ -222,6 +228,7 @@ class Category {
       slug: slug ?? this.slug,
       isActive: isActive ?? this.isActive,
       tenantId: tenantId ?? this.tenantId,
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 
@@ -237,6 +244,7 @@ class Category {
       'slug': slug,
       'isActive': isActive,
       'tenantId': tenantId,
+      'syncStatus': syncStatus.index,
     };
   }
 
@@ -257,6 +265,7 @@ class Category {
       slug: map['slug'],
       isActive: map['isActive'] ?? true,
       tenantId: map['tenantId'],
+      syncStatus: SyncStatus.values[map['syncStatus'] ?? 0],
     );
   }
 

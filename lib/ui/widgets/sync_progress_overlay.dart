@@ -31,25 +31,27 @@ class SyncProgressOverlay extends StatelessWidget {
             Text(
               'Sincronização Inicial',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: AppTokens.space8),
             Text(
               'Preparando seu catálogo para uso offline...',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white70,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: AppTokens.space40),
+            const SizedBox(height: AppTokens.space4),
             ClipRRect(
               borderRadius: BorderRadius.circular(AppTokens.radiusFull),
               child: LinearProgressIndicator(
                 value: progress,
                 backgroundColor: Colors.white10,
-                valueColor: const AlwaysStoppedAnimation<Color>(AppTokens.accentBlue),
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  AppTokens.accentBlue,
+                ),
                 minHeight: 12,
               ),
             ),
@@ -57,12 +59,12 @@ class SyncProgressOverlay extends StatelessWidget {
             Text(
               message,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppTokens.accentBlue,
-                    fontWeight: FontWeight.w600,
-                  ),
+                color: AppTokens.accentBlue,
+                fontWeight: FontWeight.w600,
+              ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: AppTokens.space40),
+            const SizedBox(height: AppTokens.space4),
             const Text(
               'Não feche o app durante este processo.',
               style: TextStyle(

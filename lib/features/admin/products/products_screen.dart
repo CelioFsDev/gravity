@@ -327,8 +327,12 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
     if (state == null || categoriesState == null) return const SizedBox.shrink();
 
-    final pendingProducts = state.allProducts.where((p) => p.hasLocalOnlyPhotos).length;
-    final pendingCategories = categoriesState.categories.where((c) => c.hasLocalOnlyCover).length;
+    final pendingProducts = state.allProducts
+        .where((p) => p.syncStatus == SyncStatus.pendingUpdate)
+        .length;
+    final pendingCategories = categoriesState.categories
+        .where((c) => c.syncStatus == SyncStatus.pendingUpdate)
+        .length;
     final totalPending = pendingProducts + pendingCategories;
 
     if (totalPending == 0) return const SizedBox.shrink();

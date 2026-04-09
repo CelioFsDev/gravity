@@ -17,6 +17,7 @@ import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/models/settings.dart';
 import 'package:catalogo_ja/models/product_variant.dart';
 import 'package:catalogo_ja/models/product_image.dart';
+import 'package:catalogo_ja/models/sync_status.dart';
 import 'package:catalogo_ja/features/admin/admin_shell_screen.dart';
 import 'package:catalogo_ja/features/admin/products/products_screen.dart';
 import 'package:catalogo_ja/features/admin/categories/categories_screen.dart';
@@ -64,13 +65,14 @@ void main() async {
   // Initialize Hive
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
     final dir = await getApplicationSupportDirectory();
-    final hivePath = p.join(dir.path, 'catalogo_ja', 'db');
+    final hivePath = p.join(dir.path, 'catalogo_ja', 'db_v2');
     await Hive.initFlutter(hivePath);
   } else {
     await Hive.initFlutter();
   }
 
   // Register Adapters
+  Hive.registerAdapter(SyncStatusAdapter());
   Hive.registerAdapter(CategoryTypeAdapter());
   Hive.registerAdapter(CollectionCoverModeAdapter());
   Hive.registerAdapter(CollectionCoverAdapter());
@@ -85,51 +87,78 @@ void main() async {
   Hive.registerAdapter(CatalogModeAdapter());
   Hive.registerAdapter(CatalogAdapter());
 
-  // Open Boxes
   try {
-    await Hive.openBox<Category>('categories');
-  } catch (e) {
-    debugPrint(
-      'Error opening "categories" box: $e. Deleting and recreating...',
-    );
-    await Hive.deleteBoxFromDisk('categories');
-    await Hive.openBox<Category>('categories');
-  }
-  await Hive.openBox<Product>('products');
-  await Hive.openBox<Catalog>('catalogs');
-  await Hive.openBox<AppSettings>('settings');
-
-  try {
-    if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
+    // Open Boxes with individual safe guards
+    Future<void> safeOpenBox<T>(String name) async {
+      try {
+        await Hive.openBox<T>(name);
+      } catch (e) {
+        debugPrint('Error opening "$name" box: $e. Recreating...');
+        try {
+          await Hive.deleteBoxFromDisk(name);
+          await Hive.openBox<T>(name);
+        } catch (innerE) {
+          debugPrint('Failed to recreate "$name": $innerE');
+        }
+      }
     }
-  } catch (e) {
-    debugPrint('Firebase initialization warning: $e');
+
+    await safeOpenBox<Category>('categories');
+    await safeOpenBox<Product>('products');
+    await safeOpenBox<Catalog>('catalogs');
+    await safeOpenBox<AppSettings>('settings');
+
+    try {
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
+      }
+    } catch (e) {
+      debugPrint('Firebase initialization warning: $e');
+    }
+
+    // Configuração do Crashlytics
+    final isMobile = !kIsWeb && 
+                     (defaultTargetPlatform == TargetPlatform.android || 
+                      defaultTargetPlatform == TargetPlatform.iOS ||
+                      defaultTargetPlatform == TargetPlatform.macOS);
+
+    if (isMobile) {
+      FlutterError.onError = (errorDetails) {
+        FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
+      };
+      // Pass ALL errors to Crashlytics
+      PlatformDispatcher.instance.onError = (error, stack) {
+        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+        return true;
+      };
+    }
+
+    runApp(const ProviderScope(child: MyApp()));
+
+  } catch (e, stack) {
+    debugPrint('🔥 Fatal initialization error: $e\n$stack');
+    runApp(
+      MaterialApp(
+        home: Scaffold(
+          body: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Center(
+              child: Text(
+                'Ops! Ocorreu um erro crítico ao iniciar o aplicativo.\n\nDetalhes:\n$e',
+                style: const TextStyle(color: Colors.red, fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  } finally {
+    // Garante que a splash saia da tela mesmo se tudo der errado
+    FlutterNativeSplash.remove();
   }
-
-  // Configuração do Crashlytics
-  final isMobile = !kIsWeb && 
-                   (defaultTargetPlatform == TargetPlatform.android || 
-                    defaultTargetPlatform == TargetPlatform.iOS ||
-                    defaultTargetPlatform == TargetPlatform.macOS);
-
-  if (isMobile) {
-    FlutterError.onError = (errorDetails) {
-      FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
-    };
-    // Pass ALL errors to Crashlytics
-    PlatformDispatcher.instance.onError = (error, stack) {
-      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-      return true;
-    };
-  }
-
-  runApp(const ProviderScope(child: MyApp()));
-
-  // Remove a splash nativa
-  FlutterNativeSplash.remove();
 }
 
 class MyApp extends ConsumerStatefulWidget {

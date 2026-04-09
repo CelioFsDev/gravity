@@ -197,14 +197,8 @@ class AuthViewModel extends StreamNotifier<User?> {
 
   Future<void> signOut() async {
     try {
-      // ✨ LIMPEZA SAAS: Apaga dados locais para não misturar catálogos de usuários diferentes
-      final productsRepo = ref.read(productsRepositoryProvider);
-      final categoriesRepo = ref.read(categoriesRepositoryProvider);
-      final catalogsRepo = ref.read(catalogsRepositoryProvider);
-
-      await productsRepo.clearAll();
-      await categoriesRepo.clearAll();
-      await catalogsRepo.clearAll();
+      // ✨ LOCAL-FIRST: Dados mantidos no cache (Local) para evitar re-downloads.
+      // O filtro de segurança por TenantId será feito nos próprios Repositórios Locais.
 
       // 🔑 Reseta o guard de sessão para que o próximo login execute normalmente
       UserRepository.resetSession();

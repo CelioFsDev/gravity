@@ -32,7 +32,9 @@ service cloud.firestore {
     }
 
     function getTenantId() {
-      return userDoc().tenantId;
+      return exists(/databases/$(database)/documents/users/$(currentUserEmail()))
+        ? get(/databases/$(database)/documents/users/$(currentUserEmail())).data.tenantId
+        : null;
     }
 
     function isSelf(userEmail) {
@@ -62,8 +64,9 @@ service cloud.firestore {
     }
 
     match /tenants/{tenantId} {
-      allow read: if isSignedIn() && (tenantId == getTenantId() || isAdmin());
-      allow write: if isAdmin();
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (tenantId == getTenantId() || isAdmin());
     }
 
     match /products/{productId} {

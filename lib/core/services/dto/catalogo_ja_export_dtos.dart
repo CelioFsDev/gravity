@@ -148,6 +148,7 @@ class CategoryDTO {
       cover: cover?.toModel(),
       createdAt: DateTime.tryParse(createdAt ?? '') ?? DateTime.now(),
       updatedAt: DateTime.tryParse(updatedAt ?? '') ?? DateTime.now(),
+      syncStatus: SyncStatus.synced,
     );
   }
 
@@ -526,6 +527,7 @@ class ProductDTO {
       promoPercent: promoPercent,
       createdAt: DateTime.tryParse(createdAt ?? '') ?? DateTime.now(),
       updatedAt: DateTime.tryParse(updatedAt ?? '') ?? DateTime.now(),
+      syncStatus: SyncStatus.synced,
     );
   }
 

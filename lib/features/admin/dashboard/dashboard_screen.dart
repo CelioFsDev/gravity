@@ -16,25 +16,43 @@ import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 import 'package:catalogo_ja/ui/widgets/sync_progress_overlay.dart';
 import 'package:catalogo_ja/core/services/system_backup_service.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:hive/hive.dart';
 
-class DashboardScreen extends ConsumerWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  bool _dialogShown = false;
+
+  @override
+  Widget build(BuildContext context) {
     // ⚡️ OTIMIZAÇÃO SAAS: Usamos os repositórios LOCAIS (Hive) para as contagens do Dashboard.
-    // Isso reduz as leituras no Firestore a ZERO cada vez que o painel é aberto, 
-    // já que os dados locais são sincronizados no login e representam a realidade do device.
     final productsAsync = ref.watch(productsRepositoryProvider).watchProducts();
-    final categoriesAsync = ref.watch(categoriesRepositoryProvider).watchCategories();
+    final categoriesAsync = ref
+        .watch(categoriesRepositoryProvider)
+        .watchCategories();
     final catalogsAsync = ref.watch(catalogsRepositoryProvider).watchCatalogs();
     final syncProgress = ref.watch(syncProgressProvider);
     final settings = ref.watch(settingsRepositoryProvider).getSettings();
 
-    // Trigger Initial Sync Choice if needed
+    // Trigger Initial Sync Choice if needed - COM TRAVA DE SEGURANÇA
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!settings.isInitialSyncCompleted && !syncProgress.isSyncing) {
+      final productsBox = Hive.box<Product>('products');
+      if (!settings.isInitialSyncCompleted &&
+          !syncProgress.isSyncing &&
+          productsBox.isEmpty &&
+          !_dialogShown) {
+        _dialogShown = true;
         _showInitialSyncChoice(context, ref);
+      }
+
+      // ✅ Inicia sincronização silenciosa se estiver no Wi-Fi
+      if (!syncProgress.isSyncing) {
+        ref.read(globalSyncViewModelProvider.notifier).performSilentWifiSync();
       }
     });
 
@@ -53,7 +71,8 @@ class DashboardScreen extends ConsumerWidget {
                     stream: catalogsAsync,
                     builder: (context, catalogsSnapshot) {
                       final productCount = productsSnapshot.data?.length ?? 0;
-                      final categoryCount = categoriesSnapshot.data?.length ?? 0;
+                      final categoryCount =
+                          categoriesSnapshot.data?.length ?? 0;
                       final catalogCount = catalogsSnapshot.data?.length ?? 0;
 
                       return CustomScrollView(
@@ -61,7 +80,10 @@ class DashboardScreen extends ConsumerWidget {
                           SliverPadding(
                             padding: const EdgeInsets.all(AppTokens.space24),
                             sliver: SliverGrid.count(
-                              crossAxisCount: MediaQuery.of(context).size.width > 600 ? 3 : 1,
+                              crossAxisCount:
+                                  MediaQuery.of(context).size.width > 600
+                                  ? 3
+                                  : 1,
                               mainAxisSpacing: AppTokens.space16,
                               crossAxisSpacing: AppTokens.space16,
                               childAspectRatio: 1.5,
@@ -88,7 +110,9 @@ class DashboardScreen extends ConsumerWidget {
                             ),
                           ),
                           SliverPadding(
-                            padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppTokens.space24,
+                            ),
                             sliver: SliverToBoxAdapter(
                               child: Text(
                                 'Ações Rápidas',
@@ -99,7 +123,10 @@ class DashboardScreen extends ConsumerWidget {
                           SliverPadding(
                             padding: const EdgeInsets.all(AppTokens.space24),
                             sliver: SliverGrid.count(
-                              crossAxisCount: MediaQuery.of(context).size.width > 600 ? 4 : 2,
+                              crossAxisCount:
+                                  MediaQuery.of(context).size.width > 600
+                                  ? 4
+                                  : 2,
                               mainAxisSpacing: AppTokens.space12,
                               crossAxisSpacing: AppTokens.space12,
                               children: [
@@ -107,7 +134,11 @@ class DashboardScreen extends ConsumerWidget {
                                   label: 'Sincronizar Cloud',
                                   icon: Icons.cloud_sync,
                                   onTap: () async {
-                                    ref.read(globalSyncViewModelProvider.notifier).syncDownEverything();
+                                    ref
+                                        .read(
+                                          globalSyncViewModelProvider.notifier,
+                                        )
+                                        .syncDownEverything();
                                   },
                                 ),
                                 _QuickActionCard(
@@ -123,12 +154,14 @@ class DashboardScreen extends ConsumerWidget {
                                 _QuickActionCard(
                                   label: 'Importar PDF',
                                   icon: Icons.picture_as_pdf_outlined,
-                                  onTap: () => context.go('/admin/imports/stock-update'),
+                                  onTap: () =>
+                                      context.go('/admin/imports/stock-update'),
                                 ),
                                 _QuickActionCard(
                                   label: 'Backup Cloud',
                                   icon: Icons.cloud_upload_outlined,
-                                  onTap: () => context.go('/admin/imports/backup'),
+                                  onTap: () =>
+                                      context.go('/admin/imports/backup'),
                                 ),
                               ],
                             ),
@@ -168,28 +201,39 @@ class DashboardScreen extends ConsumerWidget {
                 type: FileType.custom,
                 allowedExtensions: ['zip', 'cja'],
               );
-              
+
               if (result != null && result.files.single.path != null) {
                 final file = io.File(result.files.single.path!);
                 try {
                   // Inicia o overlay de progresso
-                  ref.read(syncProgressProvider.notifier).startSync('Restaurando backup...');
-                  await ref.read(systemBackupServiceProvider).restoreFullBackup(
-                    file,
-                    onProgress: (p, msg) => ref.read(syncProgressProvider.notifier).updateProgress(p, msg),
-                  );
+                  ref
+                      .read(syncProgressProvider.notifier)
+                      .startSync('Restaurando backup...');
+                  await ref
+                      .read(systemBackupServiceProvider)
+                      .restoreFullBackup(
+                        file,
+                        onProgress: (p, msg) => ref
+                            .read(syncProgressProvider.notifier)
+                            .updateProgress(p, msg),
+                      );
                   ref.read(syncProgressProvider.notifier).stopSync();
-                  
+
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Backup restaurado com sucesso! ✅')),
+                      const SnackBar(
+                        content: Text('Backup restaurado com sucesso! ✅'),
+                      ),
                     );
                   }
                 } catch (e) {
                   ref.read(syncProgressProvider.notifier).stopSync();
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Erro ao restaurar backup: $e'), backgroundColor: Colors.red),
+                      SnackBar(
+                        content: Text('Erro ao restaurar backup: $e'),
+                        backgroundColor: Colors.red,
+                      ),
                     );
                   }
                 }
@@ -200,9 +244,24 @@ class DashboardScreen extends ConsumerWidget {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              ref.read(globalSyncViewModelProvider.notifier).syncDownEverything();
+              ref
+                  .read(globalSyncViewModelProvider.notifier)
+                  .syncDownEverything();
             },
             child: const Text('Baixar da Nuvem'),
+          ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              // Marca como concluído para nunca mais ver essa tela, permitindo uso manual
+              final repo = ref.read(settingsRepositoryProvider);
+              final settings = repo.getSettings();
+              await repo.saveSettings(
+                settings.copyWith(isInitialSyncCompleted: true),
+              );
+            },
+            child: const Text('Configurar depois / Já tenho meus dados'),
           ),
         ],
       ),
@@ -263,13 +322,10 @@ class _StatCard extends StatelessWidget {
               Text(
                 value,
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
+                  fontWeight: FontWeight.w800,
+                ),
               ),
-              Text(
-                title,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
+              Text(title, style: Theme.of(context).textTheme.bodySmall),
             ],
           ),
         ],
@@ -308,9 +364,9 @@ class _QuickActionCard extends StatelessWidget {
             Text(
               label,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 11,
-                  ),
+                fontWeight: FontWeight.w600,
+                fontSize: 11,
+              ),
               textAlign: TextAlign.center,
             ),
           ],

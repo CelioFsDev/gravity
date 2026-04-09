@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:catalogo_ja/data/repositories/contracts/categories_repository_contract.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/product.dart';
@@ -21,14 +22,20 @@ Stream<List<T>> _boxValuesStream<T>(Box<T> box) {
 class HiveCategoriesRepository implements CategoriesRepositoryContract {
   final Box<Category> _categoriesBox;
   final Box<Product> _productsBox;
+  final String? _tenantId;
 
-  HiveCategoriesRepository(this._categoriesBox, this._productsBox);
+  HiveCategoriesRepository(this._categoriesBox, this._productsBox, this._tenantId);
 
   Box<Category> get box => _categoriesBox;
 
+  List<Category> _filter(Iterable<Category> items) {
+    if (_tenantId == null) return [];
+    return items.where((c) => c.tenantId == _tenantId).toList();
+  }
+
   @override
   Future<List<Category>> getCategories() async =>
-      _categoriesBox.values.toList();
+      _filter(_categoriesBox.values);
 
   @override
   Future<void> addCategory(Category category) async {
@@ -54,7 +61,7 @@ class HiveCategoriesRepository implements CategoriesRepositoryContract {
   @override
   Future<Category?> getBySlug(String slug) async {
     try {
-      return _categoriesBox.values.firstWhere(
+      return _filter(_categoriesBox.values).firstWhere(
         (c) => (c.slug ?? '').toLowerCase().trim() == slug.toLowerCase().trim(),
       );
     } catch (_) {
@@ -89,13 +96,16 @@ class HiveCategoriesRepository implements CategoriesRepositoryContract {
   }
 
   @override
-  Stream<List<Category>> watchCategories() => _boxValuesStream(_categoriesBox);
+  Stream<List<Category>> watchCategories() {
+    return _boxValuesStream(_categoriesBox).map((items) => _filter(items));
+  }
 }
 
 @Riverpod(keepAlive: true)
 CategoriesRepositoryContract categoriesRepository(CategoriesRepositoryRef ref) {
   final categoriesBox = Hive.box<Category>('categories');
   final productsBox = Hive.box<Product>('products');
+  final tenant = ref.watch(currentTenantProvider).valueOrNull;
 
-  return HiveCategoriesRepository(categoriesBox, productsBox);
+  return HiveCategoriesRepository(categoriesBox, productsBox, tenant?.id);
 }

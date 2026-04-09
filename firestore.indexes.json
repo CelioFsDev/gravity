@@ -1,0 +1,22 @@
+{
+  "firestore": {
+    "indexes": [
+      {
+        "collectionGroup": "products",
+        "queryScope": "COLLECTION",
+        "fields": [
+          { "fieldPath": "tenantId", "order": "ASCENDING" },
+          { "fieldPath": "updatedAt", "order": "ASCENDING" }
+        ]
+      },
+      {
+        "collectionGroup": "categories",
+        "queryScope": "COLLECTION",
+        "fields": [
+          { "fieldPath": "tenantId", "order": "ASCENDING" },
+          { "fieldPath": "updatedAt", "order": "ASCENDING" }
+        ]
+      }
+    ]
+  }
+}

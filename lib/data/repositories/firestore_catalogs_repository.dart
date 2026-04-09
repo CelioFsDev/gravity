@@ -1,3 +1,4 @@
+import 'package:catalogo_ja/models/sync_status.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/data/repositories/contracts/catalogs_repository_contract.dart';
@@ -12,7 +13,11 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
   final SaaSPhotoStorageService _storageService;
   final String _tenantId;
 
-  FirestoreCatalogsRepository(this._localRepo, this._storageService, this._tenantId);
+  FirestoreCatalogsRepository(
+    this._localRepo,
+    this._storageService,
+    this._tenantId,
+  );
 
   // 🔑 Cache em memória
   List<Catalog>? _memoryCache;
@@ -45,12 +50,17 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
             .reduce((a, b) => a.isAfter(b) ? a : b);
       }
 
-      Query<Map<String, dynamic>> query =
-          _collection.where('tenantId', isEqualTo: _tenantId);
+      Query<Map<String, dynamic>> query = _collection.where(
+        'tenantId',
+        isEqualTo: _tenantId,
+      );
 
       if (mostRecentLocal != null) {
         final since = mostRecentLocal.subtract(const Duration(seconds: 10));
-        query = query.where('updatedAt', isGreaterThan: Timestamp.fromDate(since));
+        query = query.where(
+          'updatedAt',
+          isGreaterThan: Timestamp.fromDate(since),
+        );
       }
 
       final snapshot = await query.get().timeout(const Duration(seconds: 10));
@@ -58,13 +68,12 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
           .map((doc) => Catalog.fromMap(doc.data()))
           .toList();
 
-      final merged = <String, Catalog>{
-        for (final c in localCatalogs) c.id: c,
-      };
+      final merged = <String, Catalog>{for (final c in localCatalogs) c.id: c};
 
       for (final cloudCat in newCloudCatalogs) {
         final localCat = merged[cloudCat.id];
-        if (localCat == null || cloudCat.updatedAt.isAfter(localCat.updatedAt)) {
+        if (localCat == null ||
+            cloudCat.updatedAt.isAfter(localCat.updatedAt)) {
           merged[cloudCat.id] = cloudCat;
           await _localRepo.addCatalog(cloudCat);
         }
@@ -83,12 +92,17 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
   }
 
   Future<List<Catalog>> fetchFromCloudOnly({DateTime? since}) async {
-    Query<Map<String, dynamic>> query =
-        _collection.where('tenantId', isEqualTo: _tenantId);
+    Query<Map<String, dynamic>> query = _collection.where(
+      'tenantId',
+      isEqualTo: _tenantId,
+    );
     if (since != null) {
-      query = query.where('updatedAt',
-          isGreaterThan: Timestamp.fromDate(
-              since.subtract(const Duration(seconds: 10))));
+      query = query.where(
+        'updatedAt',
+        isGreaterThan: Timestamp.fromDate(
+          since.subtract(const Duration(seconds: 10)),
+        ),
+      );
     }
     final snapshot = await query.get().timeout(const Duration(seconds: 15));
     return snapshot.docs.map((doc) => Catalog.fromMap(doc.data())).toList();
@@ -96,6 +110,29 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
 
   @override
   Future<void> addCatalog(Catalog catalog) async {
+    final catalogToSave = catalog.syncStatus == SyncStatus.synced
+        ? catalog
+        : catalog.copyWith(syncStatus: SyncStatus.pendingUpdate);
+
+    // 🏠 Local-First: Salva no Hive instantaneamente
+    await _localRepo.addCatalog(catalogToSave);
+    invalidateCache();
+  }
+
+  @override
+  Future<void> updateCatalog(Catalog catalog) async {
+    final catalogToSave = catalog.syncStatus == SyncStatus.synced
+        ? catalog
+        : catalog.copyWith(
+            syncStatus: SyncStatus.pendingUpdate,
+            updatedAt: DateTime.now(),
+          );
+    await _localRepo.updateCatalog(catalogToSave);
+    invalidateCache();
+  }
+
+  /// 🔄 Sincroniza um único catálogo para a nuvem
+  Future<void> syncCatalogToCloud(Catalog catalog) async {
     final List<CatalogBanner> updatedBanners = [];
 
     // ✨ Upload de Banners do Catálogo para o Storage
@@ -126,6 +163,7 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
     final catalogWithCloudImages = catalog.copyWith(
       banners: updatedBanners,
       tenantId: _tenantId,
+      syncStatus: SyncStatus.synced,
     );
 
     await _collection.doc(catalog.id).set(catalogWithCloudImages.toMap());
@@ -133,8 +171,34 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
     invalidateCache();
   }
 
-  @override
-  Future<void> updateCatalog(Catalog catalog) async => addCatalog(catalog);
+  /// 🔄 Sincroniza todos os catálogos pendentes
+  Future<int> syncAllPending({Function(double, String)? onProgress}) async {
+    final localCatalogs = await _localRepo.getCatalogs();
+    final toSync = localCatalogs
+        .where((c) => c.syncStatus == SyncStatus.pendingUpdate)
+        .toList();
+
+    if (toSync.isEmpty) {
+      if (onProgress != null) onProgress(1.0, 'Catálogos sincronizados!');
+      return 0;
+    }
+
+    int syncedCount = 0;
+    final total = toSync.length;
+    for (var i = 0; i < total; i++) {
+      final cat = toSync[i];
+      if (onProgress != null) {
+        onProgress(i / total, 'Sincronizando catálogo: ${cat.name}...');
+      }
+      await syncCatalogToCloud(cat);
+      syncedCount++;
+    }
+
+    if (onProgress != null) {
+      onProgress(1.0, 'Sincronização de catálogos concluída!');
+    }
+    return syncedCount;
+  }
 
   @override
   Future<void> deleteCatalog(String id) async {
@@ -149,9 +213,11 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
         .where('tenantId', isEqualTo: _tenantId)
         .where('slug', isEqualTo: slug)
         .get();
-    
+
     if (snapshot.docs.isEmpty) return false;
-    if (excludeId != null && snapshot.docs.length == 1 && snapshot.docs.first.id == excludeId) {
+    if (excludeId != null &&
+        snapshot.docs.length == 1 &&
+        snapshot.docs.first.id == excludeId) {
       return false;
     }
     return true;
@@ -205,15 +271,22 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
 }
 
 // Provedor que decide qual repositório usar baseado no login
-final syncCatalogsRepositoryProvider = Provider<CatalogsRepositoryContract>((ref) {
+final syncCatalogsRepositoryProvider = Provider<CatalogsRepositoryContract>((
+  ref,
+) {
   final tenantAsync = ref.watch(currentTenantProvider);
-  final localRepo = ref.watch(catalogsRepositoryProvider) as HiveCatalogsRepository;
+  final localRepo =
+      ref.watch(catalogsRepositoryProvider) as HiveCatalogsRepository;
   final storageService = ref.watch(saasPhotoStorageProvider);
 
   return tenantAsync.when(
     data: (tenant) {
       if (tenant != null) {
-        return FirestoreCatalogsRepository(localRepo, storageService, tenant.id);
+        return FirestoreCatalogsRepository(
+          localRepo,
+          storageService,
+          tenant.id,
+        );
       }
       return localRepo;
     },

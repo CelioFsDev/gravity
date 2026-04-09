@@ -1,3 +1,4 @@
+import 'package:catalogo_ja/models/sync_status.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/data/repositories/contracts/categories_repository_contract.dart';
@@ -12,7 +13,11 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
   final SaaSPhotoStorageService _storageService;
   final String _tenantId;
 
-  FirestoreCategoriesRepository(this._localRepo, this._storageService, this._tenantId);
+  FirestoreCategoriesRepository(
+    this._localRepo,
+    this._storageService,
+    this._tenantId,
+  );
 
   // 🔑 Cache em memória
   List<Category>? _memoryCache;
@@ -45,12 +50,17 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
             .reduce((a, b) => a.isAfter(b) ? a : b);
       }
 
-      Query<Map<String, dynamic>> query =
-          _collection.where('tenantId', isEqualTo: _tenantId);
+      Query<Map<String, dynamic>> query = _collection.where(
+        'tenantId',
+        isEqualTo: _tenantId,
+      );
 
       if (mostRecentLocal != null) {
         final since = mostRecentLocal.subtract(const Duration(seconds: 10));
-        query = query.where('updatedAt', isGreaterThan: Timestamp.fromDate(since));
+        query = query.where(
+          'updatedAt',
+          isGreaterThan: Timestamp.fromDate(since),
+        );
       }
 
       final snapshot = await query.get().timeout(const Duration(seconds: 10));
@@ -64,7 +74,8 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
 
       for (final cloudCat in newCloudCategories) {
         final localCat = merged[cloudCat.id];
-        if (localCat == null || cloudCat.updatedAt.isAfter(localCat.updatedAt)) {
+        if (localCat == null ||
+            cloudCat.updatedAt.isAfter(localCat.updatedAt)) {
           merged[cloudCat.id] = cloudCat;
           await _localRepo.addCategory(cloudCat);
         }
@@ -84,12 +95,17 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
 
   /// Busca na nuvem sem merge (usado no sync manual)
   Future<List<Category>> fetchFromCloudOnly({DateTime? since}) async {
-    Query<Map<String, dynamic>> query =
-        _collection.where('tenantId', isEqualTo: _tenantId);
+    Query<Map<String, dynamic>> query = _collection.where(
+      'tenantId',
+      isEqualTo: _tenantId,
+    );
     if (since != null) {
-      query = query.where('updatedAt',
-          isGreaterThan: Timestamp.fromDate(
-              since.subtract(const Duration(seconds: 10))));
+      query = query.where(
+        'updatedAt',
+        isGreaterThan: Timestamp.fromDate(
+          since.subtract(const Duration(seconds: 10)),
+        ),
+      );
     }
     final snapshot = await query.get().timeout(const Duration(seconds: 15));
     return snapshot.docs.map((doc) => Category.fromMap(doc.data())).toList();
@@ -115,9 +131,12 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
     // ✨ Upload de Fotos da Capa/Coleção
     if (updatedCategory.cover != null) {
       final cover = updatedCategory.cover!;
-      
+
       Future<String?> uploadIfNeeded(String? path) async {
-        if (path != null && path.isNotEmpty && !path.startsWith('http') && !path.startsWith('gs://')) {
+        if (path != null &&
+            path.isNotEmpty &&
+            !path.startsWith('http') &&
+            !path.startsWith('gs://')) {
           try {
             return await _storageService.uploadCategoryImage(
               localPath: path,
@@ -140,8 +159,11 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
         coverMiniPath: await uploadIfNeeded(cover.coverMiniPath),
         coverPagePath: await uploadIfNeeded(cover.coverPagePath),
       );
-      
-      updatedCategory = updatedCategory.copyWith(cover: updatedCover, updatedAt: DateTime.now());
+
+      updatedCategory = updatedCategory.copyWith(
+        cover: updatedCover,
+        updatedAt: DateTime.now(),
+      );
     }
 
     await _collection.doc(updatedCategory.id).set(updatedCategory.toMap());
@@ -152,17 +174,11 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
   /// 🔄 Sincroniza todas as categorias pendentes
   Future<int> syncAllPending({Function(double, String)? onProgress}) async {
     final localCategories = await _localRepo.getCategories();
-    
+
     // Identifica categorias com fotos locais ou modificações
-    final toSync = localCategories.where((c) {
-      if (c.cover == null) return false;
-      final cv = c.cover!;
-      return [
-        cv.coverImagePath, cv.bannerImagePath, cv.heroImagePath,
-        cv.coverHeaderImagePath, cv.coverMainImagePath, 
-        cv.coverMiniPath, cv.coverPagePath
-      ].any((p) => p != null && !p.startsWith('http') && !p.startsWith('gs://'));
-    }).toList();
+    final toSync = localCategories
+        .where((c) => c.syncStatus == SyncStatus.pendingUpdate)
+        .toList();
 
     if (toSync.isEmpty) {
       if (onProgress != null) onProgress(1.0, 'Categorias sincronizadas!');
@@ -180,7 +196,8 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
       syncedCount++;
     }
 
-    if (onProgress != null) onProgress(1.0, 'Sincronização de categorias concluída!');
+    if (onProgress != null)
+      onProgress(1.0, 'Sincronização de categorias concluída!');
     return syncedCount;
   }
 
@@ -247,13 +264,18 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
 final syncCategoriesRepositoryProvider = Provider<CategoriesRepositoryContract>(
   (ref) {
     final tenantAsync = ref.watch(currentTenantProvider);
-    final localRepo = ref.watch(categoriesRepositoryProvider) as HiveCategoriesRepository;
+    final localRepo =
+        ref.watch(categoriesRepositoryProvider) as HiveCategoriesRepository;
     final storageService = ref.watch(saasPhotoStorageProvider);
 
     return tenantAsync.when(
       data: (tenant) {
         if (tenant != null) {
-          return FirestoreCategoriesRepository(localRepo, storageService, tenant.id);
+          return FirestoreCategoriesRepository(
+            localRepo,
+            storageService,
+            tenant.id,
+          );
         }
         return localRepo;
       },

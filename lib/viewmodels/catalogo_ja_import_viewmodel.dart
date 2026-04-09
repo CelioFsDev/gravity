@@ -78,6 +78,9 @@ class CatalogoJaImportViewModel extends _$CatalogoJaImportViewModel {
   }
 
   Future<void> pickFile() async {
+    // 🛡️ Segurança: Evita abrir o seletor se já houver um processo em curso
+    if (state.isLoading) return;
+
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final result = await FilePicker.platform.pickFiles(

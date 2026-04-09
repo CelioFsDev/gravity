@@ -8,6 +8,8 @@ import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/ui/widgets/app_card.dart';
 import 'package:catalogo_ja/ui/widgets/app_badge_pill.dart';
 import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
 class AppProductListTile extends StatelessWidget {
   final Product product;
@@ -107,7 +109,7 @@ class AppProductListTile extends StatelessWidget {
                         label: 'ESGOTADO',
                         color: AppTokens.textMuted,
                       ),
-                    if (product.syncStatus == SyncStatus.pendingUpdate || product.hasLocalOnlyPhotos)
+                    if (product.syncStatus == SyncStatus.pendingUpdate)
                       const Padding(
                         padding: EdgeInsets.only(left: 4),
                         child: Icon(
@@ -230,15 +232,27 @@ class AppProductListTile extends StatelessWidget {
         path.startsWith('https://') ||
         path.startsWith('gs://') ||
         path.startsWith('blob:')) {
-      return Image.network(
-        path,
+      return CachedNetworkImage(
+        imageUrl: path,
+        cacheManager: DefaultCacheManager(),
         fit: BoxFit.cover,
-        cacheWidth: 200, // Small for thumbnails
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return const Center(child: CircularProgressIndicator(strokeWidth: 2));
-        },
-        errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined, size: 20, color: AppTokens.textMuted),
+        maxWidthDiskCache: 400,
+        memCacheWidth: 200,
+        placeholder: (context, url) => Container(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          child: const Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        ),
+        errorWidget: (context, url, error) => const Icon(
+          Icons.broken_image_outlined,
+          size: 20,
+          color: AppTokens.textMuted,
+        ),
       );
     }
 

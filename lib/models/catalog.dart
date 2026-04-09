@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+import 'package:catalogo_ja/models/sync_status.dart';
 
 part 'catalog.g.dart';
 
@@ -116,6 +117,9 @@ class Catalog {
   @HiveField(18)
   final String? tenantId;
 
+  @HiveField(19, defaultValue: SyncStatus.synced)
+  final SyncStatus syncStatus;
+
   Catalog({
     required this.id,
     required this.name,
@@ -136,6 +140,7 @@ class Catalog {
     this.includeCover = true,
     this.coverType,
     this.tenantId,
+    this.syncStatus = SyncStatus.synced,
   });
 
   Catalog copyWith({
@@ -158,6 +163,7 @@ class Catalog {
     bool? includeCover,
     String? coverType,
     String? tenantId,
+    SyncStatus? syncStatus,
   }) {
     return Catalog(
       id: id ?? this.id,
@@ -179,6 +185,7 @@ class Catalog {
       includeCover: includeCover ?? this.includeCover,
       coverType: coverType ?? this.coverType,
       tenantId: tenantId ?? this.tenantId,
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 
@@ -203,6 +210,7 @@ class Catalog {
       'includeCover': includeCover,
       'coverType': coverType,
       'tenantId': tenantId,
+      'syncStatus': syncStatus.name,
     };
   }
 
@@ -232,6 +240,10 @@ class Catalog {
       includeCover: map['includeCover'] ?? true,
       coverType: map['coverType'],
       tenantId: map['tenantId'],
+      syncStatus: SyncStatus.values.firstWhere(
+        (e) => e.name == map['syncStatus'],
+        orElse: () => SyncStatus.synced,
+      ),
     );
   }
 }

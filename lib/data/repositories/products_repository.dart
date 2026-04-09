@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:catalogo_ja/data/repositories/contracts/products_repository_contract.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -19,20 +20,30 @@ Stream<List<T>> _boxValuesStream<T>(Box<T> box) {
 
 class HiveProductsRepository implements ProductsRepositoryContract {
   final Box<Product> _productsBox;
+  final String? _tenantId;
 
-  HiveProductsRepository(this._productsBox);
+  HiveProductsRepository(this._productsBox, this._tenantId);
 
   Box<Product> get box => _productsBox;
 
-  @override
-  Future<List<Product>> getProducts() async => _productsBox.values.toList();
+  List<Product> _filter(Iterable<Product> items) {
+    if (_tenantId == null) return [];
+    return items.where((p) => p.tenantId == _tenantId).toList();
+  }
 
   @override
-  Future<Product?> getProduct(String id) async => _productsBox.get(id);
+  Future<List<Product>> getProducts() async => _filter(_productsBox.values);
+
+  @override
+  Future<Product?> getProduct(String id) async {
+    final p = _productsBox.get(id);
+    if (p != null && p.tenantId == _tenantId) return p;
+    return null;
+  }
 
   @override
   Future<List<Product>> getProductsByCategory(String categoryId) async {
-    return _productsBox.values
+    return _filter(_productsBox.values)
         .where((p) => p.categoryIds.contains(categoryId))
         .toList();
   }
@@ -74,7 +85,7 @@ class HiveProductsRepository implements ProductsRepositoryContract {
   @override
   Future<Product?> getByRef(String ref) async {
     try {
-      return _productsBox.values.firstWhere(
+      return _filter(_productsBox.values).firstWhere(
         (p) => p.ref.toLowerCase().trim() == ref.toLowerCase().trim(),
       );
     } catch (_) {
@@ -83,7 +94,9 @@ class HiveProductsRepository implements ProductsRepositoryContract {
   }
 
   @override
-  Stream<List<Product>> watchProducts() => _boxValuesStream(_productsBox);
+  Stream<List<Product>> watchProducts() {
+    return _boxValuesStream(_productsBox).map((items) => _filter(items));
+  }
 
   @override
   Stream<List<Product>> watchProductsByCategory(String categoryId) {
@@ -96,5 +109,6 @@ class HiveProductsRepository implements ProductsRepositoryContract {
 @Riverpod(keepAlive: true)
 ProductsRepositoryContract productsRepository(ProductsRepositoryRef ref) {
   final productsBox = Hive.box<Product>('products');
-  return HiveProductsRepository(productsBox);
+  final tenant = ref.watch(currentTenantProvider).valueOrNull;
+  return HiveProductsRepository(productsBox, tenant?.id);
 }

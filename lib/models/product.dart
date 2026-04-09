@@ -1,5 +1,8 @@
 import 'dart:convert';
 import 'package:hive/hive.dart';
+import 'package:catalogo_ja/models/sync_status.dart';
+
+export 'sync_status.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:catalogo_ja/core/utils/price_calculator.dart';
 import 'package:catalogo_ja/models/product_variant.dart';
@@ -7,15 +10,6 @@ import 'package:catalogo_ja/models/product_image.dart';
 
 part 'product.g.dart';
 
-@HiveType(typeId: 21)
-enum SyncStatus {
-  @HiveField(0)
-  synced,
-  @HiveField(1)
-  pendingUpdate,
-  @HiveField(2)
-  conflict,
-}
 
 
 // KEEP ProductPhoto for backward compatibility during migration, but mark it?
@@ -183,7 +177,7 @@ class Product {
     this.variants = const [],
     this.tenantId,
     this.storeOverrides = const {},
-    this.syncStatus = SyncStatus.synced,
+    this.syncStatus = SyncStatus.pendingUpdate,
     DateTime? updatedAt,
   }) : updatedAt = updatedAt ?? createdAt;
 

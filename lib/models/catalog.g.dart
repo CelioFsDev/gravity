@@ -76,13 +76,15 @@ class CatalogAdapter extends TypeAdapter<Catalog> {
       includeCover: fields[16] as bool,
       coverType: fields[17] as String?,
       tenantId: fields[18] as String?,
+      syncStatus:
+          fields[19] == null ? SyncStatus.synced : fields[19] as SyncStatus,
     );
   }
 
   @override
   void write(BinaryWriter writer, Catalog obj) {
     writer
-      ..writeByte(19)
+      ..writeByte(20)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -120,7 +122,9 @@ class CatalogAdapter extends TypeAdapter<Catalog> {
       ..writeByte(17)
       ..write(obj.coverType)
       ..writeByte(18)
-      ..write(obj.tenantId);
+      ..write(obj.tenantId)
+      ..writeByte(19)
+      ..write(obj.syncStatus);
   }
 
   @override
