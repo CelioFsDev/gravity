@@ -484,30 +484,18 @@ class ProductsViewModel extends _$ProductsViewModel {
       
       // 2. Depois sincroniza Produtos
       final repository = ref.read(syncProductsRepositoryProvider);
-      int count = 0;
-
+      
       if (repository is FirestoreProductsRepository) {
-        count = await repository.syncAllPending(
+        final count = await repository.syncAllPending(
           onProgress: (p, m) => progressNotifier.updateProgress(p, m),
         );
-      } else {
-        final localProducts = await (ref.read(productsRepositoryProvider)
-                as HiveProductsRepository)
-            .getProducts();
-        for (var i = 0; i < localProducts.length; i++) {
-          await repository.syncProductToCloud(localProducts[i]);
-          progressNotifier.updateProgress(
-            (i + 1) / localProducts.length,
-            'Sincronizando ${i + 1}/${localProducts.length}',
-          );
-          count++;
-        }
+        progressNotifier.stopSync(message: 'Sincronização concluída: $count produtos atualizados.');
+        await refresh();
+        _notifyChanges();
+        return count;
       }
-
-      progressNotifier.stopSync(message: 'Sincronização concluída com sucesso!');
-      await refresh();
-      _notifyChanges();
-      return count;
+      
+      return 0;
     } catch (e) {
       progressNotifier.stopSync(message: 'Erro na sincronização: $e');
       debugPrint('Erro na sincronização: $e');
@@ -555,6 +543,7 @@ class ProductsViewModel extends _$ProductsViewModel {
       // 2. Busca na Nuvem (apenas novidades)
       print('Buscando produtos na nuvem...');
       final currentLocalProducts = await localRepo.getProducts();
+      final localMap = {for (var p in currentLocalProducts) p.id: p};
       DateTime? mostRecentLocal;
       if (currentLocalProducts.isNotEmpty) {
         mostRecentLocal = currentLocalProducts
@@ -568,93 +557,33 @@ class ProductsViewModel extends _$ProductsViewModel {
 
       if (cloudProducts.isEmpty) {
         progressNotifier.stopSync(
-          message: 'Nenhum produto novo encontrado na nuvem.',
-        );
-        final box = await Hive.openBox('sync_meta');
-        await box.put(
-          'last_sync_products',
-          DateTime.now().millisecondsSinceEpoch,
+          message: 'Tudo atualizado!',
         );
         return 0;
       }
 
-      var downloadedCount = 0;
-      final localMap = {for (var p in currentLocalProducts) p.id: p};
-
+      int updateCount = 0;
       for (var i = 0; i < cloudProducts.length; i++) {
         final p = cloudProducts[i];
-        final progress = (i + 1) / cloudProducts.length;
-
-        // 🚀 Verificação de Diferença (Sincronização Incremental/Inteligente)
+        progressNotifier.updateProgress(
+          (i + 1) / cloudProducts.length,
+          'Baixando ${i + 1}/${cloudProducts.length}: ${p.name}',
+        );
+        
         final localProduct = localMap[p.id];
-        if (localProduct != null &&
-            !p.updatedAt.isAfter(localProduct.updatedAt)) {
-          // Já estamos atualizados localmente, ignora o download deste item
+        // Se já existe localmente e não é mais novo que o local, ignora
+        if (localProduct != null && !p.updatedAt.isAfter(localProduct.updatedAt)) {
           continue;
         }
 
-        progressNotifier.updateProgress(
-          progress,
-          'Baixando novidades: ${i + 1}/${cloudProducts.length} - ${p.name}',
-        );
-
-        try {
-          // Processa as imagens (legado e moderno) para download físico
-          final List<ProductImage> updatedImages = [];
-
-          // Se images estiver vazio, tenta resgatar do legado 'photos'
-          var imagesToDownload = List<ProductImage>.from(p.images);
-          if (imagesToDownload.isEmpty && p.photos.isNotEmpty) {
-            imagesToDownload = p.photos
-                .map((ph) => ph.toProductImage())
-                .toList();
-          }
-
-          for (var img in imagesToDownload) {
-            if (img.sourceType == ProductImageSource.networkUrl &&
-                img.uri.startsWith('http')) {
-              try {
-                // Tenta reaproveitar cache por URL se possível
-                final localPath = await cacheService.downloadAndCacheImage(
-                  img.uri,
-                );
-                updatedImages.add(
-                  img.copyWith(
-                    uri: localPath,
-                    sourceType: ProductImageSource.localPath,
-                  ),
-                );
-              } catch (e) {
-                print('Erro ao baixar imagem: $e');
-                updatedImages.add(img); // Mantem rede se falhar
-              }
-            } else {
-              updatedImages.add(img);
-            }
-          }
-
-          // Salva Local - Apenas se for NOVO ou ALTERADO
-          final finalProduct = p.copyWith(
-            images: updatedImages,
-            photos: updatedImages
-                .map(
-                  (img) => ProductPhoto(
-                    path: img.uri,
-                    isPrimary:
-                        img.label?.toLowerCase() == 'p' ||
-                        img.label?.toLowerCase() == 'principal',
-                    photoType: img.label,
-                    colorKey: img.colorTag,
-                  ),
-                )
-                .toList(),
-          );
-
-          await localRepo.addProduct(finalProduct);
-          downloadedCount++;
-        } catch (e) {
-          print('Erro crítico ao baixar produto ${p.id}: $e');
+        // Se o local está pendente de upload, evitamos sobreescrever sem aviso (simples merge for cloud)
+        if (localProduct != null && localProduct.syncStatus == SyncStatus.pendingUpdate) {
+           // Em caso de conflito, poderíamos marcar como SyncStatus.conflict
+           await localRepo.addProduct(p.copyWith(syncStatus: SyncStatus.conflict));
+        } else {
+           await localRepo.addProduct(p.copyWith(syncStatus: SyncStatus.synced));
         }
+        updateCount++;
       }
 
       await refresh();
@@ -667,9 +596,9 @@ class ProductsViewModel extends _$ProductsViewModel {
       );
 
       progressNotifier.stopSync(
-        message: 'Download concluído: $downloadedCount produtos!',
+        message: 'Download concluído: $updateCount produtos!',
       );
-      return downloadedCount;
+      return updateCount;
     } catch (e) {
       progressNotifier.stopSync(message: 'Erro: $e');
       debugPrint('Erro ao baixar dados da nuvem: $e');

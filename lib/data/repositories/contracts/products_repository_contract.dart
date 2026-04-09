@@ -4,6 +4,7 @@ import 'package:catalogo_ja/models/product.dart';
 
 abstract class ProductsRepositoryContract {
   Future<List<Product>> getProducts();
+  Future<Product?> getProduct(String id);
   Future<List<Product>> getProductsByCategory(String categoryId);
   Future<void> addProduct(Product product, {Function(double, String)? onProgress});
   Future<void> updateProduct(Product product, {Function(double, String)? onProgress});

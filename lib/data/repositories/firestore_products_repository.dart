@@ -45,6 +45,9 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
       _firestore.collection('products');
 
   @override
+  Future<Product?> getProduct(String id) async => await _localRepo.getProduct(id);
+
+  @override
   Future<List<Product>> getProducts() async {
     // 🌟 Cache hit: retorna dados em memória sem tocar o Firestore
     if (_isCacheValid) return List.from(_memoryCache!);
@@ -86,13 +89,15 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
       for (final cloudProduct in newCloudProducts) {
         final localProduct = merged[cloudProduct.id];
         if (localProduct == null) {
-          merged[cloudProduct.id] = cloudProduct;
+          final pWithSync = cloudProduct.copyWith(syncStatus: SyncStatus.synced);
+          merged[cloudProduct.id] = pWithSync;
           // Persiste localmente para próximas sessões offline
-          await _localRepo.addProduct(cloudProduct);
+          await _localRepo.addProduct(pWithSync);
         } else if (cloudProduct.updatedAt.isAfter(localProduct.updatedAt) &&
-            !_hasLocalOnlyPhotos(localProduct)) {
-          merged[cloudProduct.id] = cloudProduct;
-          await _localRepo.addProduct(cloudProduct);
+            localProduct.syncStatus != SyncStatus.pendingUpdate) {
+          final pWithSync = cloudProduct.copyWith(syncStatus: SyncStatus.synced);
+          merged[cloudProduct.id] = pWithSync;
+          await _localRepo.addProduct(pWithSync);
         }
       }
 
@@ -150,8 +155,11 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
     Product product, {
     Function(double, String)? onProgress,
   }) async {
+    final productToSave = product.copyWith(
+      syncStatus: SyncStatus.pendingUpdate,
+    );
     // 🏠 Local-First: Salva no Hive instantaneamente
-    await _localRepo.addProduct(product);
+    await _localRepo.addProduct(productToSave);
     invalidateCache();
   }
 
@@ -160,7 +168,20 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
     Product product, {
     Function(double, String)? onProgress,
   }) async {
-    await _localRepo.updateProduct(product);
+    final oldProduct = await _localRepo.getProduct(product.id);
+    
+    // Evitar salvar e dar update falso sem mudanças reais.
+    if (oldProduct != null && !oldProduct.hasMeaningfulChanges(product)) {
+      debugPrint('Skipping updateProduct, no meaningful changes detected.');
+      return; 
+    }
+    
+    final productToSave = product.copyWith(
+      syncStatus: SyncStatus.pendingUpdate,
+      updatedAt: DateTime.now(),
+    );
+
+    await _localRepo.updateProduct(productToSave);
     invalidateCache();
   }
 
@@ -192,7 +213,13 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
           image.uri.startsWith('data:');
 
       if (!isLocal) {
-        updatedImages.add(image);
+        // Corrige inconsistências de importação onde a URI é http mas o tipo ficou como local
+        if (image.sourceType != ProductImageSource.networkUrl && 
+           (image.uri.startsWith('http') || image.uri.startsWith('gs://'))) {
+          updatedImages.add(image.copyWith(sourceType: ProductImageSource.networkUrl));
+        } else {
+          updatedImages.add(image);
+        }
         continue;
       }
 
@@ -236,7 +263,13 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
         }
       } catch (e) {
         debugPrint('Erro no upload: $e');
-        updatedImages.add(image);
+        final errorMsg = e.toString().toLowerCase();
+        if (errorMsg.contains('não encontrado') || errorMsg.contains('not found') || errorMsg.contains('no such file')) {
+          debugPrint('Removendo referência de foto que não existe mais localmente para evitar loop de sync.');
+          // Não adiciona _image_ ao updatedImages, efetivamente quebrando o loop.
+        } else {
+          updatedImages.add(image); // Outro erro (Rede, etc), mantemos para tentar depois.
+        }
       }
     }
 
@@ -261,6 +294,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
       images: updatedImages,
       photos: updatedPhotos,
       updatedAt: DateTime.now(),
+      syncStatus: SyncStatus.synced,
     );
 
     await _collection.doc(product.id).set(productWithSaaS.toMap());
@@ -276,7 +310,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
   /// Retorna o total de produtos sincronizados.
   Future<int> syncAllPending({Function(double, String)? onProgress}) async {
     final localProducts = await _localRepo.getProducts();
-    final toSync = localProducts.where(_hasLocalOnlyPhotos).toList();
+    final toSync = localProducts.where((p) => p.syncStatus == SyncStatus.pendingUpdate || p.hasLocalOnlyPhotos).toList();
 
     if (toSync.isEmpty) {
       if (onProgress != null) onProgress(1.0, 'Tudo sincronizado!');
@@ -320,17 +354,13 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
     for (var i = 0; i < total; i++) {
       final p = products[i];
       // ✨ Segurança Adicional: Garante que o tenantId do lote seja o correto
-      final pWithTenant = p.copyWith(tenantId: _tenantId);
+      final pWithTenant = p.copyWith(tenantId: _tenantId, syncStatus: SyncStatus.synced);
       final docRef = _collection.doc(p.id);
       batch.set(docRef, pWithTenant.toMap());
+      await _localRepo.addProduct(pWithTenant);
     }
 
     await batch.commit();
-
-    // Atualiza cache local e de memória em lote
-    for (final p in products) {
-      await _localRepo.addProduct(p.copyWith(tenantId: _tenantId));
-    }
     invalidateCache();
 
     if (onProgress != null) {
@@ -363,7 +393,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
         .limit(1)
         .get();
     if (snapshot.docs.isNotEmpty) {
-      final cloudProduct = Product.fromMap(snapshot.docs.first.data());
+      final cloudProduct = Product.fromMap(snapshot.docs.first.data()).copyWith(syncStatus: SyncStatus.synced);
       await _localRepo.addProduct(cloudProduct); // Salva local para a próxima vez
       return cloudProduct;
     }

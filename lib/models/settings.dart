@@ -19,13 +19,14 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       geminiApiKey: (fields[5] as String?) ?? '',
       linktreeUrl: (fields[6] as String?) ?? '',
       instagramUrl: (fields[7] as String?) ?? '',
+      isInitialSyncCompleted: (fields[8] as bool?) ?? false,
     );
   }
 
   @override
   void write(BinaryWriter writer, AppSettings obj) {
     writer
-      ..writeByte(8)
+      ..writeByte(9)
       ..writeByte(0)
       ..write(obj.storeName)
       ..writeByte(1)
@@ -41,7 +42,9 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       ..writeByte(6)
       ..write(obj.linktreeUrl)
       ..writeByte(7)
-      ..write(obj.instagramUrl);
+      ..write(obj.instagramUrl)
+      ..writeByte(8)
+      ..write(obj.isInitialSyncCompleted);
   }
 }
 
@@ -54,6 +57,7 @@ class AppSettings {
   final String geminiApiKey;
   final String linktreeUrl;
   final String instagramUrl;
+  final bool isInitialSyncCompleted;
 
   AppSettings({
     required this.storeName,
@@ -64,6 +68,7 @@ class AppSettings {
     this.geminiApiKey = '',
     this.linktreeUrl = '',
     this.instagramUrl = '',
+    this.isInitialSyncCompleted = false,
   });
 
   AppSettings copyWith({
@@ -75,6 +80,7 @@ class AppSettings {
     String? geminiApiKey,
     String? linktreeUrl,
     String? instagramUrl,
+    bool? isInitialSyncCompleted,
   }) {
     return AppSettings(
       storeName: storeName ?? this.storeName,
@@ -85,6 +91,7 @@ class AppSettings {
       geminiApiKey: geminiApiKey ?? this.geminiApiKey,
       linktreeUrl: linktreeUrl ?? this.linktreeUrl,
       instagramUrl: instagramUrl ?? this.instagramUrl,
+      isInitialSyncCompleted: isInitialSyncCompleted ?? this.isInitialSyncCompleted,
     );
   }
 
@@ -98,6 +105,7 @@ class AppSettings {
       geminiApiKey: '',
       linktreeUrl: '',
       instagramUrl: '',
+      isInitialSyncCompleted: false,
     );
   }
 }

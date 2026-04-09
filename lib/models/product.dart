@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:hive/hive.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:catalogo_ja/core/utils/price_calculator.dart';
@@ -5,6 +6,17 @@ import 'package:catalogo_ja/models/product_variant.dart';
 import 'package:catalogo_ja/models/product_image.dart';
 
 part 'product.g.dart';
+
+@HiveType(typeId: 21)
+enum SyncStatus {
+  @HiveField(0)
+  synced,
+  @HiveField(1)
+  pendingUpdate,
+  @HiveField(2)
+  conflict,
+}
+
 
 // KEEP ProductPhoto for backward compatibility during migration, but mark it?
 // The user wants ProductImage instead. I'll keep it as a legacy holder if needed.
@@ -142,6 +154,9 @@ class Product {
   @HiveField(26)
   final Map<String, Map<String, dynamic>> storeOverrides;
 
+  @HiveField(27)
+  final SyncStatus syncStatus;
+
   Product({
     required this.id,
     required this.name,
@@ -168,6 +183,7 @@ class Product {
     this.variants = const [],
     this.tenantId,
     this.storeOverrides = const {},
+    this.syncStatus = SyncStatus.synced,
     DateTime? updatedAt,
   }) : updatedAt = updatedAt ?? createdAt;
 
@@ -198,6 +214,7 @@ class Product {
     List<ProductPhoto>? photos,
     String? tenantId,
     Map<String, Map<String, dynamic>>? storeOverrides,
+    SyncStatus? syncStatus,
   }) {
     return Product(
       id: id ?? this.id,
@@ -226,6 +243,7 @@ class Product {
       photos: photos ?? this.photos,
       tenantId: tenantId ?? this.tenantId,
       storeOverrides: storeOverrides ?? this.storeOverrides,
+      syncStatus: syncStatus ?? this.syncStatus,
     );
   }
 
@@ -273,6 +291,7 @@ class Product {
       }).toList(),
       'tenantId': tenantId,
       'storeOverrides': storeOverrides,
+      'syncStatus': syncStatus.index,
     };
   }
 
@@ -332,6 +351,9 @@ class Product {
             (k, v) => MapEntry(k.toString(), Map<String, dynamic>.from(v as Map)),
           ) ??
           {},
+      syncStatus: map['syncStatus'] != null 
+          ? SyncStatus.values[map['syncStatus'] as int] 
+          : SyncStatus.synced,
     );
   }
 
@@ -489,5 +511,21 @@ class Product {
         (!p.path.startsWith('http') && !p.path.startsWith('gs://')) ||
         p.path.startsWith('data:') ||
         p.path.startsWith('blob:'));
+  }
+
+  /// Verifica alterações reais baseadas em JSON do objeto, 
+  /// ignorando datas de atualização e status de sincronismo.
+  bool hasMeaningfulChanges(Product other) {
+    final myMap = toMap()
+      ..remove('updatedAt')
+      ..remove('createdAt')
+      ..remove('syncStatus');
+    
+    final otherMap = other.toMap()
+      ..remove('updatedAt')
+      ..remove('createdAt')
+      ..remove('syncStatus');
+      
+    return jsonEncode(myMap) != jsonEncode(otherMap);
   }
 }

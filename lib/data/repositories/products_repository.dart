@@ -28,6 +28,9 @@ class HiveProductsRepository implements ProductsRepositoryContract {
   Future<List<Product>> getProducts() async => _productsBox.values.toList();
 
   @override
+  Future<Product?> getProduct(String id) async => _productsBox.get(id);
+
+  @override
   Future<List<Product>> getProductsByCategory(String categoryId) async {
     return _productsBox.values
         .where((p) => p.categoryIds.contains(categoryId))

@@ -84,6 +84,9 @@ class ProductAdapter extends TypeAdapter<Product> {
       remoteImages: (fields[21] as List).cast<String>(),
       variants: (fields[22] as List).cast<ProductVariant>(),
       tenantId: fields[25] as String?,
+      storeOverrides: (fields[26] as Map).map((dynamic k, dynamic v) =>
+          MapEntry(k as String, (v as Map).cast<String, dynamic>())),
+      syncStatus: fields[27] as SyncStatus,
       updatedAt: fields[23] as DateTime?,
     );
   }
@@ -91,7 +94,7 @@ class ProductAdapter extends TypeAdapter<Product> {
   @override
   void write(BinaryWriter writer, Product obj) {
     writer
-      ..writeByte(25)
+      ..writeByte(27)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -141,7 +144,11 @@ class ProductAdapter extends TypeAdapter<Product> {
       ..writeByte(24)
       ..write(obj.photos)
       ..writeByte(25)
-      ..write(obj.tenantId);
+      ..write(obj.tenantId)
+      ..writeByte(26)
+      ..write(obj.storeOverrides)
+      ..writeByte(27)
+      ..write(obj.syncStatus);
   }
 
   @override
@@ -151,6 +158,50 @@ class ProductAdapter extends TypeAdapter<Product> {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is ProductAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class SyncStatusAdapter extends TypeAdapter<SyncStatus> {
+  @override
+  final int typeId = 21;
+
+  @override
+  SyncStatus read(BinaryReader reader) {
+    switch (reader.readByte()) {
+      case 0:
+        return SyncStatus.synced;
+      case 1:
+        return SyncStatus.pendingUpdate;
+      case 2:
+        return SyncStatus.conflict;
+      default:
+        return SyncStatus.synced;
+    }
+  }
+
+  @override
+  void write(BinaryWriter writer, SyncStatus obj) {
+    switch (obj) {
+      case SyncStatus.synced:
+        writer.writeByte(0);
+        break;
+      case SyncStatus.pendingUpdate:
+        writer.writeByte(1);
+        break;
+      case SyncStatus.conflict:
+        writer.writeByte(2);
+        break;
+    }
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SyncStatusAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

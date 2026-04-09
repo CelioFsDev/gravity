@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:io' as io;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
@@ -10,6 +11,11 @@ import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/viewmodels/global_sync_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
+import 'package:catalogo_ja/data/repositories/settings_repository.dart';
+import 'package:catalogo_ja/ui/widgets/sync_progress_overlay.dart';
+import 'package:catalogo_ja/core/services/system_backup_service.dart';
+import 'package:file_picker/file_picker.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -22,124 +28,183 @@ class DashboardScreen extends ConsumerWidget {
     final productsAsync = ref.watch(productsRepositoryProvider).watchProducts();
     final categoriesAsync = ref.watch(categoriesRepositoryProvider).watchCategories();
     final catalogsAsync = ref.watch(catalogsRepositoryProvider).watchCatalogs();
+    final syncProgress = ref.watch(syncProgressProvider);
+    final settings = ref.watch(settingsRepositoryProvider).getSettings();
 
-    return AppScaffold(
-      title: 'Painel de Controle',
-      subtitle: 'Bem-vindo ao seu Catálogo SaaS',
-      body: StreamBuilder<List<Product>>(
-        stream: productsAsync,
-        builder: (context, productsSnapshot) {
-          return StreamBuilder<List<Category>>(
-            stream: categoriesAsync,
-            builder: (context, categoriesSnapshot) {
-              return StreamBuilder<List<Catalog>>(
-                stream: catalogsAsync,
-                builder: (context, catalogsSnapshot) {
-                  final productCount = productsSnapshot.data?.length ?? 0;
-                  final categoryCount = categoriesSnapshot.data?.length ?? 0;
-                  final catalogCount = catalogsSnapshot.data?.length ?? 0;
+    // Trigger Initial Sync Choice if needed
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!settings.isInitialSyncCompleted && !syncProgress.isSyncing) {
+        _showInitialSyncChoice(context, ref);
+      }
+    });
 
-                  return CustomScrollView(
-                    slivers: [
-                      SliverPadding(
-                        padding: const EdgeInsets.all(AppTokens.space24),
-                        sliver: SliverGrid.count(
-                          crossAxisCount: MediaQuery.of(context).size.width > 600 ? 3 : 1,
-                          mainAxisSpacing: AppTokens.space16,
-                          crossAxisSpacing: AppTokens.space16,
-                          childAspectRatio: 1.5,
-                          children: [
-                            _StatCard(
-                              title: 'Produtos',
-                              value: productCount.toString(),
-                              icon: Icons.inventory_2_outlined,
-                              color: AppTokens.accentBlue,
+    return Stack(
+      children: [
+        AppScaffold(
+          title: 'Painel de Controle',
+          subtitle: 'Bem-vindo ao seu Catálogo SaaS',
+          body: StreamBuilder<List<Product>>(
+            stream: productsAsync,
+            builder: (context, productsSnapshot) {
+              return StreamBuilder<List<Category>>(
+                stream: categoriesAsync,
+                builder: (context, categoriesSnapshot) {
+                  return StreamBuilder<List<Catalog>>(
+                    stream: catalogsAsync,
+                    builder: (context, catalogsSnapshot) {
+                      final productCount = productsSnapshot.data?.length ?? 0;
+                      final categoryCount = categoriesSnapshot.data?.length ?? 0;
+                      final catalogCount = catalogsSnapshot.data?.length ?? 0;
+
+                      return CustomScrollView(
+                        slivers: [
+                          SliverPadding(
+                            padding: const EdgeInsets.all(AppTokens.space24),
+                            sliver: SliverGrid.count(
+                              crossAxisCount: MediaQuery.of(context).size.width > 600 ? 3 : 1,
+                              mainAxisSpacing: AppTokens.space16,
+                              crossAxisSpacing: AppTokens.space16,
+                              childAspectRatio: 1.5,
+                              children: [
+                                _StatCard(
+                                  title: 'Produtos',
+                                  value: productCount.toString(),
+                                  icon: Icons.inventory_2_outlined,
+                                  color: AppTokens.accentBlue,
+                                ),
+                                _StatCard(
+                                  title: 'Coleções',
+                                  value: categoryCount.toString(),
+                                  icon: Icons.collections_bookmark_outlined,
+                                  color: AppTokens.accentGreen,
+                                ),
+                                _StatCard(
+                                  title: 'Catálogos',
+                                  value: catalogCount.toString(),
+                                  icon: Icons.menu_book_outlined,
+                                  color: Colors.orange,
+                                ),
+                              ],
                             ),
-                            _StatCard(
-                              title: 'Coleções',
-                              value: categoryCount.toString(),
-                              icon: Icons.collections_bookmark_outlined,
-                              color: AppTokens.accentGreen,
-                            ),
-                            _StatCard(
-                              title: 'Catálogos',
-                              value: catalogCount.toString(),
-                              icon: Icons.menu_book_outlined,
-                              color: Colors.orange,
-                            ),
-                          ],
-                        ),
-                      ),
-                      SliverPadding(
-                        padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
-                        sliver: SliverToBoxAdapter(
-                          child: Text(
-                            'Ações Rápidas',
-                            style: Theme.of(context).textTheme.titleMedium,
                           ),
-                        ),
-                      ),
-                      SliverPadding(
-                        padding: const EdgeInsets.all(AppTokens.space24),
-                        sliver: SliverGrid.count(
-                          crossAxisCount: MediaQuery.of(context).size.width > 600 ? 4 : 2,
-                          mainAxisSpacing: AppTokens.space12,
-                          crossAxisSpacing: AppTokens.space12,
-                          children: [
-                            _QuickActionCard(
-                              label: 'Sincronizar Cloud',
-                              icon: Icons.cloud_sync,
-                              onTap: () async {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Sincronizando com a Nuvem... ☁️📥'), duration: Duration(seconds: 2)),
-                                );
-                                try {
-                                  await ref.read(globalSyncViewModelProvider.notifier).syncDownEverything();
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Catálogo Atualizado com Sucesso! ✅'), backgroundColor: AppTokens.accentGreen),
-                                    );
-                                  }
-                                } catch (e) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Erro na sincronização: $e'), backgroundColor: Colors.red),
-                                    );
-                                  }
-                                }
-                              },
+                          SliverPadding(
+                            padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
+                            sliver: SliverToBoxAdapter(
+                              child: Text(
+                                'Ações Rápidas',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
                             ),
-                            _QuickActionCard(
-                              label: 'Novo Produto',
-                              icon: Icons.add_box_outlined,
-                              onTap: () => context.go('/admin/products'),
+                          ),
+                          SliverPadding(
+                            padding: const EdgeInsets.all(AppTokens.space24),
+                            sliver: SliverGrid.count(
+                              crossAxisCount: MediaQuery.of(context).size.width > 600 ? 4 : 2,
+                              mainAxisSpacing: AppTokens.space12,
+                              crossAxisSpacing: AppTokens.space12,
+                              children: [
+                                _QuickActionCard(
+                                  label: 'Sincronizar Cloud',
+                                  icon: Icons.cloud_sync,
+                                  onTap: () async {
+                                    ref.read(globalSyncViewModelProvider.notifier).syncDownEverything();
+                                  },
+                                ),
+                                _QuickActionCard(
+                                  label: 'Novo Produto',
+                                  icon: Icons.add_box_outlined,
+                                  onTap: () => context.go('/admin/products'),
+                                ),
+                                _QuickActionCard(
+                                  label: 'Criar Catálogo',
+                                  icon: Icons.auto_awesome_motion_outlined,
+                                  onTap: () => context.go('/admin/catalogs'),
+                                ),
+                                _QuickActionCard(
+                                  label: 'Importar PDF',
+                                  icon: Icons.picture_as_pdf_outlined,
+                                  onTap: () => context.go('/admin/imports/stock-update'),
+                                ),
+                                _QuickActionCard(
+                                  label: 'Backup Cloud',
+                                  icon: Icons.cloud_upload_outlined,
+                                  onTap: () => context.go('/admin/imports/backup'),
+                                ),
+                              ],
                             ),
-                            _QuickActionCard(
-                              label: 'Criar Catálogo',
-                              icon: Icons.auto_awesome_motion_outlined,
-                              onTap: () => context.go('/admin/catalogs'),
-                            ),
-                            _QuickActionCard(
-                              label: 'Importar PDF',
-                              icon: Icons.picture_as_pdf_outlined,
-                              onTap: () => context.go('/admin/imports/stock-update'),
-                            ),
-                            _QuickActionCard(
-                              label: 'Backup Cloud',
-                              icon: Icons.cloud_upload_outlined,
-                              onTap: () => context.go('/admin/imports/backup'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                          ),
+                        ],
+                      );
+                    },
                   );
                 },
               );
             },
-          );
-        },
+          ),
+        ),
+        if (syncProgress.isSyncing)
+          SyncProgressOverlay(
+            progress: syncProgress.progress,
+            message: syncProgress.message,
+          ),
+      ],
+    );
+  }
+
+  void _showInitialSyncChoice(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Bem-vindo! 🚀'),
+        content: const Text(
+          'Detectamos que este é um novo aparelho. Deseja restaurar o catálogo de um arquivo de backup (.zip/.cja) ou baixar tudo da nuvem?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              final result = await FilePicker.platform.pickFiles(
+                type: FileType.custom,
+                allowedExtensions: ['zip', 'cja'],
+              );
+              
+              if (result != null && result.files.single.path != null) {
+                final file = io.File(result.files.single.path!);
+                try {
+                  // Inicia o overlay de progresso
+                  ref.read(syncProgressProvider.notifier).startSync('Restaurando backup...');
+                  await ref.read(systemBackupServiceProvider).restoreFullBackup(
+                    file,
+                    onProgress: (p, msg) => ref.read(syncProgressProvider.notifier).updateProgress(p, msg),
+                  );
+                  ref.read(syncProgressProvider.notifier).stopSync();
+                  
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Backup restaurado com sucesso! ✅')),
+                    );
+                  }
+                } catch (e) {
+                  ref.read(syncProgressProvider.notifier).stopSync();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Erro ao restaurar backup: $e'), backgroundColor: Colors.red),
+                    );
+                  }
+                }
+              }
+            },
+            child: const Text('Restaurar Backup'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ref.read(globalSyncViewModelProvider.notifier).syncDownEverything();
+            },
+            child: const Text('Baixar da Nuvem'),
+          ),
+        ],
       ),
     );
   }

@@ -107,12 +107,12 @@ class AppProductListTile extends StatelessWidget {
                         label: 'ESGOTADO',
                         color: AppTokens.textMuted,
                       ),
-                    if (product.hasLocalOnlyPhotos)
+                    if (product.syncStatus == SyncStatus.pendingUpdate || product.hasLocalOnlyPhotos)
                       const Padding(
                         padding: EdgeInsets.only(left: 4),
                         child: Icon(
-                          Icons.cloud_off_outlined,
-                          size: 16,
+                          Icons.cloud_upload_outlined,
+                          size: 18,
                           color: Colors.orange,
                         ),
                       ),
