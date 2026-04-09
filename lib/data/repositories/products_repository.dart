@@ -20,15 +20,16 @@ Stream<List<T>> _boxValuesStream<T>(Box<T> box) {
 
 class HiveProductsRepository implements ProductsRepositoryContract {
   final Box<Product> _productsBox;
-  final String? _tenantId;
+  final String? Function() _getTenantId;
 
-  HiveProductsRepository(this._productsBox, this._tenantId);
+  HiveProductsRepository(this._productsBox, this._getTenantId);
 
   Box<Product> get box => _productsBox;
 
   List<Product> _filter(Iterable<Product> items) {
-    if (_tenantId == null) return [];
-    return items.where((p) => p.tenantId == _tenantId).toList();
+    final tenantId = _getTenantId();
+    if (tenantId == null) return [];
+    return items.where((p) => p.tenantId == tenantId).toList();
   }
 
   @override
@@ -36,8 +37,9 @@ class HiveProductsRepository implements ProductsRepositoryContract {
 
   @override
   Future<Product?> getProduct(String id) async {
+    final tenantId = _getTenantId();
     final p = _productsBox.get(id);
-    if (p != null && p.tenantId == _tenantId) return p;
+    if (p != null && p.tenantId == tenantId) return p;
     return null;
   }
 
@@ -109,6 +111,8 @@ class HiveProductsRepository implements ProductsRepositoryContract {
 @Riverpod(keepAlive: true)
 ProductsRepositoryContract productsRepository(ProductsRepositoryRef ref) {
   final productsBox = Hive.box<Product>('products');
-  final tenant = ref.watch(currentTenantProvider).valueOrNull;
-  return HiveProductsRepository(productsBox, tenant?.id);
+  return HiveProductsRepository(
+    productsBox,
+    () => ref.read(currentTenantProvider).valueOrNull?.id,
+  );
 }

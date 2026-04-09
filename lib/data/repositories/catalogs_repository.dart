@@ -20,15 +20,16 @@ Stream<List<T>> _boxValuesStream<T>(Box<T> box) {
 
 class HiveCatalogsRepository implements CatalogsRepositoryContract {
   final Box<Catalog> _catalogsBox;
-  final String? _tenantId;
+  final String? Function() _getTenantId;
 
-  HiveCatalogsRepository(this._catalogsBox, this._tenantId);
+  HiveCatalogsRepository(this._catalogsBox, this._getTenantId);
 
   Box<Catalog> get box => _catalogsBox;
 
   List<Catalog> _filter(Iterable<Catalog> items) {
-    if (_tenantId == null) return [];
-    return items.where((c) => c.tenantId == _tenantId).toList();
+    final tenantId = _getTenantId();
+    if (tenantId == null) return [];
+    return items.where((c) => c.tenantId == tenantId).toList();
   }
 
   @override
@@ -88,6 +89,8 @@ class HiveCatalogsRepository implements CatalogsRepositoryContract {
 @Riverpod(keepAlive: true)
 CatalogsRepositoryContract catalogsRepository(CatalogsRepositoryRef ref) {
   final catalogsBox = Hive.box<Catalog>('catalogs');
-  final tenant = ref.watch(currentTenantProvider).valueOrNull;
-  return HiveCatalogsRepository(catalogsBox, tenant?.id);
+  return HiveCatalogsRepository(
+    catalogsBox, 
+    () => ref.read(currentTenantProvider).valueOrNull?.id
+  );
 }

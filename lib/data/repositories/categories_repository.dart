@@ -22,15 +22,16 @@ Stream<List<T>> _boxValuesStream<T>(Box<T> box) {
 class HiveCategoriesRepository implements CategoriesRepositoryContract {
   final Box<Category> _categoriesBox;
   final Box<Product> _productsBox;
-  final String? _tenantId;
+  final String? Function() _getTenantId;
 
-  HiveCategoriesRepository(this._categoriesBox, this._productsBox, this._tenantId);
+  HiveCategoriesRepository(this._categoriesBox, this._productsBox, this._getTenantId);
 
   Box<Category> get box => _categoriesBox;
 
   List<Category> _filter(Iterable<Category> items) {
-    if (_tenantId == null) return [];
-    return items.where((c) => c.tenantId == _tenantId).toList();
+    final tenantId = _getTenantId();
+    if (tenantId == null) return [];
+    return items.where((c) => c.tenantId == tenantId).toList();
   }
 
   @override
@@ -105,7 +106,10 @@ class HiveCategoriesRepository implements CategoriesRepositoryContract {
 CategoriesRepositoryContract categoriesRepository(CategoriesRepositoryRef ref) {
   final categoriesBox = Hive.box<Category>('categories');
   final productsBox = Hive.box<Product>('products');
-  final tenant = ref.watch(currentTenantProvider).valueOrNull;
 
-  return HiveCategoriesRepository(categoriesBox, productsBox, tenant?.id);
+  return HiveCategoriesRepository(
+    categoriesBox, 
+    productsBox, 
+    () => ref.read(currentTenantProvider).valueOrNull?.id,
+  );
 }
