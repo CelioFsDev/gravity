@@ -16,6 +16,7 @@ class SettingsViewModel extends Notifier<AppSettings> {
     String? remoteImageBaseUrl,
     String? linktreeUrl,
     String? instagramUrl,
+    bool? isInitialSyncCompleted,
   }) async {
     final repository = ref.read(settingsRepositoryProvider);
     final current = state;
@@ -41,6 +42,7 @@ class SettingsViewModel extends Notifier<AppSettings> {
       remoteImageBaseUrl: remoteImageBaseUrl ?? current.remoteImageBaseUrl,
       linktreeUrl: linktreeUrl ?? current.linktreeUrl,
       instagramUrl: instagramUrl ?? current.instagramUrl,
+      isInitialSyncCompleted: isInitialSyncCompleted ?? current.isInitialSyncCompleted,
     );
     await repository.saveSettings(updated);
     state = updated;

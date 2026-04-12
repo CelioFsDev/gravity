@@ -27,6 +27,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late final TextEditingController _remotePhotoUrlController;
   late final TextEditingController _linktreeController;
   late final TextEditingController _instagramController;
+  late bool _isInitialSyncCompleted;
 
   @override
   void initState() {
@@ -40,6 +41,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
     _linktreeController = TextEditingController(text: settings.linktreeUrl);
     _instagramController = TextEditingController(text: settings.instagramUrl);
+    _isInitialSyncCompleted = settings.isInitialSyncCompleted;
   }
 
   @override
@@ -63,6 +65,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           remoteImageBaseUrl: _remotePhotoUrlController.text,
           linktreeUrl: _linktreeController.text,
           instagramUrl: _instagramController.text,
+          isInitialSyncCompleted: _isInitialSyncCompleted,
         );
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -200,6 +203,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     hint: '5511999999999',
                     icon: Icons.phone_outlined,
                     helper: 'Apenas n\u00fameros, com DDI (ex: 55)',
+                  ),
+                  const SizedBox(height: 24),
+                  SwitchListTile(
+                    title: const Text('Carga Inicial Concluída'),
+                    subtitle: const Text(
+                      'Se desativado, o app exigirá importação do ZIP para iniciar dados.',
+                    ),
+                    value: _isInitialSyncCompleted,
+                    onChanged: (val) => setState(() => _isInitialSyncCompleted = val),
+                    secondary: const Icon(Icons.cloud_sync_outlined),
                   ),
                 ],
               ),

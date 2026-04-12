@@ -21,6 +21,7 @@ import 'package:catalogo_ja/ui/widgets/app_product_list_tile.dart';
 import 'package:uuid/uuid.dart';
 import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
+import 'package:catalogo_ja/viewmodels/settings_viewmodel.dart';
 
 class ProductsScreen extends ConsumerStatefulWidget {
   const ProductsScreen({super.key});
@@ -861,6 +862,7 @@ class _ProductsContent extends ConsumerWidget {
                     onTogglePromo: onTogglePromo,
                     selectedIds: state.selectedProductIds,
                     onToggleSelection: onToggleSelection,
+                    isInitialSyncCompleted: ref.watch(settingsViewModelProvider).isInitialSyncCompleted,
                   ),
                   const SizedBox(height: AppTokens.space48),
                 ],
@@ -1282,6 +1284,7 @@ class _ProductsListSection extends StatelessWidget {
   final ValueChanged<Product>? onTogglePromo;
   final Set<String> selectedIds;
   final ValueChanged<String> onToggleSelection;
+  final bool isInitialSyncCompleted;
 
   const _ProductsListSection({
     required this.state,
@@ -1293,11 +1296,20 @@ class _ProductsListSection extends StatelessWidget {
     this.onTogglePromo,
     required this.selectedIds,
     required this.onToggleSelection,
+    required this.isInitialSyncCompleted,
   });
 
   @override
   Widget build(BuildContext context) {
     if (state.filteredProducts.isEmpty) {
+      if (!isInitialSyncCompleted) {
+        return const AppEmptyState(
+          icon: Icons.cloud_download_outlined,
+          title: 'Carga Inicial Necessária',
+          message: 'Como este é seu primeiro acesso neste aparelho, você precisa importar o Backup (ZIP - "WinRAR") para carregar os produtos, evitando custos elevados de rede. Vá em "Importar".',
+        );
+      }
+
       return const AppEmptyState(
         icon: Icons.inventory_2_outlined,
         title: 'Nenhum produto encontrado',

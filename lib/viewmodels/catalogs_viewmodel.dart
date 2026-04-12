@@ -10,6 +10,7 @@ import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:catalogo_ja/data/repositories/tenant_repository.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 
 part 'catalogs_viewmodel.g.dart';
 
@@ -125,8 +126,18 @@ class CatalogsViewModel extends _$CatalogsViewModel {
       final storageService = ref.read(saasPhotoStorageProvider);
       final firestoreRepo = FirestoreCatalogsRepository(localRepo, storageService, tenantId);
 
-      // 🔑 Usa fetchFromCloudOnly() para evitar double-merge com cache
       final currentLocalCatalogs = await localRepo.getCatalogs();
+      
+      // 🔑 Trava de Offline-First
+      if (currentLocalCatalogs.isEmpty) {
+        final settings = ref.read(settingsRepositoryProvider).getSettings();
+        if (!settings.isInitialSyncCompleted) {
+          progressNotifier.stopSync();
+          return 0; // Abort download
+        }
+      }
+
+      // 🔑 Usa fetchFromCloudOnly() para evitar double-merge com cache
       DateTime? mostRecentLocal;
       if (currentLocalCatalogs.isNotEmpty) {
         mostRecentLocal = currentLocalCatalogs

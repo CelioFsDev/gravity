@@ -12,6 +12,7 @@ import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
+import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 
 part 'categories_viewmodel.g.dart';
 
@@ -518,8 +519,18 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       final localRepo = ref.read(categoriesRepositoryProvider) as HiveCategoriesRepository;
       final firestoreRepo = FirestoreCategoriesRepository(localRepo, storageService, tenantId);
 
-      // 🔑 Usa fetchFromCloudOnly() para evitar double-merge com cache
       final currentLocalCategories = await localRepo.getCategories();
+      
+      // 🔑 Trava de Offline-First
+      if (currentLocalCategories.isEmpty) {
+        final settings = ref.read(settingsRepositoryProvider).getSettings();
+        if (!settings.isInitialSyncCompleted) {
+          progressNotifier.stopSync();
+          return 0; // Abort download to save Firebase reads
+        }
+      }
+
+      // 🔑 Usa fetchFromCloudOnly() para evitar double-merge com cache
       DateTime? mostRecentLocal;
       if (currentLocalCategories.isNotEmpty) {
         mostRecentLocal = currentLocalCategories

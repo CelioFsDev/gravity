@@ -540,9 +540,22 @@ class ProductsViewModel extends _$ProductsViewModel {
         tenantId,
       );
 
-      // 2. Busca na Nuvem (apenas novidades)
-      print('Buscando produtos na nuvem...');
+      // 2. Busca inicial
       final currentLocalProducts = await localRepo.getProducts();
+
+      // 3. Trava de Offline-First (Exigência de ZIP na carga inicial)
+      if (currentLocalProducts.isEmpty) {
+        final settings = ref.read(settingsRepositoryProvider).getSettings();
+        if (!settings.isInitialSyncCompleted) {
+          progressNotifier.stopSync(
+            message: 'Carga inicial pendente. Use a opção de importar backup via WinRAR (ZIP).',
+          );
+          return 0; // Abort download to save Firebase reads
+        }
+      }
+
+      // 4. Busca na Nuvem (apenas novidades)
+      print('Buscando produtos na nuvem...');
       final localMap = {for (var p in currentLocalProducts) p.id: p};
       DateTime? mostRecentLocal;
       if (currentLocalProducts.isNotEmpty) {
