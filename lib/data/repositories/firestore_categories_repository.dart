@@ -6,17 +6,20 @@ import 'package:catalogo_ja/data/repositories/categories_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
+import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 
 class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final HiveCategoriesRepository _localRepo;
   final SaaSPhotoStorageService _storageService;
   final String _tenantId;
+  final SettingsRepository _settingsRepo;
 
   FirestoreCategoriesRepository(
     this._localRepo,
     this._storageService,
     this._tenantId,
+    this._settingsRepo,
   );
 
   // 🔑 Cache em memória
@@ -43,6 +46,17 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
 
     try {
       final localCategories = await _localRepo.getCategories();
+
+      // 🛡️ Trava de Offline-First
+      if (localCategories.isEmpty) {
+        final settings = _settingsRepo.getSettings();
+        if (!settings.isInitialSyncCompleted) {
+          _memoryCache = localCategories;
+          _cacheTimestamp = DateTime.now();
+          return localCategories;
+        }
+      }
+
       DateTime? mostRecentLocal;
       if (localCategories.isNotEmpty) {
         mostRecentLocal = localCategories
@@ -267,6 +281,7 @@ final syncCategoriesRepositoryProvider = Provider<CategoriesRepositoryContract>(
     final localRepo =
         ref.watch(categoriesRepositoryProvider) as HiveCategoriesRepository;
     final storageService = ref.watch(saasPhotoStorageProvider);
+    final settingsRepo = ref.watch(settingsRepositoryProvider);
 
     return tenantAsync.when(
       data: (tenant) {
@@ -275,6 +290,7 @@ final syncCategoriesRepositoryProvider = Provider<CategoriesRepositoryContract>(
             localRepo,
             storageService,
             tenant.id,
+            settingsRepo,
           );
         }
         return localRepo;

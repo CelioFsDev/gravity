@@ -20,6 +20,7 @@ import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 import 'dart:async';
 
 part 'products_viewmodel.g.dart';

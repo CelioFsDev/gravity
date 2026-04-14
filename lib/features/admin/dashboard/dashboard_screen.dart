@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:io' as io;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
@@ -14,8 +13,7 @@ import 'package:catalogo_ja/viewmodels/global_sync_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
 import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 import 'package:catalogo_ja/ui/widgets/sync_progress_overlay.dart';
-import 'package:catalogo_ja/core/services/system_backup_service.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:catalogo_ja/ui/widgets/sync_progress_overlay.dart';
 import 'package:hive/hive.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -26,7 +24,6 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
-  bool _dialogShown = false;
 
   @override
   Widget build(BuildContext context) {
@@ -39,19 +36,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final syncProgress = ref.watch(syncProgressProvider);
     final settings = ref.watch(settingsRepositoryProvider).getSettings();
 
-    // Trigger Initial Sync Choice if needed - COM TRAVA DE SEGURANÇA
+    // Trigger Initial Sync Choice se for primeiro acesso: o redirecionamento é feito no main.dart!
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final productsBox = Hive.box<Product>('products');
-      if (!settings.isInitialSyncCompleted &&
-          !syncProgress.isSyncing &&
-          productsBox.isEmpty &&
-          !_dialogShown) {
-        _dialogShown = true;
-        _showInitialSyncChoice(context, ref);
-      }
-
       // ✅ Inicia sincronização silenciosa se estiver no Wi-Fi
-      if (!syncProgress.isSyncing) {
+      if (!syncProgress.isSyncing && settings.isInitialSyncCompleted) {
         ref.read(globalSyncViewModelProvider.notifier).performSilentWifiSync();
       }
     });
@@ -184,89 +172,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  void _showInitialSyncChoice(BuildContext context, WidgetRef ref) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Bem-vindo! 🚀'),
-        content: const Text(
-          'Detectamos que este é um novo aparelho. Deseja restaurar o catálogo de um arquivo de backup (.zip/.cja) ou baixar tudo da nuvem?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              final result = await FilePicker.platform.pickFiles(
-                type: FileType.custom,
-                allowedExtensions: ['zip', 'cja'],
-              );
 
-              if (result != null && result.files.single.path != null) {
-                final file = io.File(result.files.single.path!);
-                try {
-                  // Inicia o overlay de progresso
-                  ref
-                      .read(syncProgressProvider.notifier)
-                      .startSync('Restaurando backup...');
-                  await ref
-                      .read(systemBackupServiceProvider)
-                      .restoreFullBackup(
-                        file,
-                        onProgress: (p, msg) => ref
-                            .read(syncProgressProvider.notifier)
-                            .updateProgress(p, msg),
-                      );
-                  ref.read(syncProgressProvider.notifier).stopSync();
-
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Backup restaurado com sucesso! ✅'),
-                      ),
-                    );
-                  }
-                } catch (e) {
-                  ref.read(syncProgressProvider.notifier).stopSync();
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Erro ao restaurar backup: $e'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                }
-              }
-            },
-            child: const Text('Restaurar Backup'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ref
-                  .read(globalSyncViewModelProvider.notifier)
-                  .syncDownEverything();
-            },
-            child: const Text('Baixar da Nuvem'),
-          ),
-          const SizedBox(height: 8),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              // Marca como concluído para nunca mais ver essa tela, permitindo uso manual
-              final repo = ref.read(settingsRepositoryProvider);
-              final settings = repo.getSettings();
-              await repo.saveSettings(
-                settings.copyWith(isInitialSyncCompleted: true),
-              );
-            },
-            child: const Text('Configurar depois / Já tenho meus dados'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _StatCard extends StatelessWidget {

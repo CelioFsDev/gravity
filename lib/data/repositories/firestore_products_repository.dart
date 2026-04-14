@@ -6,6 +6,7 @@ import 'package:catalogo_ja/data/repositories/contracts/products_repository_cont
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/product_image.dart';
+import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
@@ -17,11 +18,13 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
   final HiveProductsRepository _localRepo;
   final SaaSPhotoStorageService _storageService;
   final String _tenantId;
+  final SettingsRepository _settingsRepo;
 
   FirestoreProductsRepository(
     this._localRepo,
     this._storageService,
     this._tenantId,
+    this._settingsRepo,
   );
 
   // 🔑 Cache em memória: evita re-leituras do Firestore dentro da mesma sessão.
@@ -54,6 +57,17 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
 
     try {
       final localProducts = await _localRepo.getProducts();
+
+      // 🛡️ Trava de Offline-First: Se o banco local está vazio e o sync inicial
+      // por ZIP ainda não ocorreu, NÃO busca no Firebase implicitamente para evitar custos absurdos.
+      if (localProducts.isEmpty) {
+         final settings = _settingsRepo.getSettings();
+         if (!settings.isInitialSyncCompleted) {
+            _memoryCache = localProducts;
+            _cacheTimestamp = DateTime.now();
+            return localProducts;
+         }
+      }
 
       // Busca incremental: só documentos mais novos que o mais recente local.
       // Se não há nada local, busca tudo (primeira vez).
@@ -460,6 +474,7 @@ final syncProductsRepositoryProvider = Provider<ProductsRepositoryContract>((
   final localRepo =
       ref.watch(productsRepositoryProvider) as HiveProductsRepository;
   final storageService = ref.watch(saasPhotoStorageProvider);
+  final settingsRepo = ref.watch(settingsRepositoryProvider);
 
   return tenantAsync.when(
     data: (tenant) {
@@ -468,6 +483,7 @@ final syncProductsRepositoryProvider = Provider<ProductsRepositoryContract>((
           localRepo,
           storageService,
           tenant.id,
+          settingsRepo,
         );
       }
       return localRepo;

@@ -26,8 +26,8 @@ import 'package:catalogo_ja/features/admin/collections/collection_form_screen.da
 import 'package:catalogo_ja/features/admin/catalogs/catalogs_screen.dart';
 import 'package:catalogo_ja/features/admin/import/import_menu_screen.dart';
 import 'package:catalogo_ja/features/admin/import/nuvemshop_import_screen.dart';
-import 'package:catalogo_ja/features/admin/import/stock_update_screen.dart';
 import 'package:catalogo_ja/features/admin/import/catalogo_ja_import_screen.dart';
+import 'package:catalogo_ja/features/admin/onboarding/initial_setup_screen.dart';
 import 'package:catalogo_ja/features/admin/settings/settings_screen.dart';
 import 'package:catalogo_ja/features/admin/users/user_management_screen.dart';
 import 'package:catalogo_ja/features/admin/dashboard/dashboard_screen.dart';
@@ -218,6 +218,24 @@ class _MyAppState extends ConsumerState<MyApp> {
           return '/select-tenant';
         }
 
+        // ✨ Trava de Offline-First (Onboarding Inicial)
+        if (!isAuthRoute && !isSplash && !isSelectingTenant && state.matchedLocation.startsWith('/admin')) {
+          final isSettingUp = state.matchedLocation == '/admin/initial-setup';
+          try {
+            final appSettingsBox = Hive.box<AppSettings>('settings');
+            final settings = appSettingsBox.get('app_settings') ?? AppSettings.defaultSettings();
+            final productsBox = Hive.box<Product>('products');
+            
+            if (!settings.isInitialSyncCompleted && productsBox.isEmpty) {
+              if (!isSettingUp) return '/admin/initial-setup';
+            } else {
+              if (isSettingUp) return '/admin/dashboard';
+            }
+          } catch (e) {
+            // Hive was not initialized properly yet.
+          }
+        }
+
         if (isAuthRoute) {
           return '/select-tenant';
         }
@@ -268,6 +286,10 @@ class _MyAppState extends ConsumerState<MyApp> {
           path: '/c/:shareCode',
           builder: (context, state) =>
               CatalogHomePage(shareCode: state.pathParameters['shareCode']!),
+        ),
+        GoRoute(
+          path: '/admin/initial-setup',
+          builder: (context, state) => const InitialSetupScreen(),
         ),
         StatefulShellRoute.indexedStack(
           builder: (context, state, navigationShell) {
