@@ -131,13 +131,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
 
     try {
-      final query = await FirebaseFirestore.instance.collection('products').limit(1).get();
+      final query = await FirebaseFirestore.instance
+          .collection('products')
+          .limit(1)
+          .get();
       if (mounted) Navigator.pop(context); // Fecha loading
 
       if (query.docs.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Nenhum dado encontrado no banco global.')),
+            const SnackBar(
+              content: Text('Nenhum dado encontrado no banco global.'),
+            ),
           );
         }
         return;
@@ -149,26 +154,39 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('Resgate de Dados'),
-            content: Text('Detectamos produtos antigos sob o código: "$legacyTenantId".\nDeseja vincular sua conta a esses dados e reiniciar o app?'),
+            content: Text(
+              'Detectamos produtos antigos sob o código: "$legacyTenantId".\nDeseja vincular sua conta a esses dados e reiniciar o app?',
+            ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCELAR')),
-              FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('RESGATAR E ENTRAR')),
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('CANCELAR'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('RESGATAR E ENTRAR'),
+              ),
             ],
           ),
         );
 
         if (confirm == true) {
-          await FirebaseFirestore.instance.collection('users').doc(emailDoc).update({
-            'tenantId': legacyTenantId,
-            'tenantIds': FieldValue.arrayUnion([legacyTenantId]),
-          });
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(emailDoc)
+              .update({
+                'tenantId': legacyTenantId,
+                'tenantIds': FieldValue.arrayUnion([legacyTenantId]),
+              });
           if (mounted) context.go('/admin/dashboard');
         }
       }
     } catch (e) {
       if (mounted) {
         if (Navigator.canPop(context)) Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro: $e')));
       }
     }
   }
@@ -211,7 +229,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       'Se desativado, o app exigirá importação do ZIP para iniciar dados.',
                     ),
                     value: _isInitialSyncCompleted,
-                    onChanged: (val) => setState(() => _isInitialSyncCompleted = val),
+                    onChanged: (val) =>
+                        setState(() => _isInitialSyncCompleted = val),
                     secondary: const Icon(Icons.cloud_sync_outlined),
                   ),
                 ],
@@ -394,7 +413,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            if (ref.watch(currentRoleProvider).canManageUsers(
+            if (ref
+                .watch(currentRoleProvider)
+                .canManageUsers(
                   ref.watch(authViewModelProvider).valueOrNull?.email,
                 ))
               SectionCard(
@@ -434,12 +455,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       data: (tenant) {
         if (tenant == null) return const SizedBox.shrink();
         final stores = tenant.stores;
-        
+
         return FutureBuilder<DocumentSnapshot>(
-          future: FirebaseFirestore.instance.collection('users').doc(user?.email?.trim().toLowerCase()).get(),
+          future: FirebaseFirestore.instance
+              .collection('users')
+              .doc(user?.email?.trim().toLowerCase())
+              .get(),
           builder: (context, snapshot) {
             final currentStore = snapshot.data?.data() as Map<String, dynamic>?;
-            final currentStoreId = currentStore?['currentStoreId'] as String? ?? (stores.isNotEmpty ? stores[0] : null);
+            final currentStoreId =
+                currentStore?['currentStoreId'] as String? ??
+                (stores.isNotEmpty ? stores[0] : null);
 
             return SectionCard(
               title: 'Unidades do Grupo',
@@ -448,32 +474,65 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 children: [
                   Text(
                     'Empresa: ${tenant.name}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppTokens.accentBlue),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: AppTokens.accentBlue,
+                    ),
                   ),
                   const SizedBox(height: 12),
-                  ...stores.map((s) => Card(
-                        color: s == currentStoreId ? AppTokens.accentBlue.withAlpha(20) : null,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          side: BorderSide(
-                            color: s == currentStoreId ? AppTokens.accentBlue : Colors.transparent,
-                            width: 1,
+                  ...stores.map(
+                    (s) => Card(
+                      color: s == currentStoreId
+                          ? AppTokens.accentBlue.withAlpha(20)
+                          : null,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: BorderSide(
+                          color: s == currentStoreId
+                              ? AppTokens.accentBlue
+                              : Colors.transparent,
+                          width: 1,
+                        ),
+                      ),
+                      child: ListTile(
+                        leading: Icon(
+                          Icons.store,
+                          color: s == currentStoreId
+                              ? AppTokens.accentBlue
+                              : Colors.grey,
+                        ),
+                        title: Text(
+                          s,
+                          style: TextStyle(
+                            fontWeight: s == currentStoreId
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                           ),
                         ),
-                        child: ListTile(
-                          leading: Icon(Icons.store, color: s == currentStoreId ? AppTokens.accentBlue : Colors.grey),
-                          title: Text(s, style: TextStyle(fontWeight: s == currentStoreId ? FontWeight.bold : FontWeight.normal)),
-                          subtitle: s == currentStoreId ? const Text('Unidade Selecionada', style: TextStyle(fontSize: 11)) : null,
-                          onTap: () async {
-                             if (s != currentStoreId) {
-                               await FirebaseFirestore.instance.collection('users').doc(user?.email?.trim().toLowerCase()).update({
-                                 'currentStoreId': s,
-                               });
-                               if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Unidade alterada para: $s')));
-                             }
-                          },
-                        ),
-                      )),
+                        subtitle: s == currentStoreId
+                            ? const Text(
+                                'Unidade Selecionada',
+                                style: TextStyle(fontSize: 11),
+                              )
+                            : null,
+                        onTap: () async {
+                          if (s != currentStoreId) {
+                            await FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(user?.email?.trim().toLowerCase())
+                                .update({'currentStoreId': s});
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Unidade alterada para: $s'),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                    ),
+                  ),
                   if (stores.length < 2) ...[
                     const Divider(height: 32),
                     SizedBox(
@@ -492,7 +551,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, __) => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
     );
   }
 
@@ -504,26 +563,41 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         title: const Text('Adicionar Unidade'),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(labelText: 'Nome da Unidade (ex: Shopping)', border: OutlineInputBorder()),
+          decoration: const InputDecoration(
+            labelText: 'Nome da Unidade (ex: Shopping)',
+            border: OutlineInputBorder(),
+          ),
           autofocus: true,
           textCapitalization: TextCapitalization.words,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCELAR')),
-          FilledButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text('ADICIONAR')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCELAR'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('ADICIONAR'),
+          ),
         ],
       ),
     );
 
     if (result != null && result.isNotEmpty) {
       try {
-        await ref.read(tenantRepositoryProvider).addStoreToTenant(tenantId, result);
+        await ref
+            .read(tenantRepositoryProvider)
+            .addStoreToTenant(tenantId, result);
         if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Unidade adicionada com sucesso!')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Unidade adicionada com sucesso!')),
+          );
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Erro: $e')));
         }
       }
     }

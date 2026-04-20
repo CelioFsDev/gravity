@@ -110,9 +110,15 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
 
   @override
   Future<void> addCatalog(Catalog catalog) async {
-    final catalogToSave = catalog.syncStatus == SyncStatus.synced
-        ? catalog
-        : catalog.copyWith(syncStatus: SyncStatus.pendingUpdate);
+    // 🔑 Garante que o tenantId está preenchido antes de salvar localmente.
+    // Sem isso, o HiveCatalogsRepository._filter() rejeita o catálogo e ele some da lista.
+    final withTenant = (catalog.tenantId ?? '').isEmpty
+        ? catalog.copyWith(tenantId: _tenantId)
+        : catalog;
+
+    final catalogToSave = withTenant.syncStatus == SyncStatus.synced
+        ? withTenant
+        : withTenant.copyWith(syncStatus: SyncStatus.pendingUpdate);
 
     // 🏠 Local-First: Salva no Hive instantaneamente
     await _localRepo.addCatalog(catalogToSave);
@@ -121,9 +127,14 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
 
   @override
   Future<void> updateCatalog(Catalog catalog) async {
-    final catalogToSave = catalog.syncStatus == SyncStatus.synced
-        ? catalog
-        : catalog.copyWith(
+    // 🔑 Garante que o tenantId está preenchido antes de salvar localmente.
+    final withTenant = (catalog.tenantId ?? '').isEmpty
+        ? catalog.copyWith(tenantId: _tenantId)
+        : catalog;
+
+    final catalogToSave = withTenant.syncStatus == SyncStatus.synced
+        ? withTenant
+        : withTenant.copyWith(
             syncStatus: SyncStatus.pendingUpdate,
             updatedAt: DateTime.now(),
           );

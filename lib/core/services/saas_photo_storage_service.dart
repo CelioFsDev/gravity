@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
@@ -22,8 +21,10 @@ class SaaSPhotoStorageService {
       if (!file.existsSync()) return null;
 
       final fileName = p.basename(localPath); // Use p.basename for consistency
-      final ref = _storage.ref().child('$tenantId/categories/$categoryId/$fileName');
-      
+      final ref = _storage.ref().child(
+        '$tenantId/categories/$categoryId/$fileName',
+      );
+
       final metadata = SettableMetadata(
         contentType: 'image/jpeg',
         customMetadata: {'processed': 'true', 'tenant': tenantId},
@@ -48,8 +49,10 @@ class SaaSPhotoStorageService {
       if (!file.existsSync()) return null;
 
       final fileName = p.basename(localPath); // Use p.basename for consistency
-      final ref = _storage.ref().child('$tenantId/catalogs/$catalogId/$fileName');
-      
+      final ref = _storage.ref().child(
+        '$tenantId/catalogs/$catalogId/$fileName',
+      );
+
       final metadata = SettableMetadata(
         contentType: 'image/jpeg',
         customMetadata: {'processed': 'true', 'tenant': tenantId},
@@ -73,11 +76,16 @@ class SaaSPhotoStorageService {
     String? label,
     bool temporary = false,
   }) async {
-    final ext = p.extension(localPath).isNotEmpty ? p.extension(localPath) : '.jpg';
-    final fileName = '${label ?? "image"}_${DateTime.now().millisecondsSinceEpoch}$ext';
-    
+    final ext = p.extension(localPath).isNotEmpty
+        ? p.extension(localPath)
+        : '.jpg';
+    final fileName =
+        '${label ?? "image"}_${DateTime.now().millisecondsSinceEpoch}$ext';
+
     // Organiza por Empresa -> Produto -> Arquivo
-    final ref = _storage.ref().child('tenants/$tenantId/products/$productId/$fileName');
+    final ref = _storage.ref().child(
+      'tenants/$tenantId/products/$productId/$fileName',
+    );
 
     // Metadata para ajudar na organização
     final metadata = SettableMetadata(
@@ -91,11 +99,13 @@ class SaaSPhotoStorageService {
     );
 
     TaskSnapshot uploadTask;
-    
+
     if (kIsWeb || bytes != null) {
       // Caso Web ou se já tivermos os bytes na memória
       if (bytes == null) {
-        throw Exception('Para fazer upload na web, os bytes da imagem devem ser fornecidos.');
+        throw Exception(
+          'Para fazer upload na web, os bytes da imagem devem ser fornecidos.',
+        );
       }
       uploadTask = await ref.putData(bytes, metadata);
     } else {
@@ -106,7 +116,7 @@ class SaaSPhotoStorageService {
       }
       uploadTask = await ref.putFile(file, metadata);
     }
-    
+
     return await uploadTask.ref.getDownloadURL();
   }
 
@@ -134,7 +144,7 @@ class SaaSPhotoStorageService {
         .ref()
         .child('tenants/$tenantId/products/$productId')
         .listAll();
-    
+
     for (var item in listResult.items) {
       await item.delete();
     }
@@ -151,14 +161,11 @@ class SaaSPhotoStorageService {
       final String refPath = (tenantId != null && tenantId.isNotEmpty)
           ? 'tenants/$tenantId/profile/avatar_${DateTime.now().millisecondsSinceEpoch}.jpg'
           : 'users/$email/profile/avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      
+
       final ref = _storage.ref().child(refPath);
       final metadata = SettableMetadata(
         contentType: 'image/jpeg',
-        customMetadata: {
-          'email': email,
-          if (tenantId != null) 'tenantId': tenantId,
-        },
+        customMetadata: {'email': email, 'tenantId': ?tenantId},
       );
 
       TaskSnapshot task;

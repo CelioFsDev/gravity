@@ -23,11 +23,37 @@ class CatalogsViewModel extends _$CatalogsViewModel {
       if (authUser != null) {
         await ref.watch(currentTenantProvider.future);
       }
-      
+
+      // 🩹 Migração de catálogos legados com tenantId vazio.
+      // Catálogos criados antes da correção tinham tenantId = '' e eram filtrados
+      // pelo HiveCatalogsRepository._filter(), tornando-os invisíveis.
+      final tenant = ref.read(currentTenantProvider).valueOrNull;
+      if (tenant != null) {
+        await _migrateLegacyCatalogs(tenant.id);
+      }
+
       final repository = ref.watch(syncCatalogsRepositoryProvider);
       return await repository.getCatalogs();
     } catch (e) {
       throw e.toAppFailure(action: 'build', entity: 'Catalogs');
+    }
+  }
+
+  /// Corrige catálogos salvos no Hive com tenantId vazio (bug legado).
+  Future<void> _migrateLegacyCatalogs(String tenantId) async {
+    try {
+      final box = Hive.box<Catalog>('catalogs');
+      final legacyCatalogs = box.values
+          .where((c) => (c.tenantId ?? '').isEmpty)
+          .toList();
+
+      if (legacyCatalogs.isEmpty) return;
+
+      for (final cat in legacyCatalogs) {
+        await box.put(cat.id, cat.copyWith(tenantId: tenantId));
+      }
+    } catch (_) {
+      // Silencioso: falha na migração não deve quebrar a tela
     }
   }
 

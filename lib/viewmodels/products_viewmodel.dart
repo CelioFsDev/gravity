@@ -539,6 +539,7 @@ class ProductsViewModel extends _$ProductsViewModel {
         localRepo,
         storageService,
         tenantId,
+        ref.read(settingsRepositoryProvider),
       );
 
       // 2. Busca inicial

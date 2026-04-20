@@ -30,8 +30,6 @@ import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:catalogo_ja/features/admin/products/widgets/store_override_controls.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-
-
 class ProductFormScreen extends ConsumerStatefulWidget {
   final Product? product; // null for Create, non-null for Edit
 
@@ -71,7 +69,6 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _scrollController = ScrollController();
 
-
   // Controllers
   late TextEditingController _nameController;
   late TextEditingController _refController;
@@ -103,7 +100,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   List<String> _unavailableColors = [];
   String? _currentStoreId;
 
-@override
+  @override
   void initState() {
     super.initState();
     final pr = widget.product;
@@ -149,6 +146,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     }
     _photos = _prioritizePrimaryPhoto(_photos);
   }
+
   void _loadOverrides(String storeId) {
     final pr = widget.product;
     if (pr == null) return;
@@ -157,9 +155,13 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     if (override != null) {
       setState(() {
         _isIndividualStoreConfig = true;
-        _unavailableSizes = List<String>.from(override['unavailableSizes'] ?? []);
-        _unavailableColors = List<String>.from(override['unavailableColors'] ?? []);
-        
+        _unavailableSizes = List<String>.from(
+          override['unavailableSizes'] ?? [],
+        );
+        _unavailableColors = List<String>.from(
+          override['unavailableColors'] ?? [],
+        );
+
         final f = NumberFormat.decimalPattern('pt_BR');
         if (override['priceRetail'] != null) {
           _retailController.text = f.format(override['priceRetail']);
@@ -181,8 +183,6 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   List<String> _getUnavailableColors(List<String> allColors) {
     return _unavailableColors;
   }
-
-
 
   @override
   void dispose() {
@@ -219,16 +219,24 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) {
-      _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
       return;
     }
-    
+
     final currentTenant = ref.read(currentTenantProvider).value;
     final tenantId = currentTenant?.id;
 
     final requiresCollection = widget.product == null;
     if (requiresCollection && _selectedCollectionId == null) {
-      _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('A cole\u00e7\u00e3o \u00e9 obrigat\u00f3ria'),
@@ -243,7 +251,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
     // Combine Collection + Categories
     final categoryIds = <String>[
-      if (_selectedCollectionId != null) _selectedCollectionId!,
+      ?_selectedCollectionId,
       ..._selectedCategoryIds,
     ];
     var product = Product(
@@ -277,7 +285,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           ? (int.tryParse(_discountController.text) ?? 0).toDouble()
           : 0.0,
       description: widget.product?.description,
-            tenantId: tenantId ?? widget.product?.tenantId,
+      tenantId: tenantId ?? widget.product?.tenantId,
       storeOverrides: widget.product?.storeOverrides ?? {},
     );
 
@@ -291,17 +299,18 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         'unavailableColors': _getUnavailableColors(product.colors),
         'updatedAt': DateTime.now().toIso8601String(),
       };
-      
-      final newOverrides = Map<String, Map<String, dynamic>>.from(product.storeOverrides);
+
+      final newOverrides = Map<String, Map<String, dynamic>>.from(
+        product.storeOverrides,
+      );
       newOverrides[_currentStoreId!] = override;
-      
+
       if (widget.product != null) {
         product = widget.product!.copyWith(storeOverrides: newOverrides);
       } else {
         product = product.copyWith(storeOverrides: newOverrides);
       }
     }
-
 
     try {
       if (kIsWeb && _pendingWebUploadUrls.isNotEmpty) {
@@ -316,11 +325,13 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       }
       _didPersistProduct = true;
       _pendingWebUploadUrls.clear();
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Salvo localmente! Lembre-se de Sincronizar para enviar à nuvem.'),
+            content: Text(
+              'Salvo localmente! Lembre-se de Sincronizar para enviar à nuvem.',
+            ),
             backgroundColor: Colors.blue,
             duration: Duration(seconds: 4),
           ),
@@ -355,8 +366,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       final rawClassification = ref
           .read(photoClassificationServiceProvider.notifier)
           .classifyFileName(file.name);
-      final classification =
-          rawClassification?.photoType == 'P' ? rawClassification : null;
+      final classification = rawClassification?.photoType == 'P'
+          ? rawClassification
+          : null;
 
       final resolved = await _processPickedImage(
         file,
@@ -365,8 +377,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       if (resolved == null || !mounted) return;
 
       await _replacePhotosWithCleanup((currentPhotos) {
-        final nextPhotos =
-            currentPhotos.map((p) => p.copyWith(isPrimary: false)).toList();
+        final nextPhotos = currentPhotos
+            .map((p) => p.copyWith(isPrimary: false))
+            .toList();
 
         final newPhoto = ProductPhoto(
           path: resolved,
@@ -438,8 +451,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         await _replacePhotosWithCleanup((currentPhotos) {
           var nextPhotos = List<ProductPhoto>.from(currentPhotos);
           if (isPrimary) {
-            nextPhotos =
-                nextPhotos.map((p) => p.copyWith(isPrimary: false)).toList();
+            nextPhotos = nextPhotos
+                .map((p) => p.copyWith(isPrimary: false))
+                .toList();
           }
 
           final newPhoto = ProductPhoto(
@@ -510,8 +524,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         if (existingDetails >= 2) break;
 
         final classifiedType = classification?.photoType;
-        final nextType =
-            classifiedType == 'D1' || classifiedType == 'D2'
+        final nextType = classifiedType == 'D1' || classifiedType == 'D2'
             ? classifiedType
             : (existingDetails == 0 ? 'D1' : 'D2');
         await _replacePhotosWithCleanup((currentPhotos) {
@@ -639,10 +652,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   initialValue: selectedType,
                   decoration: const InputDecoration(labelText: 'Tipo da foto'),
                   items: const [
-                    DropdownMenuItem(
-                      value: 'P',
-                      child: Text('Foto principal'),
-                    ),
+                    DropdownMenuItem(value: 'P', child: Text('Foto principal')),
                     DropdownMenuItem(value: 'D1', child: Text('Detalhe 1')),
                     DropdownMenuItem(value: 'D2', child: Text('Detalhe 2')),
                     DropdownMenuItem(value: 'C', child: Text('Foto de cor')),
@@ -784,11 +794,13 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     try {
       final ext = (file.extension?.toLowerCase() ?? 'jpg').replaceAll('.', '');
       final isImage = _supportedImageExtensions.contains('.$ext');
-      
+
       if (!isImage) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Arquivo "${file.name}" ignorado (não é imagem).')),
+            SnackBar(
+              content: Text('Arquivo "${file.name}" ignorado (não é imagem).'),
+            ),
           );
         }
         return null;
@@ -856,11 +868,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     final colors = _photos
         .where((photo) => _isColorPhoto(photo) && photo.path != primaryPath)
         .take(4);
-    return _prioritizePrimaryPhoto(_dedupePhotosByPath([
-      if (primary != null) primary,
-      ...details,
-      ...colors,
-    ]));
+    return _prioritizePrimaryPhoto(
+      _dedupePhotosByPath([?primary, ...details, ...colors]),
+    );
   }
 
   List<ProductImage> _imagesFromPhotos(List<ProductPhoto> photos) {
@@ -880,7 +890,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
     // 1. Tenta encontrar a foto explicitamente marcada como 'P' (Principal)
     var primaryIndex = updated.indexWhere((p) => p.photoType == 'P');
-    
+
     // 2. Se não achar 'P', tenta encontrar qualquer uma marcada como isPrimary
     if (primaryIndex < 0) {
       primaryIndex = updated.indexWhere((p) => p.isPrimary);
@@ -957,7 +967,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
     if (kIsWeb && _pendingWebUploadUrls.remove(removedPhoto.path)) {
       try {
-        await ref.read(saasPhotoStorageProvider).deleteFileByUrl(removedPhoto.path);
+        await ref
+            .read(saasPhotoStorageProvider)
+            .deleteFileByUrl(removedPhoto.path);
       } catch (e) {
         debugPrint('Erro ao apagar upload temporário: $e');
       }
@@ -1135,11 +1147,11 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   Widget build(BuildContext context) {
     final productsState = ref.watch(productsViewModelProvider);
     final syncProgress = ref.watch(syncProgressProvider);
-    
+
     // 🤫 Só mostramos se estiver sincronizando E NÃO for um download de fundo (Baixando...)
-    final shouldShowOverlay = syncProgress.isSyncing && 
-                             !syncProgress.message.contains('Baixando');
-    
+    final shouldShowOverlay =
+        syncProgress.isSyncing && !syncProgress.message.contains('Baixando');
+
     productsState.showSnackbarOnError(context);
 
     final categories = productsState.hasValue
@@ -1201,17 +1213,26 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                       if (_currentStoreId == null)
                         Builder(
                           builder: (context) {
-                            final userEmail = ref.watch(authViewModelProvider).valueOrNull?.email;
+                            final userEmail = ref
+                                .watch(authViewModelProvider)
+                                .valueOrNull
+                                ?.email;
                             if (userEmail != null) {
-                              FirebaseFirestore.instance.collection('users').doc(userEmail.toLowerCase().trim()).get().then((doc) {
-                                final sid = doc.data()?['currentStoreId'] as String?;
-                                if (sid != null && mounted) {
-                                  setState(() {
-                                    _currentStoreId = sid;
-                                    _loadOverrides(sid);
+                              FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(userEmail.toLowerCase().trim())
+                                  .get()
+                                  .then((doc) {
+                                    final sid =
+                                        doc.data()?['currentStoreId']
+                                            as String?;
+                                    if (sid != null && mounted) {
+                                      setState(() {
+                                        _currentStoreId = sid;
+                                        _loadOverrides(sid);
+                                      });
+                                    }
                                   });
-                                }
-                              });
                             }
                             return const SizedBox.shrink();
                           },
@@ -1220,28 +1241,41 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                         StoreOverrideControls(
                           storeId: _currentStoreId!,
                           isIndividual: _isIndividualStoreConfig,
-                          onToggleIndividual: (v) => setState(() => _isIndividualStoreConfig = v),
-                          allSizes: _sizesController.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
-                          allColors: _colorsController.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
+                          onToggleIndividual: (v) =>
+                              setState(() => _isIndividualStoreConfig = v),
+                          allSizes: _sizesController.text
+                              .split(',')
+                              .map((e) => e.trim())
+                              .where((e) => e.isNotEmpty)
+                              .toList(),
+                          allColors: _colorsController.text
+                              .split(',')
+                              .map((e) => e.trim())
+                              .where((e) => e.isNotEmpty)
+                              .toList(),
                           unavailableSizes: _unavailableSizes,
                           unavailableColors: _unavailableColors,
                           onToggleSize: (size, unavailable) {
-                             setState(() {
-                               if (unavailable) {
-                                 if (!_unavailableSizes.contains(size)) _unavailableSizes.add(size);
-                               } else {
-                                 _unavailableSizes.remove(size);
-                               }
-                             });
+                            setState(() {
+                              if (unavailable) {
+                                if (!_unavailableSizes.contains(size)) {
+                                  _unavailableSizes.add(size);
+                                }
+                              } else {
+                                _unavailableSizes.remove(size);
+                              }
+                            });
                           },
                           onToggleColor: (color, unavailable) {
-                             setState(() {
-                               if (unavailable) {
-                                 if (!_unavailableColors.contains(color)) _unavailableColors.add(color);
-                               } else {
-                                 _unavailableColors.remove(color);
-                               }
-                             });
+                            setState(() {
+                              if (unavailable) {
+                                if (!_unavailableColors.contains(color)) {
+                                  _unavailableColors.add(color);
+                                }
+                              } else {
+                                _unavailableColors.remove(color);
+                              }
+                            });
                           },
                         ),
                       SectionCard(
@@ -1412,10 +1446,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
             ),
           ),
         ),
-        if (shouldShowOverlay)
-          _buildSavingOverlay(syncProgress),
-        if (_isUploadingWebPhoto)
-          _buildWebPhotoUploadOverlay(),
+        if (shouldShowOverlay) _buildSavingOverlay(syncProgress),
+        if (_isUploadingWebPhoto) _buildWebPhotoUploadOverlay(),
       ],
     );
   }
@@ -1454,10 +1486,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                 Text(
                   'A foto está sendo enviada para o Firebase.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade700,
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                 ),
               ],
             ),
@@ -1501,7 +1530,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                 LinearProgressIndicator(
                   value: progress.progress,
                   backgroundColor: AppTokens.border,
-                  valueColor: const AlwaysStoppedAnimation(AppTokens.accentBlue),
+                  valueColor: const AlwaysStoppedAnimation(
+                    AppTokens.accentBlue,
+                  ),
                   minHeight: 10,
                   borderRadius: BorderRadius.circular(AppTokens.radiusFull),
                 ),
@@ -1835,7 +1866,11 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     );
   }
 
-  Widget _buildPhotoTile(ProductPhoto photo, {Key? key, VoidCallback? onRemove}) {
+  Widget _buildPhotoTile(
+    ProductPhoto photo, {
+    Key? key,
+    VoidCallback? onRemove,
+  }) {
     return Stack(
       key: key,
       children: [
@@ -1885,11 +1920,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                 boxShadow: [AppTokens.shadowSm],
                 border: Border.all(color: Colors.white, width: 2),
               ),
-              child: const Icon(
-                Icons.close,
-                size: 16,
-                color: Colors.white,
-              ),
+              child: const Icon(Icons.close, size: 16, color: Colors.white),
             ),
           ),
         ),

@@ -2,9 +2,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:catalogo_ja/data/repositories/auth_repository.dart';
 import 'package:catalogo_ja/core/services/app_logger.dart';
 import 'package:catalogo_ja/data/repositories/user_repository.dart';
-import 'package:catalogo_ja/data/repositories/products_repository.dart';
-import 'package:catalogo_ja/data/repositories/categories_repository.dart';
-import 'package:catalogo_ja/data/repositories/catalogs_repository.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
@@ -42,13 +39,16 @@ class AuthViewModel extends StreamNotifier<User?> {
 
   Future<void> _syncUserProfile(User user) async {
     await _userRepository.ensureUserProfileFromAuth(user);
-    
+
     // ✨ SaaS Sync: Após garantir o perfil, disparamos o download dos dados da nuvem
     // Isso evita que o celular fique "zerado" depois de um logout/login.
     _triggerInitialDataDownload();
   }
 
-  Future<bool> _shouldSync(String key, {Duration maxAge = const Duration(hours: 4)}) async {
+  Future<bool> _shouldSync(
+    String key, {
+    Duration maxAge = const Duration(hours: 4),
+  }) async {
     final box = await Hive.openBox('sync_meta');
     final lastSyncMs = box.get('last_sync_$key') as int?;
     if (lastSyncMs == null) return true;
@@ -59,16 +59,20 @@ class AuthViewModel extends StreamNotifier<User?> {
   void _triggerInitialDataDownload() async {
     try {
       if (kDebugMode) {
-        debugPrint('🚀 [AppLogger] Checando necessidades de sync de dados após login...');
+        debugPrint(
+          '🚀 [AppLogger] Checando necessidades de sync de dados após login...',
+        );
       }
-      
+
       await Future.delayed(const Duration(seconds: 1));
 
       var tenant = await ref.read(currentTenantProvider.future);
-      
+
       if (tenant == null) {
         if (kDebugMode) {
-          debugPrint('⚠️ [AppLogger] Tenant não encontrado no primeiro segundo. Tentando novamente...');
+          debugPrint(
+            '⚠️ [AppLogger] Tenant não encontrado no primeiro segundo. Tentando novamente...',
+          );
         }
         await Future.delayed(const Duration(seconds: 2));
         tenant = await ref.read(currentTenantProvider.future);
@@ -78,11 +82,13 @@ class AuthViewModel extends StreamNotifier<User?> {
         final shouldSyncCategories = await _shouldSync('categories');
         final shouldSyncProducts = await _shouldSync('products');
         final shouldSyncCatalogs = await _shouldSync('catalogs');
-        
+
         if (kDebugMode) {
-          debugPrint('🚀 [AppLogger] Empresa (Tenant) identificada: ${tenant.id}. Sync pendente: Cat:$shouldSyncCategories Prod:$shouldSyncProducts Cata:$shouldSyncCatalogs');
+          debugPrint(
+            '🚀 [AppLogger] Empresa (Tenant) identificada: ${tenant.id}. Sync pendente: Cat:$shouldSyncCategories Prod:$shouldSyncProducts Cata:$shouldSyncCatalogs',
+          );
         }
-        
+
         await Future.wait([
           if (shouldSyncCategories)
             ref.read(categoriesViewModelProvider.notifier).syncFromCloud(),
@@ -92,7 +98,9 @@ class AuthViewModel extends StreamNotifier<User?> {
             ref.read(catalogsViewModelProvider.notifier).syncFromCloud(),
         ]);
       } else {
-        _logger.logError('Não foi possível identificar a empresa vinculada a este usuário após o login.');
+        _logger.logError(
+          'Não foi possível identificar a empresa vinculada a este usuário após o login.',
+        );
       }
     } catch (e) {
       _logger.logError('Erro crítico no disparo do download inicial', error: e);

@@ -6,9 +6,6 @@ import 'package:catalogo_ja/core/services/dto/catalogo_ja_export_dtos.dart';
 import 'package:catalogo_ja/data/repositories/contracts/categories_repository_contract.dart';
 import 'package:catalogo_ja/data/repositories/contracts/products_repository_contract.dart';
 import 'package:catalogo_ja/data/repositories/contracts/catalogs_repository_contract.dart';
-import 'package:catalogo_ja/data/repositories/products_repository.dart';
-import 'package:catalogo_ja/data/repositories/categories_repository.dart';
-import 'package:catalogo_ja/data/repositories/catalogs_repository.dart';
 import 'package:catalogo_ja/data/repositories/firestore_products_repository.dart';
 import 'package:catalogo_ja/data/repositories/firestore_categories_repository.dart';
 import 'package:catalogo_ja/data/repositories/firestore_catalogs_repository.dart';
@@ -335,37 +332,37 @@ class ExportImportService {
             categoryIds: newCategoryIds,
           );
 
-            await _productsRepo.addProduct(productToSave);
-            success++;
-          }
-        } catch (e) {
-          errors++;
-          errorList.add('Error importing product ${pDTO.name}: $e');
+          await _productsRepo.addProduct(productToSave);
+          success++;
         }
+      } catch (e) {
+        errors++;
+        errorList.add('Error importing product ${pDTO.name}: $e');
       }
+    }
 
-      // 4. Import Catalogs
-      for (final cDTO in payload.catalogs) {
-        try {
-          final existing = await _catalogsRepo.getBySlug(cDTO.slug);
+    // 4. Import Catalogs
+    for (final cDTO in payload.catalogs) {
+      try {
+        final existing = await _catalogsRepo.getBySlug(cDTO.slug);
 
-          if (existing != null) {
-            if (mode == ImportMode.replaceAll) {
-              await _catalogsRepo.addCatalog(cDTO.toModel());
-            } else if (mode == ImportMode.merge) {
-              // Update logic: map product IDs if they changed?
-              // Assuming IDs are consistent for Catalogs link.
-              await _catalogsRepo.updateCatalog(
-                cDTO.toModel().copyWith(id: existing.id),
-              );
-            }
-          } else {
+        if (existing != null) {
+          if (mode == ImportMode.replaceAll) {
             await _catalogsRepo.addCatalog(cDTO.toModel());
+          } else if (mode == ImportMode.merge) {
+            // Update logic: map product IDs if they changed?
+            // Assuming IDs are consistent for Catalogs link.
+            await _catalogsRepo.updateCatalog(
+              cDTO.toModel().copyWith(id: existing.id),
+            );
           }
-        } catch (e) {
-          errorList.add('Error importing catalog ${cDTO.name}: $e');
+        } else {
+          await _catalogsRepo.addCatalog(cDTO.toModel());
         }
+      } catch (e) {
+        errorList.add('Error importing catalog ${cDTO.name}: $e');
       }
+    }
 
     return ImportResult(
       successCount: success,

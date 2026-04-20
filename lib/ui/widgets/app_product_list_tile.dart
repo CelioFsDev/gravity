@@ -222,7 +222,11 @@ class AppProductListTile extends StatelessWidget {
 
   Widget _buildImage(String? originalPath) {
     if (originalPath == null || originalPath.trim().isEmpty) {
-      return const Icon(Icons.image_not_supported_outlined, size: 24, color: Colors.grey);
+      return const Icon(
+        Icons.image_not_supported_outlined,
+        size: 24,
+        color: Colors.grey,
+      );
     }
 
     final path = originalPath.trim();
@@ -265,7 +269,8 @@ class AppProductListTile extends StatelessWidget {
             base64Decode(path.substring(commaIndex + 1)),
             fit: BoxFit.cover,
             cacheWidth: 200,
-            errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined, size: 20),
+            errorBuilder: (_, _, _) =>
+                const Icon(Icons.broken_image_outlined, size: 20),
           );
         } catch (_) {}
       }
@@ -280,14 +285,19 @@ class AppProductListTile extends StatelessWidget {
             file,
             fit: BoxFit.cover,
             cacheWidth: 200,
-            errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined, size: 20),
+            errorBuilder: (_, _, _) =>
+                const Icon(Icons.broken_image_outlined, size: 20),
           );
         }
       } catch (_) {}
     }
 
     // Final Fallback
-    return const Icon(Icons.image_not_supported_outlined, size: 24, color: Colors.grey);
+    return const Icon(
+      Icons.image_not_supported_outlined,
+      size: 24,
+      color: Colors.grey,
+    );
   }
 
   ProductImage? _resolvePrimaryImage(Product product) {

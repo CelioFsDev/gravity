@@ -186,7 +186,6 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       // 🏠 Local-First: Salva no Hive. Sincronização é manual.
       await localRepo.addCategory(newCat);
 
-
       await _refresh();
       ref.invalidate(productsViewModelProvider);
       return null;
@@ -248,7 +247,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         ),
       );
 
-      // 🏠 Local-First: Salva no Hive. 
+      // 🏠 Local-First: Salva no Hive.
       await localRepo.addCategory(newCollection);
 
       await _refresh();
@@ -283,7 +282,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         cover: cover,
       );
 
-      // 🏠 Local-First: Salva no Hive. 
+      // 🏠 Local-First: Salva no Hive.
       await localRepo.updateCategory(updated);
 
       await _refresh();
@@ -369,7 +368,9 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       final updatedCategories = <Category>[];
       for (var i = 0; i < list.length; i++) {
         if (list[i].order != i) {
-          updatedCategories.add(list[i].copyWith(order: i, updatedAt: DateTime.now()));
+          updatedCategories.add(
+            list[i].copyWith(order: i, updatedAt: DateTime.now()),
+          );
         }
       }
 
@@ -443,10 +444,11 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     final progressNotifier = ref.read(syncProgressProvider.notifier);
     try {
       progressNotifier.startSync('Iniciando sincronização de categorias...');
-      
-      final localRepo = ref.read(categoriesRepositoryProvider) as HiveCategoriesRepository;
+
+      final localRepo =
+          ref.read(categoriesRepositoryProvider) as HiveCategoriesRepository;
       final localCategories = await localRepo.getCategories();
-      
+
       if (localCategories.isEmpty) {
         progressNotifier.stopSync();
         return 0;
@@ -458,7 +460,9 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       if (tenantId == null) {
         final email = ref.read(authViewModelProvider).valueOrNull?.email;
         if (email != null) {
-          tenantId = await ref.read(tenantRepositoryProvider).getCachedTenantId(email);
+          tenantId = await ref
+              .read(tenantRepositoryProvider)
+              .getCachedTenantId(email);
         }
       }
 
@@ -466,7 +470,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         progressNotifier.stopSync();
         throw Exception('Empresa não identificada. Verifique seu login.');
       }
-      
+
       final repository = ref.read(syncCategoriesRepositoryProvider);
       var syncedCount = 0;
 
@@ -479,13 +483,18 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         final localCategories = await localRepo.getCategories();
         for (var i = 0; i < localCategories.length; i++) {
           final cat = localCategories[i];
-          progressNotifier.updateProgress((i + 1) / localCategories.length, 'Sincronizando: ${cat.name}');
+          progressNotifier.updateProgress(
+            (i + 1) / localCategories.length,
+            'Sincronizando: ${cat.name}',
+          );
           await repository.addCategory(cat);
           syncedCount++;
         }
       }
 
-      progressNotifier.stopSync(message: 'Sincronização concluída: $syncedCount itens.');
+      progressNotifier.stopSync(
+        message: 'Sincronização concluída: $syncedCount itens.',
+      );
       await _refresh();
       return syncedCount;
     } catch (e) {
@@ -500,13 +509,15 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     final progressNotifier = ref.read(syncProgressProvider.notifier);
     try {
       progressNotifier.startSync('Buscando categorias na nuvem...');
-      
+
       final tenant = await ref.read(currentTenantProvider.future);
       String? tenantId = tenant?.id;
       if (tenantId == null) {
         final email = ref.read(authViewModelProvider).valueOrNull?.email;
         if (email != null) {
-          tenantId = await ref.read(tenantRepositoryProvider).getCachedTenantId(email);
+          tenantId = await ref
+              .read(tenantRepositoryProvider)
+              .getCachedTenantId(email);
         }
       }
 
@@ -516,11 +527,18 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       }
 
       final storageService = ref.read(saasPhotoStorageProvider);
-      final localRepo = ref.read(categoriesRepositoryProvider) as HiveCategoriesRepository;
-      final firestoreRepo = FirestoreCategoriesRepository(localRepo, storageService, tenantId);
+      final localRepo =
+          ref.read(categoriesRepositoryProvider) as HiveCategoriesRepository;
+      final settingsRepo = ref.read(settingsRepositoryProvider);
+      final firestoreRepo = FirestoreCategoriesRepository(
+        localRepo,
+        storageService,
+        tenantId,
+        settingsRepo,
+      );
 
       final currentLocalCategories = await localRepo.getCategories();
-      
+
       // 🔑 Trava de Offline-First
       if (currentLocalCategories.isEmpty) {
         final settings = ref.read(settingsRepositoryProvider).getSettings();
@@ -558,7 +576,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         final localCat = localMap[cat.id];
         if (localCat != null && !cat.updatedAt.isAfter(localCat.updatedAt)) {
           // Já estamos atualizados localmente, pule para a próxima
-          continue; 
+          continue;
         }
 
         try {
@@ -572,7 +590,10 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       }
 
       final box = await Hive.openBox('sync_meta');
-      await box.put('last_sync_categories', DateTime.now().millisecondsSinceEpoch);
+      await box.put(
+        'last_sync_categories',
+        DateTime.now().millisecondsSinceEpoch,
+      );
 
       progressNotifier.stopSync();
       await _refresh();

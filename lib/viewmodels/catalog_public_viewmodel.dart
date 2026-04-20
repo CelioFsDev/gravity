@@ -1,7 +1,4 @@
 import 'package:catalogo_ja/data/repositories/public_catalog_repository.dart';
-import 'package:catalogo_ja/models/catalog.dart';
-import 'package:catalogo_ja/models/category.dart';
-import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/core/error/app_failure.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 

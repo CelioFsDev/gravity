@@ -39,7 +39,7 @@ class SectionCard extends StatelessWidget {
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
-                if (trailing != null) trailing!,
+                ?trailing,
               ],
             ),
           ),

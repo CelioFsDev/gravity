@@ -1,7 +1,6 @@
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -187,8 +186,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     passwordController: _passwordController,
                                     obscurePassword: _obscurePassword,
                                     onTogglePassword: () => setState(
-                                      () => _obscurePassword =
-                                          !_obscurePassword,
+                                      () =>
+                                          _obscurePassword = !_obscurePassword,
                                     ),
                                     onSubmit: _handleEmailPasswordLogin,
                                   ),
@@ -196,8 +195,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   Text(
                                     _authErrorMessage(e),
                                     style: const TextStyle(
-                                        color: AppTokens.accentRed,
-                                        fontSize: 12),
+                                      color: AppTokens.accentRed,
+                                      fontSize: 12,
+                                    ),
                                     textAlign: TextAlign.center,
                                   ),
                                 ],
@@ -230,7 +230,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 }
-
 
 class _EmailPasswordForm extends StatelessWidget {
   const _EmailPasswordForm({

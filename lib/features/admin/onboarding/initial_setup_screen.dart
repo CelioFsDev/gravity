@@ -9,6 +9,7 @@ import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 import 'package:catalogo_ja/core/services/system_backup_service.dart';
 import 'package:catalogo_ja/ui/widgets/sync_progress_overlay.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
 
 class InitialSetupScreen extends ConsumerStatefulWidget {
   const InitialSetupScreen({super.key});
