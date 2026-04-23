@@ -7,6 +7,7 @@ import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
 import 'package:catalogo_ja/ui/widgets/app_badge_pill.dart';
+import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
 import 'package:catalogo_ja/ui/widgets/app_search_field.dart';
 import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
@@ -31,12 +32,13 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
   @override
   Widget build(BuildContext context) {
     final categoriesState = ref.watch(categoriesViewModelProvider);
+    final role = ref.watch(currentRoleProvider);
 
     return AppScaffold(
       title: 'Cole\u00e7\u00f5es',
       subtitle: 'Gerencie suas cole\u00e7\u00f5es e cat\u00e1logos',
       actions: [
-        if (ref.watch(currentRoleProvider).canManageRegistrations)
+        if (role.canManageRegistrations)
           FilledButton.icon(
             onPressed: () => context.push('/admin/collections/new'),
             icon: const Icon(Icons.add),
@@ -110,7 +112,28 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
             ],
           );
         },
-        error: (e, s) => Center(child: Text('Erro: $e')),
+        error: (e, s) {
+          if (_searchQuery.isEmpty) {
+            return AppEmptyState(
+              icon: Icons.collections_bookmark_outlined,
+              title: 'Nenhuma cole\u00e7\u00e3o',
+              message:
+                  'Ainda n\u00e3o h\u00e1 cole\u00e7\u00f5es cadastradas para esta empresa.',
+              actionLabel:
+                  role.canManageRegistrations ? 'Criar Cole\u00e7\u00e3o' : null,
+              onAction:
+                  role.canManageRegistrations
+                      ? () => context.push('/admin/collections/new')
+                      : null,
+            );
+          }
+          return AppErrorView(
+            error: e,
+            stackTrace: s,
+            onRetry:
+                () => ref.read(categoriesViewModelProvider.notifier).refresh(),
+          );
+        },
         loading: () => const Center(child: CircularProgressIndicator()),
       ),
     );

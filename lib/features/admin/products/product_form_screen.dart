@@ -106,14 +106,14 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     final pr = widget.product;
     _draftProductId = pr?.id ?? const Uuid().v4();
     _nameController = TextEditingController(text: pr?.name ?? '');
-    _refController = TextEditingController(text: pr?.reference ?? '');
+    _refController = TextEditingController(text: pr?.ref ?? '');
     _skuController = TextEditingController(text: pr?.sku ?? '');
     final f = NumberFormat.decimalPattern('pt_BR');
     _retailController = TextEditingController(
-      text: pr != null ? f.format(pr.retailPrice) : '',
+      text: pr != null ? f.format(pr.priceRetail) : '',
     );
     _wholesaleController = TextEditingController(
-      text: pr != null ? f.format(pr.wholesalePrice) : '',
+      text: pr != null ? f.format(pr.priceWholesale) : '',
     );
     _minQtyController = TextEditingController(
       text: pr?.minWholesaleQty.toString() ?? '1',
@@ -123,13 +123,13 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       text: pr?.colors.join(', ') ?? '',
     );
     _discountController = TextEditingController(
-      text: pr?.saleDiscountPercent.toString() ?? '0',
+      text: pr?.promoPercent.toString() ?? '0',
     );
 
     _initialCategoryIds = pr?.categoryIds ?? [];
     _isActive = pr?.isActive ?? true;
     _isOutOfStock = pr?.isOutOfStock ?? false;
-    _isOnSale = pr?.isOnSale ?? false;
+    _isOnSale = pr?.promoEnabled ?? false;
     if (pr != null && pr.photos.isNotEmpty) {
       _photos = List<ProductPhoto>.from(pr.photos);
     } else if (pr != null && pr.images.isNotEmpty) {
@@ -434,7 +434,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           isPrimary = photoType == 'P';
         } else {
           final meta = await _showPhotoMetaDialog(context, initialType: 'D1');
-          if (meta == null || !mounted) break;
+          if (meta == null || !mounted) continue;
           photoType = meta.photoType;
           colorKey = meta.colorKey;
           isPrimary = photoType == 'P';
@@ -858,25 +858,20 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     }
   }
 
-  List<ProductPhoto> _normalizePhotosForSave() {
-    if (_photos.isEmpty) return const [];
-    final primary = _photos.where(_isPrimaryPhoto).firstOrNull;
-    final primaryPath = primary?.path;
-    final details = _photos
-        .where((photo) => _isDetailPhoto(photo) && photo.path != primaryPath)
-        .take(2);
-    final colors = _photos
-        .where((photo) => _isColorPhoto(photo) && photo.path != primaryPath)
-        .take(4);
-    return _prioritizePrimaryPhoto(
-      _dedupePhotosByPath([?primary, ...details, ...colors]),
-    );
-  }
+
+
+
+
 
   List<ProductImage> _imagesFromPhotos(List<ProductPhoto> photos) {
     return photos.map((p) => p.toProductImage()).toList();
   }
 
+
+  List<ProductPhoto> _normalizePhotosForSave() {
+    if (_photos.isEmpty) return const [];
+    return _prioritizePrimaryPhoto(_dedupePhotosByPath(_photos));
+  }
   int _mainIndexFromPhotos(List<ProductPhoto> photos) {
     final typePrimaryIndex = photos.indexWhere((p) => p.photoType == 'P');
     if (typePrimaryIndex >= 0) return typePrimaryIndex;
@@ -1026,13 +1021,18 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     PhotoClassification? classification,
   }) async {
     try {
-      // Windows/Desktop priority: use path if available
-      if (!kIsWeb && file.path != null) {
+      Future<Directory> resolveImagesDir() async {
         final baseDir = await getApplicationDocumentsDirectory();
         final imagesDir = Directory(p.join(baseDir.path, 'product_images'));
         if (!await imagesDir.exists()) {
           await imagesDir.create(recursive: true);
         }
+        return imagesDir;
+      }
+
+      // Windows/Desktop priority: use path if available
+      if (!kIsWeb && file.path != null) {
+        final imagesDir = await resolveImagesDir();
 
         final extension = p.extension(file.name).isNotEmpty
             ? p.extension(file.name).toLowerCase()
@@ -1049,13 +1049,26 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           return null;
         }
 
+        final normalizedSourceDir = p.normalize(p.dirname(sourceFile.path));
+        final normalizedImagesDir = p.normalize(imagesDir.path);
+        if (normalizedSourceDir == normalizedImagesDir) {
+          return sourceFile.path;
+        }
+
         // Usa o serviço centralizado para comprimir a imagem
         final optimizer = ref.read(imageOptimizerServiceProvider.notifier);
         final compressedFile = await optimizer.compressImage(sourceFile);
         final fileToSave = compressedFile ?? sourceFile;
 
-        // No Windows, o copy funciona melhor que o move se o arquivo estiver sendo usado
-        await fileToSave.copy(targetPath);
+        try {
+          await fileToSave.copy(targetPath);
+        } catch (_) {
+          if (fileToSave.path != sourceFile.path) {
+            await sourceFile.copy(targetPath);
+          } else {
+            rethrow;
+          }
+        }
 
         if (await File(targetPath).exists()) {
           debugPrint('Successfully saved (optimized) to: $targetPath');
@@ -1070,11 +1083,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           return 'data:$mimeType;base64,$encoded';
         }
 
-        final baseDir = await getApplicationDocumentsDirectory();
-        final imagesDir = Directory(p.join(baseDir.path, 'product_images'));
-        if (!await imagesDir.exists()) {
-          await imagesDir.create(recursive: true);
-        }
+        final imagesDir = await resolveImagesDir();
 
         final optimizer = ref.read(imageOptimizerServiceProvider.notifier);
         final compressedBytes = await optimizer.compressBytes(file.bytes!);

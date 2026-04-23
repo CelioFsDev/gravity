@@ -165,7 +165,7 @@ class SaaSPhotoStorageService {
       final ref = _storage.ref().child(refPath);
       final metadata = SettableMetadata(
         contentType: 'image/jpeg',
-        customMetadata: {'email': email, 'tenantId': ?tenantId},
+        customMetadata: {'email': email, 'tenantId': tenantId ?? ''},
       );
 
       TaskSnapshot task;

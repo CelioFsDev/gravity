@@ -2,7 +2,7 @@ import 'package:catalogo_ja/features/admin/users/create_email_password_user_scre
 import 'package:catalogo_ja/features/auth/register_screen.dart';
 import 'package:catalogo_ja/features/admin/profile/profile_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart' hide Order;
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,7 +14,6 @@ import 'package:go_router/go_router.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/catalog.dart';
-import 'package:catalogo_ja/models/order.dart';
 import 'package:catalogo_ja/models/settings.dart';
 import 'package:catalogo_ja/models/product_variant.dart';
 import 'package:catalogo_ja/models/product_image.dart';
@@ -28,9 +27,8 @@ import 'package:catalogo_ja/features/admin/collections/collection_form_screen.da
 import 'package:catalogo_ja/features/admin/catalogs/catalogs_screen.dart';
 import 'package:catalogo_ja/features/admin/import/import_menu_screen.dart';
 import 'package:catalogo_ja/features/admin/import/nuvemshop_import_screen.dart';
-import 'package:catalogo_ja/features/admin/import/catalogo_ja_import_screen.dart';
 import 'package:catalogo_ja/features/admin/import/stock_update_screen.dart';
-import 'package:catalogo_ja/features/admin/onboarding/initial_setup_screen.dart';
+import 'package:catalogo_ja/features/admin/import/catalogo_ja_import_screen.dart';
 import 'package:catalogo_ja/features/admin/settings/settings_screen.dart';
 import 'package:catalogo_ja/features/admin/users/user_management_screen.dart';
 import 'package:catalogo_ja/features/admin/dashboard/dashboard_screen.dart';
@@ -39,9 +37,10 @@ import 'package:catalogo_ja/features/public/catalog_home_page.dart';
 import 'package:catalogo_ja/features/public/product_detail_screen.dart';
 import 'package:catalogo_ja/ui/theme/app_theme.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
-import 'package:catalogo_ja/features/auth/tenant_selection_screen.dart';
 import 'package:catalogo_ja/features/auth/login_screen.dart';
 import 'package:catalogo_ja/features/splash/splash_screen.dart';
+import 'package:catalogo_ja/pages/tenant/tenant_onboarding_page.dart';
+import 'package:catalogo_ja/pages/tenant/tenant_picker_page.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
@@ -75,7 +74,6 @@ void main() async {
   }
 
   // Register Adapters
-  Hive.registerAdapter(SyncQueueItemAdapter());
   Hive.registerAdapter(SyncStatusAdapter());
   Hive.registerAdapter(CategoryTypeAdapter());
   Hive.registerAdapter(CollectionCoverModeAdapter());
@@ -85,14 +83,12 @@ void main() async {
   Hive.registerAdapter(ProductPhotoAdapter());
   Hive.registerAdapter(ProductImageSourceAdapter());
   Hive.registerAdapter(ProductImageAdapter());
+  Hive.registerAdapter(SyncQueueItemAdapter());
   Hive.registerAdapter(AppSettingsAdapter());
   Hive.registerAdapter(ProductAdapter());
   Hive.registerAdapter(CatalogBannerAdapter());
   Hive.registerAdapter(CatalogModeAdapter());
   Hive.registerAdapter(CatalogAdapter());
-  Hive.registerAdapter(OrderStatusAdapter());
-  Hive.registerAdapter(OrderItemAdapter());
-  Hive.registerAdapter(OrderAdapter());
 
   try {
     // Open Boxes with individual safe guards
@@ -111,10 +107,9 @@ void main() async {
     }
 
     await safeOpenBox<Category>('categories');
-    await safeOpenBox<SyncQueueItem>(SyncQueueRepository.boxName);
     await safeOpenBox<Product>('products');
     await safeOpenBox<Catalog>('catalogs');
-    await safeOpenBox<Order>('orders');
+    await safeOpenBox<SyncQueueItem>(SyncQueueRepository.boxName);
     await safeOpenBox<AppSettings>('settings');
 
     try {
@@ -128,10 +123,11 @@ void main() async {
     }
 
     // Configuração do Crashlytics
-    final isMobile = !kIsWeb && 
-                     (defaultTargetPlatform == TargetPlatform.android || 
-                      defaultTargetPlatform == TargetPlatform.iOS ||
-                      defaultTargetPlatform == TargetPlatform.macOS);
+    final isMobile =
+        !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS ||
+            defaultTargetPlatform == TargetPlatform.macOS);
 
     if (isMobile) {
       FlutterError.onError = (errorDetails) {
@@ -145,7 +141,6 @@ void main() async {
     }
 
     runApp(const ProviderScope(child: MyApp()));
-
   } catch (e, stack) {
     debugPrint('🔥 Fatal initialization error: $e\n$stack');
     runApp(
@@ -219,34 +214,25 @@ class _MyAppState extends ConsumerState<MyApp> {
 
         // ✨ SaaS Logic: Se logado mas sem tenant ativo, FORÇA a seleção de empresa
         final currentTenantAsync = ref.read(currentTenantProvider);
-        final isSelectingTenant = state.matchedLocation == '/select-tenant';
-        
-        // Só redireciona se já terminou de carregar (AsyncData) e o valor for nulo
-        if (currentTenantAsync is AsyncData && currentTenantAsync.value == null &&
-            !isSelectingTenant && !isAuthRoute && !isSplash) {
-          return '/select-tenant';
-        }
+        final isSelectingTenant =
+            state.matchedLocation == '/onboarding' ||
+            state.matchedLocation == '/picker';
 
-        // ✨ Trava de Offline-First (Onboarding Inicial)
-        if (!isAuthRoute && !isSplash && !isSelectingTenant && state.matchedLocation.startsWith('/admin')) {
-          final isSettingUp = state.matchedLocation == '/admin/initial-setup';
-          try {
-            final appSettingsBox = Hive.box<AppSettings>('settings');
-            final settings = appSettingsBox.get('app_settings') ?? AppSettings.defaultSettings();
-            final productsBox = Hive.box<Product>('products');
-            
-            if (!settings.isInitialSyncCompleted && productsBox.isEmpty) {
-              if (!isSettingUp) return '/admin/initial-setup';
-            } else {
-              if (isSettingUp) return '/admin/dashboard';
-            }
-          } catch (e) {
-            // Hive was not initialized properly yet.
-          }
+        // Só redireciona se já terminou de carregar (AsyncData) e o valor for nulo
+        if (currentTenantAsync is AsyncData &&
+            currentTenantAsync.value == null &&
+            !isSelectingTenant &&
+            !isAuthRoute &&
+            !isSplash) {
+          final needsOnboarding =
+              ref.read(requiresTenantOnboardingProvider).valueOrNull ?? false;
+          return needsOnboarding ? '/onboarding' : '/picker';
         }
 
         if (isAuthRoute) {
-          return '/select-tenant';
+          final needsOnboarding =
+              ref.read(requiresTenantOnboardingProvider).valueOrNull ?? false;
+          return needsOnboarding ? '/onboarding' : '/picker';
         }
 
         return null;
@@ -265,8 +251,12 @@ class _MyAppState extends ConsumerState<MyApp> {
           builder: (context, state) => const PublicRegisterScreen(),
         ),
         GoRoute(
-          path: '/select-tenant',
-          builder: (context, state) => const TenantSelectionScreen(),
+          path: '/onboarding',
+          builder: (context, state) => TenantOnboardingPage(),
+        ),
+        GoRoute(
+          path: '/picker',
+          builder: (context, state) => TenantPickerPage(),
         ),
         GoRoute(
           path: '/',
@@ -295,10 +285,6 @@ class _MyAppState extends ConsumerState<MyApp> {
           path: '/c/:shareCode',
           builder: (context, state) =>
               CatalogHomePage(shareCode: state.pathParameters['shareCode']!),
-        ),
-        GoRoute(
-          path: '/admin/initial-setup',
-          builder: (context, state) => const InitialSetupScreen(),
         ),
         StatefulShellRoute.indexedStack(
           builder: (context, state, navigationShell) {
@@ -365,15 +351,17 @@ class _MyAppState extends ConsumerState<MyApp> {
                   routes: [
                     GoRoute(
                       path: 'nuvemshop',
-                      builder: (context, state) => const NuvemshopImportScreen(),
+                      builder: (context, state) =>
+                          const NuvemshopImportScreen(),
                     ),
                     GoRoute(
                       path: 'stock-update',
-                      builder: (context, state) => StockUpdateScreen(),
+                      builder: (context, state) => const StockUpdateScreen(),
                     ),
                     GoRoute(
                       path: 'backup',
-                      builder: (context, state) => const CatalogoJaImportScreen(),
+                      builder: (context, state) =>
+                          const CatalogoJaImportScreen(),
                     ),
                   ],
                 ),

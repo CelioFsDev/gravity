@@ -161,7 +161,8 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         if (!nameLower.endsWith('.csv') && !nameLower.endsWith('.zip')) {
           state = state.copyWith(
             isLoading: false,
-            errorMessage: 'Formato inv\u00e1lido. Selecione um arquivo .csv ou .zip.',
+            errorMessage:
+                'Formato inv\u00e1lido. Selecione um arquivo .csv ou .zip.',
           );
           return;
         }
@@ -340,12 +341,14 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       message: 'Selecione as fotos...',
     );
 
-    loadingNotifier.addTask(BackgroundTask(
-      id: taskId,
-      title: 'Vinculando Fotos',
-      message: 'Selecione as fotos...',
-      progress: 0.01,
-    ));
+    loadingNotifier.addTask(
+      BackgroundTask(
+        id: taskId,
+        title: 'Vinculando Fotos',
+        message: 'Selecione as fotos...',
+        progress: 0.01,
+      ),
+    );
 
     try {
       // Pick files first to avoid losing the user gesture context on web.
@@ -372,7 +375,11 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         message: 'Carregando produtos cadastrados...',
         progress: 0.05,
       );
-      loadingNotifier.updateTask(taskId, message: 'Carregando produtos...', progress: 0.05);
+      loadingNotifier.updateTask(
+        taskId,
+        message: 'Carregando produtos...',
+        progress: 0.05,
+      );
 
       final productsRepo = ref.read(productsRepositoryProvider);
       final existingProducts = await productsRepo.getProducts();
@@ -382,8 +389,16 @@ class ProductImportViewModel extends _$ProductImportViewModel {
           isLoading: false,
           errorMessage: "Nenhum produto cadastrado no app para vincular fotos.",
         );
-        loadingNotifier.updateTask(taskId, message: 'Nenhum produto encontrado', isDone: true, error: 'Vazio');
-        Future.delayed(const Duration(seconds: 3), () => loadingNotifier.removeTask(taskId));
+        loadingNotifier.updateTask(
+          taskId,
+          message: 'Nenhum produto encontrado',
+          isDone: true,
+          error: 'Vazio',
+        );
+        Future.delayed(
+          const Duration(seconds: 3),
+          () => loadingNotifier.removeTask(taskId),
+        );
         return;
       }
 
@@ -391,7 +406,11 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         message: 'Analisando fotos selecionadas...',
         progress: 0.1,
       );
-      loadingNotifier.updateTask(taskId, message: 'Analisando fotos...', progress: 0.1);
+      loadingNotifier.updateTask(
+        taskId,
+        message: 'Analisando fotos...',
+        progress: 0.1,
+      );
 
       int matchedCount = 0;
       final productsToUpdate = <String, List<ProductPhoto>>{};
@@ -407,7 +426,11 @@ class ProductImportViewModel extends _$ProductImportViewModel {
             progress: currentProgress,
             message: 'Analisando ${file.name}...',
           );
-          loadingNotifier.updateTask(taskId, message: 'Processando ${file.name}', progress: currentProgress);
+          loadingNotifier.updateTask(
+            taskId,
+            message: 'Processando ${file.name}',
+            progress: currentProgress,
+          );
 
           final classification = ref
               .read(photoClassificationServiceProvider.notifier)
@@ -477,7 +500,9 @@ class ProductImportViewModel extends _$ProductImportViewModel {
 
           await Future.delayed(const Duration(milliseconds: 5));
         } catch (e) {
-          final fileName = (i >= 0 && i < totalFiles) ? result.files[i].name : '';
+          final fileName = (i >= 0 && i < totalFiles)
+              ? result.files[i].name
+              : '';
           report.add(
             PhotoLinkReportItem(
               fileName: fileName,
@@ -492,7 +517,11 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         message: 'Salvando vinculações...',
         progress: 0.95,
       );
-      loadingNotifier.updateTask(taskId, message: 'Salvando no banco...', progress: 0.95);
+      loadingNotifier.updateTask(
+        taskId,
+        message: 'Salvando no banco...',
+        progress: 0.95,
+      );
 
       // Update database
       for (final entry in productsToUpdate.entries) {
@@ -541,16 +570,32 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         imagesTotalCount: totalFiles,
         linkReport: report,
       );
-      loadingNotifier.updateTask(taskId, message: 'Concluído!', progress: 1.0, isDone: true);
-      Future.delayed(const Duration(seconds: 3), () => loadingNotifier.removeTask(taskId));
+      loadingNotifier.updateTask(
+        taskId,
+        message: 'Concluído!',
+        progress: 1.0,
+        isDone: true,
+      );
+      Future.delayed(
+        const Duration(seconds: 3),
+        () => loadingNotifier.removeTask(taskId),
+      );
       _notifyChanges();
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
         errorMessage: "Erro ao vincular fotos: $e",
       );
-      loadingNotifier.updateTask(taskId, message: 'Erro: $e', isDone: true, error: e.toString());
-      Future.delayed(const Duration(seconds: 5), () => loadingNotifier.removeTask(taskId));
+      loadingNotifier.updateTask(
+        taskId,
+        message: 'Erro: $e',
+        isDone: true,
+        error: e.toString(),
+      );
+      Future.delayed(
+        const Duration(seconds: 5),
+        () => loadingNotifier.removeTask(taskId),
+      );
     }
   }
 
@@ -567,12 +612,14 @@ class ProductImportViewModel extends _$ProductImportViewModel {
       errorMessage: null,
     );
 
-    loadingNotifier.addTask(BackgroundTask(
-      id: taskId,
-      title: 'Sincronizando Nuvem',
-      message: 'Iniciando...',
-      progress: 0.01,
-    ));
+    loadingNotifier.addTask(
+      BackgroundTask(
+        id: taskId,
+        title: 'Sincronizando Nuvem',
+        message: 'Iniciando...',
+        progress: 0.01,
+      ),
+    );
 
     try {
       final settings = ref.read(settingsRepositoryProvider).getSettings();
@@ -585,8 +632,16 @@ class ProductImportViewModel extends _$ProductImportViewModel {
           progress: 1.0,
           errorMessage: "URL Base não configurada.",
         );
-        loadingNotifier.updateTask(taskId, message: 'URL não configurada', isDone: true, error: 'Erro');
-        Future.delayed(const Duration(seconds: 3), () => loadingNotifier.removeTask(taskId));
+        loadingNotifier.updateTask(
+          taskId,
+          message: 'URL não configurada',
+          isDone: true,
+          error: 'Erro',
+        );
+        Future.delayed(
+          const Duration(seconds: 3),
+          () => loadingNotifier.removeTask(taskId),
+        );
         return;
       }
 
@@ -615,12 +670,16 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         final currentProgress = 0.05 + (0.9 * ((i + 1) / totalToTry));
         final p = targets[i];
         final cleanRef = p.ref.trim();
-        
+
         state = state.copyWith(
           progress: currentProgress,
           message: 'Verificando REF $cleanRef...',
         );
-        loadingNotifier.updateTask(taskId, message: 'Verificando $cleanRef', progress: currentProgress);
+        loadingNotifier.updateTask(
+          taskId,
+          message: 'Verificando $cleanRef',
+          progress: currentProgress,
+        );
 
         final separator = baseUrl.endsWith('/') ? '' : '/';
         for (final ext in _supportedImageExtensions) {
@@ -636,7 +695,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
               );
               syncedCount++;
             }
-            break; 
+            break;
           }
         }
       }
@@ -649,8 +708,16 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         imagesMatchedCount: syncedCount,
         imagesTotalCount: totalToTry,
       );
-      loadingNotifier.updateTask(taskId, message: 'Concluído!', progress: 1.0, isDone: true);
-      Future.delayed(const Duration(seconds: 3), () => loadingNotifier.removeTask(taskId));
+      loadingNotifier.updateTask(
+        taskId,
+        message: 'Concluído!',
+        progress: 1.0,
+        isDone: true,
+      );
+      Future.delayed(
+        const Duration(seconds: 3),
+        () => loadingNotifier.removeTask(taskId),
+      );
       _notifyChanges();
     } catch (e) {
       state = state.copyWith(
@@ -659,8 +726,16 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         progress: 1.0,
         errorMessage: "Erro na sincronização: $e",
       );
-      loadingNotifier.updateTask(taskId, message: 'Erro: $e', isDone: true, error: e.toString());
-      Future.delayed(const Duration(seconds: 5), () => loadingNotifier.removeTask(taskId));
+      loadingNotifier.updateTask(
+        taskId,
+        message: 'Erro: $e',
+        isDone: true,
+        error: e.toString(),
+      );
+      Future.delayed(
+        const Duration(seconds: 5),
+        () => loadingNotifier.removeTask(taskId),
+      );
     }
   }
 
@@ -1668,7 +1743,9 @@ class ProductImportViewModel extends _$ProductImportViewModel {
 
         final product = await productsRepo.getByRef(refStr);
         if (product == null) {
-          report.errors.add('Refer\u00eancia $refStr n\u00e3o encontrada no app.');
+          report.errors.add(
+            'Refer\u00eancia $refStr n\u00e3o encontrada no app.',
+          );
           continue;
         }
 
@@ -1687,7 +1764,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
 
           // Build SKU
           final sku = '${product.ref}-$color-$size'.replaceAll(' ', '');
-          
+
           newVariants.add(
             ProductVariant(
               sku: sku,
@@ -1715,7 +1792,8 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         isLoading: false,
         isDone: true,
         progress: 1.0,
-        message: 'Conclu\u00eddo! ${report.updatedCount} variantes sincronizadas.',
+        message:
+            'Conclu\u00eddo! ${report.updatedCount} variantes sincronizadas.',
       );
       _notifyChanges();
       return report;
@@ -1789,4 +1867,3 @@ class StockUpdateReport {
 
   bool get hasErrors => errors.isNotEmpty;
 }
-

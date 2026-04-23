@@ -1,6 +1,6 @@
 import 'package:catalogo_ja/data/repositories/tenant_repository.dart';
+import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
 import 'package:catalogo_ja/data/repositories/firestore_products_repository.dart';
-import 'package:catalogo_ja/core/audit/services/audit_service.dart';
 import 'package:catalogo_ja/core/sync/providers/sync_providers.dart';
 import 'package:catalogo_ja/data/repositories/categories_repository.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
@@ -183,7 +183,7 @@ class ProductsViewModel extends _$ProductsViewModel {
         await ref.watch(currentTenantProvider.future);
       }
 
-      final productRepository = ref.watch(syncProductsRepositoryProvider);
+      final productRepository = ref.watch(productsRepositoryProvider);
       final categoryRepository = ref.watch(categoriesRepositoryProvider);
       final products = await productRepository.getProducts();
       final categories = await categoryRepository.getCategories();
@@ -540,13 +540,10 @@ class ProductsViewModel extends _$ProductsViewModel {
 
       final localRepo =
           ref.read(productsRepositoryProvider) as HiveProductsRepository;
-      final syncQueue = ref.read(syncQueueRepositoryProvider);
       final firestoreRepo = FirestoreProductsRepository(
         localRepo,
-        syncQueue,
+        SaaSPhotoStorageService(),
         tenantId,
-        ref.read(settingsRepositoryProvider),
-        ref.read(auditServiceProvider),
       );
 
       // 2. Busca inicial
@@ -938,7 +935,7 @@ class ProductsViewModel extends _$ProductsViewModel {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       try {
-        final repository = ref.read(syncProductsRepositoryProvider);
+        final repository = ref.read(productsRepositoryProvider);
         final categoriesRepository = ref.read(categoriesRepositoryProvider);
         final products = await repository.getProducts();
         final categories = await categoriesRepository.getCategories();

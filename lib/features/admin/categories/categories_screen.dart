@@ -34,12 +34,13 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     final state = ref.watch(categoriesViewModelProvider);
     final notifier = ref.read(categoriesViewModelProvider.notifier);
     final syncProgress = ref.watch(syncProgressProvider);
+    final role = ref.watch(currentRoleProvider);
 
     return AppScaffold(
       title: 'Categorias',
       subtitle: 'Organize as categorias do catálogo',
       actions: [
-        if (ref.watch(currentRoleProvider).canManageRegistrations)
+        if (role.canManageRegistrations)
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (value) {
@@ -172,10 +173,29 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, s) => AppErrorView(
-                error: e,
-                onRetry: () => ref.invalidate(categoriesViewModelProvider),
-              ),
+              error: (e, s) {
+                final hasSearch =
+                    state.valueOrNull?.searchQuery.isNotEmpty ?? false;
+                if (!hasSearch) {
+                  return AppEmptyState(
+                    icon: Icons.category_outlined,
+                    title: 'Nenhuma categoria',
+                    message:
+                        'Ainda nao ha categorias cadastradas para esta empresa.',
+                    actionLabel:
+                        role.canManageRegistrations ? 'Criar categoria' : null,
+                    onAction:
+                        role.canManageRegistrations
+                            ? () => _showCategoryDialog(context, notifier)
+                            : null,
+                  );
+                }
+                return AppErrorView(
+                  error: e,
+                  stackTrace: s,
+                  onRetry: () => notifier.refresh(),
+                );
+              },
             ),
           ),
         ],

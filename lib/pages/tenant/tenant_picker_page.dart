@@ -1,3 +1,4 @@
+import 'package:catalogo_ja/data/repositories/tenant_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
@@ -8,20 +9,24 @@ import 'package:go_router/go_router.dart';
 class TenantPickerPage extends ConsumerWidget {
   const TenantPickerPage({super.key});
 
-  Future<void> _selectTenant(BuildContext context, WidgetRef ref, String tenantId) async {
+  Future<void> _selectTenant(
+    BuildContext context,
+    WidgetRef ref,
+    String tenantId,
+  ) async {
     final user = ref.read(authViewModelProvider).value;
     if (user == null || user.email == null) return;
-    
+
     // Atualiza o documento do user para setar o tenant atual que ele escolheu
     await ref.read(userRepositoryProvider).updateUserData(user.email!, {
       'tenantId': tenantId,
     });
-    
+
     // Limpa o cache para forçar recarregamento na home
     ref.read(tenantRepositoryProvider).clearTenantCache();
-    
+
     if (context.mounted) {
-      context.go('/dashboard');
+      context.go('/admin/dashboard');
     }
   }
 
@@ -36,14 +41,15 @@ class TenantPickerPage extends ConsumerWidget {
       ),
       body: tenantsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Erro ao carregar empresas: $err')),
+        error: (err, stack) =>
+            Center(child: Text('Erro ao carregar empresas: $err')),
         data: (tenants) {
           if (tenants.isEmpty) {
             return Center(
               child: ElevatedButton(
-                onPressed: () => context.go('/onboarding'), 
-                child: const Text('Criar Nova Empresa')
-              )
+                onPressed: () => context.go('/onboarding'),
+                child: const Text('Criar Nova Empresa'),
+              ),
             );
           }
 
@@ -58,11 +64,18 @@ class TenantPickerPage extends ConsumerWidget {
                 child: ListTile(
                   contentPadding: const EdgeInsets.all(16),
                   leading: CircleAvatar(
-                    backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+                    backgroundColor: Theme.of(
+                      context,
+                    ).primaryColor.withOpacity(0.1),
                     child: Text(tenant.name.substring(0, 1).toUpperCase()),
                   ),
-                  title: Text(tenant.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text('${tenant.stores.length} loja(s) vinculada(s)'),
+                  title: Text(
+                    tenant.name,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    '${tenant.stores.length} loja(s) vinculada(s)',
+                  ),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => _selectTenant(context, ref, tenant.id),
                 ),

@@ -46,8 +46,7 @@ class HiveCategoriesRepository implements CategoriesRepositoryContract {
   }
 
   @override
-  Future<List<Category>> getCategories() async =>
-      _filter(_categoriesBox.values);
+  Future<List<Category>> getCategories() async => _filter(_categoriesBox.values);
 
   @override
   Future<void> addCategory(Category category) async {

@@ -34,7 +34,7 @@ class _TenantOnboardingPageState extends ConsumerState<TenantOnboardingPage> {
       );
 
       if (mounted) {
-        context.go('/dashboard'); // Ajuste de acordo com a sua rota principal
+        context.go('/admin/dashboard'); // Ajuste de acordo com a sua rota principal
       }
     } catch (e) {
       if (mounted) {
@@ -187,7 +187,7 @@ class _TenantOnboardingPageState extends ConsumerState<TenantOnboardingPage> {
                                     
                                     if (ctx.mounted) {
                                       Navigator.pop(ctx);
-                                      context.go('/dashboard');
+                                      context.go('/admin/dashboard');
                                     }
                                   } catch (e) {
                                     if (ctx.mounted) {

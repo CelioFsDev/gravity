@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:catalogo_ja/data/repositories/categories_repository.dart';
 import 'package:catalogo_ja/data/repositories/firestore_categories_repository.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
@@ -63,7 +64,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
   }
 
   Future<CategoriesState> _fetchData() async {
-    final categoriesRepository = ref.watch(syncCategoriesRepositoryProvider);
+    final categoriesRepository = ref.watch(categoriesRepositoryProvider);
     // 🔑 Usa repositório LOCAL para contar produtos — evita leitura Firestore
     // desnecessária (os dados locais já estão sincronizados).
     final localProductRepo = ref.read(productsRepositoryProvider);
@@ -97,6 +98,58 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         throw e.toAppFailure(action: 'refresh', entity: 'Categories');
       }
     });
+  }
+
+  Future<void> refresh() => _refresh();
+
+  Future<String?> _resolveTenantId() async {
+    final tenant = await ref.read(currentTenantProvider.future);
+    var tenantId = tenant?.id;
+
+    if (tenantId == null || tenantId.isEmpty) {
+      final email = ref.read(authViewModelProvider).valueOrNull?.email;
+      if (email != null) {
+        tenantId = await ref
+            .read(tenantRepositoryProvider)
+            .getCachedTenantId(email);
+      }
+    }
+
+    return tenantId;
+  }
+
+  Future<void> _refreshLocalOnly() async {
+    final localCategoriesRepo = ref.read(categoriesRepositoryProvider);
+    final localProductRepo = ref.read(productsRepositoryProvider);
+    final allCategories = await localCategoriesRepo.getCategories();
+    final allProducts = await localProductRepo.getProducts();
+
+    final counts = <String, int>{};
+    for (final c in allCategories) {
+      counts[c.id] = allProducts
+          .where((p) => p.categoryIds.contains(c.id))
+          .length;
+    }
+
+    final sorted = List<Category>.from(allCategories);
+    _applySort(sorted, CategorySortOption.manual);
+
+    state = AsyncData(
+      CategoriesState(
+        categories: sorted,
+        productCounts: counts,
+        sortOption: CategorySortOption.manual,
+      ),
+    );
+  }
+
+  Future<void> _refreshAfterLocalMutation() async {
+    try {
+      await _refresh();
+    } catch (e) {
+      debugPrint('Categories refresh failed after local mutation: $e');
+      await _refreshLocalOnly();
+    }
   }
 
   // Actions
@@ -172,6 +225,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
                 .map((c) => c.order)
                 .reduce((a, b) => a > b ? a : b)
           : -1;
+      final tenantId = await _resolveTenantId();
 
       final newCat = Category(
         id: id ?? const Uuid().v4(),
@@ -182,12 +236,13 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         type: type,
         cover: cover,
         slug: Category.generateSlug(name),
+        tenantId: tenantId,
       );
 
       // 🏠 Local-First: Salva no Hive. Sincronização é manual.
       await localRepo.addCategory(newCat);
 
-      await _refresh();
+      await _refreshAfterLocalMutation();
       ref.invalidate(productsViewModelProvider);
       return null;
     } catch (e) {
@@ -232,6 +287,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
                 .map((c) => c.order)
                 .reduce((a, b) => a > b ? a : b)
           : -1;
+      final tenantId = await _resolveTenantId();
 
       final newCollection = Category(
         id: id ?? const Uuid().v4(),
@@ -242,6 +298,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
         type: CategoryType.collection,
+        tenantId: tenantId,
         cover: CollectionCover(
           coverMiniPath: coverMiniPath,
           coverPagePath: coverPagePath,
@@ -251,7 +308,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       // 🏠 Local-First: Salva no Hive.
       await localRepo.addCategory(newCollection);
 
-      await _refresh();
+      await _refreshAfterLocalMutation();
       ref.invalidate(productsViewModelProvider);
       return null;
     } catch (e) {
@@ -277,16 +334,18 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       }
 
       final cat = currentCategories.firstWhere((c) => c.id == id);
+      final tenantId = await _resolveTenantId();
       final updated = cat.copyWith(
         name: newName.trim(),
         updatedAt: DateTime.now(),
         cover: cover,
+        tenantId: tenantId,
       );
 
       // 🏠 Local-First: Salva no Hive.
       await localRepo.updateCategory(updated);
 
-      await _refresh();
+      await _refreshAfterLocalMutation();
       ref.invalidate(productsViewModelProvider);
       return null;
     } catch (e) {
@@ -320,11 +379,13 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       }
 
       final cat = currentCategories.firstWhere((c) => c.id == id);
+      final tenantId = await _resolveTenantId();
       final updated = cat.copyWith(
         name: name.trim(),
         slug: slug.trim(),
         isActive: isActive,
         updatedAt: DateTime.now(),
+        tenantId: tenantId,
         cover: (cat.cover ?? const CollectionCover()).copyWith(
           coverMiniPath: coverMiniPath,
           coverPagePath: coverPagePath,
@@ -334,7 +395,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       // 🏠 Local-First: Salva no Hive.
       await localRepo.updateCategory(updated);
 
-      await _refresh();
+      await _refreshAfterLocalMutation();
       ref.invalidate(productsViewModelProvider);
       return null;
     } catch (e) {

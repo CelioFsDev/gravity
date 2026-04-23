@@ -11,6 +11,7 @@ import 'package:catalogo_ja/ui/widgets/app_primary_button.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/ui/widgets/section_card.dart';
 import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
+import 'package:catalogo_ja/core/error/app_failure.dart';
 import 'package:catalogo_ja/core/services/image_optimizer_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -60,10 +61,11 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final state = ref.read(categoriesViewModelProvider);
       if (state.value != null && widget.collectionId != null) {
-        final collection = state.value!.categories.firstWhere(
+        final matches = state.value!.categories.where(
           (c) => c.id == widget.collectionId,
-          orElse: () => throw Exception('Collection not found'),
         );
+        if (matches.isEmpty) return;
+        final collection = matches.first;
 
         setState(() {
           _nameController.text = collection.safeName;
@@ -220,10 +222,13 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
         }
       }
     } catch (e) {
+      final failure = e is AppFailure
+          ? e
+          : e.toAppFailure(action: 'saveCollection', entity: 'Collection');
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Erro inesperado: $e')));
+        ).showSnackBar(SnackBar(content: Text(failure.message)));
       }
     }
   }

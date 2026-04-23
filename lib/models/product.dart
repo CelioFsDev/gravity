@@ -53,6 +53,7 @@ class ProductPhoto {
     final isRemote =
         path.startsWith('http://') ||
         path.startsWith('https://') ||
+        path.startsWith('gs://') ||
         path.startsWith('data:') ||
         path.startsWith('blob:');
     return ProductImage(
