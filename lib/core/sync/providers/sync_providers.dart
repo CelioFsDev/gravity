@@ -5,6 +5,12 @@ import 'package:catalogo_ja/core/sync/repositories/sync_queue_repository.dart';
 import 'package:catalogo_ja/core/sync/policies/latest_write_wins_policy.dart';
 import 'package:catalogo_ja/core/sync/policies/sync_conflict_policy.dart';
 import 'package:catalogo_ja/core/sync/workers/sync_worker.dart';
+import 'package:catalogo_ja/core/sync/handlers/sync_entity_handler.dart';
+import 'package:catalogo_ja/core/sync/handlers/default_sync_handler.dart';
+import 'package:catalogo_ja/core/sync/handlers/product_sync_handler.dart';
+import 'package:catalogo_ja/core/sync/handlers/media_upload_resolver.dart';
+import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
+import 'package:catalogo_ja/data/repositories/products_repository.dart';
 
 // Repositorio Local
 final syncQueueRepositoryProvider = Provider<SyncQueueRepository>((ref) {
@@ -17,11 +23,29 @@ final syncConflictPolicyProvider = Provider<SyncConflictPolicy>((ref) {
   return LatestWriteWinsPolicy();
 });
 
+// Resolvers
+final mediaUploadResolverProvider = Provider<MediaUploadResolver>((ref) {
+  final storageService = ref.watch(saasPhotoStorageServiceProvider);
+  return MediaUploadResolver(storageService);
+});
+
 // Worker Engine
 final syncWorkerProvider = Provider<SyncWorker>((ref) {
   final repo = ref.watch(syncQueueRepositoryProvider);
   final policy = ref.watch(syncConflictPolicyProvider);
-  return SyncWorker(repo, policy);
+  final mediaResolver = ref.watch(mediaUploadResolverProvider);
+  final localProductsRepo = ref.watch(hiveProductsRepositoryProvider);
+
+  // Mapeamento dinâmico de Handlers
+  final handlers = <String, SyncEntityHandler>{
+    'product': ProductSyncHandler(mediaResolver, policy, localProductsRepo),
+    'category': DefaultSyncHandler('category', 'categories', policy),
+    'catalog': DefaultSyncHandler('catalog', 'catalogs', policy),
+    'order': DefaultSyncHandler('order', 'orders', policy),
+    'audit_log': DefaultSyncHandler('audit_log', 'audit_logs', policy),
+  };
+
+  return SyncWorker(repo, handlers);
 });
 
 // Observabilidade (Contador de Pendentes/Erros) // TODO: Mudar para ValueListenable no futuro p/ performance 
