@@ -2,12 +2,12 @@ import 'package:hive/hive.dart';
 import 'package:uuid/uuid.dart';
 
 enum OrderStatus {
-  pending,      // Novo pedido, aguardando aprovação/pagamento
-  processing,   // Pagamento aprovado, separando no estoque
-  ready,        // Separado, pronto para retirada ou envio
-  shipped,      // Em trânsito para o cliente
-  delivered,    // Entregue
-  cancelled,    // Cancelado
+  pending, // Novo pedido, aguardando aprovação/pagamento
+  processing, // Pagamento aprovado, separando no estoque
+  ready, // Separado, pronto para retirada ou envio
+  shipped, // Em trânsito para o cliente
+  delivered, // Entregue
+  cancelled, // Cancelado
 }
 
 class OrderItem {
@@ -50,29 +50,31 @@ class OrderItem {
       sku: map['sku'],
       quantity: map['quantity'] ?? 1,
       unitPrice: (map['unitPrice'] as num?)?.toDouble() ?? 0.0,
-      attributes: map['attributes'] != null ? Map<String, String>.from(map['attributes']) : null,
+      attributes: map['attributes'] != null
+          ? Map<String, String>.from(map['attributes'])
+          : null,
       notes: map['notes'],
     );
   }
 }
 
-/// O Pedido fecha o ciclo entre a Vitrine Web (Carrinho de WhatsApp) 
+/// O Pedido fecha o ciclo entre a Vitrine Web (Carrinho de WhatsApp)
 /// e o App do Lojista (Gestão de status e separação).
 class Order {
   final String id;
   final String tenantId;
   final String catalogId; // Origem da venda
-  
+
   // CRM Leve
-  final String? customerId; 
+  final String? customerId;
   final String customerName;
   final String customerPhone;
-  
+
   final List<OrderItem> items;
   final OrderStatus status;
   final double discount;
   final double shippingCost;
-  
+
   final DateTime createdAt;
   final DateTime updatedAt;
   final String? sellerId; // Quem fechou/atendeu esse pedido
@@ -91,9 +93,9 @@ class Order {
     DateTime? createdAt,
     DateTime? updatedAt,
     this.sellerId,
-  })  : id = id ?? const Uuid().v4(),
-        createdAt = createdAt ?? DateTime.now(),
-        updatedAt = updatedAt ?? DateTime.now();
+  }) : id = id ?? const Uuid().v4(),
+       createdAt = createdAt ?? DateTime.now(),
+       updatedAt = updatedAt ?? DateTime.now();
 
   double get subtotal => items.fold(0, (sum, item) => sum + item.totalPrice);
   double get totalAmount => (subtotal - discount) + shippingCost;
@@ -104,6 +106,7 @@ class Order {
     double? shippingCost,
     DateTime? updatedAt,
     String? sellerId,
+    required String tenantId,
   }) {
     return Order(
       id: id,
@@ -148,12 +151,21 @@ class Order {
       customerId: map['customerId'],
       customerName: map['customerName'] ?? '',
       customerPhone: map['customerPhone'] ?? '',
-      items: List<OrderItem>.from(map['items']?.map((x) => OrderItem.fromMap(x)) ?? []),
-      status: OrderStatus.values.firstWhere((e) => e.name == map['status'], orElse: () => OrderStatus.pending),
+      items: List<OrderItem>.from(
+        map['items']?.map((x) => OrderItem.fromMap(x)) ?? [],
+      ),
+      status: OrderStatus.values.firstWhere(
+        (e) => e.name == map['status'],
+        orElse: () => OrderStatus.pending,
+      ),
       discount: (map['discount'] as num?)?.toDouble() ?? 0.0,
       shippingCost: (map['shippingCost'] as num?)?.toDouble() ?? 0.0,
-      createdAt: map['createdAt'] != null ? DateTime.parse(map['createdAt']) : null,
-      updatedAt: map['updatedAt'] != null ? DateTime.parse(map['updatedAt']) : null,
+      createdAt: map['createdAt'] != null
+          ? DateTime.parse(map['createdAt'])
+          : null,
+      updatedAt: map['updatedAt'] != null
+          ? DateTime.parse(map['updatedAt'])
+          : null,
       sellerId: map['sellerId'],
     );
   }

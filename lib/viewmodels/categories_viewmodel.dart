@@ -9,6 +9,7 @@ import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:catalogo_ja/data/repositories/tenant_repository.dart';
 import 'package:catalogo_ja/core/error/app_failure.dart';
 import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
+import 'package:catalogo_ja/core/sync/providers/sync_providers.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
@@ -535,6 +536,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         storageService,
         tenantId,
         settingsRepo,
+        ref.read(syncQueueRepositoryProvider),
       );
 
       final currentLocalCategories = await localRepo.getCategories();

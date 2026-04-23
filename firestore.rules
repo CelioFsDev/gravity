@@ -13,7 +13,8 @@ service cloud.firestore {
       return isSignedIn() && (
         currentUserEmail() == 'ti.vitoriana@gmail.com' || 
         currentUserEmail() == 'celiofs.dev@gmail.com' ||
-        currentUserEmail() == 'celio@gmail.com'
+        currentUserEmail() == 'celio@gmail.com' ||
+        currentUserEmail() == 'celioferreira.dev@gmail.com'
       );
     }
 
@@ -31,10 +32,10 @@ service cloud.firestore {
       return isSuperAdmin();
     }
 
-    function getTenantId() {
+    function getTenantIds() {
       return exists(/databases/$(database)/documents/users/$(currentUserEmail()))
-        ? get(/databases/$(database)/documents/users/$(currentUserEmail())).data.tenantId
-        : null;
+        ? get(/databases/$(database)/documents/users/$(currentUserEmail())).data.tenantIds
+        : [];
     }
 
     function isSelf(userEmail) {
@@ -49,11 +50,11 @@ service cloud.firestore {
 
     // --- SaaS Rule: Ensure data belongs to current user's tenant ---
     function isFromTenant(resourceData) {
-      return isSignedIn() && (resourceData.tenantId == getTenantId() || isAdmin());
+      return isSignedIn() && (resourceData.tenantId in getTenantIds() || isAdmin());
     }
 
     function isWritingForTenant() {
-      return isSignedIn() && (request.resource.data.tenantId == getTenantId() || isAdmin());
+      return isSignedIn() && (request.resource.data.tenantId in getTenantIds() || isAdmin());
     }
 
     match /users/{userEmail} {
@@ -64,9 +65,10 @@ service cloud.firestore {
     }
 
     match /tenants/{tenantId} {
-      allow read: if isSignedIn();
+      allow get: if isSignedIn();
+      allow list: if isSignedIn() && (tenantId in getTenantIds() || isAdmin());
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && (tenantId == getTenantId() || isAdmin());
+      allow update: if isSignedIn() && (tenantId in getTenantIds() || isAdmin());
     }
 
     match /products/{productId} {

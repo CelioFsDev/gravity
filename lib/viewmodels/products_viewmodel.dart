@@ -1,9 +1,10 @@
 import 'package:catalogo_ja/data/repositories/tenant_repository.dart';
 import 'package:catalogo_ja/data/repositories/firestore_products_repository.dart';
+import 'package:catalogo_ja/core/audit/services/audit_service.dart';
+import 'package:catalogo_ja/core/sync/providers/sync_providers.dart';
 import 'package:catalogo_ja/data/repositories/categories_repository.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
-import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:catalogo_ja/core/services/photo_classification_service.dart';
 import 'package:catalogo_ja/models/product.dart';
@@ -14,7 +15,6 @@ import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
 import 'package:catalogo_ja/core/error/app_failure.dart';
 import 'package:catalogo_ja/core/services/app_logger.dart';
-import 'package:catalogo_ja/core/services/image_cache_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -487,9 +487,16 @@ class ProductsViewModel extends _$ProductsViewModel {
       final repository = ref.read(syncProductsRepositoryProvider);
       
       if (repository is FirestoreProductsRepository) {
-        final count = await repository.syncAllPending(
-          onProgress: (p, m) => progressNotifier.updateProgress(p, m),
+        final queueRepo = ref.read(syncQueueRepositoryProvider);
+        final count = queueRepo
+            .getPendingOrErrorItems()
+            .where((item) => item.entityType == 'product')
+            .length;
+        progressNotifier.updateProgress(
+          0.5,
+          'Sincronizando produtos pendentes...',
         );
+        await ref.read(syncWorkerProvider).processQueue();
         progressNotifier.stopSync(message: 'Sincronização concluída: $count produtos atualizados.');
         await refresh();
         _notifyChanges();
@@ -533,13 +540,13 @@ class ProductsViewModel extends _$ProductsViewModel {
 
       final localRepo =
           ref.read(productsRepositoryProvider) as HiveProductsRepository;
-      final cacheService = ref.read(imageCacheServiceProvider);
-      final storageService = ref.read(saasPhotoStorageProvider);
+      final syncQueue = ref.read(syncQueueRepositoryProvider);
       final firestoreRepo = FirestoreProductsRepository(
         localRepo,
-        storageService,
+        syncQueue,
         tenantId,
         ref.read(settingsRepositoryProvider),
+        ref.read(auditServiceProvider),
       );
 
       // 2. Busca inicial

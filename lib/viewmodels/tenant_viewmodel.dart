@@ -34,6 +34,28 @@ final tenantViewModelProvider = Provider<TenantRepository>((ref) {
   return ref.watch(tenantRepositoryProvider);
 });
 
+/// Provider que lista todos os tenants a que o usuário ativo pertence
+final userTenantsProvider = FutureProvider<List<Tenant>>((ref) async {
+  final authUser = ref.watch(authViewModelProvider).valueOrNull;
+  if (authUser == null || authUser.email == null) return [];
+
+  final repo = ref.read(tenantRepositoryProvider);
+  return await repo.getUserTenants(authUser.email!);
+});
+
+/// Provider auxiliar para verificar se o usuário precisa passar pelo onboarding de tenant
+final requiresTenantOnboardingProvider = FutureProvider<bool>((ref) async {
+  final authUser = ref.watch(authViewModelProvider).valueOrNull;
+  if (authUser == null || authUser.email == null) return false;
+
+  final doc = await FirebaseFirestore.instance.collection('users').doc(authUser.email!.trim().toLowerCase()).get();
+  final tenantIds = List<String>.from(doc.data()?['tenantIds'] ?? []);
+  final oldTenantId = doc.data()?['tenantId'] as String?;
+  
+  // Se não tem nem tenantId legado e nem array de tenants, precisa de onboarding.
+  return tenantIds.isEmpty && (oldTenantId == null || oldTenantId.isEmpty);
+});
+
 /// Provider que observa a unidade (loja) atual selecionada pelo usuário.
 final currentStoreIdProvider = StreamProvider<String?>((ref) {
   final authUser = ref.watch(authViewModelProvider).valueOrNull;

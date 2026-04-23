@@ -1,6 +1,3 @@
-import 'dart:convert';
-import 'dart:typed_data';
-
 import 'package:catalogo_ja/data/repositories/contracts/products_repository_contract.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/models/product.dart';
@@ -116,6 +113,23 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
       debugPrint('Erro ao buscar produtos da nuvem: $e');
       return await _localRepo.getProducts();
     }
+  }
+
+  Future<List<Product>> fetchFromCloudOnly({DateTime? since}) async {
+    Query<Map<String, dynamic>> query =
+        _collection.where('tenantId', isEqualTo: _tenantId);
+
+    if (since != null) {
+      query = query.where(
+        'updatedAt',
+        isGreaterThan: Timestamp.fromDate(
+          since.subtract(const Duration(seconds: 10)),
+        ),
+      );
+    }
+
+    final snapshot = await query.get().timeout(const Duration(seconds: 15));
+    return snapshot.docs.map((doc) => Product.fromMap(doc.data())).toList();
   }
 
   @override

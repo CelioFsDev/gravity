@@ -20,13 +20,14 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       linktreeUrl: (fields[6] as String?) ?? '',
       instagramUrl: (fields[7] as String?) ?? '',
       isInitialSyncCompleted: (fields[8] as bool?) ?? false,
+      qrTargetUrl: (fields[9] as String?) ?? '',
     );
   }
 
   @override
   void write(BinaryWriter writer, AppSettings obj) {
     writer
-      ..writeByte(9)
+      ..writeByte(10)
       ..writeByte(0)
       ..write(obj.storeName)
       ..writeByte(1)
@@ -44,7 +45,9 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       ..writeByte(7)
       ..write(obj.instagramUrl)
       ..writeByte(8)
-      ..write(obj.isInitialSyncCompleted);
+      ..write(obj.isInitialSyncCompleted)
+      ..writeByte(9)
+      ..write(obj.qrTargetUrl);
   }
 }
 
@@ -58,6 +61,7 @@ class AppSettings {
   final String linktreeUrl;
   final String instagramUrl;
   final bool isInitialSyncCompleted;
+  final String qrTargetUrl;
 
   AppSettings({
     required this.storeName,
@@ -69,6 +73,7 @@ class AppSettings {
     this.linktreeUrl = '',
     this.instagramUrl = '',
     this.isInitialSyncCompleted = false,
+    this.qrTargetUrl = '',
   });
 
   AppSettings copyWith({
@@ -81,6 +86,7 @@ class AppSettings {
     String? linktreeUrl,
     String? instagramUrl,
     bool? isInitialSyncCompleted,
+    String? qrTargetUrl,
   }) {
     return AppSettings(
       storeName: storeName ?? this.storeName,
@@ -92,6 +98,7 @@ class AppSettings {
       linktreeUrl: linktreeUrl ?? this.linktreeUrl,
       instagramUrl: instagramUrl ?? this.instagramUrl,
       isInitialSyncCompleted: isInitialSyncCompleted ?? this.isInitialSyncCompleted,
+      qrTargetUrl: qrTargetUrl ?? this.qrTargetUrl,
     );
   }
 
@@ -106,6 +113,7 @@ class AppSettings {
       linktreeUrl: '',
       instagramUrl: '',
       isInitialSyncCompleted: false,
+      qrTargetUrl: '',
     );
   }
 }

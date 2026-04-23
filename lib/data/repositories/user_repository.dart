@@ -76,20 +76,14 @@ class UserRepository {
             : UserRole.viewer.name);
 
     final existingTenantId = data['tenantId'] as String?;
-    final assignedTenantId = tenantId ?? existingTenantId ?? (authUid != null ? 't_$authUid' : null);
-
-    // ✨ SaaS Logic: Ensure every user has a tenantId. 
-    // This prevents "Local Mode" which causes data loss on logout because Hive is cleared.
-    if (assignedTenantId != null && existingTenantId == null) {
-      // Create a default tenant if it's the first time assigning it
-      await _firestore.collection('tenants').doc(assignedTenantId).set({
-        'id': assignedTenantId,
-        'name': 'Meu Catálogo',
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+    final existingTenantIds = List<String>.from(data['tenantIds'] ?? []);
+    
+    // Se o user tinha um tenantId mas não estava na lista, a gente adiciona (migração retroativa)
+    if (existingTenantId != null && !existingTenantIds.contains(existingTenantId)) {
+      existingTenantIds.add(existingTenantId);
     }
-
+    
+    // Atualizamos o payload
     await docRef.set({
       'authUid': authUid ?? data['authUid'],
       'createdAt': data['createdAt'] ?? FieldValue.serverTimestamp(),
@@ -104,7 +98,8 @@ class UserRepository {
           ? providerIds
           : List<String>.from(data['providerIds'] ?? const []),
       'role': role,
-      'tenantId': assignedTenantId,
+      'tenantId': existingTenantId, // Não forçamos mais um falso
+      'tenantIds': existingTenantIds, // Nova estrutura de array
       'whatsappNumber': data['whatsappNumber'] ?? '',
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));

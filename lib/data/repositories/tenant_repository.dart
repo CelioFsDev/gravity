@@ -28,6 +28,36 @@ class TenantRepository {
     }
   }
 
+  /// Retorna a lista de empresas (Tenants) a que este usuário pertence.
+  Future<List<Tenant>> getUserTenants(String email) async {
+    try {
+      final doc = await _firestore.collection('users').doc(email.trim().toLowerCase()).get();
+      final List<String> tenantIds = List<String>.from(doc.data()?['tenantIds'] ?? []);
+      
+      // Se tiver só tenantId antigo sem array
+      final oldTenantId = doc.data()?['tenantId'] as String?;
+      if (tenantIds.isEmpty && oldTenantId != null) {
+        tenantIds.add(oldTenantId);
+      }
+
+      if (tenantIds.isEmpty) return [];
+
+      // Divide em chunks de 10 porque o Firestore tem limite no arrayContainsAny / in
+      final List<Tenant> allTenants = [];
+      for (var i = 0; i < tenantIds.length; i += 10) {
+        final chunk = tenantIds.sublist(i, i + 10 > tenantIds.length ? tenantIds.length : i + 10);
+        final snapshot = await _firestore.collection('tenants')
+            .where(FieldPath.documentId, whereIn: chunk)
+            .get();
+        allTenants.addAll(snapshot.docs.map((d) => Tenant.fromMap(d.data())));
+      }
+      
+      return allTenants;
+    } catch (e) {
+      return [];
+    }
+  }
+
   Future<void> updateTenant(Tenant tenant) async {
     await _firestore.collection('tenants').doc(tenant.id).set(
       tenant.toMap(),
@@ -96,6 +126,28 @@ class TenantRepository {
     await _firestore.collection('tenants').doc(tenantId).update({
       'stores': updatedStores,
     });
+  }
+
+  /// 🤝 Permite um vendedor se juntar a uma empresa informando o ID
+  Future<void> joinTenant({
+    required String tenantId,
+    required String email,
+  }) async {
+    final doc = await _firestore.collection('tenants').doc(tenantId).get();
+    if (!doc.exists) {
+      throw Exception('ID de Empresa inválido ou não encontrado.');
+    }
+
+    final normalizedEmail = email.trim().toLowerCase();
+
+    // Adiciona o tenantId na array e define a loja atual do vendedor
+    await _firestore.collection('users').doc(normalizedEmail).set({
+      'tenantIds': FieldValue.arrayUnion([tenantId]),
+      'tenantId': tenantId, // Opcional, para forçar ele a entrar direto nesse tenant agora
+      'role': 'seller', // Quem entra via ID cai como Vendedor por padrão
+    }, SetOptions(merge: true));
+
+    _cachedTenantId = tenantId;
   }
 
   Stream<Tenant?> watchTenant(String tenantId) {

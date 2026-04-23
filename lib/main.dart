@@ -2,7 +2,7 @@ import 'package:catalogo_ja/features/admin/users/create_email_password_user_scre
 import 'package:catalogo_ja/features/auth/register_screen.dart';
 import 'package:catalogo_ja/features/admin/profile/profile_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' hide Order;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,7 +18,6 @@ import 'package:catalogo_ja/models/order.dart';
 import 'package:catalogo_ja/models/settings.dart';
 import 'package:catalogo_ja/models/product_variant.dart';
 import 'package:catalogo_ja/models/product_image.dart';
-import 'package:catalogo_ja/models/sync_status.dart';
 import 'package:catalogo_ja/core/sync/models/sync_queue_item.dart';
 import 'package:catalogo_ja/core/sync/repositories/sync_queue_repository.dart';
 import 'package:catalogo_ja/features/admin/admin_shell_screen.dart';
