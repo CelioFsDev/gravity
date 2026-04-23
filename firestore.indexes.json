@@ -16,6 +16,14 @@
           { "fieldPath": "tenantId", "order": "ASCENDING" },
           { "fieldPath": "updatedAt", "order": "ASCENDING" }
         ]
+      },
+      {
+        "collectionGroup": "catalogs",
+        "queryScope": "COLLECTION",
+        "fields": [
+          { "fieldPath": "tenantId", "order": "ASCENDING" },
+          { "fieldPath": "updatedAt", "order": "ASCENDING" }
+        ]
       }
     ]
   }

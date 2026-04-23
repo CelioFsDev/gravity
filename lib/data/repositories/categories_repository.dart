@@ -34,23 +34,38 @@ class HiveCategoriesRepository implements CategoriesRepositoryContract {
     return items.where((c) => c.tenantId == tenantId).toList();
   }
 
+  Category _withTenant(Category category) {
+    final tenantId = _getTenantId();
+    if (tenantId == null || tenantId.isEmpty || category.tenantId == tenantId) {
+      return category;
+    }
+    if ((category.tenantId ?? '').isEmpty) {
+      return category.copyWith(tenantId: tenantId);
+    }
+    return category;
+  }
+
   @override
   Future<List<Category>> getCategories() async =>
       _filter(_categoriesBox.values);
 
   @override
   Future<void> addCategory(Category category) async {
-    await _categoriesBox.put(category.id, category);
+    final categoryToSave = _withTenant(category);
+    await _categoriesBox.put(categoryToSave.id, categoryToSave);
   }
 
   @override
   Future<void> updateCategory(Category category) async {
-    await _categoriesBox.put(category.id, category);
+    final categoryToSave = _withTenant(category);
+    await _categoriesBox.put(categoryToSave.id, categoryToSave);
   }
 
   @override
   Future<void> updateCategoriesBulk(List<Category> categories) async {
-    final Map<String, Category> updates = {for (var c in categories) c.id: c};
+    final Map<String, Category> updates = {
+      for (var c in categories) _withTenant(c).id: _withTenant(c),
+    };
     await _categoriesBox.putAll(updates);
   }
 

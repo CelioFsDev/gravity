@@ -183,20 +183,35 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     );
   }
 
-  void _saveCategory(
+  Future<void> _saveCategory(
     CategoriesViewModel notifier,
     bool isEdit,
     Category? category,
-  ) {
+  ) async {
     final name = _categoryNameController.text.trim();
     if (name.isEmpty) return;
 
-    if (isEdit && category != null) {
-      notifier.updateCategory(category.id, name);
-    } else {
-      notifier.addCategory(name, CategoryType.productType);
+    try {
+      final error = isEdit && category != null
+          ? await notifier.updateCategory(category.id, name)
+          : await notifier.addCategory(name, CategoryType.productType);
+
+      if (!mounted) return;
+
+      if (error != null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error)));
+        return;
+      }
+
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erro ao salvar categoria: $e')));
     }
-    Navigator.of(context).pop();
   }
 
   Future<void> _showCategoryDialog(
