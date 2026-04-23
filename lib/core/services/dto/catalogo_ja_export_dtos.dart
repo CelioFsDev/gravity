@@ -6,18 +6,23 @@ import 'package:catalogo_ja/models/product_variant.dart';
 
 class CatalogoJaExportPayload {
   final String app;
-  final int version;
+  final int version; // Mantido para retro-compatibilidade
+  final int backupVersion;
+  final int schemaVersion;
+  final String migrationStrategy;
   final String exportedAt;
   final StoreInfoDTO? store;
   final List<CategoryDTO> categories;
-  final List<CategoryDTO>
-  collections; // Collections are Categories with type=collection
+  final List<CategoryDTO> collections; 
   final List<ProductDTO> products;
   final List<CatalogDTO> catalogs;
 
   CatalogoJaExportPayload({
     required this.app,
     required this.version,
+    this.backupVersion = 1,
+    this.schemaVersion = 1,
+    this.migrationStrategy = 'none',
     required this.exportedAt,
     this.store,
     required this.categories,
@@ -30,6 +35,9 @@ class CatalogoJaExportPayload {
     return {
       'app': app,
       'version': version,
+      'backupVersion': backupVersion,
+      'schemaVersion': schemaVersion,
+      'migrationStrategy': migrationStrategy,
       'exportedAt': exportedAt,
       if (store != null) 'store': store!.toJson(),
       'categories': categories.map((e) => e.toJson()).toList(),
@@ -43,31 +51,25 @@ class CatalogoJaExportPayload {
     return CatalogoJaExportPayload(
       app: json['app'] as String? ?? 'CatalogoJa',
       version: json['version'] as int? ?? 1,
-      exportedAt:
-          json['exportedAt'] as String? ?? DateTime.now().toIso8601String(),
+      backupVersion: json['backupVersion'] as int? ?? json['version'] as int? ?? 1,
+      schemaVersion: json['schemaVersion'] as int? ?? 1,
+      migrationStrategy: json['migrationStrategy'] as String? ?? 'none',
+      exportedAt: json['exportedAt'] as String? ?? DateTime.now().toIso8601String(),
       store: json['store'] != null
           ? StoreInfoDTO.fromJson(json['store'])
           : null,
-      categories:
-          (json['categories'] as List<dynamic>?)
+      categories: (json['categories'] as List<dynamic>?)
               ?.map((e) => CategoryDTO.fromJson(e))
-              .toList() ??
-          [],
-      collections:
-          (json['collections'] as List<dynamic>?)
+              .toList() ?? [],
+      collections: (json['collections'] as List<dynamic>?)
               ?.map((e) => CategoryDTO.fromJson(e))
-              .toList() ??
-          [],
-      products:
-          (json['products'] as List<dynamic>?)
+              .toList() ?? [],
+      products: (json['products'] as List<dynamic>?)
               ?.map((e) => ProductDTO.fromJson(e))
-              .toList() ??
-          [],
-      catalogs:
-          (json['catalogs'] as List<dynamic>?)
+              .toList() ?? [],
+      catalogs: (json['catalogs'] as List<dynamic>?)
               ?.map((e) => CatalogDTO.fromJson(e))
-              .toList() ??
-          [],
+              .toList() ?? [],
     );
   }
 }

@@ -107,6 +107,9 @@ class ExportImportService {
     return CatalogoJaExportPayload(
       app: 'CatalogoJa',
       version: 1,
+      backupVersion: 1, // Controle de formato de backup do ZIP
+      schemaVersion: 1, // Versao do DTO / Modelos de banco de dados
+      migrationStrategy: 'v1_direct', // Estratégia de fallback futura
       exportedAt: DateTime.now().toIso8601String(),
       store: StoreInfoDTO(
         name: settings.storeName,
@@ -174,11 +177,28 @@ class ExportImportService {
       )) {
         debugPrint('App identifier mismatch: $appIdentifier');
         throw Exception(
-          'Este arquivo n\u00e3o parece ser um backup v\u00e1lido do CatalogoJa ou Gravity (ID: $appIdentifier).',
+          'Este arquivo não parece ser um backup válido do CatalogoJa ou Gravity (ID: $appIdentifier).',
         );
       }
 
-      return CatalogoJaExportPayload.fromJson(map);
+      // 🛡️ SCHEMA & VERSIONING MIGRATION LOGIC
+      final incomingSchemaVersion = map['schemaVersion'] as int? ?? 1;
+      final currentAppSchemaVersion = 1; // ⚠️ Aumente aqui quando o Hive/Modelos mudarem de forma destrutiva
+
+      if (incomingSchemaVersion > currentAppSchemaVersion) {
+        throw Exception(
+          'Este backup foi gerado numa versão mais recente do aplicativo (v$incomingSchemaVersion). Por favor, atualize seu aplicativo na loja antes de importar.',
+        );
+      }
+
+      final payload = CatalogoJaExportPayload.fromJson(map);
+
+      // Aqui entra o switch de Migrações futuras.
+      // if (payload.schemaVersion < currentAppSchemaVersion) {
+      //    payload = _runMigrations(payload, currentAppSchemaVersion);
+      // }
+
+      return payload;
     } catch (e) {
       if (e is FormatException) {
         throw Exception(
