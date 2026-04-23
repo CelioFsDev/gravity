@@ -1,0 +1,25 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Baseado nas Custom Claims do Auth
+    function hasTenantAccess(tenantId) {
+      return isAuthenticated() && request.auth.token.tenantId == tenantId;
+    }
+
+    // Estrutura física no bucket DEVE ser separada em pastas por tenant:
+    // gs://meubucket/tenants/{tenantId}/products/...
+    match /tenants/{tenantId}/{allPaths=**} {
+      
+      // Leitura pública (Para fotos aparecerem no site do cliente final sem auth)
+      allow read: if true; 
+      
+      // Upload/Modificação/Deleção: EXCLUSIVO do dono do tenant
+      allow write: if hasTenantAccess(tenantId);
+    }
+  }
+}

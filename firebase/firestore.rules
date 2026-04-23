@@ -1,0 +1,70 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ==========================================
+    // FUNÇÕES DE BLINDAGEM (SaaS Multi-Tenant)
+    // ==========================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Valida se o usuário tem o claim exato do tenant no Firebase Auth
+    function hasTenantAccess(tenantId) {
+      return isAuthenticated() && request.auth.token.tenantId == tenantId;
+    }
+
+    function isTenantAdmin(tenantId) {
+       return hasTenantAccess(tenantId) && request.auth.token.role == 'admin';
+    }
+
+    // Regra Global: Por padrão, negamos tudo. 
+    // Só é liberado o que está explicitamente abaixo.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ==========================================
+    // REGRAS POR ENTIDADE (SCOPED)
+    // ==========================================
+
+    match /tenants/{tenantId} {
+      allow read: if hasTenantAccess(tenantId);
+      // Apenas admin (ou backend) altera dados críticos do Tenant
+      allow write: if isTenantAdmin(tenantId);
+    }
+
+    match /products/{productId} {
+      // Para criar: o payload.tenantId DEVE ser igual ao token.tenantId
+      allow create: if hasTenantAccess(request.resource.data.tenantId);
+      
+      // Para ler/atualizar/deletar: o documento no banco (resource) DEVE pertencer ao seu tenant
+      allow read, update, delete: if hasTenantAccess(resource.data.tenantId);
+    }
+
+    match /categories/{categoryId} {
+      allow create: if hasTenantAccess(request.resource.data.tenantId);
+      allow read, update, delete: if hasTenantAccess(resource.data.tenantId);
+    }
+
+    match /sync_queue/{queueId} {
+      allow create: if hasTenantAccess(request.resource.data.tenantId);
+      allow read, update, delete: if hasTenantAccess(resource.data.tenantId);
+    }
+
+    // Auditoria é sagrada: pode ler/criar, mas NUNCA alterar ou excluir
+    match /audit_logs/{logId} {
+      allow create: if hasTenantAccess(request.resource.data.tenantId);
+      allow read: if hasTenantAccess(resource.data.tenantId);
+      allow update, delete: if false;
+    }
+
+    match /catalogs/{catalogId} {
+      // Leitura cruzada autorizada apenas se for um catálogo PÚBLICO (ex: cliente acessando link)
+      allow read: if resource.data.isPublic == true || hasTenantAccess(resource.data.tenantId);
+      allow create: if hasTenantAccess(request.resource.data.tenantId);
+      allow update, delete: if hasTenantAccess(resource.data.tenantId);
+    }
+  }
+}
