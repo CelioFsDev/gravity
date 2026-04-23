@@ -25,7 +25,7 @@ final syncConflictPolicyProvider = Provider<SyncConflictPolicy>((ref) {
 
 // Resolvers
 final mediaUploadResolverProvider = Provider<MediaUploadResolver>((ref) {
-  final storageService = ref.watch(saasPhotoStorageServiceProvider);
+  final storageService = ref.watch(saasPhotoStorageProvider);
   return MediaUploadResolver(storageService);
 });
 
@@ -34,7 +34,7 @@ final syncWorkerProvider = Provider<SyncWorker>((ref) {
   final repo = ref.watch(syncQueueRepositoryProvider);
   final policy = ref.watch(syncConflictPolicyProvider);
   final mediaResolver = ref.watch(mediaUploadResolverProvider);
-  final localProductsRepo = ref.watch(hiveProductsRepositoryProvider);
+  final localProductsRepo = ref.watch(productsRepositoryProvider) as HiveProductsRepository;
 
   // Mapeamento dinâmico de Handlers
   final handlers = <String, SyncEntityHandler>{
