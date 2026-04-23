@@ -18,6 +18,8 @@ import 'package:catalogo_ja/models/settings.dart';
 import 'package:catalogo_ja/models/product_variant.dart';
 import 'package:catalogo_ja/models/product_image.dart';
 import 'package:catalogo_ja/models/sync_status.dart';
+import 'package:catalogo_ja/core/sync/models/sync_queue_item.dart';
+import 'package:catalogo_ja/core/sync/repositories/sync_queue_repository.dart';
 import 'package:catalogo_ja/features/admin/admin_shell_screen.dart';
 import 'package:catalogo_ja/features/admin/products/products_screen.dart';
 import 'package:catalogo_ja/features/admin/categories/categories_screen.dart';
@@ -73,6 +75,7 @@ void main() async {
   }
 
   // Register Adapters
+  Hive.registerAdapter(SyncQueueItemAdapter());
   Hive.registerAdapter(SyncStatusAdapter());
   Hive.registerAdapter(CategoryTypeAdapter());
   Hive.registerAdapter(CollectionCoverModeAdapter());
@@ -105,6 +108,7 @@ void main() async {
     }
 
     await safeOpenBox<Category>('categories');
+    await safeOpenBox<SyncQueueItem>(SyncQueueRepository.boxName);
     await safeOpenBox<Product>('products');
     await safeOpenBox<Catalog>('catalogs');
     await safeOpenBox<AppSettings>('settings');

@@ -7,6 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
 import 'package:catalogo_ja/data/repositories/settings_repository.dart';
+import 'package:catalogo_ja/core/sync/models/sync_queue_item.dart';
+import 'package:catalogo_ja/core/sync/repositories/sync_queue_repository.dart';
+import 'package:catalogo_ja/core/sync/providers/sync_providers.dart';
 
 class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -14,12 +17,14 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
   final SaaSPhotoStorageService _storageService;
   final String _tenantId;
   final SettingsRepository _settingsRepo;
+  final SyncQueueRepository _syncQueue;
 
   FirestoreCategoriesRepository(
     this._localRepo,
     this._storageService,
     this._tenantId,
     this._settingsRepo,
+    this._syncQueue,
   );
 
   // 🔑 Cache em memória
@@ -129,12 +134,33 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
   Future<void> addCategory(Category category) async {
     // 🏠 Local-First: Salva no Hive instantaneamente
     await _localRepo.addCategory(category);
+    
+    // 📦 Entra na fila de sincronização
+    await _syncQueue.enqueue(SyncQueueItem(
+      tenantId: _tenantId,
+      entityType: 'category',
+      entityId: category.id,
+      operation: SyncOperation.create,
+      payload: category.toMap(),
+    ));
+
     invalidateCache();
   }
 
   @override
   Future<void> updateCategory(Category category) async {
     await _localRepo.updateCategory(category);
+    
+    // 📦 Entra na fila de sincronização
+    await _syncQueue.enqueue(SyncQueueItem(
+      tenantId: _tenantId,
+      entityType: 'category',
+      entityId: category.id,
+      operation: SyncOperation.update,
+      payload: category.toMap(),
+      baseVersion: category.updatedAt, 
+    ));
+
     invalidateCache();
   }
 
@@ -233,6 +259,15 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
   Future<void> deleteCategory(String id) async {
     await _collection.doc(id).delete();
     await _localRepo.deleteCategory(id);
+
+    // 📦 Entra na fila de sincronização
+    await _syncQueue.enqueue(SyncQueueItem(
+      tenantId: _tenantId,
+      entityType: 'category',
+      entityId: id,
+      operation: SyncOperation.delete,
+    ));
+
     invalidateCache();
   }
 
@@ -282,6 +317,7 @@ final syncCategoriesRepositoryProvider = Provider<CategoriesRepositoryContract>(
         ref.watch(categoriesRepositoryProvider) as HiveCategoriesRepository;
     final storageService = ref.watch(saasPhotoStorageProvider);
     final settingsRepo = ref.watch(settingsRepositoryProvider);
+    final syncQueue = ref.watch(syncQueueRepositoryProvider);
 
     return tenantAsync.when(
       data: (tenant) {
@@ -291,6 +327,7 @@ final syncCategoriesRepositoryProvider = Provider<CategoriesRepositoryContract>(
             storageService,
             tenant.id,
             settingsRepo,
+            syncQueue,
           );
         }
         return localRepo;
