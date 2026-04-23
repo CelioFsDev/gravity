@@ -8,6 +8,7 @@ import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/product_image.dart';
 import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
+import 'package:catalogo_ja/core/audit/services/audit_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,12 +20,14 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
   final SaaSPhotoStorageService _storageService;
   final String _tenantId;
   final SettingsRepository _settingsRepo;
+  final AuditService _auditService;
 
   FirestoreProductsRepository(
     this._localRepo,
     this._storageService,
     this._tenantId,
     this._settingsRepo,
+    this._auditService,
   );
 
   // 🔑 Cache em memória: evita re-leituras do Firestore dentro da mesma sessão.
@@ -205,6 +208,15 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
         : product.copyWith(syncStatus: SyncStatus.pendingUpdate);
     // 🏠 Local-First: Salva no Hive instantaneamente
     await _localRepo.addProduct(productToSave);
+    
+    // 🛡️ Auditoria
+    _auditService.logAction(
+      entityType: 'product',
+      entityId: product.id,
+      action: 'create',
+      metadata: {'name': product.name, 'priceRetail': product.priceRetail},
+    );
+
     invalidateCache();
   }
 
@@ -229,6 +241,39 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
           );
 
     await _localRepo.updateProduct(productToSave);
+
+    // 🛡️ Auditoria
+    if (oldProduct != null) {
+      if (oldProduct.priceRetail != product.priceRetail || oldProduct.priceWholesale != product.priceWholesale) {
+        _auditService.logAction(
+          entityType: 'product',
+          entityId: product.id,
+          action: 'update_price',
+          metadata: {
+            'oldPriceRetail': oldProduct.priceRetail,
+            'newPriceRetail': product.priceRetail,
+            'oldPriceWholesale': oldProduct.priceWholesale,
+            'newPriceWholesale': product.priceWholesale,
+          },
+        );
+      }
+      
+      if (oldProduct.images.length > product.images.length || oldProduct.photos.length > product.photos.length) {
+        _auditService.logAction(
+          entityType: 'product',
+          entityId: product.id,
+          action: 'delete_image',
+        );
+      } else if (oldProduct.priceRetail == product.priceRetail && oldProduct.priceWholesale == product.priceWholesale) {
+        _auditService.logAction(
+          entityType: 'product',
+          entityId: product.id,
+          action: 'update',
+          metadata: {'generic_update': true},
+        );
+      }
+    }
+
     invalidateCache();
   }
 
@@ -421,6 +466,14 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
   Future<void> deleteProduct(String id) async {
     await _collection.doc(id).delete();
     await _localRepo.deleteProduct(id);
+
+    // 🛡️ Auditoria
+    _auditService.logAction(
+      entityType: 'product',
+      entityId: id,
+      action: 'delete',
+    );
+
     invalidateCache(); // 🔑 Invalida cache após deletão
   }
 
@@ -475,6 +528,7 @@ final syncProductsRepositoryProvider = Provider<ProductsRepositoryContract>((
       ref.watch(productsRepositoryProvider) as HiveProductsRepository;
   final storageService = ref.watch(saasPhotoStorageProvider);
   final settingsRepo = ref.watch(settingsRepositoryProvider);
+  final auditService = ref.watch(auditServiceProvider);
 
   return tenantAsync.when(
     data: (tenant) {
@@ -484,6 +538,7 @@ final syncProductsRepositoryProvider = Provider<ProductsRepositoryContract>((
           storageService,
           tenant.id,
           settingsRepo,
+          auditService,
         );
       }
       return localRepo;
