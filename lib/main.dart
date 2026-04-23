@@ -14,6 +14,7 @@ import 'package:go_router/go_router.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/catalog.dart';
+import 'package:catalogo_ja/models/order.dart';
 import 'package:catalogo_ja/models/settings.dart';
 import 'package:catalogo_ja/models/product_variant.dart';
 import 'package:catalogo_ja/models/product_image.dart';
@@ -90,6 +91,9 @@ void main() async {
   Hive.registerAdapter(CatalogBannerAdapter());
   Hive.registerAdapter(CatalogModeAdapter());
   Hive.registerAdapter(CatalogAdapter());
+  Hive.registerAdapter(OrderStatusAdapter());
+  Hive.registerAdapter(OrderItemAdapter());
+  Hive.registerAdapter(OrderAdapter());
 
   try {
     // Open Boxes with individual safe guards
@@ -111,6 +115,7 @@ void main() async {
     await safeOpenBox<SyncQueueItem>(SyncQueueRepository.boxName);
     await safeOpenBox<Product>('products');
     await safeOpenBox<Catalog>('catalogs');
+    await safeOpenBox<Order>('orders');
     await safeOpenBox<AppSettings>('settings');
 
     try {

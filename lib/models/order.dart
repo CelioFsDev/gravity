@@ -1,3 +1,4 @@
+import 'package:hive/hive.dart';
 import 'package:uuid/uuid.dart';
 
 enum OrderStatus {
@@ -155,5 +156,94 @@ class Order {
       updatedAt: map['updatedAt'] != null ? DateTime.parse(map['updatedAt']) : null,
       sellerId: map['sellerId'],
     );
+  }
+}
+
+// ==============================================================
+// HIVE ADAPTERS MANUAIS (Para não depender de build_runner agora)
+// ==============================================================
+
+class OrderStatusAdapter extends TypeAdapter<OrderStatus> {
+  @override
+  final int typeId = 50;
+
+  @override
+  OrderStatus read(BinaryReader reader) {
+    return OrderStatus.values[reader.read() as int];
+  }
+
+  @override
+  void write(BinaryWriter writer, OrderStatus obj) {
+    writer.write(obj.index);
+  }
+}
+
+class OrderItemAdapter extends TypeAdapter<OrderItem> {
+  @override
+  final int typeId = 51;
+
+  @override
+  OrderItem read(BinaryReader reader) {
+    return OrderItem(
+      productId: reader.read() as String,
+      productName: reader.read() as String,
+      sku: reader.read() as String?,
+      quantity: reader.read() as int,
+      unitPrice: reader.read() as double,
+      attributes: (reader.read() as Map?)?.cast<String, String>(),
+      notes: reader.read() as String?,
+    );
+  }
+
+  @override
+  void write(BinaryWriter writer, OrderItem obj) {
+    writer.write(obj.productId);
+    writer.write(obj.productName);
+    writer.write(obj.sku);
+    writer.write(obj.quantity);
+    writer.write(obj.unitPrice);
+    writer.write(obj.attributes);
+    writer.write(obj.notes);
+  }
+}
+
+class OrderAdapter extends TypeAdapter<Order> {
+  @override
+  final int typeId = 52;
+
+  @override
+  Order read(BinaryReader reader) {
+    return Order(
+      id: reader.read() as String,
+      tenantId: reader.read() as String,
+      catalogId: reader.read() as String,
+      customerId: reader.read() as String?,
+      customerName: reader.read() as String,
+      customerPhone: reader.read() as String,
+      items: (reader.read() as List).cast<OrderItem>(),
+      status: reader.read() as OrderStatus,
+      discount: reader.read() as double,
+      shippingCost: reader.read() as double,
+      createdAt: reader.read() as DateTime,
+      updatedAt: reader.read() as DateTime,
+      sellerId: reader.read() as String?,
+    );
+  }
+
+  @override
+  void write(BinaryWriter writer, Order obj) {
+    writer.write(obj.id);
+    writer.write(obj.tenantId);
+    writer.write(obj.catalogId);
+    writer.write(obj.customerId);
+    writer.write(obj.customerName);
+    writer.write(obj.customerPhone);
+    writer.write(obj.items);
+    writer.write(obj.status);
+    writer.write(obj.discount);
+    writer.write(obj.shippingCost);
+    writer.write(obj.createdAt);
+    writer.write(obj.updatedAt);
+    writer.write(obj.sellerId);
   }
 }
