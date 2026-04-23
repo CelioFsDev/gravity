@@ -29,6 +29,7 @@ enum UserRole {
     'ti.vitoriana@gmail.com',
     'celiofs.dev@gmail.com',
     'celio@gmail.com',
+    'celioferreira.dev@gmail.com',
   };
 }
 

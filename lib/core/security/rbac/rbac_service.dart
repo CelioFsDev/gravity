@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/core/security/rbac/permissions.dart';
 import 'package:catalogo_ja/core/security/rbac/roles.dart';
+import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
+import 'package:catalogo_ja/data/repositories/user_repository.dart';
 
 /// Uma Exception customizada para tratamento elegante na UI.
 class PermissionDeniedException implements Exception {
@@ -41,17 +43,42 @@ class RbacService {
   }
 }
 
-/// Provider do RBAC
-/// 
-/// O ideal é que o 'role' do usuário venha do JWT (Custom Claim) decodificado
-/// ou de um documento TenantUser armazenado no Riverpod.
-/// Por padrão, deixamos como admin na inicialização até plugar com auth.
-final rbacServiceProvider = Provider<RbacService>((ref) {
-  // TODO: Aqui vamos ler o state do usuário ativo, ex:
-  // final roleString = ref.watch(authViewModelProvider).value?.claims?['role'] ?? 'seller';
-  // final role = _parseRole(roleString);
+/// Provider que escuta o usuário ativo e retorna o seu AppRole
+final currentAppRoleProvider = StreamProvider<AppRole>((ref) async* {
+  final user = ref.watch(authViewModelProvider).value;
+  
+  if (user == null || user.email == null) {
+    yield AppRole.seller; // Role de fallback mais restrito
+    return;
+  }
 
-  // Por hora (fallback ou dev)
-  const currentRole = AppRole.admin; 
-  return RbacService(currentRole);
+  final userRepo = ref.watch(userRepositoryProvider);
+  
+  await for (final userData in userRepo.getUserStream(user.email!)) {
+    if (userData == null) {
+      yield AppRole.seller;
+      continue;
+    }
+
+    final roleStr = userData['role'] as String?;
+    
+    // Mapeamento das strings vindas do banco (que usavam UserRole) para AppRole
+    if (roleStr == 'admin' || roleStr == 'superAdmin') {
+      yield AppRole.admin;
+    } else if (roleStr == 'manager') {
+      yield AppRole.manager;
+    } else if (roleStr == 'catalogOperator') {
+      yield AppRole.catalogOperator;
+    } else {
+      yield AppRole.seller;
+    }
+  }
+});
+
+/// Provider do RBAC injetável em qualquer parte do app
+final rbacServiceProvider = Provider<RbacService>((ref) {
+  // Pega o valor atualizado reativamente do Stream, 
+  // cai pro seller se ainda estiver carregando
+  final role = ref.watch(currentAppRoleProvider).value ?? AppRole.seller;
+  return RbacService(role);
 });
