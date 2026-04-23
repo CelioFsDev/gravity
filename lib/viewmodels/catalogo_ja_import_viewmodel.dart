@@ -9,6 +9,7 @@ import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/catalog_public_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -179,6 +180,7 @@ class CatalogoJaImportViewModel extends _$CatalogoJaImportViewModel {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       ImportResult result;
+      final tenantId = ref.read(currentTenantProvider).valueOrNull?.id;
 
       if (state.extractDirPath != null) {
         // ZIP IMPORT
@@ -187,6 +189,7 @@ class CatalogoJaImportViewModel extends _$CatalogoJaImportViewModel {
           payload: state.payload!,
           extractDir: Directory(state.extractDirPath!),
           mode: state.selectedMode,
+          tenantId: tenantId,
         );
         result = ImportResult(
           successCount: report.createdCount,
@@ -199,6 +202,7 @@ class CatalogoJaImportViewModel extends _$CatalogoJaImportViewModel {
         final report = await packageService.importPackageFromBytes(
           zipBytes: state.packageBytes!,
           mode: state.selectedMode,
+          tenantId: tenantId,
         );
         result = ImportResult(
           successCount: report.createdCount,
@@ -212,6 +216,7 @@ class CatalogoJaImportViewModel extends _$CatalogoJaImportViewModel {
         result = await service.executeImport(
           state.payload!,
           state.selectedMode,
+          tenantId: tenantId,
         );
       }
 

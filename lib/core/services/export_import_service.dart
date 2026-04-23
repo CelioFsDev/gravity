@@ -243,8 +243,9 @@ class ExportImportService {
   /// Executes the import based on the selected mode.
   Future<ImportResult> executeImport(
     CatalogoJaExportPayload payload,
-    ImportMode mode,
-  ) async {
+    ImportMode mode, {
+    String? tenantId,
+  }) async {
     int success = 0;
     int skipped = 0;
     int errors = 0;
@@ -280,18 +281,13 @@ class ExportImportService {
           } else {
             // Update existing
             await _categoriesRepo.updateCategory(
-              dto.toModel().copyWith(id: existing.id), // Keep local ID
+              dto.toModel(tenantId: tenantId).copyWith(id: existing.id), // Keep local ID
             );
             categoryIdMap[dto.id] = existing.id;
           }
         } else {
           // New Category
-          // We can generate a new ID to avoid collisions or trust the imported ID if it's a UUID?
-          // To be safe, let's keep the imported ID if valid UUID, or generate new if collision?
-          // Simplest for P0: Use imported ID. If collision on ID in Hive, it overwrites.
-          // Since we checked slug, we assume ID might be different.
-          // Let's use `addCategory` which uses ID from model.
-          await _categoriesRepo.addCategory(dto.toModel());
+          await _categoriesRepo.addCategory(dto.toModel(tenantId: tenantId));
           categoryIdMap[dto.id] = dto.id;
         }
       } catch (e) {
@@ -329,7 +325,7 @@ class ExportImportService {
 
             // Merge logic: Update fields, keep local ID, preserve local images if remote are empty?
             // P0: Overwrite with imported data (except ID).
-            final productToSave = pDTO.toModel().copyWith(
+            final productToSave = pDTO.toModel(tenantId: tenantId).copyWith(
               id: existing.id, // KEEP LOCAL ID
               categoryIds: newCategoryIds,
             );
@@ -343,12 +339,7 @@ class ExportImportService {
               pDTO.categoryIds?.map((id) => categoryIdMap[id] ?? id).toList() ??
               [];
 
-          // Generate new ID or use imported?
-          // Use imported ID if not collision. But to be safe against ID collision on different REF (edge case),
-          // maybe generate new ID?
-          // Ideally, we keep ID if possible to maintain relations if we import orders later.
-          // But for now, let's keep ID.
-          final productToSave = pDTO.toModel().copyWith(
+          final productToSave = pDTO.toModel(tenantId: tenantId).copyWith(
             categoryIds: newCategoryIds,
           );
 
@@ -368,16 +359,16 @@ class ExportImportService {
 
         if (existing != null) {
           if (mode == ImportMode.replaceAll) {
-            await _catalogsRepo.addCatalog(cDTO.toModel());
+            await _catalogsRepo.addCatalog(cDTO.toModel(tenantId: tenantId));
           } else if (mode == ImportMode.merge) {
             // Update logic: map product IDs if they changed?
             // Assuming IDs are consistent for Catalogs link.
             await _catalogsRepo.updateCatalog(
-              cDTO.toModel().copyWith(id: existing.id),
+              cDTO.toModel(tenantId: tenantId).copyWith(id: existing.id),
             );
           }
         } else {
-          await _catalogsRepo.addCatalog(cDTO.toModel());
+          await _catalogsRepo.addCatalog(cDTO.toModel(tenantId: tenantId));
         }
       } catch (e) {
         errorList.add('Error importing catalog ${cDTO.name}: $e');

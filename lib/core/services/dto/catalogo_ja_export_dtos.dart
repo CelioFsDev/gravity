@@ -136,7 +136,7 @@ class CategoryDTO {
 
   // Converts DTO back to Model.
   // NOTE: 'type' parameter is used to force type if DTO doesn't establish it (e.g. from separate lists)
-  Category toModel({CategoryType? forceType}) {
+  Category toModel({CategoryType? forceType, String? tenantId}) {
     CategoryType resolvedType = forceType ?? CategoryType.productType;
     if (type == 'collection') resolvedType = CategoryType.collection;
 
@@ -150,6 +150,7 @@ class CategoryDTO {
       cover: cover?.toModel(),
       createdAt: DateTime.tryParse(createdAt ?? '') ?? DateTime.now(),
       updatedAt: DateTime.tryParse(updatedAt ?? '') ?? DateTime.now(),
+      tenantId: tenantId,
       syncStatus: SyncStatus.synced,
     );
   }
@@ -506,7 +507,7 @@ class ProductDTO {
     );
   }
 
-  Product toModel() {
+  Product toModel({String? tenantId}) {
     return Product(
       id: id,
       name: name,
@@ -529,6 +530,7 @@ class ProductDTO {
       promoPercent: promoPercent,
       createdAt: DateTime.tryParse(createdAt ?? '') ?? DateTime.now(),
       updatedAt: DateTime.tryParse(updatedAt ?? '') ?? DateTime.now(),
+      tenantId: tenantId,
       syncStatus: SyncStatus.synced,
     );
   }
@@ -719,7 +721,7 @@ class CatalogDTO {
     );
   }
 
-  Catalog toModel() {
+  Catalog toModel({String? tenantId}) {
     return Catalog(
       id: id,
       name: name,
@@ -738,6 +740,7 @@ class CatalogDTO {
       shareCode: shareCode,
       includeCover: includeCover,
       coverType: coverType,
+      tenantId: tenantId,
     );
   }
 

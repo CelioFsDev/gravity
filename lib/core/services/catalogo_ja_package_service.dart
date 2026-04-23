@@ -466,6 +466,7 @@ class CatalogoJaPackageService {
     required CatalogoJaExportPayload payload,
     required io.Directory extractDir,
     required ImportMode mode,
+    String? tenantId,
   }) async {
     final appDocDir = await getApplicationDocumentsDirectory();
     final appImagesDir = io.Directory(p.join(appDocDir.path, 'product_images'));
@@ -692,6 +693,7 @@ class CatalogoJaPackageService {
     final result = await _exportImportService.executeImport(
       importPayload,
       mode,
+      tenantId: tenantId,
     );
 
     // ✅ Marcar sincronização inicial como concluída já que temos as fotos locais agora
@@ -706,23 +708,25 @@ class CatalogoJaPackageService {
       variantsCount: 0,
       createdCategoriesCount: 0,
       warnings: result.errors,
-      importedProducts: restoredProducts.map((e) => e.toModel()).toList(),
+      importedProducts: restoredProducts.map((e) => e.toModel(tenantId: tenantId)).toList(),
     );
   }
 
   @Deprecated('Use preparePackage and importPackageFromDir instead')
-  Future<ImportReport> importPackage(io.File zipFile) async {
+  Future<ImportReport> importPackage(io.File zipFile, {String? tenantId}) async {
     final (payload, dir) = await preparePackage(zipFile);
     return importPackageFromDir(
       payload: payload,
       extractDir: dir,
       mode: ImportMode.merge,
+      tenantId: tenantId,
     );
   }
 
   Future<ImportReport> importPackageFromBytes({
     required Uint8List zipBytes,
     required ImportMode mode,
+    String? tenantId,
   }) async {
     final archive = ZipDecoder().decodeBytes(zipBytes);
 
@@ -895,6 +899,7 @@ class CatalogoJaPackageService {
     final result = await _exportImportService.executeImport(
       importPayload,
       mode,
+      tenantId: tenantId,
     );
     return ImportReport(
       createdCount: result.successCount,
@@ -902,7 +907,7 @@ class CatalogoJaPackageService {
       variantsCount: 0,
       createdCategoriesCount: 0,
       warnings: result.errors,
-      importedProducts: restoredProducts.map((e) => e.toModel()).toList(),
+      importedProducts: restoredProducts.map((e) => e.toModel(tenantId: tenantId)).toList(),
     );
   }
 
