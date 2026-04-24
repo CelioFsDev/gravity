@@ -124,7 +124,10 @@ class CatalogsScreen extends ConsumerWidget {
     }
   }
 
-  void _startCloudDownload(BuildContext context, CatalogsViewModel notifier) async {
+  void _startCloudDownload(
+    BuildContext context,
+    CatalogsViewModel notifier,
+  ) async {
     try {
       await notifier.syncFromCloud();
     } catch (e) {
@@ -160,7 +163,10 @@ class CatalogsScreen extends ConsumerWidget {
               Expanded(
                 child: Text(
                   sync.message,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -179,10 +185,7 @@ class CatalogsScreen extends ConsumerWidget {
           const SizedBox(height: 8),
           ClipRRect(
             borderRadius: BorderRadius.circular(2),
-            child: LinearProgressIndicator(
-              value: sync.progress,
-              minHeight: 4,
-            ),
+            child: LinearProgressIndicator(value: sync.progress, minHeight: 4),
           ),
         ],
       ),
@@ -216,9 +219,10 @@ class _CatalogsContent extends ConsumerWidget {
             AppEmptyState(
               icon: Icons.collections_bookmark_outlined,
               title: 'Nenhum catálogo ainda',
-              message: 'Crie um catálogo para gerar PDF e compartilhar.',
+              subtitle: 'Crie um catálogo para gerar PDF e compartilhar.',
               actionLabel: 'Criar catálogo',
               onAction: onCreate,
+              message: '',
             ),
           ],
         ),

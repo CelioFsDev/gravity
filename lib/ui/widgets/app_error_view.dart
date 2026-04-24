@@ -25,9 +25,10 @@ class AppErrorView extends StatelessWidget {
       child: AppEmptyState(
         icon: Icons.error_outline_rounded,
         title: 'Ops! Algo deu errado',
-        message: failure.message,
+        subtitle: failure.message,
         actionLabel: onRetry != null ? 'Tentar novamente' : null,
         onAction: onRetry,
+        message: '',
       ),
     );
   }

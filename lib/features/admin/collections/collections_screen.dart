@@ -1,16 +1,17 @@
 import 'dart:io';
+
+import 'package:catalogo_ja/core/auth/user_role.dart';
+import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/widgets/app_badge_pill.dart';
+import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
+import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
+import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
+import 'package:catalogo_ja/ui/widgets/app_search_field.dart';
+import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:catalogo_ja/models/category.dart';
-import 'package:catalogo_ja/ui/theme/app_tokens.dart';
-import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
-import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
-import 'package:catalogo_ja/ui/widgets/app_badge_pill.dart';
-import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
-import 'package:catalogo_ja/ui/widgets/app_search_field.dart';
-import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
-import 'package:catalogo_ja/core/auth/user_role.dart';
 
 class CollectionsScreen extends ConsumerStatefulWidget {
   const CollectionsScreen({super.key});
@@ -35,8 +36,9 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
     final role = ref.watch(currentRoleProvider);
 
     return AppScaffold(
-      title: 'Cole\u00e7\u00f5es',
-      subtitle: 'Gerencie suas cole\u00e7\u00f5es e cat\u00e1logos',
+      showHeader: true,
+      title: 'Coleções',
+      subtitle: 'Gerencie suas coleções e catálogos',
       actions: [
         if (role.canManageRegistrations)
           FilledButton.icon(
@@ -47,7 +49,6 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
       ],
       body: categoriesState.when(
         data: (state) {
-          // Filter collections
           final collections = state.categories
               .where((c) => c.type == CategoryType.collection)
               .where(
@@ -63,10 +64,14 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
             return AppEmptyState(
               icon: Icons.collections_bookmark_outlined,
               title: 'Nenhuma cole\u00e7\u00e3o',
-              message:
+              subtitle:
                   'Crie sua primeira cole\u00e7\u00e3o para organizar seus produtos.',
-              actionLabel: 'Criar Cole\u00e7\u00e3o',
-              onAction: () => context.push('/admin/collections/new'),
+              actionLabel:
+                  role.canManageRegistrations ? 'Criar cole\u00e7\u00e3o' : null,
+              onAction:
+                  role.canManageRegistrations
+                      ? () => context.push('/admin/collections/new')
+                      : null,
             );
           }
 
@@ -78,7 +83,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                 ),
                 child: AppSearchField(
                   controller: _searchController,
-                  hintText: 'Buscar cole\u00e7\u00f5es...',
+                  hintText: 'Buscar coleções...',
                   onChanged: (value) => setState(() => _searchQuery = value),
                   onClear: () {
                     _searchController.clear();
@@ -117,10 +122,10 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
             return AppEmptyState(
               icon: Icons.collections_bookmark_outlined,
               title: 'Nenhuma cole\u00e7\u00e3o',
-              message:
+              subtitle:
                   'Ainda n\u00e3o h\u00e1 cole\u00e7\u00f5es cadastradas para esta empresa.',
               actionLabel:
-                  role.canManageRegistrations ? 'Criar Cole\u00e7\u00e3o' : null,
+                  role.canManageRegistrations ? 'Criar cole\u00e7\u00e3o' : null,
               onAction:
                   role.canManageRegistrations
                       ? () => context.push('/admin/collections/new')
@@ -143,9 +148,9 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Excluir Cole\u00e7\u00e3o?'),
+        title: const Text('Excluir coleção?'),
         content: const Text(
-          'Esta a\u00e7\u00e3o n\u00e3o pode ser desfeita. Os produtos vinculados perder\u00e3o esta associa\u00e7\u00e3o.',
+          'Esta ação não pode ser desfeita. Os produtos vinculados perderão esta associação.',
         ),
         actions: [
           TextButton(
@@ -193,7 +198,6 @@ class _CollectionCard extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Mini Cover Preview (AspectRatio 1365/420 ~= 3.25)
             SizedBox(
               height: 120,
               width: double.infinity,

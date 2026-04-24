@@ -9,6 +9,7 @@ import 'package:catalogo_ja/core/auth/user_role.dart';
 import 'package:catalogo_ja/viewmodels/global_sync_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart'; // Para SyncProgress
 import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
+import 'package:catalogo_ja/ui/widgets/app_primary_button.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 
@@ -305,25 +306,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   // Logout Action
                   SizedBox(
                     width: double.infinity,
-                    child: TextButton.icon(
-                      onPressed: () =>
-                          ref.read(authViewModelProvider.notifier).signOut(),
-                      icon: const Icon(Icons.logout, color: Colors.redAccent),
-                      label: const Text(
-                        'SAIR DA CONTA',
-                        style: TextStyle(
-                          color: Colors.redAccent,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: Colors.red.withOpacity(0.05),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
+                    child: AppPrimaryButton(
+                      onPressed: () => ref.read(authViewModelProvider.notifier).signOut(),
+                      label: 'SAIR DA CONTA',
+                      icon: Icons.logout_rounded,
+                      // Custom color for logout
                     ),
                   ),
                   const SizedBox(height: AppTokens.space48),
@@ -386,34 +373,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton.icon(
+                  child: AppPrimaryButton(
                     onPressed: isSyncing 
                       ? null 
                       : () => ref.read(globalSyncViewModelProvider.notifier).syncUpEverything(),
-                    icon: const Icon(Icons.cloud_upload_outlined),
-                    label: const Text('SUBIR TUDO'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
+                    icon: Icons.cloud_upload_outlined,
+                    label: 'SUBIR TUDO',
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: OutlinedButton.icon(
+                  child: AppPrimaryButton(
                     onPressed: isSyncing 
                       ? null 
                       : () => ref.read(globalSyncViewModelProvider.notifier).syncDownEverything(),
-                    icon: const Icon(Icons.cloud_download_outlined),
-                    label: const Text('BAIXAR TUDO'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
+                    icon: Icons.cloud_download_outlined,
+                    label: 'BAIXAR TUDO',
                   ),
                 ),
               ],
@@ -447,25 +422,50 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     Function(String)? onChanged,
     TextInputType? keyboardType,
   }) {
-    return TextField(
-      controller: controller,
-      onChanged: onChanged,
-      keyboardType: keyboardType,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        prefixIcon: Icon(icon, size: 22),
-        filled: true,
-        fillColor: AppTokens.card,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppTokens.border),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+            color: isDark ? Colors.white38 : Colors.black38,
+            letterSpacing: 1,
+          ),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppTokens.border),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          onChanged: onChanged,
+          keyboardType: keyboardType,
+          style: TextStyle(
+            color: isDark ? Colors.white : Colors.black87,
+            fontWeight: FontWeight.w600,
+          ),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(color: isDark ? Colors.white24 : Colors.black26, fontSize: 13),
+            prefixIcon: Icon(icon, size: 20, color: isDark ? AppTokens.vibrantCyan : AppTokens.electricBlue),
+            filled: true,
+            fillColor: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.black12),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: AppTokens.electricBlue, width: 2),
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 

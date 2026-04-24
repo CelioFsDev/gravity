@@ -1,3 +1,5 @@
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/widgets/app_primary_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -64,38 +66,78 @@ class _CategoryCreateModalState extends ConsumerState<CategoryCreateModal> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return AlertDialog(
-      title: const Text('Nova Categoria'),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        decoration: const InputDecoration(
-          labelText: 'Nome da Categoria',
-          hintText: 'Ex: Camisetas, Cal\u00e7as...',
-          filled: true,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      backgroundColor: isDark ? AppTokens.surfaceDark : Colors.white,
+      surfaceTintColor: Colors.transparent,
+      title: Text(
+        'Nova Categoria',
+        style: TextStyle(
+          fontWeight: FontWeight.w900,
+          fontSize: 20,
+          color: isDark ? Colors.white : Colors.black87,
+          letterSpacing: -0.5,
         ),
-        textCapitalization: TextCapitalization.sentences,
-        onSubmitted: (_) => _save(),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            style: TextStyle(
+              color: isDark ? Colors.white : Colors.black87,
+              fontWeight: FontWeight.w600,
+            ),
+            decoration: InputDecoration(
+              labelText: 'Nome da Categoria',
+              labelStyle: TextStyle(color: isDark ? Colors.white38 : Colors.black38),
+              hintText: 'Ex: Camisetas, Calças...',
+              hintStyle: TextStyle(color: isDark ? Colors.white24 : Colors.black26),
+              filled: true,
+              fillColor: (isDark ? Colors.white : Colors.black).withOpacity(0.04),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: (isDark ? Colors.white : Colors.black).withOpacity(0.05)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: const BorderSide(color: AppTokens.electricBlue, width: 2),
+              ),
+            ),
+            textCapitalization: TextCapitalization.sentences,
+            onSubmitted: (_) => _save(),
+          ),
+        ],
       ),
       actions: [
         TextButton(
           onPressed: () => context.pop(),
-          child: const Text('Cancelar'),
+          child: Text(
+            'CANCELAR',
+            style: TextStyle(
+              color: isDark ? Colors.white38 : Colors.black38,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
+            ),
+          ),
         ),
-        FilledButton(
-          onPressed: _isLoading ? null : _save,
-          child: _isLoading
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              : const Text('Criar'),
+        SizedBox(
+          width: 100,
+          height: 44,
+          child: AppPrimaryButton(
+            label: 'CRIAR',
+            onPressed: _isLoading ? null : _save,
+          ),
         ),
       ],
+      actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
     );
   }
 }

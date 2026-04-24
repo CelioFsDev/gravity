@@ -41,120 +41,164 @@ class AppProductListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
     final primaryImage = _resolvePrimaryImage(product);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return AppCard(
-      margin: const EdgeInsets.only(bottom: AppTokens.space12),
-      padding: const EdgeInsets.all(AppTokens.space12),
-      onTap: onTap,
-      onLongPress: onLongPress,
-      decoration: isSelected
-          ? BoxDecoration(
-              color: Theme.of(
-                context,
-              ).colorScheme.primaryContainer.withOpacity(0.3),
-              borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-              border: Border.all(
-                color: Theme.of(context).colorScheme.primary,
-                width: 2,
-              ),
-            )
-          : null,
-      child: Row(
-        children: [
-          if (isSelected || onLongPress != null) ...[
-            Checkbox(
-              value: isSelected,
-              onChanged: (_) => onTap(),
-              shape: const CircleBorder(),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: isSelected 
+            ? AppTokens.electricBlue.withOpacity(0.1) 
+            : (isDark ? Colors.white.withOpacity(0.03) : Theme.of(context).cardColor),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isSelected 
+              ? AppTokens.vibrantCyan.withOpacity(0.5) 
+              : (isDark ? Colors.white.withOpacity(0.05) : Theme.of(context).dividerColor.withOpacity(0.1)),
+          width: isSelected ? 1.5 : 1,
+        ),
+        boxShadow: [
+          if (!isDark && !isSelected)
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
-            const SizedBox(width: 8),
-          ],
-          // Thumbnail
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: _buildImage(primaryImage?.uri),
-          ),
-          const SizedBox(width: AppTokens.space8),
-
-          // Info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Wrap(
-                  spacing: AppTokens.space8,
-                  runSpacing: 4,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text(
-                      product.ref,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                    if (product.promoEnabled)
-                      const AppBadgePill(
-                        label: 'PROMO',
-                        color: AppTokens.accentRed,
-                      ),
-                    if (product.isOutOfStock)
-                      const AppBadgePill(
-                        label: 'ESGOTADO',
-                        color: AppTokens.textMuted,
-                      ),
-                    if (product.syncStatus == SyncStatus.pendingUpdate)
-                      const Padding(
-                        padding: EdgeInsets.only(left: 4),
-                        child: Icon(
-                          Icons.cloud_upload_outlined,
-                          size: 18,
-                          color: Colors.orange,
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  product.name,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleMedium?.copyWith(fontSize: 16),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Varejo: ${currency.format(product.effectivePriceRetail)} • Atacado: ${currency.format(product.effectivePriceWholesale)}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-
-          if (trailing != null) ...[trailing!],
-          if (trailing == null && onGoMainMenu != null)
-            IconButton(
-              tooltip: 'Menu principal',
-              onPressed: onGoMainMenu,
-              icon: const Icon(Icons.home_outlined),
-            ),
-          if (trailing == null && (onEdit != null || onDelete != null))
-            _buildAdminMenu(context),
-          if (trailing == null && onEdit == null && onDelete == null)
-            const Icon(Icons.chevron_right),
         ],
       ),
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              // Thumbnail with Glow
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  color: isDark ? AppTokens.deepNavy : Colors.grey[200],
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: _buildImage(primaryImage?.uri),
+              ),
+              const SizedBox(width: 16),
+
+              // Info Section
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          product.ref,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            color: AppTokens.vibrantCyan.withOpacity(0.8),
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        if (product.promoEnabled)
+                          _buildMiniBadge('PROMO', AppTokens.vibrantPink),
+                        if (product.isOutOfStock)
+                          const SizedBox(width: 4),
+                        if (product.isOutOfStock)
+                          _buildMiniBadge('OFF', Colors.grey),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      product.name,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : Colors.black87,
+                        letterSpacing: -0.2,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        _buildPriceTag(context, 'VAREJO', currency.format(product.effectivePriceRetail), AppTokens.electricBlue, isDark),
+                        const SizedBox(width: 12),
+                        _buildPriceTag(context, 'ATACADO', currency.format(product.effectivePriceWholesale), AppTokens.softPurple, isDark),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // Actions
+              if (trailing != null) ...[trailing!],
+              if (trailing == null && onGoMainMenu != null)
+                IconButton(
+                  onPressed: onGoMainMenu,
+                  icon: Icon(Icons.home_outlined, color: isDark ? Colors.white38 : Colors.black26),
+                ),
+              if (trailing == null && (onEdit != null || onDelete != null))
+                _buildAdminMenu(context),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMiniBadge(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.3), width: 0.5),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 8,
+          fontWeight: FontWeight.w900,
+          color: color,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPriceTag(BuildContext context, String label, String value, Color color, bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 7,
+            fontWeight: FontWeight.w900,
+            color: isDark ? Colors.white.withOpacity(0.3) : Colors.black38,
+            letterSpacing: 0.5,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            color: color.withOpacity(0.9),
+          ),
+        ),
+      ],
     );
   }
 

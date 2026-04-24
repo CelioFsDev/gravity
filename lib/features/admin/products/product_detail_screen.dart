@@ -35,7 +35,10 @@ class ProductDetailScreen extends ConsumerWidget {
     final categories = productsState.value?.categories ?? [];
     final categoryById = {for (final c in categories) c.id: c};
 
-    final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
+    final currency = NumberFormat.simpleCurrency(
+      locale: Localizations.localeOf(context).toString(),
+    );
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return AppScaffold(
       title: updatedProduct.name,
@@ -43,7 +46,7 @@ class ProductDetailScreen extends ConsumerWidget {
       useAppBar: false,
       actions: [
         IconButton(
-          icon: const Icon(Icons.edit_outlined),
+          icon: Icon(Icons.edit_note_rounded, color: isDark ? AppTokens.vibrantCyan : AppTokens.electricBlue),
           onPressed: () {
             Navigator.of(context).push(
               MaterialPageRoute(
@@ -53,7 +56,7 @@ class ProductDetailScreen extends ConsumerWidget {
           },
         ),
         IconButton(
-          icon: const Icon(Icons.delete_outline, color: AppTokens.accentRed),
+          icon: const Icon(Icons.delete_outline_rounded, color: AppTokens.accentRed),
           onPressed: () {
             ref
                 .read(productsViewModelProvider.notifier)
@@ -63,17 +66,18 @@ class ProductDetailScreen extends ConsumerWidget {
         ),
       ],
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: AppTokens.space16),
-            // Images Carousel / Main Image
+            const SizedBox(height: 16),
+            // Images Carousel
             if (updatedProduct.images.isNotEmpty || updatedProduct.photos.isNotEmpty)
               SizedBox(
-                height: 320,
+                height: 340,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
                   itemCount: updatedProduct.images.isNotEmpty 
                       ? updatedProduct.images.length 
                       : updatedProduct.photos.length,
@@ -84,22 +88,22 @@ class ProductDetailScreen extends ConsumerWidget {
                         
                     return Container(
                       margin: const EdgeInsets.only(right: 16),
-                      width: 280,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: Theme.of(context).dividerColor,
-                            ),
-                            boxShadow: const [AppTokens.shadowSm],
-                          ),
-                          child: _buildDetailImage(
-                            context,
-                            img,
-                          ),
+                      width: 300,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+                            blurRadius: 15,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
                       ),
+                      clipBehavior: Clip.antiAlias,
+                      child: _buildDetailImage(context, img),
                     );
                   },
                 ),
@@ -109,17 +113,17 @@ class ProductDetailScreen extends ConsumerWidget {
                 height: 200,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-                  border: Border.all(color: Theme.of(context).dividerColor),
+                  color: isDark ? AppTokens.surfaceDark : Colors.grey[100],
+                  borderRadius: BorderRadius.circular(24),
                 ),
-                child: const Icon(Icons.image_not_supported_outlined, size: 64),
+                child: const Icon(Icons.image_not_supported_outlined, size: 48, color: Colors.grey),
               ),
 
-            const SizedBox(height: AppTokens.space24),
+            const SizedBox(height: 32),
 
-            // Header Info & Status
-            Row(
+            // Status Badges
+            Wrap(
+              spacing: 8,
               children: [
                 if (!updatedProduct.getIsActive(currentStoreId))
                   AppBadgePill(label: 'Inativo', color: Colors.grey),
@@ -127,303 +131,241 @@ class ProductDetailScreen extends ConsumerWidget {
                   AppBadgePill(label: 'Esgotado', color: AppTokens.accentRed),
                 if (updatedProduct.promoEnabled)
                   AppBadgePill(
-                    label: 'Em Promo\u00e7\u00e3o',
-                    color: AppTokens.accentOrange,
+                    label: 'Em Promoção',
+                    color: AppTokens.softOrange,
                   ),
               ],
             ),
-            const SizedBox(height: AppTokens.space16),
+            const SizedBox(height: 24),
 
             SectionCard(
-              title: 'Informa\u00e7\u00f5es B\u00e1sicas',
+              title: 'Informações Básicas',
               child: Column(
                 children: [
-                  _buildDetailRow(context, 'SKU', updatedProduct.sku),
+                  _buildDetailRow(context, 'SKU', updatedProduct.sku.isEmpty ? '-' : updatedProduct.sku, isDark),
+                  const Divider(height: 24),
                   _buildDetailRow(
                     context,
                     'Categorias',
                     updatedProduct.categoryIds
                         .map((id) => categoryById[id])
-                        .where(
-                          (c) =>
-                              c != null && c.type == CategoryType.productType,
-                        )
+                        .where((c) => c != null && c.type == CategoryType.productType)
                         .map((c) => c!.safeName)
                         .join(', '),
+                    isDark,
                   ),
                 ],
               ),
             ),
 
-            const SizedBox(height: AppTokens.space24),
+            const SizedBox(height: 24),
 
-            // Pricing
             SectionCard(
-              title: 'Pre\u00e7os',
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final cardWidth = constraints.maxWidth >= 720
-                      ? (constraints.maxWidth - 32) / 3
-                      : constraints.maxWidth;
-                  final retailEffective = PriceCalculator.effectiveRetail(
-                    updatedProduct.getRetailPrice(currentStoreId),
-                    updatedProduct.promoEnabled,
-                    updatedProduct.promoPercent,
-                  );
-                  final wholesaleEffective = PriceCalculator.effectiveWholesale(
-                    updatedProduct.getWholesalePrice(currentStoreId),
-                    updatedProduct.promoEnabled,
-                    updatedProduct.promoPercent,
-                  );
-                  final cards = [
-                    _buildPriceCard(
-                      context,
-                      'Varejo',
-                      currency.format(updatedProduct.getRetailPrice(currentStoreId)),
-                      currency.format(retailEffective),
-                      updatedProduct.promoEnabled,
-                      Icons.person_outline,
-                    ),
-                    _buildPriceCard(
-                      context,
-                      'Atacado',
-                      currency.format(updatedProduct.getWholesalePrice(currentStoreId)),
-                      currency.format(wholesaleEffective),
-                      updatedProduct.promoEnabled,
-                      Icons.storefront_outlined,
-                    ),
-                    _buildInfoCard(
-                      context,
-                      'M\u00edn. Atacado',
-                      '${updatedProduct.minWholesaleQty} un',
-                      Icons.shopping_bag_outlined,
-                    ),
-                  ];
-                  return Wrap(
-                    spacing: 16,
-                    runSpacing: 16,
-                    children: cards
-                        .map((card) => SizedBox(width: cardWidth, child: card))
-                        .toList(),
-                  );
-                },
+              title: 'Preços e Vendas',
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildPriceBox(
+                          context,
+                          'Varejo',
+                          currency.format(PriceCalculator.effectiveRetail(
+                            updatedProduct.getRetailPrice(currentStoreId),
+                            updatedProduct.promoEnabled,
+                            updatedProduct.promoPercent,
+                          )),
+                          AppTokens.electricBlue,
+                          isDark,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildPriceBox(
+                          context,
+                          'Atacado',
+                          currency.format(PriceCalculator.effectiveWholesale(
+                            updatedProduct.getWholesalePrice(currentStoreId),
+                            updatedProduct.promoEnabled,
+                            updatedProduct.promoPercent,
+                          )),
+                          AppTokens.softPurple,
+                          isDark,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _buildInfoBox(
+                    context,
+                    'Mínimo para Atacado',
+                    '${updatedProduct.minWholesaleQty} unidades',
+                    Icons.shopping_bag_outlined,
+                    isDark,
+                  ),
+                ],
               ),
             ),
 
-            const SizedBox(height: AppTokens.space24),
+            const SizedBox(height: 24),
 
-            // Attributes
             SectionCard(
-              title: 'Variantes e Atributos',
+              title: 'Variantes',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Tamanhos Dispon\u00edveis',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  Text(
+                    'TAMANHOS',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      color: isDark ? Colors.white38 : Colors.black38,
+                      letterSpacing: 1,
+                    ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: updatedProduct.getAvailableSizes(currentStoreId).isEmpty
-                        ? [
-                            const Text(
-                              '-',
-                              style: TextStyle(color: AppTokens.textMuted),
-                            ),
-                          ]
+                        ? [Text('-', style: TextStyle(color: isDark ? Colors.white38 : Colors.black38))]
                         : updatedProduct.getAvailableSizes(currentStoreId)
-                              .map((s) => _buildAttributeChip(context, s))
+                              .map((s) => _buildAttributeChip(context, s, isDark))
                               .toList(),
                   ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Cores Dispon\u00edveis',
+                  const SizedBox(height: 24),
+                  Text(
+                    'CORES',
                     style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                      color: AppTokens.textSecondary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      color: isDark ? Colors.white38 : Colors.black38,
+                      letterSpacing: 1,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: updatedProduct.getAvailableColors(currentStoreId).isEmpty
-                        ? [
-                            const Text(
-                              '-',
-                              style: TextStyle(color: AppTokens.textMuted),
-                            ),
-                          ]
+                        ? [Text('-', style: TextStyle(color: isDark ? Colors.white38 : Colors.black38))]
                         : updatedProduct.getAvailableColors(currentStoreId)
-                              .map((c) => _buildAttributeChip(context, c))
+                              .map((c) => _buildAttributeChip(context, c, isDark))
                               .toList(),
                   ),
                 ],
               ),
             ),
 
-            const SizedBox(height: AppTokens.space32),
+            const SizedBox(height: 32),
             Center(
-              child: Text(
-                'Criado em: ${DateFormat('dd/MM/yyyy HH:mm').format(updatedProduct.createdAt)}',
-                style: const TextStyle(
-                  color: AppTokens.textMuted,
-                  fontSize: 12,
+              child: Opacity(
+                opacity: 0.5,
+                child: Text(
+                  'Atualizado em ${DateFormat('dd/MM/yyyy HH:mm').format(updatedProduct.updatedAt)}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: AppTokens.space48),
+            const SizedBox(height: 100),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildDetailRow(BuildContext context, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _buildPriceBox(BuildContext context, String label, String value, Color color, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            label,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+            label.toUpperCase(),
+            style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: color, letterSpacing: 0.5),
           ),
+          const SizedBox(height: 4),
           Text(
             value,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildAttributeChip(BuildContext context, String label) {
+  Widget _buildInfoBox(BuildContext context, String label, String value, IconData icon, bool isDark) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Theme.of(context).dividerColor),
+        color: (isDark ? Colors.white : Colors.black).withOpacity(0.03),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: isDark ? Colors.white54 : Colors.black45),
+          const SizedBox(width: 12),
+          Text(
+            label,
+            style: TextStyle(fontSize: 13, color: isDark ? Colors.white54 : Colors.black45),
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: isDark ? Colors.white : Colors.black87),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(BuildContext context, String label, String value, bool isDark) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 14),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            color: isDark ? Colors.white : Colors.black87,
+            fontWeight: FontWeight.w700,
+            fontSize: 14,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAttributeChip(BuildContext context, String label, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: (isDark ? Colors.white : Colors.black).withOpacity(0.05)),
       ),
       child: Text(
         label,
-        style: Theme.of(
-          context,
-        ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
-      ),
-    );
-  }
-
-  Widget _buildInfoCard(
-    BuildContext context,
-    String label,
-    String value,
-    IconData icon,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(AppTokens.space16),
-      decoration: BoxDecoration(
-        color: AppTokens.surface,
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        border: Border.all(color: AppTokens.borderLight),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 16),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: AppTokens.textMuted,
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            value,
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPriceCard(
-    BuildContext context,
-    String label,
-    String baseValue,
-    String effectiveValue,
-    bool promoEnabled,
-    IconData icon,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(AppTokens.space16),
-      decoration: BoxDecoration(
-        color: AppTokens.surface,
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        border: Border.all(color: AppTokens.borderLight),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 16),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: AppTokens.textMuted,
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (!promoEnabled || effectiveValue == baseValue)
-            Text(
-              baseValue,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-            )
-          else ...[
-            Text(
-              baseValue,
-              style: const TextStyle(
-                color: AppTokens.textMuted,
-                decoration: TextDecoration.lineThrough,
-                fontSize: 13,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              effectiveValue,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppTokens.accentOrange,
-              ),
-            ),
-          ],
-        ],
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: isDark ? Colors.white : Colors.black87,
+        ),
       ),
     );
   }

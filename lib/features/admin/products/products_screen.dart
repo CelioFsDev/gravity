@@ -50,17 +50,20 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     final state = ref.watch(productsViewModelProvider);
 
     return AppScaffold(
+      showHeader: true,
       title: 'Produtos',
-      subtitle: 'Gerencie seu catálogo de produtos',
-      useAppBar: false,
-      actions: [
-        if (ref.watch(currentRoleProvider).canManageRegistrations)
-          _buildMoreActions(context),
-      ],
+      subtitle: 'Gerencie seu estoque e pre\u00e7os',
       body: Column(
         children: [
+          // Modern Header with KPIs
+          _buildHeader(
+            context,
+            Theme.of(context).brightness == Brightness.dark,
+          ),
+
           _buildBulkActionsBar(context),
           _buildSyncReminderBanner(context),
+
           Expanded(
             child: state.whenStandard(
               onRetry: () =>
@@ -106,9 +109,157 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               ),
             ),
           ),
-          state.maybeWhen(
-            data: (data) => _buildBottomBar(context),
-            orElse: () => const SizedBox.shrink(),
+        ],
+      ),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(
+          bottom: 80,
+        ), // Avoid overlap with bottom nav
+        child: FloatingActionButton.extended(
+          onPressed: () => _openNewProduct(context),
+          label: const Text(
+            'NOVO PRODUTO',
+            style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1),
+          ),
+          icon: const Icon(Icons.add_rounded),
+          backgroundColor: AppTokens.electricBlue,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context, bool isDark) {
+    final state = ref.watch(productsViewModelProvider).valueOrNull;
+    final totalProducts = state?.allProducts.length ?? 0;
+    final promoCount =
+        state?.allProducts.where((p) => p.promoEnabled).length ?? 0;
+    final outOfStockCount =
+        state?.allProducts.where((p) => p.isOutOfStock).length ?? 0;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+      decoration: BoxDecoration(
+        color: isDark
+            ? AppTokens.deepNavy.withOpacity(0.3)
+            : Colors.white.withOpacity(0.5),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(24),
+          bottomRight: Radius.circular(24),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Row for KPIs
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildSummaryItem(
+                  'Total',
+                  totalProducts.toString(),
+                  AppTokens.vibrantCyan,
+                  Icons.inventory_2_outlined,
+                ),
+                const SizedBox(width: 8),
+                _buildSummaryItem(
+                  'Promo',
+                  promoCount.toString(),
+                  AppTokens.vibrantPink,
+                  Icons.percent_rounded,
+                ),
+                const SizedBox(width: 8),
+                _buildSummaryItem(
+                  'Esgotado',
+                  outOfStockCount.toString(),
+                  Colors.orangeAccent,
+                  Icons.block_flipped,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Search Field
+          AppSearchField(
+            controller: _searchController,
+            hintText: 'Buscar por nome ou referência...',
+            onChanged: (val) => ref
+                .read(productsViewModelProvider.notifier)
+                .setSearchQuery(val),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryItem(
+    String label,
+    String value,
+    Color color,
+    IconData icon,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: 120,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.04) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withOpacity(0.08)
+              : Colors.black.withOpacity(0.04),
+          width: 1,
+        ),
+        boxShadow: [
+          if (!isDark)
+            BoxShadow(
+              color: color.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, size: 16, color: color),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: isDark ? Colors.white : Colors.black87,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white38 : Colors.black45,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -263,7 +414,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   ? null
                   : () async {
                       Navigator.pop(context);
-                      await notifier.addCategoriesToSelected(selectedCategoryIds);
+                      await notifier.addCategoriesToSelected(
+                        selectedCategoryIds,
+                      );
                     },
               child: const Text('Anexar categorias'),
             ),
@@ -322,11 +475,12 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   Widget _buildSyncReminderBanner(BuildContext context) {
     final stateValue = ref.watch(productsViewModelProvider);
     final categoriesValue = ref.watch(categoriesViewModelProvider);
-    
+
     final state = stateValue.valueOrNull;
     final categoriesState = categoriesValue.valueOrNull;
 
-    if (state == null || categoriesState == null) return const SizedBox.shrink();
+    if (state == null || categoriesState == null)
+      return const SizedBox.shrink();
 
     final pendingProducts = state.allProducts
         .where((p) => p.syncStatus == SyncStatus.pendingUpdate)
@@ -349,7 +503,11 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.sync_problem_rounded, color: Colors.orange, size: 20),
+          const Icon(
+            Icons.sync_problem_rounded,
+            color: Colors.orange,
+            size: 20,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -357,11 +515,16 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               children: [
                 Text(
                   'Alterações Pendentes ($totalPending)',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
                 ),
                 Text(
                   'Novos arquivos para sincronizar.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 11),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(fontSize: 11),
                 ),
               ],
             ),
@@ -397,9 +560,16 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
           value: 'sync_upload',
           child: Row(
             children: [
-              Icon(Icons.cloud_upload_outlined, size: 18, color: AppTokens.accentBlue),
+              Icon(
+                Icons.cloud_upload_outlined,
+                size: 18,
+                color: AppTokens.accentBlue,
+              ),
               SizedBox(width: 8),
-              Text('Subir Catálogo (Nuvem)', style: TextStyle(color: AppTokens.accentBlue)),
+              Text(
+                'Subir Catálogo (Nuvem)',
+                style: TextStyle(color: AppTokens.accentBlue),
+              ),
             ],
           ),
         ),
@@ -407,7 +577,11 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
           value: 'sync_download',
           child: Row(
             children: [
-              Icon(Icons.cloud_download_outlined, size: 18, color: AppTokens.accentBlue),
+              Icon(
+                Icons.cloud_download_outlined,
+                size: 18,
+                color: AppTokens.accentBlue,
+              ),
               SizedBox(width: 8),
               Text('Baixar Catálogo (Nuvem)'),
             ],
@@ -604,10 +778,12 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   );
                   // Dispara e deixa o GlobalLoadingIndicator cuidar da UI
                   viewModel.exportPackage();
-                  
+
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Gerando backup completo em segundo plano...'),
+                      content: Text(
+                        'Gerando backup completo em segundo plano...',
+                      ),
                       backgroundColor: AppTokens.accentBlue,
                     ),
                   );
@@ -644,11 +820,12 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
   void _startPhotoReferenceLinking() {
     ref.read(productImportViewModelProvider.notifier).reset();
-    
+
     // Dispara em background usando o novo sistema do AppScaffold
-    ref.read(productImportViewModelProvider.notifier)
+    ref
+        .read(productImportViewModelProvider.notifier)
         .pickAndMatchImagesToExistingProducts();
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Iniciando vinculação de fotos em segundo plano...'),
@@ -665,7 +842,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
   void _startCloudSync(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
-    
+
     // 1. Avisa que começou em segundo plano
     messenger.showSnackBar(
       const SnackBar(
@@ -676,32 +853,38 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     );
 
     // 2. Dispara a sincronização sem 'await' para não travar a tela
-    ref.read(productsViewModelProvider.notifier).syncAllToCloud().then((count) {
-      if (context.mounted) {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text('Sincronização concluída! $count produtos enviados para a nuvem.'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
-    }).catchError((e) {
-      if (context.mounted) {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text('Erro na sincronização em segundo plano: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
-    });
+    ref
+        .read(productsViewModelProvider.notifier)
+        .syncAllToCloud()
+        .then((count) {
+          if (context.mounted) {
+            messenger.showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Sincronização concluída! $count produtos enviados para a nuvem.',
+                ),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 5),
+              ),
+            );
+          }
+        })
+        .catchError((e) {
+          if (context.mounted) {
+            messenger.showSnackBar(
+              SnackBar(
+                content: Text('Erro na sincronização em segundo plano: $e'),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 5),
+              ),
+            );
+          }
+        });
   }
 
   void _startCloudDownload(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
-    
+
     // 1. Avisa que começou em segundo plano
     messenger.showSnackBar(
       const SnackBar(
@@ -712,27 +895,33 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     );
 
     // 2. Dispara a descarga sem 'await' para não travar a tela
-    ref.read(productsViewModelProvider.notifier).syncFromCloud().then((count) {
-      if (context.mounted) {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text('Sucesso! $count produtos baixados da nuvem para o seu celular.'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
-    }).catchError((e) {
-      if (context.mounted) {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text('Erro ao baixar catálogo: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
-    });
+    ref
+        .read(productsViewModelProvider.notifier)
+        .syncFromCloud()
+        .then((count) {
+          if (context.mounted) {
+            messenger.showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Sucesso! $count produtos baixados da nuvem para o seu celular.',
+                ),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 5),
+              ),
+            );
+          }
+        })
+        .catchError((e) {
+          if (context.mounted) {
+            messenger.showSnackBar(
+              SnackBar(
+                content: Text('Erro ao baixar catálogo: $e'),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 5),
+              ),
+            );
+          }
+        });
   }
 
   void _openEdit(BuildContext context, Product product) {
@@ -808,7 +997,8 @@ class _ProductsContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final hasFilters = state.searchQuery.isNotEmpty ||
+    final hasFilters =
+        state.searchQuery.isNotEmpty ||
         state.productTypeFilterId != null ||
         state.collectionFilterId != null ||
         state.statusFilter != ProductStatusFilter.all ||
@@ -827,7 +1017,8 @@ class _ProductsContent extends ConsumerWidget {
       children: [
         if (syncProgress.isSyncing)
           _buildSyncProgressBanner(context, syncProgress),
-        Expanded( // Added Expanded to make RefreshIndicator take available space
+        Expanded(
+          // Added Expanded to make RefreshIndicator take available space
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
             child: RefreshIndicator(
@@ -862,7 +1053,9 @@ class _ProductsContent extends ConsumerWidget {
                     onTogglePromo: onTogglePromo,
                     selectedIds: state.selectedProductIds,
                     onToggleSelection: onToggleSelection,
-                    isInitialSyncCompleted: ref.watch(settingsViewModelProvider).isInitialSyncCompleted,
+                    isInitialSyncCompleted: ref
+                        .watch(settingsViewModelProvider)
+                        .isInitialSyncCompleted,
                   ),
                   const SizedBox(height: AppTokens.space48),
                 ],
@@ -895,8 +1088,10 @@ class _ProductsContent extends ConsumerWidget {
               Expanded(
                 child: Text(
                   sync.message,
-                  style:
-                      const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -915,10 +1110,7 @@ class _ProductsContent extends ConsumerWidget {
           const SizedBox(height: 8),
           ClipRRect(
             borderRadius: BorderRadius.circular(2),
-            child: LinearProgressIndicator(
-              value: sync.progress,
-              minHeight: 4,
-            ),
+            child: LinearProgressIndicator(value: sync.progress, minHeight: 4),
           ),
         ],
       ),
@@ -940,7 +1132,7 @@ class _KpiSection extends StatelessWidget {
         crossAxisCount: MediaQuery.of(context).size.width < 600 ? 2 : 4,
         mainAxisSpacing: 8,
         crossAxisSpacing: 8,
-        mainAxisExtent: 88,
+        mainAxisExtent: 140,
       ),
       itemBuilder: (context, index) {
         switch (index) {
@@ -1306,14 +1498,17 @@ class _ProductsListSection extends StatelessWidget {
         return const AppEmptyState(
           icon: Icons.cloud_download_outlined,
           title: 'Carga Inicial Necessária',
-          message: 'Como este é seu primeiro acesso neste aparelho, você precisa importar o Backup (ZIP - "WinRAR") para carregar os produtos, evitando custos elevados de rede. Vá em "Importar".',
+          subtitle:
+              'Como este é seu primeiro acesso neste aparelho, você precisa importar o Backup (ZIP - "WinRAR") para carregar os produtos, evitando custos elevados de rede. Vá em "Importar".',
+          message: '',
         );
       }
 
       return const AppEmptyState(
         icon: Icons.inventory_2_outlined,
         title: 'Nenhum produto encontrado',
-        message: 'Tente ajustar seus filtros ou cadastre um novo produto.',
+        subtitle: 'Tente ajustar seus filtros ou cadastre um novo produto.',
+        message: '',
       );
     }
 
@@ -1324,7 +1519,7 @@ class _ProductsListSection extends StatelessWidget {
       itemBuilder: (context, index) {
         final product = state.filteredProducts[index];
         final isSelected = selectedIds.contains(product.id);
-        
+
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: AppProductListTile(
@@ -1332,10 +1527,18 @@ class _ProductsListSection extends StatelessWidget {
             isSelected: isSelected,
             onTap: () => onViewProduct(product),
             onLongPress: () => onToggleSelection(product.id),
-            onEdit: onEditProduct != null ? () => onEditProduct!(product) : null,
-            onDelete: onDeleteProduct != null ? () => onDeleteProduct!(product) : null,
-            onDuplicate: onDuplicateProduct != null ? () => onDuplicateProduct!(product) : null,
-            onTogglePromo: onTogglePromo != null ? () => onTogglePromo!(product) : null,
+            onEdit: onEditProduct != null
+                ? () => onEditProduct!(product)
+                : null,
+            onDelete: onDeleteProduct != null
+                ? () => onDeleteProduct!(product)
+                : null,
+            onDuplicate: onDuplicateProduct != null
+                ? () => onDuplicateProduct!(product)
+                : null,
+            onTogglePromo: onTogglePromo != null
+                ? () => onTogglePromo!(product)
+                : null,
           ),
         );
       },

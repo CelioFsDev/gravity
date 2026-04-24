@@ -67,9 +67,10 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: assets/branding/icons/catalogoja_icons_glass_1024x1024.png
+  windows: true
+  image_path: assets/branding/icons/catalogo_ja_icon_premium.png
   adaptive_icon_background: '#060C1C'
-  adaptive_icon_foreground: assets/branding/icons/catalogoja_icon_foreground.png
+  adaptive_icon_foreground: assets/branding/icons/catalogo_ja_icon_premium.png
 
 flutter_native_splash:
   color: "#060C1C"
@@ -83,6 +84,7 @@ flutter_native_splash:
 flutter:
   uses-material-design: true
   assets:
+    - assets/icon/
     - assets/images/google_logo.png
     - assets/branding/logo/
     - assets/branding/splash/

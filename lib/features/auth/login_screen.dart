@@ -1,4 +1,8 @@
+import 'dart:ui';
+import 'package:catalogo_ja/ui/theme/app_icons.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/widgets/app_gradient_button.dart';
+import 'package:catalogo_ja/ui/widgets/app_primary_button.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -68,16 +72,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authViewModelProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       body: Stack(
         children: [
+          // Background Image
           Positioned.fill(
             child: Image.asset(
-              'assets/branding/login/catalogoja_login_premium_1080x1920.png',
+              AppIcons.loginBackground,
               fit: BoxFit.cover,
             ),
           ),
+          
+          // Gradient Overlay to ensure readability
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
@@ -85,140 +93,150 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withValues(alpha: 0.28),
-                    Colors.black.withValues(alpha: 0.82),
+                    isDark ? Colors.black.withOpacity(0.4) : Colors.white.withOpacity(0.1),
+                    isDark ? AppTokens.deepNavy.withOpacity(0.95) : Colors.white.withOpacity(0.9),
                   ],
                 ),
               ),
             ),
           ),
+
+          // Floating Blobs for a modern feel
+          if (isDark) ...[
+            Positioned(
+              top: -100,
+              right: -50,
+              child: _buildBlob(300, AppTokens.electricBlue.withOpacity(0.1)),
+            ),
+            Positioned(
+              bottom: -50,
+              left: -50,
+              child: _buildBlob(250, AppTokens.softPurple.withOpacity(0.1)),
+            ),
+          ],
+
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppTokens.space32,
-                  vertical: AppTokens.space24,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 32),
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 460),
+                  constraints: const BoxConstraints(maxWidth: 400),
                   child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      // Logo
                       Center(
-                        child: Column(
-                          children: [
-                            Image.asset(
+                        child: Hero(
+                          tag: 'app_logo',
+                          child: Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.white.withOpacity(0.03)
+                                  : Colors.black.withOpacity(0.02),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Image.asset(
                               'assets/branding/logo/catalogoja_logo_master_2048x2048.png',
-                              width: MediaQuery.of(context).size.width * 0.65,
+                              width: 140,
                               fit: BoxFit.contain,
                             ),
-                            const SizedBox(height: AppTokens.space12),
-                            Text(
-                              'Seu catalogo profissional em minutos',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.white.withValues(alpha: 0.84),
-                                fontWeight: FontWeight.w500,
-                                letterSpacing: 0.4,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
+                          ),
                         ),
                       ),
-                      const SizedBox(height: AppTokens.space32),
-                      Container(
-                        padding: const EdgeInsets.all(AppTokens.space32),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(32),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.2),
-                              blurRadius: 30,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
+                      const SizedBox(height: 40),
+
+                      Text(
+                        'Seja bem-vindo',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900,
+                          color: isDark ? Colors.white : Colors.black87,
+                          letterSpacing: -1,
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Acesse sua conta para gerenciar seu catálogo.',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: isDark ? Colors.white54 : Colors.black45,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 48),
+
+                      // Form
+                      authState.when(
+                        data: (_) => _EmailPasswordForm(
+                          formKey: _formKey,
+                          emailController: _emailController,
+                          passwordController: _passwordController,
+                          obscurePassword: _obscurePassword,
+                          isDark: isDark,
+                          onTogglePassword: () => setState(
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
+                          onSubmit: _handleEmailPasswordLogin,
+                        ),
+                        loading: () =>
+                            const Center(child: CircularProgressIndicator()),
+                        error: (e, _) => Column(
                           children: [
-                            const Text(
-                              'Acesse sua conta',
-                              style: TextStyle(
-                                fontSize: 26,
-                                fontWeight: FontWeight.w800,
-                                color: AppTokens.textPrimary,
-                                letterSpacing: -0.5,
+                            _EmailPasswordForm(
+                              formKey: _formKey,
+                              emailController: _emailController,
+                              passwordController: _passwordController,
+                              obscurePassword: _obscurePassword,
+                              isDark: isDark,
+                              onTogglePassword: () => setState(
+                                () => _obscurePassword = !_obscurePassword,
                               ),
-                              textAlign: TextAlign.center,
+                              onSubmit: _handleEmailPasswordLogin,
                             ),
-                            const SizedBox(height: AppTokens.space8),
-                            const Text(
-                              'Entre com seu e-mail e senha para gerenciar seus produtos.',
-                              style: TextStyle(
+                            const SizedBox(height: 16),
+                            Text(
+                              _authErrorMessage(e),
+                              style: const TextStyle(
+                                color: AppTokens.accentRed,
                                 fontSize: 13,
-                                color: AppTokens.textSecondary,
-                                height: 1.4,
                               ),
                               textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: AppTokens.space32),
-                            authState.when(
-                              data: (_) => _EmailPasswordForm(
-                                formKey: _formKey,
-                                emailController: _emailController,
-                                passwordController: _passwordController,
-                                obscurePassword: _obscurePassword,
-                                onTogglePassword: () => setState(
-                                  () => _obscurePassword = !_obscurePassword,
-                                ),
-                                onSubmit: _handleEmailPasswordLogin,
-                              ),
-                              loading: () => const Center(
-                                child: CircularProgressIndicator(),
-                              ),
-                              error: (e, _) => Column(
-                                children: [
-                                  _EmailPasswordForm(
-                                    formKey: _formKey,
-                                    emailController: _emailController,
-                                    passwordController: _passwordController,
-                                    obscurePassword: _obscurePassword,
-                                    onTogglePassword: () => setState(
-                                      () =>
-                                          _obscurePassword = !_obscurePassword,
-                                    ),
-                                    onSubmit: _handleEmailPasswordLogin,
-                                  ),
-                                  const SizedBox(height: AppTokens.space16),
-                                  Text(
-                                    _authErrorMessage(e),
-                                    style: const TextStyle(
-                                      color: AppTokens.accentRed,
-                                      fontSize: 12,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: AppTokens.space12),
-                            TextButton(
-                              onPressed: () => context.push('/register'),
-                              child: const Text(
-                                'Não tem uma conta? Registre-se agora',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: AppTokens.accentBlue,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: AppTokens.space48),
+
+                      const SizedBox(height: 32),
+
+                      // Footer
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Não possui conta?',
+                            style: TextStyle(
+                              color: isDark ? Colors.white38 : Colors.black38,
+                              fontSize: 13,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => context.push('/register'),
+                            child: Text(
+                              'Criar uma agora',
+                              style: TextStyle(
+                                color: isDark
+                                    ? AppTokens.vibrantCyan
+                                    : AppTokens.electricBlue,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -226,6 +244,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildBlob(double size, Color color) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
+        child: Container(color: Colors.transparent),
       ),
     );
   }
@@ -237,6 +267,7 @@ class _EmailPasswordForm extends StatelessWidget {
     required this.emailController,
     required this.passwordController,
     required this.obscurePassword,
+    required this.isDark,
     required this.onTogglePassword,
     required this.onSubmit,
   });
@@ -245,6 +276,7 @@ class _EmailPasswordForm extends StatelessWidget {
   final TextEditingController emailController;
   final TextEditingController passwordController;
   final bool obscurePassword;
+  final bool isDark;
   final VoidCallback onTogglePassword;
   final VoidCallback onSubmit;
 
@@ -253,54 +285,94 @@ class _EmailPasswordForm extends StatelessWidget {
     return Form(
       key: formKey,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextFormField(
+          _buildInput(
             controller: emailController,
-            keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(
-              labelText: 'Email',
-              prefixIcon: Icon(Icons.email_outlined),
-            ),
-            validator: (value) {
-              final email = value?.trim().toLowerCase() ?? '';
-              if (email.isEmpty || !email.contains('@')) {
-                return 'Informe um email valido.';
-              }
-              return null;
-            },
+            label: 'E-mail',
+            icon: Icons.alternate_email_rounded,
+            isDark: isDark,
+            validator: (v) =>
+                (v == null || !v.contains('@')) ? 'E-mail inválido' : null,
           ),
           const SizedBox(height: 16),
-          TextFormField(
+          _buildInput(
             controller: passwordController,
-            obscureText: obscurePassword,
-            decoration: InputDecoration(
-              labelText: 'Senha',
-              prefixIcon: const Icon(Icons.lock_outline),
-              suffixIcon: IconButton(
-                onPressed: onTogglePassword,
-                icon: Icon(
-                  obscurePassword
-                      ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined,
-                ),
+            label: 'Senha',
+            icon: Icons.lock_outline_rounded,
+            isDark: isDark,
+            obscure: obscurePassword,
+            suffix: IconButton(
+              onPressed: onTogglePassword,
+              icon: Icon(
+                obscurePassword
+                    ? Icons.visibility_off_rounded
+                    : Icons.visibility_rounded,
+                size: 18,
+                color: isDark ? Colors.white38 : Colors.black38,
               ),
             ),
-            validator: (value) {
-              if ((value ?? '').isEmpty) {
-                return 'Informe sua senha.';
-              }
-              return null;
-            },
-            onFieldSubmitted: (_) => onSubmit(),
+            validator: (v) =>
+                (v == null || v.isEmpty) ? 'Informe a senha' : null,
+            onSubmitted: (_) => onSubmit(),
           ),
-          const SizedBox(height: 20),
-          FilledButton.icon(
+          const SizedBox(height: 32),
+          AppPrimaryButton(
+            label: 'ENTRAR',
+            icon: Icons.login_rounded,
             onPressed: onSubmit,
-            icon: const Icon(Icons.login_outlined),
-            label: const Text('Entrar com email e senha'),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildInput({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    required bool isDark,
+    bool obscure = false,
+    Widget? suffix,
+    String? Function(String?)? validator,
+    void Function(String)? onSubmitted,
+  }) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscure,
+      validator: validator,
+      onFieldSubmitted: onSubmitted,
+      style: TextStyle(
+        color: isDark ? Colors.white : Colors.black87,
+        fontWeight: FontWeight.w600,
+      ),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(
+          color: isDark ? Colors.white38 : Colors.black38,
+          fontSize: 14,
+        ),
+        prefixIcon: Icon(
+          icon,
+          size: 18,
+          color: isDark ? AppTokens.vibrantCyan : AppTokens.electricBlue,
+        ),
+        suffixIcon: suffix,
+        filled: true,
+        fillColor: (isDark ? Colors.white : Colors.black).withOpacity(0.04),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(
+            color: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: AppTokens.electricBlue, width: 2),
+        ),
       ),
     );
   }

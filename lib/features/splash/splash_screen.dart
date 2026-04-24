@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -26,29 +27,65 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppTokens.deepNavy,
       body: Stack(
         children: [
-          // Gradient Background
+          // Radial Glow for depth
           Positioned.fill(
-            child: Image.asset(
-              'assets/branding/splash/catalogoja_splash_ios_1080x1920.png',
-              fit: BoxFit.cover,
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment.center,
+                  radius: 1.2,
+                  colors: [
+                    Color(0xFF0F1A35), // Brilho suave central
+                    AppTokens.deepNavy, // Fundo escuro nas bordas
+                  ],
+                ),
+              ),
             ),
           ),
 
-          // Subtle loading indicator at the bottom
+          // Central Logo
+          Center(
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 800),
+              curve: Curves.easeOut,
+              builder: (context, value, child) {
+                return Opacity(
+                  opacity: value,
+                  child: Transform.scale(
+                    scale: 0.9 + (0.1 * value),
+                    child: child,
+                  ),
+                );
+              },
+              child: Hero(
+                tag: 'app_logo',
+                child: Image.asset(
+                  'assets/branding/logo/catalogoja_logo_master_2048x2048.png',
+                  width: 240,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+          ),
+
+          // Subtle loading indicator
           const Align(
             alignment: Alignment.bottomCenter,
             child: Padding(
-              padding: EdgeInsets.only(bottom: 64.0),
+              padding: EdgeInsets.only(bottom: 80.0),
               child: SizedBox(
-                width: 40,
-                height: 40,
+                width: 32,
+                height: 32,
                 child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF3DD5F3)),
-                  strokeWidth: 3,
+                  strokeWidth: 2.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(AppTokens.vibrantCyan),
                 ),
               ),
             ),

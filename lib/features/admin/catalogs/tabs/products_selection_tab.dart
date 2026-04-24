@@ -88,8 +88,9 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: AppTokens.space24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppTokens.space24,
+                ),
                 child: AppSearchField(
                   controller: _searchController,
                   hintText: 'Buscar por nome ou REF...',
@@ -103,8 +104,9 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
               const SizedBox(height: 8),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: AppTokens.space24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppTokens.space24,
+                ),
                 child: Row(
                   children: [
                     ActionChip(
@@ -149,8 +151,8 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
                       onPressed: filtered.isEmpty
                           ? null
                           : () => widget.onSelectMany(
-                                filtered.map((product) => product.id).toList(),
-                              ),
+                              filtered.map((product) => product.id).toList(),
+                            ),
                     ),
                     const SizedBox(width: 8),
                     ActionChip(
@@ -159,8 +161,8 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
                       onPressed: filtered.isEmpty
                           ? null
                           : () => widget.onDeselectMany(
-                                filtered.map((product) => product.id).toList(),
-                              ),
+                              filtered.map((product) => product.id).toList(),
+                            ),
                     ),
                   ],
                 ),
@@ -175,7 +177,8 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
               ? const AppEmptyState(
                   icon: Icons.search_off,
                   title: 'Nenhum produto encontrado',
-                  message: 'Tente ajustar os filtros ou a busca.',
+                  subtitle: 'Tente ajustar os filtros ou a busca.',
+                  message: '',
                 )
               : ListView.separated(
                   padding: const EdgeInsets.symmetric(
@@ -300,8 +303,7 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
                         trailing: _collectionFilter == collection.id
                             ? const Icon(Icons.check)
                             : const SizedBox.shrink(),
-                        onTap: () =>
-                            Navigator.pop(sheetContext, collection.id),
+                        onTap: () => Navigator.pop(sheetContext, collection.id),
                       ),
                     ),
                   ],

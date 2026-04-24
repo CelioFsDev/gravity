@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/core/providers/global_loading_provider.dart';
+import 'package:catalogo_ja/features/theme/theme_providers.dart';
 
 class AppScaffold extends ConsumerWidget {
   final String? title;
@@ -16,6 +17,7 @@ class AppScaffold extends ConsumerWidget {
   final bool useAppBar;
   final Widget? bottom;
   final bool? showBackButton;
+  final VoidCallback? onMenuPressed;
 
   const AppScaffold({
     super.key,
@@ -30,6 +32,7 @@ class AppScaffold extends ConsumerWidget {
     this.useAppBar = false,
     this.bottom,
     this.showBackButton,
+    this.onMenuPressed,
   });
 
   @override
@@ -39,192 +42,163 @@ class AppScaffold extends ConsumerWidget {
     final canPop = Navigator.of(context).canPop();
     final shouldShowBackButton = showBackButton ?? canPop;
     
-    // Background Tasks logic
     final _ = ref.watch(globalLoadingProvider);
     final activeTask = ref.watch(globalLoadingProvider.notifier).mainActiveTask();
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      extendBodyBehindAppBar: true,
       appBar: (useAppBar && hasTitle)
           ? AppBar(
               automaticallyImplyLeading: shouldShowBackButton,
               title: Text(title!),
               actions: actions,
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               elevation: 0,
-              backgroundColor: Colors.transparent,
-              flexibleSpace: ClipRect(
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: Container(
-                    color: (isDark ? AppTokens.bgDark : AppTokens.bg).withOpacity(0.7),
-                  ),
-                ),
-              ),
             )
           : null,
-      body: Stack(
-        children: [
-          // Main Content
-          SafeArea(
-            bottom: bottomNavigationBar == null,
-            child: Center(
-              child: _buildContent(
+      body: SafeArea(
+        bottom: bottomNavigationBar == null,
+        child: Column(
+          children: [
+            if (activeTask != null) _buildGlobalProgress(context, activeTask),
+            if (!useAppBar && showHeader && hasTitle)
+              _buildSimpleHeader(
                 context,
                 ref,
-                hasTitle,
                 isDark,
-                activeTask,
                 shouldShowBackButton,
               ),
-            ),
-          ),
-        ],
+            if (bottom != null) ...[bottom!],
+            Expanded(child: body),
+          ],
+        ),
       ),
       floatingActionButton: floatingActionButton,
       bottomNavigationBar: bottomNavigationBar,
     );
   }
 
-  Widget _buildContent(
+  Widget _buildSimpleHeader(
     BuildContext context,
     WidgetRef ref,
-    bool hasTitle,
     bool isDark,
-    BackgroundTask? activeTask,
     bool shouldShowBackButton,
   ) {
-    final content = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (activeTask != null) _buildGlobalProgress(context, activeTask),
-        if (!useAppBar && showHeader && hasTitle)
-          _buildGlassHeader(context, isDark, shouldShowBackButton),
-        if (bottom != null) ...[bottom!],
-        Expanded(child: body),
-      ],
-    );
-
-    if (maxWidth.isFinite) {
-      return ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: maxWidth),
-        child: content,
-      );
-    }
-
-    return SizedBox(width: double.infinity, child: content);
-  }
-
-  Widget _buildGlobalProgress(BuildContext context, BackgroundTask task) {
     return Container(
-      width: double.infinity,
-      color: AppTokens.accentBlue.withOpacity(0.1),
-      padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24, vertical: 8),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              const SizedBox(
-                width: 12,
-                height: 12,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppTokens.accentBlue),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  '${task.title}: ${task.message}',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTokens.accentBlue),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Text(
-                '${(task.progress * 100).toInt()}%',
-                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTokens.accentBlue),
-              ),
-            ],
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        border: Border(
+          bottom: BorderSide(
+            color: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
+            width: 1,
           ),
-          const SizedBox(height: 6),
-          LinearProgressIndicator(
-            value: task.progress,
-            minHeight: 2,
-            backgroundColor: AppTokens.accentBlue.withOpacity(0.1),
-            valueColor: const AlwaysStoppedAnimation<Color>(AppTokens.accentBlue),
+        ),
+      ),
+      child: Row(
+        children: [
+          if (shouldShowBackButton) ...[
+            IconButton(
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: isDark ? Colors.white : Colors.black87),
+            ),
+            const SizedBox(width: 8),
+          ] else if (onMenuPressed != null || _hasParentDrawer(context)) ...[
+            IconButton(
+              onPressed: onMenuPressed ?? () => Scaffold.of(context).openDrawer(),
+              icon: Icon(Icons.menu_rounded, size: 24, color: isDark ? Colors.white : Colors.black87),
+            ),
+            const SizedBox(width: 8),
+          ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title!,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: isDark ? Colors.white : Colors.black87,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? Colors.white54 : Colors.black45,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.person_outline_rounded,
+              color: isDark ? AppTokens.vibrantCyan : AppTokens.electricBlue,
+              size: 20,
+            ),
+            onPressed: () {
+              Navigator.of(context).pushNamed('/admin/profile');
+            },
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: Icon(
+              isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+              color: isDark ? AppTokens.vibrantCyan : AppTokens.electricBlue,
+              size: 20,
+            ),
+            onPressed: () {
+              ref.read(themeModeProvider.notifier).update(
+                (state) =>
+                    state == ThemeMode.dark
+                        ? ThemeMode.light
+                        : ThemeMode.dark,
+              );
+            },
           ),
         ],
       ),
     );
   }
 
-  Widget _buildGlassHeader(
-    BuildContext context,
-    bool isDark,
-    bool shouldShowBackButton,
-  ) {
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(
-            AppTokens.space24,
-            AppTokens.space20,
-            AppTokens.space24,
-            AppTokens.space16,
-          ),
-          decoration: BoxDecoration(
-            color: (isDark ? AppTokens.bgDark : AppTokens.bg).withOpacity(0.8),
-            border: Border(
-              bottom: BorderSide(
-                color: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
-                width: 0.5,
-              ),
-            ),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              if (shouldShowBackButton) ...[
-                IconButton(
-                  tooltip: 'Voltar',
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(Icons.arrow_back_rounded),
-                ),
-                const SizedBox(width: AppTokens.space8),
-              ],
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title!,
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.5,
-                          ),
-                    ),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitle!,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: isDark ? AppTokens.textSecondaryDark : AppTokens.textSecondary,
-                            ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              if (actions != null && actions!.isNotEmpty) ...[
-                const SizedBox(width: AppTokens.space16),
-                Row(mainAxisSize: MainAxisSize.min, children: actions!),
-              ],
-            ],
+  bool _hasParentDrawer(BuildContext context) {
+    try {
+      return Scaffold.maybeOf(context)?.hasDrawer ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Widget _buildGlobalProgress(BuildContext context, Object activeTask) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceVariant,
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).dividerColor,
+            width: 1,
           ),
         ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            activeTask.toString(),
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 8),
+          const LinearProgressIndicator(),
+        ],
       ),
     );
   }

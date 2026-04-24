@@ -4,7 +4,7 @@ import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 class AppEmptyState extends StatelessWidget {
   final IconData icon;
   final String title;
-  final String message;
+  final String subtitle;
   final String? actionLabel;
   final VoidCallback? onAction;
 
@@ -12,9 +12,10 @@ class AppEmptyState extends StatelessWidget {
     super.key,
     required this.icon,
     required this.title,
-    required this.message,
+    required this.subtitle,
     this.actionLabel,
     this.onAction,
+    String? message,
   });
 
   @override
@@ -71,7 +72,7 @@ class AppEmptyState extends StatelessWidget {
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 300),
                 child: Text(
-                  message,
+                  subtitle,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                     height: 1.5,
@@ -92,7 +93,9 @@ class AppEmptyState extends StatelessWidget {
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+                          borderRadius: BorderRadius.circular(
+                            AppTokens.radiusMd,
+                          ),
                         ),
                         elevation: 0,
                       ),

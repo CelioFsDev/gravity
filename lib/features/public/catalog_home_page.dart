@@ -41,7 +41,9 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
       error: (e, s) => Scaffold(body: Center(child: Text('Erro: $e'))),
       data: (data) {
         if (data == null) {
-          return const Scaffold(body: Center(child: Text('N\u00e3o encontrado')));
+          return const Scaffold(
+            body: Center(child: Text('N\u00e3o encontrado')),
+          );
         }
         if (!data.catalog.active) {
           return const Scaffold(body: Center(child: Text('Indispon\u00edvel')));
@@ -96,8 +98,9 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
                 child: filteredProducts.isEmpty
                     ? const AppEmptyState(
                         title: 'Nenhum produto',
-                        message: 'Tente mudar sua busca ou filtro.',
+                        subtitle: 'Tente mudar sua busca ou filtro.',
                         icon: Icons.search_off,
+                        message: '',
                       )
                     : _buildGrid(
                         filteredProducts,
@@ -178,7 +181,9 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
             ? 1
             : (constraints.maxWidth / 260).floor().clamp(1, 6);
         final cardWidth = constraints.maxWidth / crossAxisCount;
-        final childAspectRatio = isList ? 2.5 : (cardWidth / 340).clamp(0.62, 0.9);
+        final childAspectRatio = isList
+            ? 2.5
+            : (cardWidth / 340).clamp(0.62, 0.9);
 
         return GridView.builder(
           padding: const EdgeInsets.all(AppTokens.space24),

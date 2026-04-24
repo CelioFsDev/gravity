@@ -1506,58 +1506,64 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   }
 
   Widget _buildSavingOverlay(SyncProgress progress) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      color: Colors.black.withOpacity(0.5),
+      color: Colors.black.withOpacity(0.7),
       child: Center(
-        child: SectionCard(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppTokens.space24,
-              vertical: AppTokens.space16,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 3,
-                    color: AppTokens.accentBlue,
-                  ),
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 40),
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            color: isDark ? AppTokens.surfaceDark : Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 20,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(
+                width: 48,
+                height: 48,
+                child: CircularProgressIndicator(
+                  strokeWidth: 4,
+                  valueColor: AlwaysStoppedAnimation(AppTokens.electricBlue),
                 ),
-                const SizedBox(height: AppTokens.space24),
-                Text(
-                  progress.message,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                  textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              Text(
+                progress.message,
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 18,
+                  color: isDark ? Colors.white : Colors.black87,
                 ),
-                const SizedBox(height: AppTokens.space16),
-                LinearProgressIndicator(
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: LinearProgressIndicator(
                   value: progress.progress,
-                  backgroundColor: AppTokens.border,
-                  valueColor: const AlwaysStoppedAnimation(
-                    AppTokens.accentBlue,
-                  ),
-                  minHeight: 10,
-                  borderRadius: BorderRadius.circular(AppTokens.radiusFull),
+                  backgroundColor: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
+                  valueColor: const AlwaysStoppedAnimation(AppTokens.electricBlue),
+                  minHeight: 8,
                 ),
-                const SizedBox(height: AppTokens.space8),
-                Text(
-                  '${(progress.progress * 100).toInt()}%',
-                  style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '${(progress.progress * 100).toInt()}%',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white54 : Colors.black45,
                 ),
-                const SizedBox(height: AppTokens.space16),
-                const Text(
-                  'Por favor, n\u00e3o feche o aplicativo enquanto as fotos s\u00e3o enviadas para a nuvem.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -1565,26 +1571,30 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   }
 
   Widget _buildBottomBar() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      padding: const EdgeInsets.all(AppTokens.space24),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: Theme.of(context).scaffoldBackgroundColor.withOpacity(0.95),
+        border: Border(
+          top: BorderSide(
+            color: (isDark ? Colors.white : Colors.black).withOpacity(0.08),
+          ),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -4),
+            blurRadius: 20,
+            offset: const Offset(0, -5),
           ),
         ],
       ),
       child: SafeArea(
         top: false,
         child: AppPrimaryButton(
-          label: widget.product == null
-              ? 'Criar Produto'
-              : 'Salvar Altera\u00e7\u00f5es',
+          label: widget.product == null ? 'CRIAR PRODUTO' : 'SALVAR ALTERAÇÕES',
           onPressed: _save,
-          icon: Icons.check_circle_outline,
+          icon: Icons.check_circle_outline_rounded,
         ),
       ),
     );
@@ -1627,16 +1637,10 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   ),
                 ),
               Center(
-                child: OutlinedButton.icon(
+                child: AppPrimaryButton(
                   onPressed: _addPrimaryPhoto,
-                  icon: Icon(
-                    photoP == null ? Icons.add_a_photo : Icons.refresh,
-                  ),
-                  label: Text(
-                    photoP == null
-                        ? 'Adicionar Foto Principal'
-                        : 'Trocar Foto Principal',
-                  ),
+                  icon: photoP == null ? Icons.add_a_photo_rounded : Icons.refresh_rounded,
+                  label: photoP == null ? 'ADICIONAR FOTO' : 'TROCAR FOTO',
                 ),
               ),
               if (photoP == null)
@@ -1756,30 +1760,48 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   }
 
   Widget _buildAddTile({required String label, required VoidCallback onTap}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+      borderRadius: BorderRadius.circular(20),
       child: Container(
         width: 110,
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isDark 
+              ? [Colors.white.withOpacity(0.05), Colors.white.withOpacity(0.02)]
+              : [AppTokens.electricBlue.withOpacity(0.05), AppTokens.electricBlue.withOpacity(0.01)],
+          ),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: Theme.of(context).dividerColor,
-            style: BorderStyle.solid,
+            color: isDark ? Colors.white10 : AppTokens.electricBlue.withOpacity(0.1),
           ),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.add_a_photo_outlined, color: AppTokens.accentBlue),
-            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isDark ? AppTokens.vibrantCyan.withOpacity(0.1) : AppTokens.electricBlue.withOpacity(0.1),
+              ),
+              child: Icon(
+                Icons.add_a_photo_rounded, 
+                color: isDark ? AppTokens.vibrantCyan : AppTokens.electricBlue,
+                size: 20,
+              ),
+            ),
+            const SizedBox(height: 8),
             Text(
-              'Adicionar',
+              label.toUpperCase(),
               style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+                color: isDark ? Colors.white60 : Colors.black54,
+                letterSpacing: 0.5,
               ),
             ),
           ],
@@ -1824,44 +1846,51 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     bool isNumber = false,
     int maxLines = 1,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+          label.toUpperCase(),
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: 10,
+            color: isDark ? Colors.white38 : Colors.black38,
+            letterSpacing: 1,
+          ),
         ),
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
           maxLines: maxLines,
           decoration: InputDecoration(
-            labelText: label,
-            floatingLabelBehavior: FloatingLabelBehavior.never,
+            hintText: 'Digite $label...',
+            hintStyle: TextStyle(color: isDark ? Colors.white24 : Colors.black26, fontSize: 14),
             filled: true,
-            fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
-            ),
+            fillColor: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppTokens.border),
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppTokens.border),
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.black12),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppTokens.accentBlue, width: 2),
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: AppTokens.electricBlue, width: 2),
             ),
             errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppTokens.accentRed),
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: AppTokens.accentRed, width: 1),
             ),
           ),
-          style: const TextStyle(fontSize: 15),
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: isDark ? Colors.white : Colors.black87,
+          ),
           validator: validator,
           keyboardType: (isPrice || isNumber)
               ? const TextInputType.numberWithOptions(decimal: true)

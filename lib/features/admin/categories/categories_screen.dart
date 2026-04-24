@@ -1,13 +1,14 @@
+import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/models/category.dart';
-import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
 import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
 import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart'; // Para SyncProgress
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/widgets/app_search_field.dart';
 
 class CategoriesScreen extends ConsumerStatefulWidget {
   const CategoriesScreen({super.key});
@@ -35,64 +36,23 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     final notifier = ref.read(categoriesViewModelProvider.notifier);
     final syncProgress = ref.watch(syncProgressProvider);
     final role = ref.watch(currentRoleProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return AppScaffold(
       title: 'Categorias',
-      subtitle: 'Organize as categorias do catálogo',
-      actions: [
-        if (role.canManageRegistrations)
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            onSelected: (value) {
-              if (value == 'add') _showCategoryDialog(context, notifier);
-              if (value == 'upload') _startCloudSync(context, notifier);
-              if (value == 'download') _startCloudDownload(context, notifier);
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'add',
-                child: Row(
-                  children: [
-                    Icon(Icons.add_outlined, size: 20),
-                    SizedBox(width: 8),
-                    Text('Nova Categoria'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'upload',
-                child: Row(
-                  children: [
-                    Icon(Icons.cloud_upload_outlined, size: 20),
-                    SizedBox(width: 8),
-                    Text('Sincronizar Nuvem'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'download',
-                child: Row(
-                  children: [
-                    Icon(Icons.cloud_download_outlined, size: 20),
-                    SizedBox(width: 8),
-                    Text('Baixar da Nuvem'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-      ],
+      subtitle: 'Organize seus produtos por tipo',
       body: Column(
         children: [
+          _buildHeader(context, role, notifier, isDark),
           if (syncProgress.isSyncing)
             _buildSyncProgressBanner(context, syncProgress),
           Expanded(
             child: state.when(
               data: (categoriesState) {
                 final categories = categoriesState.categories.where((c) {
-                  final nameMatch = c.safeName
-                      .toLowerCase()
-                      .contains(categoriesState.searchQuery.toLowerCase());
+                  final nameMatch = c.safeName.toLowerCase().contains(
+                    categoriesState.searchQuery.toLowerCase(),
+                  );
                   return nameMatch;
                 }).toList();
 
@@ -100,72 +60,94 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                   final isSearching = categoriesState.searchQuery.isNotEmpty;
                   return AppEmptyState(
                     icon: Icons.category_outlined,
-                    title: isSearching ? 'Nenhuma categoria encontrada' : 'Nenhuma categoria',
-                    message: isSearching
+                    title: isSearching
+                        ? 'Nenhuma categoria encontrada'
+                        : 'Nenhuma categoria',
+                    subtitle: isSearching
                         ? 'Tente buscar por outro termo.'
                         : 'Crie categorias para organizar seus produtos.',
                     actionLabel: isSearching ? null : 'Criar categoria',
-                    onAction: isSearching ? null : () => _showCategoryDialog(context, notifier),
+                    onAction: isSearching
+                        ? null
+                        : () => _showCategoryDialog(context, notifier),
+                    message: '',
                   );
                 }
 
                 return ListView.builder(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppTokens.space24,
-                    vertical: AppTokens.space16,
-                  ),
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
                   itemCount: categories.length,
                   itemBuilder: (context, index) {
                     final category = categories[index];
-                    final count = categoriesState.productCounts[category.id] ?? 0;
+                    final count =
+                        categoriesState.productCounts[category.id] ?? 0;
 
-                    return Card(
+                    return Container(
                       margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.white.withOpacity(0.03)
+                            : Theme.of(context).cardColor,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.white.withOpacity(0.05)
+                              : Theme.of(context).dividerColor.withOpacity(0.1),
+                        ),
+                        boxShadow: [
+                          if (!isDark)
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.03),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                        ],
+                      ),
                       child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor:
-                              Theme.of(context).colorScheme.primaryContainer,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 4,
+                        ),
+                        leading: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: AppTokens.electricBlue.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           child: Icon(
                             category.type == CategoryType.collection
                                 ? Icons.collections_bookmark_outlined
                                 : Icons.category_outlined,
-                            size: 20,
-                            color: Theme.of(context).colorScheme.primary,
+                            size: 22,
+                            color: AppTokens.vibrantCyan,
                           ),
                         ),
                         title: Text(
                           category.safeName,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: isDark ? Colors.white : Colors.black87,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                          ),
                         ),
                         subtitle: Text(
                           '$count ${count == 1 ? 'produto' : 'produtos'}',
+                          style: TextStyle(
+                            color: isDark ? Colors.white54 : Colors.black45,
+                            fontSize: 12,
+                          ),
                         ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit_outlined, size: 20),
-                              onPressed: () => _showCategoryDialog(
-                                context,
-                                notifier,
-                                category: category,
-                              ),
-                            ),
-                            PopupMenuButton<_CategoryAction>(
-                              icon: const Icon(Icons.more_horiz, size: 20),
-                              onSelected: (action) {
-                                if (action == _CategoryAction.delete) {
-                                  _handleDelete(context, notifier, category);
-                                }
-                              },
-                              itemBuilder: (context) => [
-                                const PopupMenuItem(
-                                  value: _CategoryAction.delete,
-                                  child: Text('Excluir'),
-                                ),
-                              ],
-                            ),
-                          ],
+                        trailing: IconButton(
+                          icon: Icon(
+                            Icons.edit_note_rounded,
+                            color: isDark ? Colors.white38 : Colors.black26,
+                          ),
+                          onPressed: () => _showCategoryDialog(
+                            context,
+                            notifier,
+                            category: category,
+                          ),
                         ),
                       ),
                     );
@@ -173,33 +155,120 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, s) {
-                final hasSearch =
-                    state.valueOrNull?.searchQuery.isNotEmpty ?? false;
-                if (!hasSearch) {
-                  return AppEmptyState(
-                    icon: Icons.category_outlined,
-                    title: 'Nenhuma categoria',
-                    message:
-                        'Ainda nao ha categorias cadastradas para esta empresa.',
-                    actionLabel:
-                        role.canManageRegistrations ? 'Criar categoria' : null,
-                    onAction:
-                        role.canManageRegistrations
-                            ? () => _showCategoryDialog(context, notifier)
-                            : null,
-                  );
-                }
-                return AppErrorView(
-                  error: e,
-                  stackTrace: s,
-                  onRetry: () => notifier.refresh(),
-                );
-              },
+              error: (e, s) => AppErrorView(
+                error: e,
+                stackTrace: s,
+                onRetry: () => notifier.refresh(),
+              ),
             ),
           ),
         ],
       ),
+
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 80),
+        child: FloatingActionButton.extended(
+          onPressed: () => _showCategoryDialog(context, notifier),
+          label: const Text(
+            'NOVA CATEGORIA',
+            style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1),
+          ),
+          icon: const Icon(Icons.add_rounded),
+          backgroundColor: AppTokens.softPurple,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(
+    BuildContext context,
+    UserRole role,
+    CategoriesViewModel notifier,
+    bool isDark,
+  ) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      decoration: BoxDecoration(
+        color: isDark
+            ? AppTokens.deepNavy.withOpacity(0.5)
+            : Theme.of(context).cardColor,
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(32),
+          bottomRight: Radius.circular(32),
+        ),
+        boxShadow: [
+          if (!isDark)
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const SizedBox.shrink(),
+              const Spacer(),
+              if (role.canManageRegistrations)
+                _buildMoreActions(context, notifier, isDark),
+            ],
+          ),
+          const SizedBox(height: 24),
+          AppSearchField(
+            controller: _searchController,
+            hintText: 'Buscar categorias...',
+            onChanged: (val) => ref
+                .read(categoriesViewModelProvider.notifier)
+                .setSearchQuery(val),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMoreActions(
+    BuildContext context,
+    CategoriesViewModel notifier,
+    bool isDark,
+  ) {
+    return PopupMenuButton<String>(
+      icon: Icon(
+        Icons.more_vert_rounded,
+        color: isDark ? Colors.white : Colors.black54,
+      ),
+      onSelected: (value) {
+        if (value == 'upload') _startCloudSync(context, notifier);
+        if (value == 'download') _startCloudDownload(context, notifier);
+      },
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: 'upload',
+          child: Row(
+            children: [
+              Icon(Icons.cloud_upload_outlined, size: 20),
+              SizedBox(width: 8),
+              Text('Subir p/ Nuvem'),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'download',
+          child: Row(
+            children: [
+              Icon(Icons.cloud_download_outlined, size: 20),
+              SizedBox(width: 8),
+              Text('Baixar da Nuvem'),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -302,14 +371,19 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     if (result.hasProducts) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(result.message ?? 'Não é possível excluir esta categoria.'),
+          content: Text(
+            result.message ?? 'Não é possível excluir esta categoria.',
+          ),
           backgroundColor: AppTokens.accentRed,
         ),
       );
     }
   }
 
-  void _startCloudSync(BuildContext context, CategoriesViewModel notifier) async {
+  void _startCloudSync(
+    BuildContext context,
+    CategoriesViewModel notifier,
+  ) async {
     try {
       await notifier.syncAllToCloud();
     } catch (e) {
@@ -324,7 +398,10 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     }
   }
 
-  void _startCloudDownload(BuildContext context, CategoriesViewModel notifier) async {
+  void _startCloudDownload(
+    BuildContext context,
+    CategoriesViewModel notifier,
+  ) async {
     try {
       await notifier.syncFromCloud();
     } catch (e) {
@@ -360,7 +437,10 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
               Expanded(
                 child: Text(
                   sync.message,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -379,15 +459,10 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
           const SizedBox(height: 8),
           ClipRRect(
             borderRadius: BorderRadius.circular(2),
-            child: LinearProgressIndicator(
-              value: sync.progress,
-              minHeight: 4,
-            ),
+            child: LinearProgressIndicator(value: sync.progress, minHeight: 4),
           ),
         ],
       ),
     );
   }
 }
-
-enum _CategoryAction { delete }

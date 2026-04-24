@@ -12,6 +12,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:go_router/go_router.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:catalogo_ja/data/repositories/tenant_repository.dart';
+import 'package:catalogo_ja/ui/widgets/app_primary_button.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -194,6 +195,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
+      showHeader: true,
       title: 'Configura\u00e7\u00f5es',
       subtitle: 'Personalize sua loja e cat\u00e1logo',
       maxWidth: 800,
@@ -252,13 +254,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
-                      child: ElevatedButton.icon(
-                        icon: const Icon(Icons.people_outline),
-                        label: const Text('Configurar Usuários'),
+                      child: AppPrimaryButton(
+                        icon: Icons.people_outline,
+                        label: 'Configurar Usuários',
                         onPressed: () => context.push('/admin/settings/users'),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
                       ),
                     ),
                   ],
@@ -611,45 +610,46 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     String? helper,
     void Function(String)? onChanged,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label,
+          label.toUpperCase(),
           style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
-            color: Theme.of(context).colorScheme.onSurface,
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+            color: isDark ? Colors.white38 : Colors.black38,
+            letterSpacing: 1,
           ),
         ),
         const SizedBox(height: 8),
         TextField(
           controller: controller,
           onChanged: onChanged,
+          style: TextStyle(
+            color: isDark ? Colors.white : Colors.black87,
+            fontWeight: FontWeight.w600,
+          ),
           decoration: InputDecoration(
             hintText: hint,
             helperText: helper,
-            prefixIcon: Icon(
-              icon,
-              color: Theme.of(context).colorScheme.primary,
-              size: 20,
-            ),
+            helperStyle: TextStyle(color: isDark ? Colors.white24 : Colors.black26, fontSize: 11),
+            prefixIcon: Icon(icon, size: 20, color: isDark ? AppTokens.vibrantCyan : AppTokens.electricBlue),
             filled: true,
-            fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+            fillColor: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Theme.of(context).dividerColor),
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Theme.of(context).dividerColor),
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.black12),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: Theme.of(context).colorScheme.primary,
-                width: 2,
-              ),
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: AppTokens.electricBlue, width: 2),
             ),
           ),
         ),
