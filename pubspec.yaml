@@ -68,15 +68,15 @@ flutter_launcher_icons:
   android: true
   ios: true
   windows: true
-  image_path: assets/branding/icons/catalogo_ja_icon_premium.png
+  image_path: assets/branding/icons/catalogoja_app_icon_clean.png
   adaptive_icon_background: '#060C1C'
-  adaptive_icon_foreground: assets/branding/icons/catalogo_ja_icon_premium.png
+  adaptive_icon_foreground: assets/branding/icons/catalogoja_app_icon_clean.png
 
 flutter_native_splash:
   color: "#060C1C"
-  image: assets/branding/logo/catalogoja_logo_master_2048x2048.png
+  image: assets/branding/splash/catalogoja_splash_clean.png
   android_12:
-    image: assets/branding/logo/catalogoja_logo_master_2048x2048.png
+    image: assets/branding/splash/catalogoja_splash_clean.png
     color: "#060C1C"
   android: true
   ios: true

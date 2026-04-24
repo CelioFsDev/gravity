@@ -11,6 +11,8 @@ void main() async {
     'icon_categories_1776986465893.png': 'categories.png',
     'icon_settings_profile_1776986480717.png': 'settings_profile.png',
     'catalogo_ja_login_background_premium_1776986500878.png': 'login_bg.png',
+    'catalogo_ja_icon_premium_1776975848766.png': '../branding/icons/catalogo_ja_icon_premium.png',
+    'catalogo_ja_icon_premium_1776975848766.png': '../branding/logo/catalogoja_logo_master_2048x2048.png',
   };
 
   final dir = Directory(targetDir);
