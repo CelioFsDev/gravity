@@ -5,8 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
-import 'package:catalogo_ja/ui/widgets/app_card.dart';
-import 'package:catalogo_ja/ui/widgets/app_badge_pill.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
@@ -46,14 +44,18 @@ class AppProductListTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: isSelected 
-            ? AppTokens.electricBlue.withOpacity(0.1) 
-            : (isDark ? Colors.white.withOpacity(0.03) : Theme.of(context).cardColor),
+        color: isSelected
+            ? AppTokens.electricBlue.withOpacity(0.1)
+            : (isDark
+                  ? Colors.white.withOpacity(0.03)
+                  : Theme.of(context).cardColor),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isSelected 
-              ? AppTokens.vibrantCyan.withOpacity(0.5) 
-              : (isDark ? Colors.white.withOpacity(0.05) : Theme.of(context).dividerColor.withOpacity(0.1)),
+          color: isSelected
+              ? AppTokens.vibrantCyan.withOpacity(0.5)
+              : (isDark
+                    ? Colors.white.withOpacity(0.05)
+                    : Theme.of(context).dividerColor.withOpacity(0.1)),
           width: isSelected ? 1.5 : 1,
         ),
         boxShadow: [
@@ -112,8 +114,7 @@ class AppProductListTile extends StatelessWidget {
                         const SizedBox(width: 8),
                         if (product.promoEnabled)
                           _buildMiniBadge('PROMO', AppTokens.vibrantPink),
-                        if (product.isOutOfStock)
-                          const SizedBox(width: 4),
+                        if (product.isOutOfStock) const SizedBox(width: 4),
                         if (product.isOutOfStock)
                           _buildMiniBadge('OFF', Colors.grey),
                       ],
@@ -133,9 +134,21 @@ class AppProductListTile extends StatelessWidget {
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        _buildPriceTag(context, 'VAREJO', currency.format(product.effectivePriceRetail), AppTokens.electricBlue, isDark),
+                        _buildPriceTag(
+                          context,
+                          'VAREJO',
+                          currency.format(product.effectivePriceRetail),
+                          AppTokens.electricBlue,
+                          isDark,
+                        ),
                         const SizedBox(width: 12),
-                        _buildPriceTag(context, 'ATACADO', currency.format(product.effectivePriceWholesale), AppTokens.softPurple, isDark),
+                        _buildPriceTag(
+                          context,
+                          'ATACADO',
+                          currency.format(product.effectivePriceWholesale),
+                          AppTokens.softPurple,
+                          isDark,
+                        ),
                       ],
                     ),
                   ],
@@ -147,7 +160,10 @@ class AppProductListTile extends StatelessWidget {
               if (trailing == null && onGoMainMenu != null)
                 IconButton(
                   onPressed: onGoMainMenu,
-                  icon: Icon(Icons.home_outlined, color: isDark ? Colors.white38 : Colors.black26),
+                  icon: Icon(
+                    Icons.home_outlined,
+                    color: isDark ? Colors.white38 : Colors.black26,
+                  ),
                 ),
               if (trailing == null && (onEdit != null || onDelete != null))
                 _buildAdminMenu(context),
@@ -177,7 +193,13 @@ class AppProductListTile extends StatelessWidget {
     );
   }
 
-  Widget _buildPriceTag(BuildContext context, String label, String value, Color color, bool isDark) {
+  Widget _buildPriceTag(
+    BuildContext context,
+    String label,
+    String value,
+    Color color,
+    bool isDark,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

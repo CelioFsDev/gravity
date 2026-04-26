@@ -21,13 +21,14 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       instagramUrl: (fields[7] as String?) ?? '',
       isInitialSyncCompleted: (fields[8] as bool?) ?? false,
       qrTargetUrl: (fields[9] as String?) ?? '',
+      companyInstagramUrl: (fields[10] as String?) ?? '',
     );
   }
 
   @override
   void write(BinaryWriter writer, AppSettings obj) {
     writer
-      ..writeByte(10)
+      ..writeByte(11)
       ..writeByte(0)
       ..write(obj.storeName)
       ..writeByte(1)
@@ -47,7 +48,9 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       ..writeByte(8)
       ..write(obj.isInitialSyncCompleted)
       ..writeByte(9)
-      ..write(obj.qrTargetUrl);
+      ..write(obj.qrTargetUrl)
+      ..writeByte(10)
+      ..write(obj.companyInstagramUrl);
   }
 }
 
@@ -60,6 +63,7 @@ class AppSettings {
   final String geminiApiKey;
   final String linktreeUrl;
   final String instagramUrl;
+  final String companyInstagramUrl;
   final bool isInitialSyncCompleted;
   final String qrTargetUrl;
 
@@ -72,6 +76,7 @@ class AppSettings {
     this.geminiApiKey = '',
     this.linktreeUrl = '',
     this.instagramUrl = '',
+    this.companyInstagramUrl = '',
     this.isInitialSyncCompleted = false,
     this.qrTargetUrl = '',
   });
@@ -85,6 +90,7 @@ class AppSettings {
     String? geminiApiKey,
     String? linktreeUrl,
     String? instagramUrl,
+    String? companyInstagramUrl,
     bool? isInitialSyncCompleted,
     String? qrTargetUrl,
   }) {
@@ -97,6 +103,7 @@ class AppSettings {
       geminiApiKey: geminiApiKey ?? this.geminiApiKey,
       linktreeUrl: linktreeUrl ?? this.linktreeUrl,
       instagramUrl: instagramUrl ?? this.instagramUrl,
+      companyInstagramUrl: companyInstagramUrl ?? this.companyInstagramUrl,
       isInitialSyncCompleted: isInitialSyncCompleted ?? this.isInitialSyncCompleted,
       qrTargetUrl: qrTargetUrl ?? this.qrTargetUrl,
     );
@@ -112,6 +119,7 @@ class AppSettings {
       geminiApiKey: '',
       linktreeUrl: '',
       instagramUrl: '',
+      companyInstagramUrl: '',
       isInitialSyncCompleted: false,
       qrTargetUrl: '',
     );

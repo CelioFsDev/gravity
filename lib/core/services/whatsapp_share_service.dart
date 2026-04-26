@@ -140,6 +140,10 @@ class WhatsAppShareService {
   }
 
   static void _throwIfShareUnavailable(ShareResult result) {
+    final isWindows =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+    if (isWindows) return;
+
     if (result.status == ShareResultStatus.unavailable) {
       throw Exception(
         kIsWeb

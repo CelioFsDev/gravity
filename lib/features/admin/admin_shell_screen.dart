@@ -39,6 +39,11 @@ class AdminShellScreen extends ConsumerWidget {
       icon: Icons.cloud_download_outlined,
       label: 'Importa\u00e7\u00f5es',
     ),
+    _NavItem(icon: Icons.person_outline, label: 'Meu Perfil'),
+    _NavItem(
+      icon: Icons.share_location_outlined,
+      label: 'Divulga\u00e7\u00e3o',
+    ),
     _NavItem(
       icon: Icons.settings_outlined,
       label: 'Ajustes',
@@ -76,6 +81,8 @@ class AdminShellScreen extends ConsumerWidget {
       '/admin/categories',
       '/admin/catalogs',
       '/admin/imports',
+      '/admin/profile',
+      '/admin/share',
       '/admin/settings',
     ].contains(location);
 
@@ -84,22 +91,30 @@ class AdminShellScreen extends ConsumerWidget {
         final isWide = constraints.maxWidth >= 900;
         final isDark = Theme.of(context).brightness == Brightness.dark;
 
-        final bottomNavIndices = [0, 1, 4, 6]; // Início, Produtos, Catálogos, Ajustes
+        final bottomNavIndices = [
+          0,
+          1,
+          4,
+          7,
+          8,
+        ]; // Início, Produtos, Catálogos, Divulgação, Ajustes
 
         return Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          drawer: isWide ? null : Drawer(
-            child: _Sidebar(
-              currentIndex: navigationShell.currentIndex,
-              onDestinationSelected: (index) {
-                onAdminNavigation(index);
-                Navigator.pop(context);
-              },
-              displayTitle: displayTitle,
-              logoUrl: logoUrl,
-              canManageUsers: canManageUsers,
-            ),
-          ),
+          drawer: isWide
+              ? null
+              : Drawer(
+                  child: _Sidebar(
+                    currentIndex: navigationShell.currentIndex,
+                    onDestinationSelected: (index) {
+                      onAdminNavigation(index);
+                      Navigator.pop(context);
+                    },
+                    displayTitle: displayTitle,
+                    logoUrl: logoUrl,
+                    canManageUsers: canManageUsers,
+                  ),
+                ),
           body: isWide
               ? Row(
                   children: [
@@ -133,7 +148,9 @@ class AdminShellScreen extends ConsumerWidget {
                           Positioned.fill(
                             child: Container(
                               color: Theme.of(context).scaffoldBackgroundColor,
-                              padding: EdgeInsets.only(bottom: isRootPage ? 100 : 0),
+                              padding: EdgeInsets.only(
+                                bottom: isRootPage ? 100 : 0,
+                              ),
                               child: navigationShell,
                             ),
                           ),
@@ -147,7 +164,12 @@ class AdminShellScreen extends ConsumerWidget {
                               child: SafeArea(
                                 top: false,
                                 child: Padding(
-                                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    0,
+                                    16,
+                                    16,
+                                  ),
                                   child: _FloatingBottomNav(
                                     currentIndex: navigationShell.currentIndex,
                                     onDestinationSelected: onAdminNavigation,
@@ -166,7 +188,6 @@ class AdminShellScreen extends ConsumerWidget {
     );
   }
 }
-
 
 class _Sidebar extends ConsumerWidget {
   final int currentIndex;
@@ -202,7 +223,9 @@ class _Sidebar extends ConsumerWidget {
                   height: 42,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
-                    gradient: logoUrl == null ? AppTokens.primaryGradient : null,
+                    gradient: logoUrl == null
+                        ? AppTokens.primaryGradient
+                        : null,
                     image: logoUrl != null
                         ? DecorationImage(
                             image: NetworkImage(logoUrl!),
@@ -211,15 +234,22 @@ class _Sidebar extends ConsumerWidget {
                         : null,
                   ),
                   child: logoUrl == null
-                      ? const Icon(Icons.auto_awesome_rounded,
-                          color: Colors.white, size: 24)
+                      ? const Icon(
+                          Icons.auto_awesome_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        )
                       : null,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     displayTitle,
-                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -230,10 +260,19 @@ class _Sidebar extends ConsumerWidget {
 
           ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 24),
-            leading: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined, color: Colors.white54, size: 20),
-            title: Text(isDark ? 'Modo Claro' : 'Modo Escuro', style: const TextStyle(color: Colors.white60, fontSize: 14)),
+            leading: Icon(
+              isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+              color: Colors.white54,
+              size: 20,
+            ),
+            title: Text(
+              isDark ? 'Modo Claro' : 'Modo Escuro',
+              style: const TextStyle(color: Colors.white60, fontSize: 14),
+            ),
             onTap: () {
-              ref.read(themeModeProvider.notifier).state = isDark ? ThemeMode.light : ThemeMode.dark;
+              ref.read(themeModeProvider.notifier).state = isDark
+                  ? ThemeMode.light
+                  : ThemeMode.dark;
             },
           ),
           const Divider(color: Colors.white10),
@@ -242,7 +281,7 @@ class _Sidebar extends ConsumerWidget {
             child: ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: AdminShellScreen._destinations.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 4),
+              separatorBuilder: (_, _) => const SizedBox(height: 4),
               itemBuilder: (context, index) {
                 final item = AdminShellScreen._destinations[index];
                 return _SidebarItem(
@@ -373,55 +412,55 @@ class _FloatingBottomNav extends StatelessWidget {
             offset: const Offset(0, 10),
           ),
         ],
-        border: Border.all(color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05)),
+        border: Border.all(
+          color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05),
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: visibleIndices.map(
-          (index) {
-            final item = AdminShellScreen._destinations[index];
-            final isSelected = currentIndex == index;
+        children: visibleIndices.map((index) {
+          final item = AdminShellScreen._destinations[index];
+          final isSelected = currentIndex == index;
 
-            return Expanded(
-              child: InkWell(
-                onTap: () => onDestinationSelected(index),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (item.premiumIcon != null)
-                      Opacity(
-                        opacity: isSelected ? 1.0 : 0.5,
-                        child: item.premiumIcon!(isSelected ? 28 : 24),
-                      )
-                    else
-                      Icon(
-                        item.icon,
-                        color: isSelected
-                            ? (isDark
-                                  ? AppTokens.vibrantCyan
-                                  : AppTokens.electricBlue)
-                            : (isDark ? Colors.white54 : Colors.black38),
-                        size: 24,
+          return Expanded(
+            child: InkWell(
+              onTap: () => onDestinationSelected(index),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (item.premiumIcon != null)
+                    Opacity(
+                      opacity: isSelected ? 1.0 : 0.5,
+                      child: item.premiumIcon!(isSelected ? 28 : 24),
+                    )
+                  else
+                    Icon(
+                      item.icon,
+                      color: isSelected
+                          ? (isDark
+                                ? AppTokens.vibrantCyan
+                                : AppTokens.electricBlue)
+                          : (isDark ? Colors.white54 : Colors.black38),
+                      size: 24,
+                    ),
+                  if (isSelected)
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      width: 4,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isDark
+                            ? AppTokens.vibrantCyan
+                            : AppTokens.electricBlue,
                       ),
-                    if (isSelected)
-                      Container(
-                        margin: const EdgeInsets.only(top: 4),
-                        width: 4,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: isDark
-                              ? AppTokens.vibrantCyan
-                              : AppTokens.electricBlue,
-                        ),
-                      ),
-                  ],
-                ),
+                    ),
+                ],
               ),
-            );
-          },
-        ).toList(),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -432,9 +471,5 @@ class _NavItem {
   final String label;
   final Widget Function(double size)? premiumIcon;
 
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    this.premiumIcon,
-  });
+  const _NavItem({required this.icon, required this.label, this.premiumIcon});
 }

@@ -20,7 +20,9 @@ class SyncHealthMetrics {
 
   bool get isHealthy => totalErrors == 0;
   bool get isIdle => totalPending == 0 && totalSyncing == 0;
-  double get errorRate => (totalPending + totalErrors) == 0 ? 0 : totalErrors / (totalPending + totalErrors);
+  double get errorRate => (totalPending + totalErrors) == 0
+      ? 0
+      : totalErrors / (totalPending + totalErrors);
 }
 
 class SyncHealthViewModel extends StateNotifier<SyncHealthMetrics> {
@@ -34,7 +36,7 @@ class SyncHealthViewModel extends StateNotifier<SyncHealthMetrics> {
     // Usamos um timer simples aqui pois o Hive não expõe streams filtradas tão facilmente
     // Em um app produtivo gigante, usaríamos ValueListenableBuilder direto na box do Hive
     // Porém essa métrica pode ser consultada a cada X segundos para popular o dashboard de settings.
-    
+
     // Simulação reativa inicial
     refreshMetrics();
   }
@@ -50,13 +52,16 @@ class SyncHealthViewModel extends StateNotifier<SyncHealthMetrics> {
     List<SyncQueueItem> errList = [];
 
     for (final item in allItems) {
-      if (item.status == SyncItemStatus.pending) pending++;
-      else if (item.status == SyncItemStatus.syncing) syncing++;
-      else if (item.status == SyncItemStatus.error || item.status == SyncItemStatus.conflict) {
+      if (item.status == SyncItemStatus.pending) {
+        pending++;
+      } else if (item.status == SyncItemStatus.syncing)
+        syncing++;
+      else if (item.status == SyncItemStatus.error ||
+          item.status == SyncItemStatus.conflict) {
         errors++;
         errList.add(item);
-      }
-      else if (item.status == SyncItemStatus.synced) synced++;
+      } else if (item.status == SyncItemStatus.synced)
+        synced++;
     }
 
     state = SyncHealthMetrics(
@@ -70,6 +75,7 @@ class SyncHealthViewModel extends StateNotifier<SyncHealthMetrics> {
 }
 
 /// Provider que fornece as métricas de saúde da Sincronização B2B para telas administrativas
-final syncHealthProvider = StateNotifierProvider<SyncHealthViewModel, SyncHealthMetrics>((ref) {
-  return SyncHealthViewModel(ref);
-});
+final syncHealthProvider =
+    StateNotifierProvider<SyncHealthViewModel, SyncHealthMetrics>((ref) {
+      return SyncHealthViewModel(ref);
+    });

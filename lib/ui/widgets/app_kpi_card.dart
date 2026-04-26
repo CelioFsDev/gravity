@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 
 class AppKpiCard extends StatelessWidget {
   final String value;
@@ -18,7 +17,7 @@ class AppKpiCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -51,7 +50,11 @@ class AppKpiCard extends StatelessWidget {
                   color: color.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon ?? Icons.analytics_outlined, size: 18, color: color),
+                child: Icon(
+                  icon ?? Icons.analytics_outlined,
+                  size: 18,
+                  color: color,
+                ),
               ),
               const Spacer(),
               _Indicator(color: color),

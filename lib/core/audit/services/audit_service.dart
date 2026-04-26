@@ -12,12 +12,7 @@ class AuditService {
   final String? _userEmail;
   final String? _tenantId;
 
-  AuditService(
-    this._syncQueue,
-    this._userId,
-    this._userEmail,
-    this._tenantId,
-  );
+  AuditService(this._syncQueue, this._userId, this._userEmail, this._tenantId);
 
   /// Registra uma ação de auditoria usando a própria Fila de Sincronização offline-first
   Future<void> logAction({
@@ -29,7 +24,7 @@ class AuditService {
     if (_tenantId == null) return;
 
     final entry = AuditLogEntry(
-      tenantId: _tenantId!,
+      tenantId: _tenantId,
       entityType: entityType,
       entityId: entityId,
       action: action,
@@ -40,15 +35,18 @@ class AuditService {
 
     // Salvar num Hive Box específico de auditoria local (opcional)
     // Para simplificar a arquitetura inicial, já enfileiramos direto pro Firebase.
-    // Assim, se o dev estiver offline, isso sobe assim que a internet voltar 
+    // Assim, se o dev estiver offline, isso sobe assim que a internet voltar
     // junto com a entidade que foi modificada.
-    await _syncQueue.enqueue(SyncQueueItem(
-      tenantId: _tenantId!,
-      entityType: 'audit_log', // A coleção no Firestore será 'audit_logs'
-      entityId: entry.id,
-      operation: SyncOperation.create, // Auditoria é sempre create (append-only)
-      payload: entry.toMap(),
-    ));
+    await _syncQueue.enqueue(
+      SyncQueueItem(
+        tenantId: _tenantId,
+        entityType: 'audit_log', // A coleção no Firestore será 'audit_logs'
+        entityId: entry.id,
+        operation:
+            SyncOperation.create, // Auditoria é sempre create (append-only)
+        payload: entry.toMap(),
+      ),
+    );
   }
 }
 

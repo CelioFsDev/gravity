@@ -1,9 +1,9 @@
 import 'package:catalogo_ja/core/saas/subscription/models/subscription_plan.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class QuotaExceededException implements Exception {
   final String message;
-  final String upgradeFeatureKey; // Usado na UI para saber qual banner de upgrade exibir
+  final String
+  upgradeFeatureKey; // Usado na UI para saber qual banner de upgrade exibir
 
   QuotaExceededException(this.message, this.upgradeFeatureKey);
 

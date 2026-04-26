@@ -1,3 +1,4 @@
+import 'package:catalogo_ja/viewmodels/global_sync_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,6 +29,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late final TextEditingController _remotePhotoUrlController;
   late final TextEditingController _linktreeController;
   late final TextEditingController _instagramController;
+  late final TextEditingController _companyInstagramController;
   late bool _isInitialSyncCompleted;
 
   @override
@@ -42,6 +44,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
     _linktreeController = TextEditingController(text: settings.linktreeUrl);
     _instagramController = TextEditingController(text: settings.instagramUrl);
+    _companyInstagramController = TextEditingController(
+      text: settings.companyInstagramUrl,
+    );
     _isInitialSyncCompleted = settings.isInitialSyncCompleted;
   }
 
@@ -53,6 +58,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _remotePhotoUrlController.dispose();
     _linktreeController.dispose();
     _instagramController.dispose();
+    _companyInstagramController.dispose();
     super.dispose();
   }
 
@@ -66,6 +72,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           remoteImageBaseUrl: _remotePhotoUrlController.text,
           linktreeUrl: _linktreeController.text,
           instagramUrl: _instagramController.text,
+          companyInstagramUrl: _companyInstagramController.text,
           isInitialSyncCompleted: _isInitialSyncCompleted,
         );
     if (mounted) {
@@ -194,255 +201,343 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return AppScaffold(
-      showHeader: true,
-      title: 'Configura\u00e7\u00f5es',
-      subtitle: 'Personalize sua loja e cat\u00e1logo',
-      maxWidth: 800,
-      actions: [IconButton(icon: const Icon(Icons.check), onPressed: _save)],
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppTokens.space24),
-        child: Column(
+    return DefaultTabController(
+      length: 3,
+      child: AppScaffold(
+        showHeader: true,
+        title: 'Ajustes',
+        subtitle: 'Gerencie sua loja e o sistema',
+        maxWidth: 800,
+        bottom: const TabBar(
+          tabs: [
+            Tab(icon: Icon(Icons.storefront_outlined), text: 'Minha Loja'),
+            Tab(icon: Icon(Icons.settings_outlined), text: 'Configuração'),
+            Tab(icon: Icon(Icons.build_circle_outlined), text: 'Manutenção'),
+          ],
+        ),
+        actions: [IconButton(icon: const Icon(Icons.check), onPressed: _save)],
+        body: TabBarView(
           children: [
-            _buildStoreManagementSection(),
-            const SizedBox(height: 24),
-            SectionCard(
-              title: 'Perfil da Loja',
-              child: Column(
-                children: [
-                  _buildField(
-                    controller: _storeNameController,
-                    label: 'Nome da Loja',
-                    hint: 'Ex: Minha Loja Fashion',
-                    icon: Icons.storefront_outlined,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildField(
-                    controller: _whatsappController,
-                    label: 'WhatsApp de Vendas',
-                    hint: '5511999999999',
-                    icon: Icons.phone_outlined,
-                    helper: 'Apenas n\u00fameros, com DDI (ex: 55)',
-                  ),
-                  const SizedBox(height: 24),
-                  SwitchListTile(
-                    title: const Text('Carga Inicial Concluída'),
-                    subtitle: const Text(
-                      'Se desativado, o app exigirá importação do ZIP para iniciar dados.',
-                    ),
-                    value: _isInitialSyncCompleted,
-                    onChanged: (val) =>
-                        setState(() => _isInitialSyncCompleted = val),
-                    secondary: const Icon(Icons.cloud_sync_outlined),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            if (ref
-                .watch(currentRoleProvider)
-                .canManageUsers(
-                  ref.watch(authViewModelProvider).valueOrNull?.email,
-                ))
-              SectionCard(
-                title: 'Gerenciar Usuários',
-                child: Column(
-                  children: [
-                    const Text(
-                      'Controle quem pode acessar o painel de administração e quais permissões cada pessoa possui.',
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: AppPrimaryButton(
-                        icon: Icons.people_outline,
-                        label: 'Configurar Usuários',
-                        onPressed: () => context.push('/admin/settings/users'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 24),
-            SectionCard(
-              title: 'Integra\u00e7\u00e3o e Links',
-              child: Column(
-                children: [
-                  _buildField(
-                    controller: _baseUrlController,
-                    label: 'URL Base do Cat\u00e1logo',
-                    hint: 'https://seusite.com',
-                    icon: Icons.language_outlined,
-                    helper: 'Usado para gerar links de compartilhamento',
-                    onChanged: (_) => setState(() {}),
-                  ),
-                  const SizedBox(height: 12),
-                  ValueListenableBuilder(
-                    valueListenable: _baseUrlController,
-                    builder: (context, value, _) {
-                      final url = value.text.trim();
-                      if (url.isEmpty) return const SizedBox.shrink();
-
-                      var displayUrl = url;
-                      if (displayUrl.endsWith('/')) {
-                        displayUrl = displayUrl.substring(
-                          0,
-                          displayUrl.length - 1,
-                        );
-                      }
-                      if (!displayUrl.startsWith('http')) {
-                        displayUrl = 'https://$displayUrl';
-                      }
-
-                      return Container(
-                        padding: const EdgeInsets.all(AppTokens.space12),
-                        decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.primary.withAlpha(20),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.primary.withAlpha(40),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.check_circle_outline,
-                                  size: 14,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Pr\u00e9via do link p\u00fablico:',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '$displayUrl/c/XYZ123',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Theme.of(context).colorScheme.onSurface,
-                                fontWeight: FontWeight.w600,
-                                fontFamily: 'monospace',
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton.icon(
-                                icon: const Icon(Icons.open_in_new, size: 18),
-                                label: const Text('Testar link p\u00fablico'),
-                                onPressed: () => _testPublicLink(displayUrl),
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  _buildField(
-                    controller: _remotePhotoUrlController,
-                    label: 'URL Base para Fotos (Nuvem)',
-                    hint: 'https://seusite.com/fotos',
-                    icon: Icons.cloud_download_outlined,
-                    helper:
-                        'As fotos devem seguir o padr\u00e3o da refer\u00eancia (ex.: REFERENCIA_principal, REFERENCIA_cor_preto) com extens\u00e3o de imagem.',
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            SectionCard(
-              title: 'Redes Sociais',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Esses links aparecem na última página do catálogo PDF como botões clicáveis.',
-                    style: TextStyle(fontSize: 13),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildField(
-                    controller: _linktreeController,
-                    label: 'Link do Linktree',
-                    hint: 'https://linktr.ee/sualoja',
-                    icon: Icons.link_outlined,
-                    helper: 'Link da sua página no Linktree',
-                  ),
-                  const SizedBox(height: 16),
-                  _buildField(
-                    controller: _instagramController,
-                    label: 'Instagram',
-                    hint: 'https://instagram.com/sualoja',
-                    icon: Icons.camera_alt_outlined,
-                    helper: 'Link do seu perfil no Instagram',
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                'Vers\u00e3o do App: 1.0.0',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ),
-            const SizedBox(height: 24),
-            if (ref
-                .watch(currentRoleProvider)
-                .canManageUsers(
-                  ref.watch(authViewModelProvider).valueOrNull?.email,
-                ))
-              SectionCard(
-                title: 'Manutenção e Resgate',
-                child: Column(
-                  children: [
-                    const Text(
-                      'Use esta ferramenta para escanear o banco de dados em busca de catálogos antigos que não aparecem na sua conta atual.',
-                      style: TextStyle(fontSize: 13),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppTokens.accentOrange,
-                        ),
-                        onPressed: _findMyLostData,
-                        icon: const Icon(Icons.history_outlined),
-                        label: const Text('ESCANEAR E RESGATAR DADOS'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            _buildMyStoreTab(),
+            _buildSettingsTab(),
+            _buildMaintenanceTab(),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildMyStoreTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppTokens.space24),
+      child: Column(
+        children: [
+          SectionCard(
+            title: 'Identidade da Loja',
+            child: Column(
+              children: [
+                const Text(
+                  'Estas informações aparecerão no cabeçalho e rodapé dos seus catálogos PDF.',
+                  style: TextStyle(fontSize: 13, color: AppTokens.textMuted),
+                ),
+                const SizedBox(height: 20),
+                _buildField(
+                  controller: _storeNameController,
+                  label: 'Nome da Loja',
+                  hint: 'Ex: Minha Loja Fashion',
+                  icon: Icons.storefront_outlined,
+                ),
+                const SizedBox(height: 16),
+                _buildField(
+                  controller: _whatsappController,
+                  label: 'WhatsApp de Vendas',
+                  hint: '5511999999999',
+                  icon: Icons.phone_outlined,
+                  helper: 'Apenas números, com DDI (ex: 55)',
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          SectionCard(
+            title: 'Redes Sociais',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Links que aparecem na última página do catálogo PDF como botões clicáveis.',
+                  style: TextStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                _buildField(
+                  controller: _linktreeController,
+                  label: 'Link do Linktree',
+                  hint: 'https://linktr.ee/sualoja',
+                  icon: Icons.link_outlined,
+                  helper: 'Link da sua página no Linktree',
+                ),
+                const SizedBox(height: 16),
+                _buildField(
+                  controller: _instagramController,
+                  label: 'Instagram da Loja',
+                  hint: 'https://instagram.com/sualoja',
+                  icon: Icons.camera_alt_outlined,
+                  helper: 'Link do perfil da loja no Instagram',
+                ),
+                const SizedBox(height: 16),
+                _buildField(
+                  controller: _companyInstagramController,
+                  label: 'Instagram da Empresa',
+                  hint: 'https://instagram.com/empresa',
+                  icon: Icons.business_outlined,
+                  helper: 'Link do perfil institucional da empresa',
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+          SizedBox(
+            width: double.infinity,
+            child: AppPrimaryButton(
+              onPressed: _save,
+              label: 'SALVAR DADOS DA LOJA',
+              icon: Icons.save_outlined,
+            ),
+          ),
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppTokens.space24),
+      child: Column(
+        children: [
+          _buildStoreManagementSection(),
+          const SizedBox(height: 24),
+          SectionCard(
+            title: 'Ajustes de Sistema',
+            child: Column(
+              children: [
+                _buildField(
+                  controller: _baseUrlController,
+                  label: 'URL Base do Catálogo',
+                  hint: 'https://seusite.com',
+                  icon: Icons.language_outlined,
+                  helper: 'Usado para gerar links de compartilhamento',
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 12),
+                _buildLinkPreview(),
+                const SizedBox(height: 16),
+                _buildField(
+                  controller: _remotePhotoUrlController,
+                  label: 'URL Base para Fotos (Nuvem)',
+                  hint: 'https://seusite.com/fotos',
+                  icon: Icons.cloud_download_outlined,
+                  helper: 'Pasta onde as fotos estão hospedadas',
+                ),
+                const SizedBox(height: 24),
+                SwitchListTile(
+                  title: const Text('Carga Inicial Concluída'),
+                  subtitle: const Text(
+                    'Se desativado, o app exigirá importação do ZIP para iniciar.',
+                  ),
+                  value: _isInitialSyncCompleted,
+                  onChanged: (val) =>
+                      setState(() => _isInitialSyncCompleted = val),
+                  secondary: const Icon(Icons.cloud_sync_outlined),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+          SizedBox(
+            width: double.infinity,
+            child: AppPrimaryButton(
+              onPressed: _save,
+              label: 'SALVAR CONFIGURAÇÕES',
+              icon: Icons.save_outlined,
+            ),
+          ),
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMaintenanceTab() {
+    final user = ref.watch(authViewModelProvider).valueOrNull;
+    final canManage = ref
+        .watch(currentRoleProvider)
+        .canManageUsers(user?.email);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppTokens.space24),
+      child: Column(
+        children: [
+          if (canManage) ...[
+            SectionCard(
+              title: 'Gestão de Acesso',
+              child: Column(
+                children: [
+                  const Text(
+                    'Controle quem pode acessar o painel de administração e quais permissões cada pessoa possui.',
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: AppPrimaryButton(
+                      icon: Icons.people_outline,
+                      label: 'Configurar Usuários',
+                      onPressed: () => context.push('/admin/settings/users'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+          SectionCard(
+            title: 'Manutenção de Dados',
+            child: Column(
+              children: [
+                const Text(
+                  'Use esta ferramenta para escanear o banco de dados em busca de catálogos antigos que não aparecem na sua conta atual.',
+                  style: TextStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTokens.accentOrange,
+                    ),
+                    onPressed: _findMyLostData,
+                    icon: const Icon(Icons.history_outlined),
+                    label: const Text('ESCANEAR E RESGATAR DADOS'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          SectionCard(
+            title: 'Sincronização Global',
+            child: Column(
+              children: [
+                const Text(
+                  'Forçar sincronização de todos os dados locais com a nuvem.',
+                  style: TextStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => ref
+                            .read(globalSyncViewModelProvider.notifier)
+                            .syncUpEverything(),
+                        icon: const Icon(Icons.cloud_upload_outlined),
+                        label: const Text('SUBIR TUDO'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => ref
+                            .read(globalSyncViewModelProvider.notifier)
+                            .syncDownEverything(),
+                        icon: const Icon(Icons.cloud_download_outlined),
+                        label: const Text('BAIXAR TUDO'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+          Text(
+            'Versão do App: 1.0.0',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLinkPreview() {
+    return ValueListenableBuilder(
+      valueListenable: _baseUrlController,
+      builder: (context, value, _) {
+        final url = value.text.trim();
+        if (url.isEmpty) return const SizedBox.shrink();
+
+        var displayUrl = url;
+        if (displayUrl.endsWith('/')) {
+          displayUrl = displayUrl.substring(0, displayUrl.length - 1);
+        }
+        if (!displayUrl.startsWith('http')) {
+          displayUrl = 'https://$displayUrl';
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(AppTokens.space12),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primary.withAlpha(20),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.primary.withAlpha(40),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.check_circle_outline,
+                    size: 14,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Prévia do link público:',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '$displayUrl/c/XYZ123',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: 'monospace',
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.open_in_new, size: 18),
+                  label: const Text('Testar link público'),
+                  onPressed: () => _testPublicLink(displayUrl),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -634,22 +729,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           decoration: InputDecoration(
             hintText: hint,
             helperText: helper,
-            helperStyle: TextStyle(color: isDark ? Colors.white24 : Colors.black26, fontSize: 11),
-            prefixIcon: Icon(icon, size: 20, color: isDark ? AppTokens.vibrantCyan : AppTokens.electricBlue),
+            helperStyle: TextStyle(
+              color: isDark ? Colors.white24 : Colors.black26,
+              fontSize: 11,
+            ),
+            prefixIcon: Icon(
+              icon,
+              size: 20,
+              color: isDark ? AppTokens.vibrantCyan : AppTokens.electricBlue,
+            ),
             filled: true,
             fillColor: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide.none,
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.black12),
+              borderSide: BorderSide(
+                color: isDark ? Colors.white10 : Colors.black12,
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: AppTokens.electricBlue, width: 2),
+              borderSide: const BorderSide(
+                color: AppTokens.electricBlue,
+                width: 2,
+              ),
             ),
           ),
         ),

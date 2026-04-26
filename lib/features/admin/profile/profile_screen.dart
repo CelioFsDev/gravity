@@ -317,6 +317,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ],
               ),
             ),
+      bottomNavigationBar: _isLoading
+          ? null
+          : Container(
+              padding: const EdgeInsets.all(AppTokens.space24),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                child: AppPrimaryButton(
+                  label: 'SALVAR PERFIL',
+                  icon: Icons.check_circle_outline,
+                  onPressed: _save,
+                ),
+              ),
+            ),
     );
   }
 

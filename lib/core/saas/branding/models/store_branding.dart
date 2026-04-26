@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 /// Configurações de White-Label (Identidade Visual da Loja)
 class StoreBranding {
   final String? logoUrl;
@@ -40,7 +38,9 @@ class StoreBranding {
       secondaryColorHex: map['secondaryColorHex'] ?? '#FFFFFF',
       customDomain: map['customDomain'],
       hidePlatformWatermark: map['hidePlatformWatermark'] ?? false,
-      socialLinks: map['socialLinks'] != null ? Map<String, String>.from(map['socialLinks']) : null,
+      socialLinks: map['socialLinks'] != null
+          ? Map<String, String>.from(map['socialLinks'])
+          : null,
     );
   }
 }

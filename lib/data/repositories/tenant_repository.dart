@@ -9,7 +9,10 @@ class TenantRepository {
 
   Future<String?> getCachedTenantId(String email) async {
     if (_cachedTenantId != null) return _cachedTenantId;
-    final doc = await _firestore.collection('users').doc(email.trim().toLowerCase()).get();
+    final doc = await _firestore
+        .collection('users')
+        .doc(email.trim().toLowerCase())
+        .get();
     _cachedTenantId = doc.data()?['tenantId'] as String?;
     return _cachedTenantId;
   }
@@ -31,9 +34,14 @@ class TenantRepository {
   /// Retorna a lista de empresas (Tenants) a que este usuário pertence.
   Future<List<Tenant>> getUserTenants(String email) async {
     try {
-      final doc = await _firestore.collection('users').doc(email.trim().toLowerCase()).get();
-      final List<String> tenantIds = List<String>.from(doc.data()?['tenantIds'] ?? []);
-      
+      final doc = await _firestore
+          .collection('users')
+          .doc(email.trim().toLowerCase())
+          .get();
+      final List<String> tenantIds = List<String>.from(
+        doc.data()?['tenantIds'] ?? [],
+      );
+
       // Se tiver só tenantId antigo sem array
       final oldTenantId = doc.data()?['tenantId'] as String?;
       if (tenantIds.isEmpty && oldTenantId != null) {
@@ -45,13 +53,17 @@ class TenantRepository {
       // Divide em chunks de 10 porque o Firestore tem limite no arrayContainsAny / in
       final List<Tenant> allTenants = [];
       for (var i = 0; i < tenantIds.length; i += 10) {
-        final chunk = tenantIds.sublist(i, i + 10 > tenantIds.length ? tenantIds.length : i + 10);
-        final snapshot = await _firestore.collection('tenants')
+        final chunk = tenantIds.sublist(
+          i,
+          i + 10 > tenantIds.length ? tenantIds.length : i + 10,
+        );
+        final snapshot = await _firestore
+            .collection('tenants')
             .where(FieldPath.documentId, whereIn: chunk)
             .get();
         allTenants.addAll(snapshot.docs.map((d) => Tenant.fromMap(d.data())));
       }
-      
+
       return allTenants;
     } catch (e) {
       return [];
@@ -59,10 +71,10 @@ class TenantRepository {
   }
 
   Future<void> updateTenant(Tenant tenant) async {
-    await _firestore.collection('tenants').doc(tenant.id).set(
-      tenant.toMap(),
-      SetOptions(merge: true),
-    );
+    await _firestore
+        .collection('tenants')
+        .doc(tenant.id)
+        .set(tenant.toMap(), SetOptions(merge: true));
   }
 
   /// 🚀 Cria um novo Tenant (Empresa) e a 1ª Loja
@@ -72,14 +84,14 @@ class TenantRepository {
     required String adminEmail,
   }) async {
     final email = adminEmail.trim().toLowerCase();
-    
+
     // 1. Gera ID amigável (slug)
     String tenantId = companyName
         .toLowerCase()
         .trim()
         .replaceAll(RegExp(r'[^a-z0-9]'), '-')
         .replaceAll(RegExp(r'-+'), '-');
-    
+
     // Evita IDs vazios ou muito curtos
     if (tenantId.length < 3) {
       tenantId = 'empresa-${DateTime.now().millisecondsSinceEpoch}';
@@ -132,6 +144,7 @@ class TenantRepository {
   Future<void> joinTenant({
     required String tenantId,
     required String email,
+    String? storeId,
   }) async {
     final doc = await _firestore.collection('tenants').doc(tenantId).get();
     if (!doc.exists) {
@@ -139,11 +152,19 @@ class TenantRepository {
     }
 
     final normalizedEmail = email.trim().toLowerCase();
+    final tenant = Tenant.fromMap(doc.data()!);
+    final normalizedStoreId = storeId?.trim();
+    final currentStoreId =
+        normalizedStoreId != null && normalizedStoreId.isNotEmpty
+        ? normalizedStoreId
+        : (tenant.stores.isNotEmpty ? tenant.stores.first : null);
 
     // Adiciona o tenantId na array e define a loja atual do vendedor
     await _firestore.collection('users').doc(normalizedEmail).set({
       'tenantIds': FieldValue.arrayUnion([tenantId]),
-      'tenantId': tenantId, // Opcional, para forçar ele a entrar direto nesse tenant agora
+      'currentStoreId': ?currentStoreId,
+      'tenantId':
+          tenantId, // Opcional, para forçar ele a entrar direto nesse tenant agora
       'role': 'seller', // Quem entra via ID cai como Vendedor por padrão
     }, SetOptions(merge: true));
 

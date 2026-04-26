@@ -34,7 +34,8 @@ final syncWorkerProvider = Provider<SyncWorker>((ref) {
   final repo = ref.watch(syncQueueRepositoryProvider);
   final policy = ref.watch(syncConflictPolicyProvider);
   final mediaResolver = ref.watch(mediaUploadResolverProvider);
-  final localProductsRepo = ref.watch(productsRepositoryProvider) as HiveProductsRepository;
+  final localProductsRepo =
+      ref.watch(productsRepositoryProvider) as HiveProductsRepository;
 
   // Mapeamento dinâmico de Handlers
   final handlers = <String, SyncEntityHandler>{
@@ -48,21 +49,25 @@ final syncWorkerProvider = Provider<SyncWorker>((ref) {
   return SyncWorker(repo, handlers);
 });
 
-// Observabilidade (Contador de Pendentes/Erros) // TODO: Mudar para ValueListenable no futuro p/ performance 
+// Observabilidade (Contador de Pendentes/Erros) // TODO: Mudar para ValueListenable no futuro p/ performance
 final syncStatusSummaryProvider = Provider<Map<String, int>>((ref) {
   final repo = ref.watch(syncQueueRepositoryProvider);
   final all = repo.getAll();
-  
+
   int pending = 0;
   int error = 0;
   int conflict = 0;
   int syncing = 0;
 
   for (var item in all) {
-    if (item.status == SyncItemStatus.pending) pending++;
-    else if (item.status == SyncItemStatus.error) error++;
-    else if (item.status == SyncItemStatus.conflict) conflict++;
-    else if (item.status == SyncItemStatus.syncing) syncing++;
+    if (item.status == SyncItemStatus.pending) {
+      pending++;
+    } else if (item.status == SyncItemStatus.error)
+      error++;
+    else if (item.status == SyncItemStatus.conflict)
+      conflict++;
+    else if (item.status == SyncItemStatus.syncing)
+      syncing++;
   }
 
   return {

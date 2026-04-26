@@ -68,6 +68,15 @@ class CatalogsScreen extends ConsumerWidget {
             ],
           ),
       ],
+      floatingActionButton: ref.watch(currentRoleProvider).canEditCatalog
+          ? FloatingActionButton.extended(
+              onPressed: () => _showCreateOptions(context),
+              label: const Text('Novo Catálogo'),
+              icon: const Icon(Icons.add),
+              backgroundColor: AppTokens.accentBlue,
+              foregroundColor: Colors.white,
+            )
+          : null,
       body: Column(
         children: [
           if (syncProgress.isSyncing)
@@ -76,7 +85,7 @@ class CatalogsScreen extends ConsumerWidget {
             child: state.when(
               data: (catalogs) => _CatalogsContent(
                 catalogs: catalogs,
-                onCreate: () => _openNew(context),
+                onCreate: () => _showCreateOptions(context),
                 onShare: (catalog) => CatalogShareHelper.showShareOptions(
                   context: context,
                   ref: ref,
@@ -97,10 +106,42 @@ class CatalogsScreen extends ConsumerWidget {
     );
   }
 
-  void _openNew(BuildContext context) {
+  void _showCreateOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.add_circle_outline, color: AppTokens.accentBlue),
+              title: const Text('Novo Catálogo'),
+              subtitle: const Text('Cria e salva na sua lista de catálogos'),
+              onTap: () {
+                Navigator.pop(context);
+                _openNew(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.bolt_outlined, color: AppTokens.accentOrange),
+              title: const Text('Catálogo Rápido'),
+              subtitle: const Text('Cria apenas para enviar PDF (sem salvar na lista)'),
+              onTap: () {
+                Navigator.pop(context);
+                _openNew(context, quick: true);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openNew(BuildContext context, {bool quick = false}) {
     Navigator.of(
       context,
-    ).push(MaterialPageRoute(builder: (_) => const CatalogEditorScreen()));
+    ).push(MaterialPageRoute(builder: (_) => CatalogEditorScreen(isQuick: quick)));
   }
 
   void _openEdit(BuildContext context, Catalog catalog) {

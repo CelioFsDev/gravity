@@ -192,8 +192,12 @@ class _StoreQrCodePageState extends ConsumerState<StoreQrCodePage> {
                   _buildActionButton(
                     icon: Icons.share,
                     label: 'Compartilhar',
-                    onTap: () {
-                      Share.share('Confira nossos produtos aqui: $qrUrl');
+                    onTap: () async {
+                      await SharePlus.instance.share(
+                        ShareParams(
+                          text: 'Confira nossos produtos aqui: $qrUrl',
+                        ),
+                      );
                     },
                   ),
                   _buildActionButton(

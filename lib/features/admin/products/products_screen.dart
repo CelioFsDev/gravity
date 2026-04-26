@@ -479,8 +479,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     final state = stateValue.valueOrNull;
     final categoriesState = categoriesValue.valueOrNull;
 
-    if (state == null || categoriesState == null)
+    if (state == null || categoriesState == null) {
       return const SizedBox.shrink();
+    }
 
     final pendingProducts = state.allProducts
         .where((p) => p.syncStatus == SyncStatus.pendingUpdate)

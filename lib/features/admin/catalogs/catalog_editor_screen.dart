@@ -1,3 +1,4 @@
+import 'package:catalogo_ja/ui/widgets/app_primary_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/models/catalog.dart';
@@ -12,8 +13,9 @@ import 'package:catalogo_ja/core/services/catalog_share_helper.dart';
 
 class CatalogEditorScreen extends ConsumerStatefulWidget {
   final Catalog? catalog;
+  final bool isQuick;
 
-  const CatalogEditorScreen({super.key, this.catalog});
+  const CatalogEditorScreen({super.key, this.catalog, this.isQuick = false});
   static const defaultBaseUrl = 'https://CatalogoJa.app';
 
   @override
@@ -84,13 +86,24 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
         IconButton(
           icon: state.isSaving
               ? const CircularProgressIndicator(strokeWidth: 2)
-              : const Icon(Icons.check),
+              : Icon(widget.isQuick ? Icons.send : Icons.check),
           onPressed: state.isSaving
               ? null
               : () async {
-                  final success = await notifier.save();
-                  if (success && context.mounted) {
-                    Navigator.pop(context);
+                  if (widget.isQuick) {
+                    // Just share without saving to Firestore list
+                    // (Actually the ViewModel might still save it to local state,
+                    // but we won't persist it to the catalogs collection)
+                    await CatalogShareHelper.showShareOptions(
+                      context: context,
+                      ref: ref,
+                      catalog: state.catalog,
+                    );
+                  } else {
+                    final success = await notifier.save();
+                    if (success && context.mounted) {
+                      Navigator.pop(context);
+                    }
                   }
                 },
         ),
@@ -123,6 +136,41 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
           ),
           _buildSettingsTab(state, notifier),
         ],
+      ),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.all(AppTokens.space24),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: AppPrimaryButton(
+            label: widget.isQuick ? 'GERAR E COMPARTILHAR' : 'SALVAR CATÁLOGO',
+            icon: widget.isQuick ? Icons.send : Icons.check_circle_outline,
+            onPressed: state.isSaving
+                ? null
+                : () async {
+                    if (widget.isQuick) {
+                      await CatalogShareHelper.showShareOptions(
+                        context: context,
+                        ref: ref,
+                        catalog: state.catalog,
+                      );
+                    } else {
+                      final success = await notifier.save();
+                      if (success && context.mounted) {
+                        Navigator.pop(context);
+                      }
+                    }
+                  },
+          ),
+        ),
       ),
     );
   }
