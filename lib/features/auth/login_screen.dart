@@ -1,4 +1,5 @@
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/theme/app_icons.dart';
 import 'package:catalogo_ja/ui/widgets/app_primary_button.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -158,9 +159,15 @@ class _LoginBrandPane extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         Image.asset(
-          'assets/icon/login_bg.png',
+          AppAssets.loginBgPremium,
           fit: BoxFit.cover,
           alignment: compact ? Alignment.topCenter : Alignment.center,
+          errorBuilder: (_, __, ___) => Image.asset(
+            AppAssets.navLoginBg,
+            fit: BoxFit.cover,
+            alignment: compact ? Alignment.topCenter : Alignment.center,
+            errorBuilder: (_, __, ___) => const ColoredBox(color: AppTokens.deepNavy),
+          ),
         ),
         DecoratedBox(
           decoration: BoxDecoration(

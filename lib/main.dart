@@ -45,7 +45,6 @@ import 'package:catalogo_ja/pages/tenant/tenant_picker_page.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
-import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart' hide Category;
 
@@ -62,8 +61,10 @@ final currentUserStatusProvider = StreamProvider<bool>((ref) {
 });
 
 void main() async {
-  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
-  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+  WidgetsFlutterBinding.ensureInitialized();
+  // Nota: NÃO usamos FlutterNativeSplash.preserve() aqui.
+  // A native splash some assim que o Flutter renderiza o primeiro frame.
+  // O SplashScreen Flutter cuida da transição suave.
 
   // Initialize Hive
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
@@ -161,8 +162,7 @@ void main() async {
       ),
     );
   } finally {
-    // Garante que a splash saia da tela mesmo se tudo der errado
-    FlutterNativeSplash.remove();
+    // Nada a fazer aqui — FlutterNativeSplash é gerenciado pelo SplashScreen
   }
 }
 

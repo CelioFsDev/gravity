@@ -11,10 +11,8 @@ import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/viewmodels/global_sync_viewmodel.dart';
-import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 import 'package:catalogo_ja/ui/widgets/sync_progress_overlay.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
-import 'package:intl/intl.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -39,6 +37,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       parent: _greetingController,
       curve: Curves.easeOut,
     );
+
+    // Inicia sync silencioso após o primeiro frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final syncProgress = ref.read(syncProgressProvider);
+      if (!syncProgress.isSyncing) {
+        ref.read(globalSyncViewModelProvider.notifier).performSilentWifiSync();
+      }
+    });
   }
 
   @override
@@ -62,14 +69,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         .watchCategories();
     final catalogsAsync = ref.watch(catalogsRepositoryProvider).watchCatalogs();
     final syncProgress = ref.watch(syncProgressProvider);
-    final settings = ref.watch(settingsRepositoryProvider).getSettings();
     final authUser = ref.watch(authViewModelProvider).valueOrNull;
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!syncProgress.isSyncing && settings.isInitialSyncCompleted) {
-        ref.read(globalSyncViewModelProvider.notifier).performSilentWifiSync();
-      }
-    });
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final firstName = authUser?.displayName?.split(' ').first ?? 'Usuário';
@@ -389,10 +389,32 @@ class _WelcomeBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateStr = DateFormat(
-      "EEEE, d 'de' MMMM",
-      'pt_BR',
-    ).format(DateTime.now());
+    final now = DateTime.now();
+    const dias = [
+      'Segunda',
+      'Terça',
+      'Quarta',
+      'Quinta',
+      'Sexta',
+      'Sábado',
+      'Domingo',
+    ];
+    const meses = [
+      'jan',
+      'fev',
+      'mar',
+      'abr',
+      'mai',
+      'jun',
+      'jul',
+      'ago',
+      'set',
+      'out',
+      'nov',
+      'dez',
+    ];
+    final dateStr =
+        '${dias[now.weekday - 1]}, ${now.day} de ${meses[now.month - 1]}';
 
     return Container(
       margin: const EdgeInsets.all(20),
