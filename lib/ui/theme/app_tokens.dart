@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
 
+/// Design tokens for Catálogo Já — premium SaaS identity
+/// Paleta: Deep Navy + Electric Blue + Vibrant Cyan
 class AppTokens {
-  // Border Radius
+  AppTokens._();
+
+  // ─── Border Radius ───────────────────────────────────────────────────────
+  static const double radiusXs = 8;
   static const double radiusSm = 12;
   static const double radiusMd = 16;
   static const double radiusLg = 20;
+  static const double radiusXl = 28;
   static const double radiusFull = 999;
 
-  // Spacing
+  // ─── Spacing ─────────────────────────────────────────────────────────────
   static const double space4 = 4;
   static const double space8 = 8;
   static const double space12 = 12;
@@ -16,18 +22,56 @@ class AppTokens {
   static const double space24 = 24;
   static const double space32 = 32;
   static const double space48 = 48;
+  static const double space64 = 64;
 
-  // --- NEW GRADIENT SOFT PALETTE ---
-  static const Color deepNavy = Color(0xFF060C1C); // Fundo Base Premium
-  static const Color surfaceDark = Color(0xFF111827); // Cor de Cards em modo escuro
-  
+  // ─── Brand Colors — Dark Palette ─────────────────────────────────────────
+  static const Color deepNavy = Color(0xFF060C1C);
+  static const Color surfaceDark = Color(0xFF0D1527);
+  static const Color cardDark = Color(0xFF111827);
+  static const Color elevatedDark = Color(0xFF1A2235);
+
+  // ─── Brand Colors — Accent ───────────────────────────────────────────────
   static const Color electricBlue = Color(0xFF2E7DFF);
-  static const Color vibrantCyan = Color(0xFF00E5FF);
-  static const Color softPurple = Color(0xFF8A2BE2);
-  static const Color vibrantPink = Color(0xFFFF007F);
-  static const Color softOrange = Color(0xFFFF8C00);
+  static const Color vibrantCyan = Color(0xFF00D8F5);
+  static const Color softPurple = Color(0xFF7C3AED);
+  static const Color vibrantPink = Color(0xFFE91E8C);
+  static const Color softOrange = Color(0xFFFF6B35);
+  static const Color accentGold = Color(0xFFFBBC04);
 
-  // Gradients
+  // ─── Semantic Colors ─────────────────────────────────────────────────────
+  static const Color accentBlue = Color(0xFF2E7DFF);
+  static const Color accentGreen = Color(0xFF10B981);
+  static const Color accentRed = Color(0xFFEF4444);
+  static const Color accentOrange = Color(0xFFF97316);
+  static const Color accentPurple = Color(0xFF7C3AED);
+
+  // ─── Text — Dark mode ────────────────────────────────────────────────────
+  static const Color textPrimaryDark = Color(0xFFF1F5F9);
+  static const Color textSecondaryDark = Color(0xFF94A3B8);
+  static const Color textMutedDark = Color(0xFF475569);
+
+  // ─── Text — Light mode ───────────────────────────────────────────────────
+  static const Color textPrimary = Color(0xFF0F172A);
+  static const Color textSecondary = Color(0xFF475569);
+  static const Color textMuted = Color(0xFF94A3B8);
+
+  // ─── Borders ─────────────────────────────────────────────────────────────
+  static const Color borderDark = Color(0xFF1E293B);
+  static const Color borderLight = Color(0xFFE2E8F0);
+  static const Color borderLight2 = Color(0xFFF1F5F9);
+
+  // ─── Backgrounds — Light mode ────────────────────────────────────────────
+  static const Color bg = Color(0xFFF8FAFC);
+  static const Color bgElevated = Color(0xFFFFFFFF);
+  static const Color surface = Color(0xFFF1F5F9);
+  static const Color card = Color(0xFFFFFFFF);
+
+  // ─── Legacy aliases ──────────────────────────────────────────────────────
+  static const Color bgDark = deepNavy;
+  static const Color cardDark2 = cardDark;
+  static const Color border = borderLight;
+
+  // ─── Gradients ───────────────────────────────────────────────────────────
   static const LinearGradient primaryGradient = LinearGradient(
     colors: [electricBlue, vibrantCyan],
     begin: Alignment.topLeft,
@@ -46,40 +90,56 @@ class AppTokens {
     end: Alignment.bottomRight,
   );
 
-  // Borders & Dividers
-  static const Color borderDark = Color(0xFF1F2937);
-  static const Color borderLight = Color(0xFFE5E7EB);
+  static const LinearGradient goldGradient = LinearGradient(
+    colors: [Color(0xFFFBBC04), Color(0xFFFF8C00)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 
-  // Text
-  static const Color textPrimaryDark = Color(0xFFF9FAFB);
-  static const Color textSecondaryDark = Color(0xFF9CA3AF);
+  static const LinearGradient darkBg = LinearGradient(
+    colors: [deepNavy, Color(0xFF0A1628), deepNavy],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 
-  // Shadows (Soft depth for dark mode)
+  static LinearGradient navyGlowGradient = LinearGradient(
+    colors: [deepNavy, electricBlue.withOpacity(0.12), deepNavy],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  // ─── Shadows ─────────────────────────────────────────────────────────────
   static const BoxShadow shadowDeep = BoxShadow(
-    color: Color(0x40000000),
-    blurRadius: 20,
-    offset: Offset(0, 10),
+    color: Color(0x50000000),
+    blurRadius: 24,
+    offset: Offset(0, 12),
+  );
+
+  static const BoxShadow shadowMd = BoxShadow(
+    color: Color(0x20000000),
+    blurRadius: 16,
+    offset: Offset(0, 6),
   );
 
   static const BoxShadow shadowSm = BoxShadow(
     color: Color(0x14000000),
-    blurRadius: 10,
-    offset: Offset(0, 4),
+    blurRadius: 8,
+    offset: Offset(0, 3),
   );
 
-  // Legacy (Keeping for compatibility during refactor, will clean up later)
-  static const Color bg = Color(0xFFF6F7FB);
-  static const Color card = Color(0xFFFFFFFF);
-  static const Color textPrimary = Color(0xFF1A1C1E);
-  static const Color textSecondary = Color(0xFF6B7280);
-  static const Color textMuted = Color(0xFF9CA3AF);
-  static const Color surface = Color(0xFFF9FAFB);
-  static const Color border = Color(0xFFE5E7EB);
-  static const Color accentBlue = Color(0xFF007AFF);
-  static const Color accentGreen = Color(0xFF16A34A);
-  static const Color accentRed = Color(0xFFDC2626);
-  static const Color accentOrange = Color(0xFFF97316);
-  static const Color accentPurple = Color(0xFF7C3AED);
-  static const Color bgDark = deepNavy;
-  static const Color cardDark = surfaceDark;
+  static BoxShadow glowBlue = BoxShadow(
+    color: electricBlue.withOpacity(0.3),
+    blurRadius: 24,
+    offset: const Offset(0, 8),
+  );
+
+  static BoxShadow glowCyan = BoxShadow(
+    color: vibrantCyan.withOpacity(0.25),
+    blurRadius: 20,
+    offset: const Offset(0, 6),
+  );
+
+  // ─── Icon color by context ───────────────────────────────────────────────
+  static Color iconOnDark = Colors.white.withOpacity(0.85);
+  static Color iconOnLight = textSecondary;
 }
