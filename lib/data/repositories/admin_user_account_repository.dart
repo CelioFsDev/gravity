@@ -40,6 +40,8 @@ class AdminUserAccountRepository {
     required String email,
     required String password,
     required String role,
+    String? tenantId,
+    String? storeId,
   }) async {
     final normalizedEmail = email.trim().toLowerCase();
     try {
@@ -55,6 +57,8 @@ class AdminUserAccountRepository {
         email: normalizedEmail,
         uid: result.uid,
         role: role,
+        tenantId: tenantId,
+        storeId: storeId,
       );
       return result;
     } on FirebaseFunctionsException catch (error) {
@@ -63,6 +67,8 @@ class AdminUserAccountRepository {
         email: normalizedEmail,
         password: password,
         role: role,
+        tenantId: tenantId,
+        storeId: storeId,
       );
     }
   }
@@ -73,6 +79,8 @@ class AdminUserAccountRepository {
     required String email,
     required String uid,
     required String role,
+    String? tenantId,
+    String? storeId,
   }) async {
     final validRole =
         UserRole.values.any((r) => r.name == role) ? role : UserRole.viewer.name;
@@ -86,6 +94,12 @@ class AdminUserAccountRepository {
       'photoURL': '',
       'providerIds': const ['password'],
       'role': validRole,
+      if (tenantId != null && tenantId.trim().isNotEmpty) ...{
+        'tenantId': tenantId.trim(),
+        'tenantIds': FieldValue.arrayUnion([tenantId.trim()]),
+      },
+      if (storeId != null && storeId.trim().isNotEmpty)
+        'currentStoreId': storeId.trim(),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
@@ -139,6 +153,8 @@ class AdminUserAccountRepository {
     required String email,
     required String password,
     required String role,
+    String? tenantId,
+    String? storeId,
   }) async {
     final tempAppName =
         'admin-user-${DateTime.now().microsecondsSinceEpoch.toString()}';
@@ -175,6 +191,12 @@ class AdminUserAccountRepository {
         'role': UserRole.values.any((item) => item.name == role)
             ? role
             : UserRole.viewer.name,
+        if (tenantId != null && tenantId.trim().isNotEmpty) ...{
+          'tenantId': tenantId.trim(),
+          'tenantIds': FieldValue.arrayUnion([tenantId.trim()]),
+        },
+        if (storeId != null && storeId.trim().isNotEmpty)
+          'currentStoreId': storeId.trim(),
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 

@@ -295,6 +295,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 24),
+          _buildStoreManagementSection(),
           const SizedBox(height: 32),
           SizedBox(
             width: double.infinity,
@@ -315,8 +317,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       padding: const EdgeInsets.all(AppTokens.space24),
       child: Column(
         children: [
-          _buildStoreManagementSection(),
-          const SizedBox(height: 24),
           SectionCard(
             title: 'Ajustes de Sistema',
             child: Column(
@@ -627,14 +627,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                     ),
                   ),
-                  if (stores.length < 2) ...[
+                  ...[
                     const Divider(height: 32),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Crie uma nova unidade para esta empresa.',
+                        style: const TextStyle(
+                          color: AppTokens.textMuted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
                         onPressed: () => _showAddStoreDialog(tenant.id),
                         icon: const Icon(Icons.add_location_alt_outlined),
-                        label: const Text('ADICIONAR 2ª UNIDADE'),
+                        label: const Text('CRIAR NOVA UNIDADE'),
                       ),
                     ),
                   ],
@@ -682,9 +693,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         await ref
             .read(tenantRepositoryProvider)
             .addStoreToTenant(tenantId, result);
+        final userEmail = ref
+            .read(authViewModelProvider)
+            .valueOrNull
+            ?.email
+            ?.trim()
+            .toLowerCase();
+        if (userEmail != null && userEmail.isNotEmpty) {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userEmail)
+              .update({'currentStoreId': result});
+        }
+        ref.invalidate(currentTenantProvider);
+        ref.invalidate(userTenantsProvider);
+        ref.invalidate(currentStoreIdProvider);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Unidade adicionada com sucesso!')),
+            SnackBar(content: Text('Unidade "$result" criada e selecionada.')),
           );
         }
       } catch (e) {

@@ -20,12 +20,13 @@ class CatalogsScreen extends ConsumerWidget {
     final state = ref.watch(catalogsViewModelProvider);
     final notifier = ref.read(catalogsViewModelProvider.notifier);
     final syncProgress = ref.watch(syncProgressProvider);
+    final role = ref.watch(currentRoleProvider);
 
     return AppScaffold(
       title: 'Catálogos',
       subtitle: 'Gerencie seus catálogos digitais',
       actions: [
-        if (ref.watch(currentRoleProvider).canEditCatalog)
+        if (role.canEditCatalog)
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (value) {
@@ -68,7 +69,7 @@ class CatalogsScreen extends ConsumerWidget {
             ],
           ),
       ],
-      floatingActionButton: ref.watch(currentRoleProvider).canEditCatalog
+      floatingActionButton: role.canEditCatalog
           ? FloatingActionButton.extended(
               onPressed: () => _showCreateOptions(context),
               label: const Text('Novo Catálogo'),
@@ -85,7 +86,9 @@ class CatalogsScreen extends ConsumerWidget {
             child: state.when(
               data: (catalogs) => _CatalogsContent(
                 catalogs: catalogs,
-                onCreate: () => _showCreateOptions(context),
+                onCreate: role.canEditCatalog
+                    ? () => _showCreateOptions(context)
+                    : null,
                 onShare: (catalog) => CatalogShareHelper.showShareOptions(
                   context: context,
                   ref: ref,
@@ -236,7 +239,7 @@ class CatalogsScreen extends ConsumerWidget {
 
 class _CatalogsContent extends ConsumerWidget {
   final List<Catalog> catalogs;
-  final VoidCallback onCreate;
+  final VoidCallback? onCreate;
   final ValueChanged<Catalog> onShare;
   final ValueChanged<Catalog> onEdit;
   final ValueChanged<Catalog> onDelete;
@@ -261,7 +264,7 @@ class _CatalogsContent extends ConsumerWidget {
               icon: Icons.collections_bookmark_outlined,
               title: 'Nenhum catálogo ainda',
               subtitle: 'Crie um catálogo para gerar PDF e compartilhar.',
-              actionLabel: 'Criar catálogo',
+              actionLabel: onCreate == null ? null : 'Criar catálogo',
               onAction: onCreate,
               message: '',
             ),

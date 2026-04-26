@@ -107,6 +107,7 @@ class TenantRepository {
       id: tenantId,
       name: companyName,
       stores: [storeName],
+      metadata: {'ownerEmail': email},
     );
 
     // 2. Cria o Tenant
@@ -130,10 +131,6 @@ class TenantRepository {
     if (!doc.exists) throw Exception('Empresa não encontrada.');
 
     final tenant = Tenant.fromMap(doc.data()!);
-    if (tenant.stores.length >= 2) {
-      throw Exception('Limite de 2 unidades atingido para esta empresa.');
-    }
-
     final updatedStores = [...tenant.stores, storeName];
     await _firestore.collection('tenants').doc(tenantId).update({
       'stores': updatedStores,
@@ -162,7 +159,7 @@ class TenantRepository {
     // Adiciona o tenantId na array e define a loja atual do vendedor
     await _firestore.collection('users').doc(normalizedEmail).set({
       'tenantIds': FieldValue.arrayUnion([tenantId]),
-      'currentStoreId': ?currentStoreId,
+      'currentStoreId': currentStoreId,
       'tenantId':
           tenantId, // Opcional, para forçar ele a entrar direto nesse tenant agora
       'role': 'seller', // Quem entra via ID cai como Vendedor por padrão

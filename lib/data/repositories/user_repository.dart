@@ -181,6 +181,28 @@ class UserRepository {
     });
   }
 
+  Stream<List<Map<String, dynamic>>> getUsersForTenantStream({
+    required String tenantId,
+  }) {
+    final normalizedTenantId = tenantId.trim();
+
+    if (normalizedTenantId.isEmpty) {
+      return Stream.value(const []);
+    }
+
+    return getUsersStream().map((users) {
+      return users.where((user) {
+        final userTenantId = (user['tenantId'] as String?)?.trim();
+        final userTenantIds = List<String>.from(user['tenantIds'] ?? const [])
+            .map((id) => id.trim())
+            .toSet();
+
+        return userTenantId == normalizedTenantId ||
+            userTenantIds.contains(normalizedTenantId);
+      }).toList();
+    });
+  }
+
   Stream<Map<String, dynamic>?> getUserStream(String email) {
     final normalizedEmail = _normalizeEmail(email);
     return _firestore.collection('users').doc(normalizedEmail).snapshots().map((

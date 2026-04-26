@@ -12,8 +12,8 @@ enum UserRole {
   /// God Mode: Full access to everything
   admin('Administrador'),
 
-  /// Operation: Can manage products and catalogs, but not critical settings
-  operator('Operador'),
+  /// Manager: Can edit operational data, but not critical settings or users.
+  operator('Gerente'),
 
   /// Seller: Can view everything and share but not edit
   seller('Vendedor'),
@@ -127,12 +127,10 @@ extension UserRoleGuards on UserRole {
 
   /// Catalog creation and editing
   bool get canEditCatalog =>
-      this == UserRole.admin ||
-      this == UserRole.operator ||
-      this == UserRole.seller;
+      this == UserRole.admin || this == UserRole.operator;
 
   /// Sharing and viewing reports
-  bool get canShareCatalog => true;
+  bool get canShareCatalog => this != UserRole.viewer;
 
   /// Actually as per user: Seller can share.
   bool get canShare => this != UserRole.viewer;
@@ -143,15 +141,29 @@ extension UserRoleGuards on UserRole {
   /// Sensitive settings (Public Link, Store Info)
   bool get canEditSettings => this == UserRole.admin;
 
-  /// Full User Management (Limited to specific Super Admin emails)
+  /// User management for the active company.
   bool canManageUsers(String? email) {
-    if (this != UserRole.admin) return false;
-    final normalized = _normalizeEmail(email);
-    return UserRole.superAdminEmails.contains(normalized);
+    return this == UserRole.admin;
   }
 
   /// Global access to Admin Panel screens
   bool get canAccessAdmin => this != UserRole.viewer;
+
+  bool get canViewDashboard => this == UserRole.admin || this == UserRole.operator;
+
+  bool get canViewProducts => this == UserRole.admin || this == UserRole.operator;
+
+  bool get canViewCollections => this == UserRole.admin || this == UserRole.operator;
+
+  bool get canViewCategories => this == UserRole.admin || this == UserRole.operator;
+
+  bool get canViewCatalogs => this != UserRole.viewer;
+
+  bool get canViewProfile => this == UserRole.admin || this == UserRole.operator;
+
+  bool get canViewImports => this == UserRole.admin;
+
+  bool get canViewSettings => this == UserRole.admin;
 }
 
 /// Provider to check if the current user is disabled/suspended

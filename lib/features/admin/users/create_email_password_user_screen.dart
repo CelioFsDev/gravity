@@ -7,6 +7,7 @@ import 'package:catalogo_ja/data/repositories/admin_user_account_repository.dart
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/ui/widgets/section_card.dart';
+import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 
 class CreateEmailPasswordUserScreen extends ConsumerStatefulWidget {
   const CreateEmailPasswordUserScreen({super.key});
@@ -23,7 +24,7 @@ class _CreateEmailPasswordUserScreenState
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  UserRole _selectedRole = UserRole.viewer;
+  UserRole _selectedRole = UserRole.seller;
   bool _isSubmitting = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -49,12 +50,14 @@ class _CreateEmailPasswordUserScreenState
             email: _emailController.text.trim().toLowerCase(),
             password: _passwordController.text,
             role: _selectedRole.name,
+            tenantId: ref.read(currentTenantProvider).valueOrNull?.id,
+            storeId: ref.read(currentStoreIdProvider).valueOrNull,
           );
 
       _emailController.clear();
       _passwordController.clear();
       _confirmPasswordController.clear();
-      setState(() => _selectedRole = UserRole.viewer);
+      setState(() => _selectedRole = UserRole.seller);
 
       if (!mounted) return;
 
@@ -200,7 +203,9 @@ class _CreateEmailPasswordUserScreenState
                           borderSide: BorderSide.none,
                         ),
                       ),
-                      items: UserRole.values.map((role) {
+                      items: UserRole.values
+                          .where((role) => role != UserRole.viewer)
+                          .map((role) {
                         return DropdownMenuItem(
                           value: role,
                           child: Text(role.label),

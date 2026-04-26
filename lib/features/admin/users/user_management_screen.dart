@@ -6,6 +6,7 @@ import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/ui/widgets/section_card.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
@@ -120,6 +121,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
     final userRepository = ref.watch(userRepositoryProvider);
     final currentRole = ref.watch(currentRoleProvider);
     final currentEmail = ref.watch(authViewModelProvider).valueOrNull?.email;
+    final currentTenantId = ref.watch(currentTenantProvider).valueOrNull?.id;
 
     if (!currentRole.canManageUsers(currentEmail)) {
       return const AppScaffold(
@@ -140,7 +142,9 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
         ),
       ],
       body: StreamBuilder<List<Map<String, dynamic>>>(
-        stream: userRepository.getUsersStream(),
+        stream: userRepository.getUsersForTenantStream(
+          tenantId: currentTenantId ?? '',
+        ),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -486,7 +490,7 @@ class _UserRow extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              ...UserRole.values.map(
+              ...UserRole.values.where((r) => r != UserRole.viewer).map(
                 (r) => RadioListTile<UserRole>(
                   title: Text(r.label),
                   value: r,

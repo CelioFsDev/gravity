@@ -15,36 +15,47 @@ class AdminShellScreen extends ConsumerWidget {
 
   static final _destinations = [
     _NavItem(
+      branchIndex: 0,
       icon: Icons.dashboard_outlined,
       label: 'In\u00edcio',
       premiumIcon: (size) => AppIcons.dashboard(size: size),
     ),
     _NavItem(
+      branchIndex: 1,
       icon: Icons.inventory_2_outlined,
       label: 'Produtos',
       premiumIcon: (size) => AppIcons.products(size: size),
     ),
     _NavItem(
+      branchIndex: 2,
       icon: Icons.collections_bookmark_outlined,
       label: 'Cole\u00e7\u00f5es',
       premiumIcon: (size) => AppIcons.collections(size: size),
     ),
     _NavItem(
+      branchIndex: 3,
       icon: Icons.category_outlined,
       label: 'Categorias',
       premiumIcon: (size) => AppIcons.categories(size: size),
     ),
-    _NavItem(icon: Icons.menu_book_outlined, label: 'Cat\u00e1logos'),
     _NavItem(
+      branchIndex: 4,
+      icon: Icons.menu_book_outlined,
+      label: 'Cat\u00e1logos',
+    ),
+    _NavItem(
+      branchIndex: 5,
       icon: Icons.cloud_download_outlined,
       label: 'Importa\u00e7\u00f5es',
     ),
-    _NavItem(icon: Icons.person_outline, label: 'Meu Perfil'),
+    _NavItem(branchIndex: 6, icon: Icons.person_outline, label: 'Meu Perfil'),
     _NavItem(
+      branchIndex: 7,
       icon: Icons.share_location_outlined,
       label: 'Divulga\u00e7\u00e3o',
     ),
     _NavItem(
+      branchIndex: 8,
       icon: Icons.settings_outlined,
       label: 'Ajustes',
       premiumIcon: (size) => AppIcons.settings(size: size),
@@ -62,7 +73,9 @@ class AdminShellScreen extends ConsumerWidget {
 
     final authUser = ref.watch(authViewModelProvider).valueOrNull;
     final currentRole = ref.watch(currentRoleProvider);
-    final canManageUsers = currentRole.canManageUsers(authUser?.email);
+    final visibleDestinations = _destinations
+        .where((item) => item.isVisibleFor(currentRole))
+        .toList();
 
     final tenantAsync = ref.watch(currentTenantProvider);
     final tenant = tenantAsync.valueOrNull;
@@ -112,7 +125,7 @@ class AdminShellScreen extends ConsumerWidget {
                     },
                     displayTitle: displayTitle,
                     logoUrl: logoUrl,
-                    canManageUsers: canManageUsers,
+                    visibleDestinations: visibleDestinations,
                   ),
                 ),
           body: isWide
@@ -123,7 +136,7 @@ class AdminShellScreen extends ConsumerWidget {
                       onDestinationSelected: onAdminNavigation,
                       displayTitle: displayTitle,
                       logoUrl: logoUrl,
-                      canManageUsers: canManageUsers,
+                      visibleDestinations: visibleDestinations,
                     ),
                     Expanded(
                       child: ClipRRect(
@@ -173,7 +186,13 @@ class AdminShellScreen extends ConsumerWidget {
                                   child: _FloatingBottomNav(
                                     currentIndex: navigationShell.currentIndex,
                                     onDestinationSelected: onAdminNavigation,
-                                    visibleIndices: bottomNavIndices,
+                                    visibleIndices: bottomNavIndices
+                                        .where(
+                                          (index) => visibleDestinations.any(
+                                            (item) => item.branchIndex == index,
+                                          ),
+                                        )
+                                        .toList(),
                                   ),
                                 ),
                               ),
@@ -194,14 +213,14 @@ class _Sidebar extends ConsumerWidget {
   final ValueChanged<int> onDestinationSelected;
   final String displayTitle;
   final String? logoUrl;
-  final bool canManageUsers;
+  final List<_NavItem> visibleDestinations;
 
   const _Sidebar({
     required this.currentIndex,
     required this.onDestinationSelected,
     required this.displayTitle,
     this.logoUrl,
-    required this.canManageUsers,
+    required this.visibleDestinations,
   });
 
   @override
@@ -280,16 +299,16 @@ class _Sidebar extends ConsumerWidget {
           Expanded(
             child: ListView.separated(
               padding: const EdgeInsets.all(16),
-              itemCount: AdminShellScreen._destinations.length,
+              itemCount: visibleDestinations.length,
               separatorBuilder: (_, _) => const SizedBox(height: 4),
               itemBuilder: (context, index) {
-                final item = AdminShellScreen._destinations[index];
+                final item = visibleDestinations[index];
                 return _SidebarItem(
                   icon: item.icon,
                   label: item.label,
-                  isSelected: currentIndex == index,
+                  isSelected: currentIndex == item.branchIndex,
                   premiumIcon: item.premiumIcon,
-                  onTap: () => onDestinationSelected(index),
+                  onTap: () => onDestinationSelected(item.branchIndex),
                 );
               },
             ),
@@ -467,9 +486,30 @@ class _FloatingBottomNav extends StatelessWidget {
 }
 
 class _NavItem {
+  final int branchIndex;
   final IconData icon;
   final String label;
   final Widget Function(double size)? premiumIcon;
 
-  const _NavItem({required this.icon, required this.label, this.premiumIcon});
+  const _NavItem({
+    required this.branchIndex,
+    required this.icon,
+    required this.label,
+    this.premiumIcon,
+  });
+
+  bool isVisibleFor(UserRole role) {
+    return switch (branchIndex) {
+      0 => role.canViewDashboard,
+      1 => role.canViewProducts,
+      2 => role.canViewCollections,
+      3 => role.canViewCategories,
+      4 => role.canViewCatalogs,
+      5 => role.canViewImports,
+      6 => role.canViewProfile,
+      7 => role.canShare,
+      8 => role.canViewSettings,
+      _ => false,
+    };
+  }
 }

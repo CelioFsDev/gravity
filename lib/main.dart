@@ -184,7 +184,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     _router = GoRouter(
       initialLocation: '/splash',
       refreshListenable: _routerRefreshNotifier,
-      redirect: (context, state) {
+      redirect: (context, state) async {
         final authState = ref.read(authViewModelProvider);
         final user = authState.valueOrNull;
 
@@ -234,6 +234,13 @@ class _MyAppState extends ConsumerState<MyApp> {
           final needsOnboarding =
               ref.read(requiresTenantOnboardingProvider).valueOrNull ?? false;
           return needsOnboarding ? '/onboarding' : '/picker';
+        }
+
+        if (state.matchedLocation.startsWith('/admin')) {
+          final role = await _effectiveRoleForRedirect(user.email);
+          if (!_canAccessAdminLocation(role, state.matchedLocation)) {
+            return _defaultAdminLocationFor(role);
+          }
         }
 
         return null;
@@ -393,8 +400,10 @@ class _MyAppState extends ConsumerState<MyApp> {
                     GoRoute(
                       path: 'users',
                       builder: (context, state) => const UserManagementScreen(),
-                      redirect: (context, state) {
-                        final role = ref.read(currentRoleProvider);
+                      redirect: (context, state) async {
+                        final role = await _effectiveRoleForRedirect(
+                          ref.read(authViewModelProvider).valueOrNull?.email,
+                        );
                         final email = ref
                             .read(authViewModelProvider)
                             .valueOrNull
@@ -409,8 +418,10 @@ class _MyAppState extends ConsumerState<MyApp> {
                           path: 'create-login',
                           builder: (context, state) =>
                               const CreateEmailPasswordUserScreen(),
-                          redirect: (context, state) {
-                            final role = ref.read(currentRoleProvider);
+                          redirect: (context, state) async {
+                            final role = await _effectiveRoleForRedirect(
+                              ref.read(authViewModelProvider).valueOrNull?.email,
+                            );
                             final email = ref
                                 .read(authViewModelProvider)
                                 .valueOrNull
@@ -431,6 +442,49 @@ class _MyAppState extends ConsumerState<MyApp> {
         ),
       ],
     );
+  }
+
+  bool _canAccessAdminLocation(UserRole role, String location) {
+    if (!role.canAccessAdmin) return false;
+    if (location.startsWith('/admin/dashboard')) return role.canViewDashboard;
+    if (location.startsWith('/admin/products')) return role.canViewProducts;
+    if (location.startsWith('/admin/collections')) {
+      return role.canViewCollections;
+    }
+    if (location.startsWith('/admin/categories')) return role.canViewCategories;
+    if (location.startsWith('/admin/catalogs')) return role.canViewCatalogs;
+    if (location.startsWith('/admin/imports')) return role.canViewImports;
+    if (location.startsWith('/admin/profile')) return role.canViewProfile;
+    if (location.startsWith('/admin/share')) return role.canShare;
+    if (location.startsWith('/admin/settings')) return role.canViewSettings;
+    return true;
+  }
+
+  String _defaultAdminLocationFor(UserRole role) {
+    if (role.canViewDashboard) return '/admin/dashboard';
+    if (role.canViewCatalogs) return '/admin/catalogs';
+    if (role.canShare) return '/admin/share';
+    return '/';
+  }
+
+  Future<UserRole> _effectiveRoleForRedirect(String? rawEmail) async {
+    final email = rawEmail?.trim().toLowerCase() ?? '';
+    if (email.isEmpty) return UserRole.viewer;
+    if (UserRole.superAdminEmails.contains(email)) return UserRole.admin;
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(email)
+          .get();
+      final roleName = doc.data()?['role'] as String?;
+      return UserRole.values.firstWhere(
+        (role) => role.name == roleName,
+        orElse: () => UserRole.viewer,
+      );
+    } catch (_) {
+      return ref.read(currentRoleProvider);
+    }
   }
 
   @override
@@ -558,17 +612,23 @@ class _PublicHomeScreenState extends ConsumerState<PublicHomeScreen> {
 
 class _RouterRefreshNotifier extends ChangeNotifier {
   _RouterRefreshNotifier(WidgetRef ref) {
-    _subscription = ref.listenManual(
+    _authSubscription = ref.listenManual(
       authViewModelProvider,
+      (_, _) => notifyListeners(),
+    );
+    _roleSubscription = ref.listenManual(
+      currentRoleProvider,
       (_, _) => notifyListeners(),
     );
   }
 
-  late final ProviderSubscription<AsyncValue<dynamic>> _subscription;
+  late final ProviderSubscription<AsyncValue<dynamic>> _authSubscription;
+  late final ProviderSubscription<UserRole> _roleSubscription;
 
   @override
   void dispose() {
-    _subscription.close();
+    _authSubscription.close();
+    _roleSubscription.close();
     super.dispose();
   }
 }
