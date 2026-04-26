@@ -9,6 +9,7 @@ import 'package:catalogo_ja/core/error/app_failure.dart';
 import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:catalogo_ja/data/repositories/tenant_repository.dart';
+import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 
@@ -153,13 +154,19 @@ class CatalogsViewModel extends _$CatalogsViewModel {
       final firestoreRepo = FirestoreCatalogsRepository(localRepo, storageService, tenantId);
 
       final currentLocalCatalogs = await localRepo.getCatalogs();
-      
-      // 🔑 Trava de Offline-First
-      if (currentLocalCatalogs.isEmpty) {
+      final currentLocalProducts =
+          await ref.read(productsRepositoryProvider).getProducts();
+
+      // 🔑 Trava Offline-First — bloqueia se nenhum dado local existe
+      // (nem produtos nem catálogos), garantindo que o usuário faça a
+      // carga inicial via backup antes de baixar da nuvem.
+      final hasNoLocalData =
+          currentLocalCatalogs.isEmpty && currentLocalProducts.isEmpty;
+      if (hasNoLocalData) {
         final settings = ref.read(settingsRepositoryProvider).getSettings();
         if (!settings.isInitialSyncCompleted) {
           progressNotifier.stopSync();
-          return 0; // Abort download
+          return 0; // Aguarda carga inicial via backup
         }
       }
 
