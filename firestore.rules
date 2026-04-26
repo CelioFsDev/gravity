@@ -11,90 +11,219 @@ service cloud.firestore {
 
     function isSuperAdmin() {
       return isSignedIn() && (
-        currentUserEmail() == 'ti.vitoriana@gmail.com' || 
+        currentUserEmail() == 'ti.vitoriana@gmail.com' ||
         currentUserEmail() == 'celiofs.dev@gmail.com' ||
         currentUserEmail() == 'celio@gmail.com' ||
         currentUserEmail() == 'celioferreira.dev@gmail.com'
       );
     }
 
-    function userDocExists() {
-      return isSignedIn()
-        && currentUserEmail() != null
-        && exists(/databases/$(database)/documents/users/$(currentUserEmail()));
+    function isSelf(userEmail) {
+      return isSignedIn() &&
+        currentUserEmail() != null &&
+        currentUserEmail() == userEmail;
     }
 
-    function userDoc() {
-      return get(/databases/$(database)/documents/users/$(currentUserEmail())).data;
+    function userPath(email) {
+      return /databases/$(database)/documents/users/$(email);
     }
 
-    function isAdmin() {
-      return isSuperAdmin();
+    function hasUserDoc() {
+      return isSignedIn() &&
+        currentUserEmail() != null &&
+        exists(userPath(currentUserEmail()));
     }
 
-    function getTenantIds() {
-      return exists(/databases/$(database)/documents/users/$(currentUserEmail()))
-        ? get(/databases/$(database)/documents/users/$(currentUserEmail())).data.tenantIds
+    function userData() {
+      return get(userPath(currentUserEmail())).data;
+    }
+
+    function tenantIds() {
+      return hasUserDoc() && userData().keys().hasAny(['tenantIds'])
+        ? userData().tenantIds
         : [];
     }
 
-    function isSelf(userEmail) {
-      return isSignedIn()
-        && currentUserEmail() != null
-        && currentUserEmail() == userEmail;
+    function hasTenantAccess(tenantId) {
+      return isSuperAdmin() || (isSignedIn() && tenantId in tenantIds());
     }
 
-    function isOwner(resourceData) {
-      return isSignedIn() && resourceData.ownerUid == request.auth.uid;
+    function dataBelongsToMyTenant(data) {
+      return hasTenantAccess(data.tenantId) ||
+        (
+          data.keys().hasAny(['tenantIds']) &&
+          data.tenantIds.hasAny(tenantIds())
+        );
     }
 
-    // --- SaaS Rule: Ensure data belongs to current user's tenant ---
-    function isFromTenant(resourceData) {
-      return isSignedIn() && (resourceData.tenantId in getTenantIds() || isAdmin());
+    function tenantRole(tenantId) {
+      return !hasUserDoc()
+        ? 'viewer'
+        : (
+            userData().keys().hasAny(['rolesByTenant']) &&
+            tenantId in userData().rolesByTenant
+          )
+          ? userData().rolesByTenant[tenantId]
+          : (
+              hasTenantAccess(tenantId) &&
+              userData().keys().hasAny(['role'])
+            )
+            ? userData().role
+            : 'viewer';
     }
 
-    function isWritingForTenant() {
-      return isSignedIn() && (request.resource.data.tenantId in getTenantIds() || isAdmin());
+    function storeRole(tenantId, storeId) {
+      return !hasUserDoc()
+        ? 'viewer'
+        : (
+            storeId != null &&
+            userData().keys().hasAny(['rolesByStore']) &&
+            tenantId in userData().rolesByStore &&
+            storeId in userData().rolesByStore[tenantId]
+          )
+          ? userData().rolesByStore[tenantId][storeId]
+          : tenantRole(tenantId);
+    }
+
+    function canManageTenant(tenantId) {
+      return isSuperAdmin() || tenantRole(tenantId) == 'admin';
+    }
+
+    function activeStoreId() {
+      return hasUserDoc() && userData().keys().hasAny(['currentStoreId'])
+        ? userData().currentStoreId
+        : null;
+    }
+
+    function canManageActiveStore(tenantId) {
+      return canManageTenant(tenantId) ||
+        storeRole(tenantId, activeStoreId()) == 'admin';
+    }
+
+    function canEditTenantData(tenantId) {
+      return canManageTenant(tenantId) ||
+        tenantRole(tenantId) == 'operator' ||
+        storeRole(tenantId, activeStoreId()) in ['admin', 'operator'];
+    }
+
+    function isTenantOwner(tenantId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/tenants/$(tenantId)) &&
+        get(/databases/$(database)/documents/tenants/$(tenantId)).data.keys().hasAny(['metadata']) &&
+        get(/databases/$(database)/documents/tenants/$(tenantId)).data.metadata.ownerEmail == currentUserEmail();
+    }
+
+    function selfUserWriteAllowed(userEmail) {
+      return isSelf(userEmail) && (
+        (
+          !request.resource.data.keys().hasAny(['rolesByTenant', 'rolesByStore']) &&
+          (!request.resource.data.keys().hasAny(['role']) ||
+            request.resource.data.role in ['viewer', 'seller'])
+        ) ||
+        (
+          request.resource.data.role == 'admin' &&
+          isTenantOwner(request.resource.data.tenantId)
+        )
+      );
+    }
+
+    function selfProfileUpdateAllowed(userEmail) {
+      return isSelf(userEmail) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'authUid',
+          'createdAt',
+          'disabled',
+          'displayName',
+          'email',
+          'lastRefreshAt',
+          'photoURL',
+          'providerIds',
+          'updatedAt',
+          'whatsappNumber'
+        ]);
+    }
+
+    function requestTenantId() {
+      return request.resource.data.tenantId;
     }
 
     match /users/{userEmail} {
-      allow read: if isSignedIn() && (isAdmin() || isSelf(userEmail));
-      allow create: if isSignedIn() && (isAdmin() || isSelf(userEmail));
-      allow update: if isSignedIn() && (isAdmin() || isSelf(userEmail));
-      allow delete: if isAdmin();
+      allow get: if isSignedIn() && (
+        isSuperAdmin() ||
+        isSelf(userEmail) ||
+        dataBelongsToMyTenant(resource.data)
+      );
+      allow list: if isSignedIn() && (
+        isSuperAdmin() ||
+        dataBelongsToMyTenant(resource.data)
+      );
+      allow create: if isSignedIn() && (
+        isSuperAdmin() ||
+        selfUserWriteAllowed(userEmail) ||
+        canManageActiveStore(request.resource.data.tenantId)
+      );
+      allow update: if isSignedIn() && (
+        isSuperAdmin() ||
+        selfProfileUpdateAllowed(userEmail) ||
+        selfUserWriteAllowed(userEmail) ||
+        canManageActiveStore(request.resource.data.tenantId)
+      );
+      allow delete: if isSuperAdmin() ||
+        (isSignedIn() && canManageActiveStore(resource.data.tenantId));
     }
 
     match /tenants/{tenantId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn() && (tenantId in getTenantIds() || isAdmin());
+      allow get: if isSignedIn() && hasTenantAccess(tenantId);
+      allow list: if isSignedIn();
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && (tenantId in getTenantIds() || isAdmin());
+      allow update: if isSignedIn() && canManageTenant(tenantId);
+      allow delete: if isSuperAdmin();
     }
 
     match /products/{productId} {
       allow read: if true;
-      allow create: if isWritingForTenant();
-      allow update: if isFromTenant(resource.data) && isWritingForTenant();
-      allow delete: if isFromTenant(resource.data);
+      allow create: if isSignedIn() && canEditTenantData(requestTenantId());
+      allow update: if isSignedIn() &&
+        hasTenantAccess(resource.data.tenantId) &&
+        canEditTenantData(requestTenantId());
+      allow delete: if isSignedIn() && canEditTenantData(resource.data.tenantId);
     }
 
     match /categories/{categoryId} {
       allow read: if true;
-      allow create: if isWritingForTenant();
-      allow update: if isFromTenant(resource.data) && isWritingForTenant();
-      allow delete: if isFromTenant(resource.data);
+      allow create: if isSignedIn() && canEditTenantData(requestTenantId());
+      allow update: if isSignedIn() &&
+        hasTenantAccess(resource.data.tenantId) &&
+        canEditTenantData(requestTenantId());
+      allow delete: if isSignedIn() && canEditTenantData(resource.data.tenantId);
     }
 
     match /catalogs/{catalogId} {
-      allow read: if true; 
-      allow create: if isWritingForTenant();
-      allow update: if isFromTenant(resource.data) && isWritingForTenant();
-      allow delete: if isFromTenant(resource.data);
+      allow read: if true;
+      allow create: if isSignedIn() && canEditTenantData(requestTenantId());
+      allow update: if isSignedIn() &&
+        hasTenantAccess(resource.data.tenantId) &&
+        canEditTenantData(requestTenantId());
+      allow delete: if isSignedIn() && canEditTenantData(resource.data.tenantId);
 
       match /items/{itemId} {
-        allow read: if true; // Items de catálogo público são abertos para visualizadores
-        allow write: if isFromTenant(get(/databases/$(database)/documents/catalogs/$(catalogId)).data);
+        allow read: if true;
+        allow write: if isSignedIn() &&
+          canEditTenantData(get(/databases/$(database)/documents/catalogs/$(catalogId)).data.tenantId);
       }
+    }
+
+    match /sync_queue/{queueId} {
+      allow create, update: if isSignedIn() &&
+        canEditTenantData(request.resource.data.tenantId);
+      allow read, delete: if isSignedIn() &&
+        canEditTenantData(resource.data.tenantId);
+    }
+
+    match /audit_logs/{logId} {
+      allow create: if isSignedIn() && hasTenantAccess(request.resource.data.tenantId);
+      allow read: if isSignedIn() && hasTenantAccess(resource.data.tenantId);
+      allow update, delete: if false;
     }
   }
 }

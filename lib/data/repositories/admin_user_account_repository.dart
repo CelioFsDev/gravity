@@ -50,6 +50,8 @@ class AdminUserAccountRepository {
         'email': normalizedEmail,
         'password': password,
         'role': role,
+        'tenantId': tenantId?.trim(),
+        'storeId': storeId?.trim(),
       });
       // Cloud Function succeeded — also ensure the Firestore doc exists locally
       final result = CreatedUserAccount.fromMap(response.data.cast<Object?, Object?>());
@@ -97,9 +99,16 @@ class AdminUserAccountRepository {
       if (tenantId != null && tenantId.trim().isNotEmpty) ...{
         'tenantId': tenantId.trim(),
         'tenantIds': FieldValue.arrayUnion([tenantId.trim()]),
+        'rolesByTenant.${tenantId.trim()}':
+            storeId != null && storeId.trim().isNotEmpty ? 'seller' : validRole,
       },
       if (storeId != null && storeId.trim().isNotEmpty)
         'currentStoreId': storeId.trim(),
+      if (tenantId != null &&
+          tenantId.trim().isNotEmpty &&
+          storeId != null &&
+          storeId.trim().isNotEmpty)
+        'rolesByStore.${tenantId.trim()}.${storeId.trim()}': validRole,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
@@ -109,6 +118,8 @@ class AdminUserAccountRepository {
     required String role,
     required bool disabled,
     String displayName = '',
+    String? tenantId,
+    String? storeId,
   }) async {
     final normalizedEmail = email.trim().toLowerCase();
     try {
@@ -118,6 +129,8 @@ class AdminUserAccountRepository {
         'role': role,
         'disabled': disabled,
         'displayName': displayName.trim(),
+        'tenantId': tenantId?.trim(),
+        'storeId': storeId?.trim(),
       });
     } on FirebaseFunctionsException catch (error) {
       if (!_shouldUseLocalFallback(error)) rethrow;
@@ -126,16 +139,38 @@ class AdminUserAccountRepository {
         'displayName': displayName.trim(),
         'email': normalizedEmail,
         'role': role,
+        if (tenantId != null && tenantId.trim().isNotEmpty)
+          'tenantId': tenantId.trim(),
+        if (tenantId != null && tenantId.trim().isNotEmpty)
+          'tenantIds': FieldValue.arrayUnion([tenantId.trim()]),
+        if (tenantId != null && tenantId.trim().isNotEmpty)
+          'rolesByTenant.${tenantId.trim()}':
+              storeId != null && storeId.trim().isNotEmpty ? 'seller' : role,
+        if (storeId != null && storeId.trim().isNotEmpty)
+          'currentStoreId': storeId.trim(),
+        if (tenantId != null &&
+            tenantId.trim().isNotEmpty &&
+            storeId != null &&
+            storeId.trim().isNotEmpty)
+          'rolesByStore.${tenantId.trim()}.${storeId.trim()}': role,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     }
   }
 
-  Future<void> deleteUserAccount(String email) async {
+  Future<void> deleteUserAccount(
+    String email, {
+    String? tenantId,
+    String? storeId,
+  }) async {
     final normalizedEmail = email.trim().toLowerCase();
     try {
       final callable = _functions.httpsCallable('deleteUserAccount');
-      await callable.call<Map<String, dynamic>>({'email': normalizedEmail});
+      await callable.call<Map<String, dynamic>>({
+        'email': normalizedEmail,
+        'tenantId': tenantId?.trim(),
+        'storeId': storeId?.trim(),
+      });
     } on FirebaseFunctionsException catch (error) {
       if (!_shouldUseLocalFallback(error)) rethrow;
       await _firestore.collection('users').doc(normalizedEmail).delete();
@@ -179,6 +214,10 @@ class AdminUserAccountRepository {
         );
       }
 
+      final validRole = UserRole.values.any((item) => item.name == role)
+          ? role
+          : UserRole.viewer.name;
+
       await _firestore.collection('users').doc(email).set({
         'authUid': uid,
         'createdAt': FieldValue.serverTimestamp(),
@@ -188,19 +227,26 @@ class AdminUserAccountRepository {
         'lastRefreshAt': FieldValue.serverTimestamp(),
         'photoURL': '',
         'providerIds': const ['password'],
-        'role': UserRole.values.any((item) => item.name == role)
-            ? role
-            : UserRole.viewer.name,
+        'role': validRole,
         if (tenantId != null && tenantId.trim().isNotEmpty) ...{
           'tenantId': tenantId.trim(),
           'tenantIds': FieldValue.arrayUnion([tenantId.trim()]),
+          'rolesByTenant.${tenantId.trim()}':
+              storeId != null && storeId.trim().isNotEmpty
+                  ? 'seller'
+                  : validRole,
         },
         if (storeId != null && storeId.trim().isNotEmpty)
           'currentStoreId': storeId.trim(),
+        if (tenantId != null &&
+            tenantId.trim().isNotEmpty &&
+            storeId != null &&
+            storeId.trim().isNotEmpty)
+          'rolesByStore.${tenantId.trim()}.${storeId.trim()}': validRole,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      return CreatedUserAccount(email: email, role: role, uid: uid);
+      return CreatedUserAccount(email: email, role: validRole, uid: uid);
     } finally {
       await tempApp?.delete();
     }

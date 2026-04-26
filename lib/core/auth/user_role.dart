@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -37,6 +39,7 @@ enum UserRole {
 class CurrentRole extends _$CurrentRole {
   String? _lastFetchedEmail;
   UserRole _cachedRole = UserRole.viewer;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _subscription;
 
   @override
   UserRole build() {
@@ -58,7 +61,21 @@ class CurrentRole extends _$CurrentRole {
     // Only re-fetch if the user email changed
     if (_lastFetchedEmail != email) {
       _lastFetchedEmail = email;
+      _subscription?.cancel();
       _fetchUserRole(email, forceAdmin: isSuperAdmin);
+      _subscription = FirebaseFirestore.instance
+          .collection('users')
+          .doc(email)
+          .snapshots()
+          .listen((doc) {
+        if (!doc.exists) return;
+        final data = doc.data()!;
+        var role = _roleFromData(data);
+        if (isSuperAdmin) role = UserRole.admin;
+        _cachedRole = role;
+        state = role;
+      });
+      ref.onDispose(() => _subscription?.cancel());
     }
 
     return _cachedRole;
@@ -74,18 +91,13 @@ class CurrentRole extends _$CurrentRole {
 
       if (doc.exists) {
         final data = doc.data()!;
-        final roleStr = data['role'] as String? ?? 'viewer';
-
-        var role = UserRole.values.firstWhere(
-          (item) => item.name == roleStr,
-          orElse: () => UserRole.viewer,
-        );
+        var role = _roleFromData(data);
 
         // Even if DB says otherwise, if it's a super admin, force it
         if (forceAdmin) {
           role = UserRole.admin;
           // Sync DB if it was wrong
-          if (roleStr != 'admin') {
+          if (data['role'] != 'admin') {
             await ref.read(userRepositoryProvider).setUserRole(email, role);
           }
         }
@@ -109,6 +121,44 @@ class CurrentRole extends _$CurrentRole {
   void setRole(UserRole role) {
     _cachedRole = role;
     state = role;
+  }
+
+  String _effectiveRoleName(
+    Map<String, dynamic> data, {
+    required String tenantId,
+    required String storeId,
+  }) {
+    final rolesByStore = data['rolesByStore'];
+    if (rolesByStore is Map && tenantId.isNotEmpty && storeId.isNotEmpty) {
+      final tenantStores = rolesByStore[tenantId];
+      if (tenantStores is Map) {
+        final storeRole = tenantStores[storeId] as String?;
+        if (storeRole != null && storeRole.isNotEmpty) return storeRole;
+      }
+    }
+
+    final rolesByTenant = data['rolesByTenant'];
+    if (rolesByTenant is Map && tenantId.isNotEmpty) {
+      final tenantRole = rolesByTenant[tenantId] as String?;
+      if (tenantRole != null && tenantRole.isNotEmpty) return tenantRole;
+    }
+
+    return data['role'] as String? ?? 'viewer';
+  }
+
+  UserRole _roleFromData(Map<String, dynamic> data) {
+    final activeTenantId = data['tenantId'] as String? ?? '';
+    final activeStoreId = data['currentStoreId'] as String? ?? '';
+    final roleStr = _effectiveRoleName(
+      data,
+      tenantId: activeTenantId,
+      storeId: activeStoreId,
+    );
+
+    return UserRole.values.firstWhere(
+      (item) => item.name == roleStr,
+      orElse: () => UserRole.viewer,
+    );
   }
 }
 

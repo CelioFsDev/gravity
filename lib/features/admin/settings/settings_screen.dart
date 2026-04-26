@@ -703,7 +703,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           await FirebaseFirestore.instance
               .collection('users')
               .doc(userEmail)
-              .update({'currentStoreId': result});
+              .update({
+            'currentStoreId': result,
+            'rolesByStore.$tenantId.$result': 'admin',
+          });
         }
         ref.invalidate(currentTenantProvider);
         ref.invalidate(userTenantsProvider);

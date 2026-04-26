@@ -53,7 +53,6 @@ const Map<AppRole, Set<AppPermission>> rolePermissionsMap = {
   },
 
   AppRole.seller: {
-    AppPermission.viewProducts,
     AppPermission.publishCatalog,
     // Vendedor padrão não edita produtos, apenas compartilha o catálogo montado.
   },

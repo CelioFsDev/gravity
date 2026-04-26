@@ -21,6 +21,29 @@ class UserManagementScreen extends ConsumerStatefulWidget {
       _UserManagementScreenState();
 }
 
+String _effectiveUserRoleName(
+  Map<String, dynamic> user, {
+  required String tenantId,
+  required String storeId,
+}) {
+  final rolesByStore = user['rolesByStore'];
+  if (rolesByStore is Map && tenantId.isNotEmpty && storeId.isNotEmpty) {
+    final tenantStores = rolesByStore[tenantId];
+    if (tenantStores is Map) {
+      final role = tenantStores[storeId] as String?;
+      if (role != null && role.isNotEmpty) return role;
+    }
+  }
+
+  final rolesByTenant = user['rolesByTenant'];
+  if (rolesByTenant is Map && tenantId.isNotEmpty) {
+    final role = rolesByTenant[tenantId] as String?;
+    if (role != null && role.isNotEmpty) return role;
+  }
+
+  return user['role'] as String? ?? 'viewer';
+}
+
 class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
   bool _isSyncing = false;
   bool _didAutoSync = false;
@@ -122,6 +145,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
     final currentRole = ref.watch(currentRoleProvider);
     final currentEmail = ref.watch(authViewModelProvider).valueOrNull?.email;
     final currentTenantId = ref.watch(currentTenantProvider).valueOrNull?.id;
+    final currentStoreId = ref.watch(currentStoreIdProvider).valueOrNull;
 
     if (!currentRole.canManageUsers(currentEmail)) {
       return const AppScaffold(
@@ -142,8 +166,9 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
         ),
       ],
       body: StreamBuilder<List<Map<String, dynamic>>>(
-        stream: userRepository.getUsersForTenantStream(
+        stream: userRepository.getUsersForTenantAndStoreStream(
           tenantId: currentTenantId ?? '',
+          storeId: currentStoreId ?? '',
         ),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -278,7 +303,13 @@ class _UserRow extends ConsumerWidget {
     final email = user['email'] as String;
     final displayName = user['displayName'] as String? ?? '';
     final photoURL = user['photoURL'] as String? ?? '';
-    final roleStr = user['role'] as String? ?? 'viewer';
+    final tenantId = ref.watch(currentTenantProvider).valueOrNull?.id ?? '';
+    final storeId = ref.watch(currentStoreIdProvider).valueOrNull ?? '';
+    final roleStr = _effectiveUserRoleName(
+      user,
+      tenantId: tenantId,
+      storeId: storeId,
+    );
     final providerIds = List<String>.from(user['providerIds'] ?? []);
 
     final role = UserRole.values.firstWhere(
@@ -453,7 +484,13 @@ class _UserRow extends ConsumerWidget {
       text: user['displayName'] as String? ?? '',
     );
     UserRole selectedRole = UserRole.values.firstWhere(
-      (item) => item.name == (user['role'] as String? ?? 'viewer'),
+      (item) =>
+          item.name ==
+          _effectiveUserRoleName(
+            user,
+            tenantId: ref.read(currentTenantProvider).valueOrNull?.id ?? '',
+            storeId: ref.read(currentStoreIdProvider).valueOrNull ?? '',
+          ),
       orElse: () => UserRole.viewer,
     );
     bool isSuspended = user['disabled'] as bool? ?? false;
@@ -517,6 +554,8 @@ class _UserRow extends ConsumerWidget {
                       displayName: nameController.text.trim(),
                       role: selectedRole.name,
                       disabled: isSuspended,
+                      tenantId: ref.read(currentTenantProvider).valueOrNull?.id,
+                      storeId: ref.read(currentStoreIdProvider).valueOrNull,
                     )
                     .then((_) {
                       if (context.mounted) {
@@ -567,7 +606,11 @@ class _UserRow extends ConsumerWidget {
             onPressed: () {
               ref
                   .read(adminUserAccountRepositoryProvider)
-                  .deleteUserAccount(user['email'] as String)
+                  .deleteUserAccount(
+                    user['email'] as String,
+                    tenantId: ref.read(currentTenantProvider).valueOrNull?.id,
+                    storeId: ref.read(currentStoreIdProvider).valueOrNull,
+                  )
                   .then((_) {
                     if (context.mounted) {
                       Navigator.pop(context);

@@ -10,6 +10,7 @@ const SUPER_ADMIN_EMAILS = new Set([
   'ti.vitoriana@gmail.com',
   'celiofs.dev@gmail.com',
   'celio@gmail.com',
+  'celioferreira.dev@gmail.com',
 ]);
 const VALID_ROLES = new Set(['admin', 'operator', 'seller', 'viewer']);
 
@@ -125,6 +126,56 @@ async function ensureAdmin(request) {
   return requesterEmail;
 }
 
+function roleForAccess(data, tenantId, storeId) {
+  const rolesByStore = data.rolesByStore || {};
+  const tenantStores = rolesByStore[tenantId] || {};
+  if (storeId && tenantStores[storeId]) return tenantStores[storeId];
+
+  const rolesByTenant = data.rolesByTenant || {};
+  if (tenantId && rolesByTenant[tenantId]) return rolesByTenant[tenantId];
+
+  return data.role || 'viewer';
+}
+
+async function ensureTenantAdmin(request, tenantId, storeId) {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Login obrigatorio.');
+  }
+
+  const requesterEmail = normalizeEmail(request.auth.token.email);
+  if (!requesterEmail) {
+    throw new HttpsError('unauthenticated', 'Email do usuario nao encontrado no token.');
+  }
+
+  if (SUPER_ADMIN_EMAILS.has(requesterEmail)) return requesterEmail;
+
+  if (!tenantId) {
+    throw new HttpsError('invalid-argument', 'Empresa obrigatoria para gerenciar usuarios.');
+  }
+
+  const requesterDoc = await db.collection('users').doc(requesterEmail).get();
+  const requesterData = requesterDoc.data() || {};
+  const requesterRole = roleForAccess(requesterData, tenantId, storeId);
+  const tenantDoc = await db.collection('tenants').doc(tenantId).get();
+  const tenantData = tenantDoc.data() || {};
+  const ownerEmail = normalizeEmail(tenantData?.metadata?.ownerEmail);
+
+  if (requesterRole === 'admin' || requesterEmail === ownerEmail) {
+    return requesterEmail;
+  }
+
+  logger.warn('Acesso negado ao gerenciamento de usuarios do tenant', {
+    requesterEmail,
+    tenantId,
+    storeId,
+    requesterRole,
+  });
+  throw new HttpsError(
+    'permission-denied',
+    'Apenas administradores desta empresa podem gerenciar usuarios.',
+  );
+}
+
 exports.syncAuthUsers = onCall(
   {
     cors: true,
@@ -222,12 +273,13 @@ exports.createEmailPasswordUser = onCall(
     maxInstances: 5,
   },
   async (request) => {
-    const requesterEmail = await ensureAdmin(request);
-
     const email = normalizeEmail(request.data?.email);
     const password = String(request.data?.password || '').trim();
     const requestedRole = String(request.data?.role || 'viewer').trim();
     const role = VALID_ROLES.has(requestedRole) ? requestedRole : 'viewer';
+    const tenantId = String(request.data?.tenantId || '').trim();
+    const storeId = String(request.data?.storeId || '').trim();
+    const requesterEmail = await ensureTenantAdmin(request, tenantId, storeId);
 
     if (!email || !email.includes('@')) {
       throw new HttpsError('invalid-argument', 'Email invalido.');
@@ -280,6 +332,15 @@ exports.createEmailPasswordUser = onCall(
         lastRefreshAt: admin.firestore.FieldValue.serverTimestamp(),
         providerIds: ['password'],
         role,
+        ...(tenantId ? {
+          tenantId,
+          tenantIds: admin.firestore.FieldValue.arrayUnion(tenantId),
+          [`rolesByTenant.${tenantId}`]: storeId ? 'seller' : role,
+        } : {}),
+        ...(tenantId && storeId ? {
+          currentStoreId: storeId,
+          [`rolesByStore.${tenantId}.${storeId}`]: role,
+        } : {}),
       },
       { merge: true },
     );
@@ -305,13 +366,14 @@ exports.updateUserAccess = onCall(
     maxInstances: 5,
   },
   async (request) => {
-    const requesterEmail = await ensureAdmin(request);
-
     const email = normalizeEmail(request.data?.email);
     const requestedRole = String(request.data?.role || 'viewer').trim();
     const role = VALID_ROLES.has(requestedRole) ? requestedRole : 'viewer';
     const disabled = !!request.data?.disabled;
     const displayName = String(request.data?.displayName || '').trim();
+    const tenantId = String(request.data?.tenantId || '').trim();
+    const storeId = String(request.data?.storeId || '').trim();
+    const requesterEmail = await ensureTenantAdmin(request, tenantId, storeId);
 
     if (!email || !email.includes('@')) {
       throw new HttpsError('invalid-argument', 'Email invalido.');
@@ -322,6 +384,24 @@ exports.updateUserAccess = onCall(
         'failed-precondition',
         'Nao e permitido rebaixar um super administrador.',
       );
+    }
+
+    if (tenantId && !SUPER_ADMIN_EMAILS.has(requesterEmail)) {
+      const targetDoc = await db.collection('users').doc(email).get();
+      const targetData = targetDoc.data() || {};
+      const tenantIds = targetData.tenantIds || [];
+      if (targetData.tenantId !== tenantId && !tenantIds.includes(tenantId)) {
+        throw new HttpsError(
+          'permission-denied',
+          'Usuario nao pertence a esta empresa.',
+        );
+      }
+      if (storeId && targetData.currentStoreId !== storeId) {
+        throw new HttpsError(
+          'permission-denied',
+          'Usuario nao pertence a esta loja.',
+        );
+      }
     }
 
     let userRecord;
@@ -350,6 +430,15 @@ exports.updateUserAccess = onCall(
           .map((provider) => provider.providerId)
           .filter(Boolean),
         role,
+        ...(tenantId ? {
+          tenantId,
+          tenantIds: admin.firestore.FieldValue.arrayUnion(tenantId),
+          [`rolesByTenant.${tenantId}`]: storeId ? 'seller' : role,
+        } : {}),
+        ...(tenantId && storeId ? {
+          currentStoreId: storeId,
+          [`rolesByStore.${tenantId}.${storeId}`]: role,
+        } : {}),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedBy: requesterEmail,
       },
@@ -373,7 +462,9 @@ exports.deleteUserAccount = onCall(
     maxInstances: 5,
   },
   async (request) => {
-    const requesterEmail = await ensureAdmin(request);
+    const tenantId = String(request.data?.tenantId || '').trim();
+    const storeId = String(request.data?.storeId || '').trim();
+    const requesterEmail = await ensureTenantAdmin(request, tenantId, storeId);
     const email = normalizeEmail(request.data?.email);
 
     if (!email || !email.includes('@')) {
@@ -392,6 +483,18 @@ exports.deleteUserAccount = onCall(
         'failed-precondition',
         'Nao e permitido excluir um super administrador.',
       );
+    }
+
+    if (tenantId && !SUPER_ADMIN_EMAILS.has(requesterEmail)) {
+      const targetDoc = await db.collection('users').doc(email).get();
+      const targetData = targetDoc.data() || {};
+      const tenantIds = targetData.tenantIds || [];
+      if (targetData.tenantId !== tenantId && !tenantIds.includes(tenantId)) {
+        throw new HttpsError(
+          'permission-denied',
+          'Usuario nao pertence a esta empresa.',
+        );
+      }
     }
 
     try {

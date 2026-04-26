@@ -163,22 +163,12 @@ class UserRepository {
       return Stream.value(const []);
     }
 
-    return getUsersStream().map((users) {
-      return users.where((user) {
-        final userTenantId = (user['tenantId'] as String?)?.trim();
-        final userTenantIds = List<String>.from(user['tenantIds'] ?? const [])
-            .map((id) => id.trim())
-            .toSet();
-        final userStoreId = (user['currentStoreId'] as String?)?.trim();
-
-        final belongsToTenant =
-            userTenantId == normalizedTenantId ||
-            userTenantIds.contains(normalizedTenantId);
-        final belongsToStore = userStoreId == normalizedStoreId;
-
-        return belongsToTenant && belongsToStore;
-      }).toList();
-    });
+    return _firestore
+        .collection('users')
+        .where('tenantIds', arrayContains: normalizedTenantId)
+        .where('currentStoreId', isEqualTo: normalizedStoreId)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => doc.data()).toList());
   }
 
   Stream<List<Map<String, dynamic>>> getUsersForTenantStream({
@@ -190,17 +180,12 @@ class UserRepository {
       return Stream.value(const []);
     }
 
-    return getUsersStream().map((users) {
-      return users.where((user) {
-        final userTenantId = (user['tenantId'] as String?)?.trim();
-        final userTenantIds = List<String>.from(user['tenantIds'] ?? const [])
-            .map((id) => id.trim())
-            .toSet();
-
-        return userTenantId == normalizedTenantId ||
-            userTenantIds.contains(normalizedTenantId);
-      }).toList();
-    });
+    return _firestore
+        .collection('users')
+        .where('tenantIds', arrayContains: normalizedTenantId)
+        .orderBy('email')
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => doc.data()).toList());
   }
 
   Stream<Map<String, dynamic>?> getUserStream(String email) {

@@ -118,6 +118,8 @@ class TenantRepository {
       'tenantId': tenantId,
       'tenantIds': FieldValue.arrayUnion([tenantId]),
       'currentStoreId': storeName,
+      'rolesByTenant.$tenantId': 'admin',
+      'rolesByStore.$tenantId.$storeName': 'admin',
       'role': 'admin', // Quem cria é sempre Admin
     }, SetOptions(merge: true));
 
