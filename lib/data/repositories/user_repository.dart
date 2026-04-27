@@ -163,12 +163,26 @@ class UserRepository {
       return Stream.value(const []);
     }
 
+    // Busca todos os usuários do tenant e filtra client-side:
+    // - Usuários novos: têm currentStoreId igual à loja atual ✅
+    // - Usuários antigos (legado): não têm currentStoreId definido ✅
+    // - Usuários de OUTRA loja da mesma empresa: são excluídos ✅
     return _firestore
         .collection('users')
         .where('tenantIds', arrayContains: normalizedTenantId)
-        .where('currentStoreId', isEqualTo: normalizedStoreId)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => doc.data()).toList());
+        .map((snapshot) {
+          return snapshot.docs
+              .map((doc) => doc.data())
+              .where((user) {
+                final userStoreId = user['currentStoreId'] as String?;
+                // Inclui se pertence à loja atual OU se é legado (sem loja definida)
+                return userStoreId == null ||
+                    userStoreId.trim().isEmpty ||
+                    userStoreId.trim() == normalizedStoreId;
+              })
+              .toList();
+        });
   }
 
   Stream<List<Map<String, dynamic>>> getUsersForTenantStream({
