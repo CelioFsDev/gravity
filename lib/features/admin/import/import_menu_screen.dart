@@ -70,7 +70,7 @@ class ImportMenuScreen extends StatelessWidget {
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
         trailing: const Icon(Icons.chevron_right),
-        onTap: () => context.push(route),
+        onTap: () => context.go(route),
       ),
     );
   }

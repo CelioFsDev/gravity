@@ -392,7 +392,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: AppPrimaryButton(
                       icon: Icons.people_outline,
                       label: 'Configurar Usuários',
-                      onPressed: () => context.push('/admin/settings/users'),
+                      onPressed: () => context.go('/admin/settings/users'),
                     ),
                   ),
                 ],

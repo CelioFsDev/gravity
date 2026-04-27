@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/core/providers/global_loading_provider.dart';
 import 'package:catalogo_ja/features/theme/theme_providers.dart';
@@ -39,7 +40,7 @@ class AppScaffold extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final hasTitle = title != null;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final canPop = Navigator.of(context).canPop();
+    final canPop = context.canPop();
     final shouldShowBackButton = showBackButton ?? canPop;
     
     final _ = ref.watch(globalLoadingProvider);
@@ -99,7 +100,7 @@ class AppScaffold extends ConsumerWidget {
         children: [
           if (shouldShowBackButton) ...[
             IconButton(
-              onPressed: () => Navigator.of(context).maybePop(),
+              onPressed: () => context.pop(),
               icon: Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: isDark ? Colors.white : Colors.black87),
             ),
             const SizedBox(width: 8),
@@ -144,7 +145,7 @@ class AppScaffold extends ConsumerWidget {
               size: 20,
             ),
             onPressed: () {
-              Navigator.of(context).pushNamed('/admin/profile');
+              context.go('/admin/profile');
             },
           ),
           const SizedBox(width: 8),

@@ -42,7 +42,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
       actions: [
         if (role.canManageRegistrations)
           FilledButton.icon(
-            onPressed: () => context.push('/admin/collections/new'),
+            onPressed: () => context.go('/admin/collections/new'),
             icon: const Icon(Icons.add),
             label: const Text('Nova Coleção'),
           ),
@@ -70,7 +70,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                   role.canManageRegistrations ? 'Criar cole\u00e7\u00e3o' : null,
               onAction:
                   role.canManageRegistrations
-                      ? () => context.push('/admin/collections/new')
+                      ? () => context.go('/admin/collections/new')
                       : null,
             );
           }
@@ -106,7 +106,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                     final collection = collections[index];
                     return _CollectionCard(
                       collection: collection,
-                      onEdit: () => context.push(
+                      onEdit: () => context.go(
                         '/admin/collections/${collection.id}/edit',
                       ),
                       onDelete: () => _confirmDelete(context, collection.id),
@@ -128,7 +128,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                   role.canManageRegistrations ? 'Criar cole\u00e7\u00e3o' : null,
               onAction:
                   role.canManageRegistrations
-                      ? () => context.push('/admin/collections/new')
+                      ? () => context.go('/admin/collections/new')
                       : null,
             );
           }

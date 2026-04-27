@@ -162,7 +162,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
         IconButton(
           icon: const Icon(Icons.person_add_outlined),
           tooltip: 'Novo Usuário',
-          onPressed: () => context.push('/admin/settings/users/create-login'),
+          onPressed: () => context.go('/admin/settings/users/create-login'),
         ),
       ],
       body: StreamBuilder<List<Map<String, dynamic>>>(
@@ -198,7 +198,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                         subtitle:
                             'Cria login oficial (email/senha) no Firebase Auth.',
                         onTap: () =>
-                            context.push('/admin/settings/users/create-login'),
+                            context.go('/admin/settings/users/create-login'),
                       ),
                       const Divider(height: 32),
                       _AdminActionTile(
