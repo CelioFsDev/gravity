@@ -75,24 +75,7 @@ class AppProductListTile extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
-              // Thumbnail with Glow
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  color: isDark ? AppTokens.deepNavy : Colors.grey[200],
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: _buildImage(primaryImage?.uri),
-              ),
+              _buildPhotoFrame(context, primaryImage?.uri, isDark),
               const SizedBox(width: 16),
 
               // Info Section
@@ -105,9 +88,9 @@ class AppProductListTile extends StatelessWidget {
                         Text(
                           product.ref,
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: 14,
                             fontWeight: FontWeight.w900,
-                            color: AppTokens.vibrantCyan.withOpacity(0.8),
+                            color: isDark ? Colors.white : Colors.black,
                             letterSpacing: 1,
                           ),
                         ),
@@ -138,7 +121,7 @@ class AppProductListTile extends StatelessWidget {
                           context,
                           'VAREJO',
                           currency.format(product.effectivePriceRetail),
-                          AppTokens.electricBlue,
+                          AppTokens.accentGreen,
                           isDark,
                         ),
                         const SizedBox(width: 12),
@@ -146,7 +129,7 @@ class AppProductListTile extends StatelessWidget {
                           context,
                           'ATACADO',
                           currency.format(product.effectivePriceWholesale),
-                          AppTokens.softPurple,
+                          AppTokens.accentGreen,
                           isDark,
                         ),
                       ],
@@ -221,6 +204,57 @@ class AppProductListTile extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildPhotoFrame(BuildContext context, String? imageUri, bool isDark) {
+    return Container(
+      width: 96,
+      height: 96,
+      padding: const EdgeInsets.all(7),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [
+                  AppTokens.deepNavy.withOpacity(0.95),
+                  AppTokens.electricBlue.withOpacity(0.26),
+                  Colors.white.withOpacity(0.06),
+                ]
+              : [
+                  const Color(0xFFF1F7FF),
+                  const Color(0xFFEFFBF8),
+                  const Color(0xFFFFF7ED),
+                ],
+        ),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withOpacity(0.08)
+              : AppTokens.electricBlue.withOpacity(0.12),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withOpacity(0.24)
+                : AppTokens.electricBlue.withOpacity(0.08),
+            blurRadius: 14,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(13),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.black.withOpacity(0.16)
+                : const Color(0xFFEAF3FF).withOpacity(0.58),
+          ),
+          child: _buildImage(imageUri),
+        ),
+      ),
     );
   }
 
@@ -305,7 +339,7 @@ class AppProductListTile extends StatelessWidget {
       return CachedNetworkImage(
         imageUrl: path,
         cacheManager: DefaultCacheManager(),
-        fit: BoxFit.cover,
+        fit: BoxFit.contain,
         maxWidthDiskCache: 400,
         memCacheWidth: 200,
         placeholder: (context, url) => Container(
@@ -333,7 +367,7 @@ class AppProductListTile extends StatelessWidget {
         try {
           return Image.memory(
             base64Decode(path.substring(commaIndex + 1)),
-            fit: BoxFit.cover,
+            fit: BoxFit.contain,
             cacheWidth: 200,
             errorBuilder: (_, _, _) =>
                 const Icon(Icons.broken_image_outlined, size: 20),
@@ -349,7 +383,7 @@ class AppProductListTile extends StatelessWidget {
         if (file.existsSync()) {
           return Image.file(
             file,
-            fit: BoxFit.cover,
+            fit: BoxFit.contain,
             cacheWidth: 200,
             errorBuilder: (_, _, _) =>
                 const Icon(Icons.broken_image_outlined, size: 20),

@@ -4,14 +4,33 @@ import 'package:go_router/go_router.dart';
 import 'package:catalogo_ja/core/services/export_import_service.dart';
 import 'package:catalogo_ja/viewmodels/catalogo_ja_import_viewmodel.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/viewmodels/settings_viewmodel.dart';
 
-class CatalogoJaImportScreen extends ConsumerWidget {
+class CatalogoJaImportScreen extends ConsumerStatefulWidget {
   const CatalogoJaImportScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CatalogoJaImportScreen> createState() =>
+      _CatalogoJaImportScreenState();
+}
+class _CatalogoJaImportScreenState
+    extends ConsumerState<CatalogoJaImportScreen> {
+  bool _markedDone = false;
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(catalogoJaImportViewModelProvider);
     final viewModel = ref.read(catalogoJaImportViewModelProvider.notifier);
+
+    // Auto-marca isInitialSyncCompleted quando importação conclui com sucesso
+    if (state.step == 2 && state.result != null && !_markedDone) {
+      _markedDone = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref
+            .read(settingsViewModelProvider.notifier)
+            .updateSettings(isInitialSyncCompleted: true);
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -20,17 +39,16 @@ class CatalogoJaImportScreen extends ConsumerWidget {
           icon: const Icon(Icons.close),
           onPressed: () {
             viewModel.reset();
-            Navigator.of(context).pop();
+            if (context.canPop()) context.pop();
           },
         ),
       ),
-      body: _buildBody(context, ref, state, viewModel),
+      body: _buildBody(context, state, viewModel),
     );
   }
 
   Widget _buildBody(
     BuildContext context,
-    WidgetRef ref,
     CatalogoJaImportState state,
     CatalogoJaImportViewModel viewModel,
   ) {
@@ -313,17 +331,21 @@ class CatalogoJaImportScreen extends ConsumerWidget {
             ElevatedButton(
               onPressed: () {
                 viewModel.reset();
-                Navigator.of(context).pop();
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/admin/imports');
+                }
               },
-              child: const Text('Voltar para Produtos'),
+              child: const Text('Concluir'),
             ),
             const SizedBox(height: 12),
             TextButton(
               onPressed: () {
                 viewModel.reset();
-                context.go('/admin/products');
+                context.go('/admin/dashboard');
               },
-              child: const Text('Voltar para o Menu'),
+              child: const Text('Ir para o Início'),
             ),
           ],
         ),

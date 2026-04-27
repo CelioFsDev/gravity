@@ -182,15 +182,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          // Search Field
-          AppSearchField(
-            controller: _searchController,
-            hintText: 'Buscar por nome ou referência...',
-            onChanged: (val) => ref
-                .read(productsViewModelProvider.notifier)
-                .setSearchQuery(val),
-          ),
         ],
       ),
     );
@@ -1031,8 +1022,6 @@ class _ProductsContent extends ConsumerWidget {
                     const AlwaysScrollableScrollPhysics(), // Important for Pull-to-Refresh
                 children: [
                   const SizedBox(height: AppTokens.space16),
-                  _KpiSection(state: state),
-                  const SizedBox(height: AppTokens.space24),
                   _SearchAndFiltersSection(
                     state: state,
                     controller: searchController,

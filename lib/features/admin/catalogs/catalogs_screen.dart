@@ -78,33 +78,35 @@ class CatalogsScreen extends ConsumerWidget {
               foregroundColor: Colors.white,
             )
           : null,
-      body: Column(
-        children: [
-          if (syncProgress.isSyncing)
-            _buildSyncProgressBanner(context, syncProgress),
-          Expanded(
-            child: state.when(
-              data: (catalogs) => _CatalogsContent(
-                catalogs: catalogs,
-                onCreate: role.canEditCatalog
-                    ? () => _showCreateOptions(context)
-                    : null,
-                onShare: (catalog) => CatalogShareHelper.showShareOptions(
-                  context: context,
-                  ref: ref,
-                  catalog: catalog,
+      body: _CatalogsBackground(
+        child: Column(
+          children: [
+            if (syncProgress.isSyncing)
+              _buildSyncProgressBanner(context, syncProgress),
+            Expanded(
+              child: state.when(
+                data: (catalogs) => _CatalogsContent(
+                  catalogs: catalogs,
+                  onCreate: role.canEditCatalog
+                      ? () => _showCreateOptions(context)
+                      : null,
+                  onShare: (catalog) => CatalogShareHelper.showShareOptions(
+                    context: context,
+                    ref: ref,
+                    catalog: catalog,
+                  ),
+                  onEdit: (catalog) => _openEdit(context, catalog),
+                  onDelete: (catalog) => notifier.deleteCatalog(catalog.id),
                 ),
-                onEdit: (catalog) => _openEdit(context, catalog),
-                onDelete: (catalog) => notifier.deleteCatalog(catalog.id),
-              ),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, s) => AppErrorView(
-                error: e,
-                onRetry: () => ref.invalidate(catalogsViewModelProvider),
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, s) => AppErrorView(
+                  error: e,
+                  onRetry: () => ref.invalidate(catalogsViewModelProvider),
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -237,6 +239,38 @@ class CatalogsScreen extends ConsumerWidget {
   }
 }
 
+class _CatalogsBackground extends StatelessWidget {
+  final Widget child;
+
+  const _CatalogsBackground({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: isDark
+              ? [
+                  AppTokens.deepNavy,
+                  AppTokens.surfaceDark,
+                  AppTokens.deepNavy,
+                ]
+              : [
+                  const Color(0xFFF0F7FF),
+                  const Color(0xFFF7FBF9),
+                  const Color(0xFFFFFAF3),
+                ],
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
 class _CatalogsContent extends ConsumerWidget {
   final List<Catalog> catalogs;
   final VoidCallback? onCreate;
@@ -283,7 +317,7 @@ class _CatalogsContent extends ConsumerWidget {
       itemBuilder: (context, index) {
         final catalog = catalogs[index];
         final role = ref.watch(currentRoleProvider);
-        return CatalogCard(
+        return _EnhancedCatalogCard(
           catalog: catalog,
           onShare: () => onShare(catalog),
           onEdit: role.canEditCatalog ? () => onEdit(catalog) : null,
@@ -414,6 +448,256 @@ class CatalogCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildInfoChip(
+    BuildContext context,
+    IconData icon,
+    String label, {
+    Color? color,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          size: 14,
+          color: color ?? Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: color ?? Theme.of(context).colorScheme.onSurfaceVariant,
+            fontWeight: color != null ? FontWeight.bold : null,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _EnhancedCatalogCard extends StatelessWidget {
+  final Catalog catalog;
+  final VoidCallback onShare;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+
+  const _EnhancedCatalogCard({
+    required this.catalog,
+    required this.onShare,
+    this.onEdit,
+    this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final date = DateFormat('dd/MM/yyyy').format(catalog.updatedAt);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark
+            ? AppTokens.cardDark.withOpacity(0.88)
+            : Colors.white.withOpacity(0.92),
+        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withOpacity(0.08)
+              : AppTokens.electricBlue.withOpacity(0.10),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withOpacity(0.24)
+                : AppTokens.electricBlue.withOpacity(0.08),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            _buildCatalogMark(context),
+            const SizedBox(width: 14),
+            Expanded(child: _buildCatalogInfo(context, date)),
+            const SizedBox(width: 8),
+            IconButton.filledTonal(
+              onPressed: onShare,
+              icon: const Icon(Icons.share_outlined, size: 20),
+              tooltip: 'Compartilhar',
+              style: IconButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                foregroundColor: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+            if (onEdit != null || onDelete != null) ...[
+              const SizedBox(width: 4),
+              PopupMenuButton<_CatalogAction>(
+                tooltip: 'Mais ações',
+                onSelected: (value) {
+                  switch (value) {
+                    case _CatalogAction.share:
+                      onShare();
+                      break;
+                    case _CatalogAction.edit:
+                      onEdit?.call();
+                      break;
+                    case _CatalogAction.delete:
+                      onDelete?.call();
+                      break;
+                  }
+                },
+                itemBuilder: (context) => [
+                  if (onEdit != null)
+                    const PopupMenuItem(
+                      value: _CatalogAction.edit,
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit_outlined, size: 18),
+                          SizedBox(width: 12),
+                          Text('Editar Detalhes'),
+                        ],
+                      ),
+                    ),
+                  if (onDelete != null)
+                    const PopupMenuItem(
+                      value: _CatalogAction.delete,
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.delete_outline,
+                            size: 18,
+                            color: AppTokens.accentRed,
+                          ),
+                          SizedBox(width: 12),
+                          Text(
+                            'Excluir Catálogo',
+                            style: TextStyle(color: AppTokens.accentRed),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCatalogMark(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      width: 58,
+      height: 70,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [
+                  AppTokens.electricBlue.withOpacity(0.38),
+                  AppTokens.vibrantCyan.withOpacity(0.16),
+                ]
+              : [
+                  AppTokens.electricBlue.withOpacity(0.14),
+                  AppTokens.accentGreen.withOpacity(0.12),
+                ],
+        ),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withOpacity(0.08)
+              : AppTokens.electricBlue.withOpacity(0.14),
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            left: 12,
+            right: 12,
+            top: 13,
+            child: Container(
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppTokens.electricBlue.withOpacity(isDark ? 0.7 : 0.55),
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+          Center(
+            child: Icon(
+              Icons.menu_book_rounded,
+              size: 28,
+              color: isDark ? Colors.white : AppTokens.electricBlue,
+            ),
+          ),
+          Positioned(
+            left: 12,
+            right: 12,
+            bottom: 13,
+            child: Container(
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppTokens.accentGreen.withOpacity(isDark ? 0.65 : 0.48),
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCatalogInfo(BuildContext context, String date) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Catálogo',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: isDark ? Colors.white54 : AppTokens.textMuted,
+            letterSpacing: 0.6,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          catalog.name,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 12,
+          runSpacing: 6,
+          children: [
+            _buildInfoChip(
+              context,
+              Icons.shopping_bag_outlined,
+              '${catalog.productIds.length} produtos',
+            ),
+            _buildInfoChip(context, Icons.calendar_today_outlined, date),
+            if (catalog.isPublic)
+              _buildInfoChip(
+                context,
+                Icons.public,
+                'Público',
+                color: AppTokens.accentBlue,
+              ),
+          ],
+        ),
+      ],
     );
   }
 
