@@ -9,6 +9,7 @@ import 'package:catalogo_ja/data/repositories/tenant_repository.dart';
 import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
+import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 class AuthViewModel extends StreamNotifier<User?> {
@@ -79,6 +80,16 @@ class AuthViewModel extends StreamNotifier<User?> {
       }
 
       if (tenant != null) {
+        final settings = ref.read(settingsRepositoryProvider).getSettings();
+        if (settings.localOnlyMode || settings.isInitialSyncCompleted) {
+          if (kDebugMode) {
+            debugPrint(
+              'Sync automatico pos-login ignorado para reduzir custo Firebase.',
+            );
+          }
+          return;
+        }
+
         final shouldSyncCategories = await _shouldSync('categories');
         final shouldSyncProducts = await _shouldSync('products');
         final shouldSyncCatalogs = await _shouldSync('catalogs');

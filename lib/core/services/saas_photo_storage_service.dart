@@ -1,10 +1,16 @@
 import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 class SaaSPhotoStorageService {
+  static const int _maxUploadBytes = 900 * 1024;
+  static const int _maxImageWidth = 1280;
+  static const int _jpegQuality = 72;
+
   // Bucket fornecido pelo usuário
   final FirebaseStorage _storage = FirebaseStorage.instanceFor(
     bucket: 'gs://catalogo-ja-89aae.firebasestorage.app',
@@ -20,9 +26,10 @@ class SaaSPhotoStorageService {
       final file = File(localPath);
       if (!file.existsSync()) return null;
 
-      final fileName = p.basename(localPath); // Use p.basename for consistency
+      final uploadFile = await _prepareImageForUpload(file);
+      final fileName = p.basename(uploadFile.path);
       final ref = _storage.ref().child(
-        '$tenantId/categories/$categoryId/$fileName',
+        'tenants/$tenantId/categories/$categoryId/$fileName',
       );
 
       final metadata = SettableMetadata(
@@ -30,7 +37,7 @@ class SaaSPhotoStorageService {
         customMetadata: {'processed': 'true', 'tenant': tenantId},
       );
 
-      final task = await ref.putFile(file, metadata);
+      final task = await ref.putFile(uploadFile, metadata);
       return await task.ref.getDownloadURL();
     } catch (e) {
       print('Erro no upload da imagem da categoria: $e');
@@ -48,9 +55,10 @@ class SaaSPhotoStorageService {
       final file = File(localPath);
       if (!file.existsSync()) return null;
 
-      final fileName = p.basename(localPath); // Use p.basename for consistency
+      final uploadFile = await _prepareImageForUpload(file);
+      final fileName = p.basename(uploadFile.path);
       final ref = _storage.ref().child(
-        '$tenantId/catalogs/$catalogId/$fileName',
+        'tenants/$tenantId/catalogs/$catalogId/$fileName',
       );
 
       final metadata = SettableMetadata(
@@ -58,7 +66,7 @@ class SaaSPhotoStorageService {
         customMetadata: {'processed': 'true', 'tenant': tenantId},
       );
 
-      final task = await ref.putFile(file, metadata);
+      final task = await ref.putFile(uploadFile, metadata);
       return await task.ref.getDownloadURL();
     } catch (e) {
       print('Erro no upload da imagem do catálogo: $e');
@@ -114,7 +122,8 @@ class SaaSPhotoStorageService {
       if (!await file.exists()) {
         throw Exception('Arquivo local não encontrado: $localPath');
       }
-      uploadTask = await ref.putFile(file, metadata);
+      final uploadFile = await _prepareImageForUpload(file);
+      uploadTask = await ref.putFile(uploadFile, metadata);
     }
 
     return await uploadTask.ref.getDownloadURL();
@@ -181,6 +190,37 @@ class SaaSPhotoStorageService {
     } catch (e) {
       print('Erro no upload da foto de perfil: $e');
       return null;
+    }
+  }
+
+  Future<File> _prepareImageForUpload(File file) async {
+    if (kIsWeb) return file;
+
+    try {
+      final size = await file.length();
+      if (size <= _maxUploadBytes) return file;
+
+      final tempDir = await getTemporaryDirectory();
+      final targetPath = p.join(
+        tempDir.path,
+        '${p.basenameWithoutExtension(file.path)}_upload.jpg',
+      );
+
+      final compressed = await FlutterImageCompress.compressAndGetFile(
+        file.absolute.path,
+        targetPath,
+        quality: _jpegQuality,
+        minWidth: _maxImageWidth,
+        minHeight: _maxImageWidth,
+        format: CompressFormat.jpeg,
+      );
+
+      if (compressed == null) return file;
+      final compressedFile = File(compressed.path);
+      return await compressedFile.exists() ? compressedFile : file;
+    } catch (e) {
+      debugPrint('Falha ao otimizar imagem para upload: $e');
+      return file;
     }
   }
 }

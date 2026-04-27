@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:catalogo_ja/data/repositories/firestore_catalogs_repository.dart';
 import 'package:catalogo_ja/models/catalog.dart';
+import 'package:catalogo_ja/models/sync_status.dart';
 import 'package:catalogo_ja/viewmodels/catalog_public_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
 import 'package:catalogo_ja/core/utils/string_utils.dart';
@@ -205,7 +206,10 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
       if (toSave.shareCode.isEmpty) {
         toSave = toSave.copyWith(shareCode: _generateShareCode());
       }
-      toSave = toSave.copyWith(updatedAt: DateTime.now());
+      toSave = toSave.copyWith(
+        updatedAt: DateTime.now(),
+        syncStatus: SyncStatus.pendingUpdate,
+      );
 
       await repository.addCatalog(toSave);
 

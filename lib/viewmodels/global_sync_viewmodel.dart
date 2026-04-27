@@ -29,6 +29,14 @@ class GlobalSyncViewModel extends _$GlobalSyncViewModel {
         return;
       }
 
+      final settings = ref.read(settingsRepositoryProvider).getSettings();
+      if (settings.localOnlyMode || settings.isInitialSyncCompleted) {
+        debugPrint(
+          'Auto-sync Wi-Fi ignorado para reduzir custo Firebase.',
+        );
+        return;
+      }
+
       debugPrint('🚀 Iniciando sincronização silenciosa no Wi-Fi...');
 
       final products = await ref.read(productsRepositoryProvider).getProducts();
@@ -68,6 +76,14 @@ class GlobalSyncViewModel extends _$GlobalSyncViewModel {
     progressNotifier.startSync('Buscando atualizações...');
 
     try {
+      final settings = ref.read(settingsRepositoryProvider).getSettings();
+      if (settings.localOnlyMode) {
+        progressNotifier.stopSync(
+          message: 'Modo somente local ativo. Download da nuvem bloqueado.',
+        );
+        return;
+      }
+
       await _internalSyncDown((p, m) => progressNotifier.updateProgress(p, m));
       progressNotifier.stopSync(message: 'Sincronização concluída!');
     } catch (e) {

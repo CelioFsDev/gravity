@@ -31,6 +31,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late final TextEditingController _instagramController;
   late final TextEditingController _companyInstagramController;
   late bool _isInitialSyncCompleted;
+  late bool _localOnlyMode;
 
   @override
   void initState() {
@@ -48,6 +49,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       text: settings.companyInstagramUrl,
     );
     _isInitialSyncCompleted = settings.isInitialSyncCompleted;
+    _localOnlyMode = settings.localOnlyMode;
   }
 
   @override
@@ -74,6 +76,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           instagramUrl: _instagramController.text,
           companyInstagramUrl: _companyInstagramController.text,
           isInitialSyncCompleted: _isInitialSyncCompleted,
+          localOnlyMode: _localOnlyMode,
         );
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -341,6 +344,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const SizedBox(height: 24),
                 SwitchListTile(
+                  title: const Text('Modo somente local'),
+                  subtitle: const Text(
+                    'Evita downloads automáticos da nuvem. Upload manual envia apenas alterações pendentes.',
+                  ),
+                  value: _localOnlyMode,
+                  onChanged: (val) => setState(() => _localOnlyMode = val),
+                  secondary: const Icon(Icons.cloud_off_outlined),
+                ),
+                const SizedBox(height: 8),
+                SwitchListTile(
                   title: const Text('Carga Inicial Concluída'),
                   subtitle: const Text(
                     'Se desativado, o app exigirá importação do ZIP para iniciar.',
@@ -441,7 +454,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             .read(globalSyncViewModelProvider.notifier)
                             .syncUpEverything(),
                         icon: const Icon(Icons.cloud_upload_outlined),
-                        label: const Text('SUBIR TUDO'),
+                        label: const Text('SUBIR ALTERAÇÕES'),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -451,7 +464,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             .read(globalSyncViewModelProvider.notifier)
                             .syncDownEverything(),
                         icon: const Icon(Icons.cloud_download_outlined),
-                        label: const Text('BAIXAR TUDO'),
+                        label: const Text('BAIXAR NUVEM'),
                       ),
                     ),
                   ],

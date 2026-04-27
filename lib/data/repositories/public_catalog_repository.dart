@@ -22,7 +22,7 @@ class FirestorePublicCatalogRepository {
   Future<PublicCatalogDataResponse?> getPublicCatalogData(String shareCode) async {
     // 1. Encontrar o catálogo pelo ShareCode
     final catalogsSnapshot = await _firestore
-        .collection('catalogs')
+        .collectionGroup('catalogs')
         .where('shareCode', isEqualTo: shareCode)
         .where('isPublic', isEqualTo: true)
         .limit(1)
@@ -54,8 +54,9 @@ class FirestorePublicCatalogRepository {
         final chunk = productIds.sublist(i, end);
 
         final pSnapshot = await _firestore
+            .collection('tenants')
+            .doc(catalog.tenantId)
             .collection('products')
-            .where('tenantId', isEqualTo: catalog.tenantId)
             .where('id', whereIn: chunk)
             .get();
 
@@ -77,8 +78,9 @@ class FirestorePublicCatalogRepository {
         final chunk = usedCategoryIds.sublist(i, end);
 
         final cSnapshot = await _firestore
+            .collection('tenants')
+            .doc(catalog.tenantId)
             .collection('categories')
-            .where('tenantId', isEqualTo: catalog.tenantId)
             .where('id', whereIn: chunk)
             .get();
 

@@ -20,7 +20,11 @@ class ProductSyncHandler implements SyncEntityHandler {
 
   @override
   Future<void> processItem(SyncQueueItem item) async {
-    final docRef = _firestore.collection('products').doc(item.entityId);
+    final docRef = _firestore
+        .collection('tenants')
+        .doc(item.tenantId)
+        .collection('products')
+        .doc(item.entityId);
 
     if (item.operation == SyncOperation.delete) {
       await docRef.delete();

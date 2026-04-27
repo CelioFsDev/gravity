@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:catalogo_ja/models/catalog.dart';
+import 'package:catalogo_ja/models/sync_status.dart';
 import 'package:catalogo_ja/data/repositories/catalogs_repository.dart';
 import 'package:catalogo_ja/data/repositories/firestore_catalogs_repository.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
@@ -79,7 +80,9 @@ class CatalogsViewModel extends _$CatalogsViewModel {
       progressNotifier.startSync('Iniciando sincronização de catálogos...');
       
       final localRepo = ref.read(catalogsRepositoryProvider) as HiveCatalogsRepository;
-      final localCatalogs = await localRepo.getCatalogs();
+      final localCatalogs = (await localRepo.getCatalogs())
+          .where((c) => c.syncStatus == SyncStatus.pendingUpdate)
+          .toList();
       
       if (localCatalogs.isEmpty) {
         progressNotifier.stopSync();
@@ -112,7 +115,7 @@ class CatalogsViewModel extends _$CatalogsViewModel {
             (i + 1) / total,
             'Sincronizando: ${i + 1}/$total - ${cat.name}',
           );
-          await firestoreRepo.addCatalog(cat);
+          await firestoreRepo.syncCatalogToCloud(cat);
           syncedCount++;
         } catch (e) {
           print('❌ Erro ao sincronizar catálogo ${cat.name}: $e');
@@ -147,6 +150,14 @@ class CatalogsViewModel extends _$CatalogsViewModel {
       if (tenantId == null) {
         progressNotifier.stopSync();
         throw Exception('Empresa não identificada.');
+      }
+
+      final localOnlySettings = ref.read(settingsRepositoryProvider).getSettings();
+      if (localOnlySettings.localOnlyMode) {
+        progressNotifier.stopSync(
+          message: 'Modo somente local ativo. Download da nuvem bloqueado.',
+        );
+        return 0;
       }
 
       final localRepo = ref.read(catalogsRepositoryProvider) as HiveCatalogsRepository;

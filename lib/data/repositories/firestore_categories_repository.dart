@@ -42,7 +42,7 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
   }
 
   CollectionReference<Map<String, dynamic>> get _collection =>
-      _firestore.collection('categories');
+      _firestore.collection('tenants').doc(_tenantId).collection('categories');
 
   @override
   Future<List<Category>> getCategories() async {
@@ -58,10 +58,7 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
             .reduce((a, b) => a.isAfter(b) ? a : b);
       }
 
-      Query<Map<String, dynamic>> query = _collection.where(
-        'tenantId',
-        isEqualTo: _tenantId,
-      );
+      Query<Map<String, dynamic>> query = _collection;
 
       if (mostRecentLocal != null) {
         final since = mostRecentLocal.subtract(const Duration(seconds: 10));
@@ -103,10 +100,7 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
 
   /// Busca na nuvem sem merge (usado no sync manual)
   Future<List<Category>> fetchFromCloudOnly({DateTime? since}) async {
-    Query<Map<String, dynamic>> query = _collection.where(
-      'tenantId',
-      isEqualTo: _tenantId,
-    );
+    Query<Map<String, dynamic>> query = _collection;
     if (since != null) {
       query = query.where(
         'updatedAt',
@@ -261,7 +255,6 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
     if (localDoc != null) return localDoc;
 
     final snapshot = await _collection
-        .where('tenantId', isEqualTo: _tenantId)
         .where('slug', isEqualTo: slug)
         .limit(1)
         .get();

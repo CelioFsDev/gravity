@@ -18,6 +18,7 @@ class SettingsViewModel extends Notifier<AppSettings> {
     String? instagramUrl,
     String? companyInstagramUrl,
     bool? isInitialSyncCompleted,
+    bool? localOnlyMode,
   }) async {
     final repository = ref.read(settingsRepositoryProvider);
     final current = state;
@@ -45,6 +46,7 @@ class SettingsViewModel extends Notifier<AppSettings> {
       instagramUrl: instagramUrl ?? current.instagramUrl,
       companyInstagramUrl: companyInstagramUrl ?? current.companyInstagramUrl,
       isInitialSyncCompleted: isInitialSyncCompleted ?? current.isInitialSyncCompleted,
+      localOnlyMode: localOnlyMode ?? current.localOnlyMode,
     );
     await repository.saveSettings(updated);
     state = updated;

@@ -22,13 +22,14 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       isInitialSyncCompleted: (fields[8] as bool?) ?? false,
       qrTargetUrl: (fields[9] as String?) ?? '',
       companyInstagramUrl: (fields[10] as String?) ?? '',
+      localOnlyMode: (fields[11] as bool?) ?? true,
     );
   }
 
   @override
   void write(BinaryWriter writer, AppSettings obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(12)
       ..writeByte(0)
       ..write(obj.storeName)
       ..writeByte(1)
@@ -50,7 +51,9 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       ..writeByte(9)
       ..write(obj.qrTargetUrl)
       ..writeByte(10)
-      ..write(obj.companyInstagramUrl);
+      ..write(obj.companyInstagramUrl)
+      ..writeByte(11)
+      ..write(obj.localOnlyMode);
   }
 }
 
@@ -65,6 +68,7 @@ class AppSettings {
   final String instagramUrl;
   final String companyInstagramUrl;
   final bool isInitialSyncCompleted;
+  final bool localOnlyMode;
   final String qrTargetUrl;
 
   AppSettings({
@@ -78,6 +82,7 @@ class AppSettings {
     this.instagramUrl = '',
     this.companyInstagramUrl = '',
     this.isInitialSyncCompleted = false,
+    this.localOnlyMode = true,
     this.qrTargetUrl = '',
   });
 
@@ -92,6 +97,7 @@ class AppSettings {
     String? instagramUrl,
     String? companyInstagramUrl,
     bool? isInitialSyncCompleted,
+    bool? localOnlyMode,
     String? qrTargetUrl,
   }) {
     return AppSettings(
@@ -105,6 +111,7 @@ class AppSettings {
       instagramUrl: instagramUrl ?? this.instagramUrl,
       companyInstagramUrl: companyInstagramUrl ?? this.companyInstagramUrl,
       isInitialSyncCompleted: isInitialSyncCompleted ?? this.isInitialSyncCompleted,
+      localOnlyMode: localOnlyMode ?? this.localOnlyMode,
       qrTargetUrl: qrTargetUrl ?? this.qrTargetUrl,
     );
   }
@@ -121,6 +128,7 @@ class AppSettings {
       instagramUrl: '',
       companyInstagramUrl: '',
       isInitialSyncCompleted: false,
+      localOnlyMode: true,
       qrTargetUrl: '',
     );
   }

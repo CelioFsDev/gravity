@@ -572,6 +572,14 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     try {
       progressNotifier.startSync('Buscando categorias na nuvem...');
 
+      final settings = ref.read(settingsRepositoryProvider).getSettings();
+      if (settings.localOnlyMode) {
+        progressNotifier.stopSync(
+          message: 'Modo somente local ativo. Download da nuvem bloqueado.',
+        );
+        return 0;
+      }
+
       final tenant = await ref.read(currentTenantProvider.future);
       String? tenantId = tenant?.id;
       if (tenantId == null) {

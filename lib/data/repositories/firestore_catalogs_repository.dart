@@ -35,7 +35,7 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
   }
 
   CollectionReference<Map<String, dynamic>> get _collection =>
-      _firestore.collection('catalogs');
+      _firestore.collection('tenants').doc(_tenantId).collection('catalogs');
 
   @override
   Future<List<Catalog>> getCatalogs() async {
@@ -50,10 +50,7 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
             .reduce((a, b) => a.isAfter(b) ? a : b);
       }
 
-      Query<Map<String, dynamic>> query = _collection.where(
-        'tenantId',
-        isEqualTo: _tenantId,
-      );
+      Query<Map<String, dynamic>> query = _collection;
 
       if (mostRecentLocal != null) {
         final since = mostRecentLocal.subtract(const Duration(seconds: 10));
@@ -92,10 +89,7 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
   }
 
   Future<List<Catalog>> fetchFromCloudOnly({DateTime? since}) async {
-    Query<Map<String, dynamic>> query = _collection.where(
-      'tenantId',
-      isEqualTo: _tenantId,
-    );
+    Query<Map<String, dynamic>> query = _collection;
     if (since != null) {
       query = query.where(
         'updatedAt',
@@ -221,7 +215,6 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
   @override
   Future<bool> isSlugTaken(String slug, {String? excludeId}) async {
     final snapshot = await _collection
-        .where('tenantId', isEqualTo: _tenantId)
         .where('slug', isEqualTo: slug)
         .get();
 
@@ -240,7 +233,6 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
     if (localDoc != null) return localDoc;
 
     final snapshot = await _collection
-        .where('tenantId', isEqualTo: _tenantId)
         .where('slug', isEqualTo: slug)
         .limit(1)
         .get();
@@ -268,13 +260,7 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
 
   @override
   Stream<List<Catalog>> watchCatalogs() {
-    return _collection
-        .where('tenantId', isEqualTo: _tenantId)
-        .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs.map((doc) => Catalog.fromMap(doc.data())).toList(),
-        );
+    return _localRepo.watchCatalogs();
   }
 
   @override

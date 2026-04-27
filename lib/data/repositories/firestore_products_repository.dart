@@ -41,7 +41,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
   }
 
   CollectionReference<Map<String, dynamic>> get _collection =>
-      _firestore.collection('products');
+      _firestore.collection('tenants').doc(_tenantId).collection('products');
 
   @override
   Future<Product?> getProduct(String id) async =>
@@ -64,10 +64,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
             .reduce((a, b) => a.isAfter(b) ? a : b);
       }
 
-      Query<Map<String, dynamic>> query = _collection.where(
-        'tenantId',
-        isEqualTo: _tenantId,
-      );
+      Query<Map<String, dynamic>> query = _collection;
 
       if (mostRecentLocal != null) {
         // 10 segundos de folga para clock skew entre dispositivos
@@ -150,10 +147,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
   /// Busca SOMENTE na nuvem, sem merge local.
   /// Usado pelo syncFromCloud() para evitar trabalho duplo.
   Future<List<Product>> fetchFromCloudOnly({DateTime? since}) async {
-    Query<Map<String, dynamic>> query = _collection.where(
-      'tenantId',
-      isEqualTo: _tenantId,
-    );
+    Query<Map<String, dynamic>> query = _collection;
     if (since != null) {
       query = query.where(
         'updatedAt',
@@ -456,7 +450,6 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
 
     // Se não achar local, tenta na nuvem (pode ser um item novo recém criado por outro device)
     final snapshot = await _collection
-        .where('tenantId', isEqualTo: _tenantId)
         .where('ref', isEqualTo: ref)
         .limit(1)
         .get();

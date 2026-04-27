@@ -18,7 +18,11 @@ class DefaultSyncHandler implements SyncEntityHandler {
 
   @override
   Future<void> processItem(SyncQueueItem item) async {
-    final docRef = _firestore.collection(_collectionName).doc(item.entityId);
+    final docRef = _firestore
+        .collection('tenants')
+        .doc(item.tenantId)
+        .collection(_collectionName)
+        .doc(item.entityId);
 
     if (item.operation == SyncOperation.delete) {
       await docRef.delete();

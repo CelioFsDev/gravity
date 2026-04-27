@@ -517,6 +517,14 @@ class ProductsViewModel extends _$ProductsViewModel {
     progressNotifier.startSync('Buscando produtos na nuvem...');
 
     try {
+      final settings = ref.read(settingsRepositoryProvider).getSettings();
+      if (settings.localOnlyMode) {
+        progressNotifier.stopSync(
+          message: 'Modo somente local ativo. Download da nuvem bloqueado.',
+        );
+        return 0;
+      }
+
       final tenant = await ref.read(currentTenantProvider.future);
       String? tenantId = tenant?.id;
 
