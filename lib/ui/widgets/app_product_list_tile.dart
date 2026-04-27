@@ -43,6 +43,7 @@ class AppProductListTile extends StatelessWidget {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: isSelected
             ? AppTokens.electricBlue.withOpacity(0.1)
@@ -64,97 +65,175 @@ class AppProductListTile extends StatelessWidget {
               color: Colors.black.withOpacity(0.03),
               blurRadius: 10,
               offset: const Offset(0, 4),
-            ),
+          ),
         ],
       ),
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              _buildPhotoFrame(context, primaryImage?.uri, isDark),
-              const SizedBox(width: 16),
-
-              // Info Section
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          product.ref,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w900,
-                            color: isDark ? Colors.white : Colors.black,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        if (product.promoEnabled)
-                          _buildMiniBadge('PROMO', AppTokens.vibrantPink),
-                        if (product.isOutOfStock) const SizedBox(width: 4),
-                        if (product.isOutOfStock)
-                          _buildMiniBadge('OFF', Colors.grey),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      product.name,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: isDark ? Colors.white : Colors.black87,
-                        letterSpacing: -0.2,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        _buildPriceTag(
-                          context,
-                          'VAREJO',
-                          currency.format(product.effectivePriceRetail),
-                          AppTokens.accentGreen,
-                          isDark,
-                        ),
-                        const SizedBox(width: 12),
-                        _buildPriceTag(
-                          context,
-                          'ATACADO',
-                          currency.format(product.effectivePriceWholesale),
-                          AppTokens.accentGreen,
-                          isDark,
-                        ),
-                      ],
-                    ),
-                  ],
+      child: Stack(
+        children: [
+          if (primaryImage?.uri.trim().isNotEmpty == true)
+            Positioned.fill(
+              child: _buildCardWallpaper(primaryImage!.uri),
+            ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: isDark
+                      ? [
+                          AppTokens.cardDark.withOpacity(0.96),
+                          AppTokens.cardDark.withOpacity(0.84),
+                          AppTokens.cardDark.withOpacity(0.70),
+                        ]
+                      : [
+                          Colors.white.withOpacity(0.96),
+                          Colors.white.withOpacity(0.88),
+                          Colors.white.withOpacity(0.74),
+                        ],
                 ),
               ),
-
-              // Actions
-              if (trailing != null) ...[trailing!],
-              if (trailing == null && onGoMainMenu != null)
-                IconButton(
-                  onPressed: onGoMainMenu,
-                  icon: Icon(
-                    Icons.home_outlined,
-                    color: isDark ? Colors.white38 : Colors.black26,
-                  ),
-                ),
-              if (trailing == null && (onEdit != null || onDelete != null))
-                _buildAdminMenu(context),
-            ],
+            ),
           ),
-        ),
+          InkWell(
+            onTap: onTap,
+            onLongPress: onLongPress,
+            borderRadius: BorderRadius.circular(20),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  _buildPhotoFrame(context, primaryImage?.uri, isDark),
+                  const SizedBox(width: 16),
+
+                  // Info Section
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              product.ref,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w900,
+                                color: isDark ? Colors.white : Colors.black,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            if (product.promoEnabled)
+                              _buildMiniBadge('PROMO', AppTokens.vibrantPink),
+                            if (product.isOutOfStock) const SizedBox(width: 4),
+                            if (product.isOutOfStock)
+                              _buildMiniBadge('OFF', Colors.grey),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          product.name,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: isDark ? Colors.white : Colors.black87,
+                            letterSpacing: -0.2,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            _buildPriceTag(
+                              context,
+                              'VAREJO',
+                              currency.format(product.effectivePriceRetail),
+                              AppTokens.accentGreen,
+                              isDark,
+                            ),
+                            const SizedBox(width: 12),
+                            _buildPriceTag(
+                              context,
+                              'ATACADO',
+                              currency.format(product.effectivePriceWholesale),
+                              AppTokens.accentGreen,
+                              isDark,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Actions
+                  if (trailing != null) ...[trailing!],
+                  if (trailing == null && onGoMainMenu != null)
+                    IconButton(
+                      onPressed: onGoMainMenu,
+                      icon: Icon(
+                        Icons.home_outlined,
+                        color: isDark ? Colors.white38 : Colors.black26,
+                      ),
+                    ),
+                  if (trailing == null && (onEdit != null || onDelete != null))
+                    _buildAdminMenu(context),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  Widget _buildCardWallpaper(String originalPath) {
+    final path = originalPath.trim();
+
+    if (path.startsWith('data:')) {
+      final commaIndex = path.indexOf(',');
+      if (commaIndex != -1 && commaIndex + 1 < path.length) {
+        try {
+          return Image.memory(
+            base64Decode(path.substring(commaIndex + 1)),
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+          );
+        } catch (_) {
+          return const SizedBox.shrink();
+        }
+      }
+    }
+
+    if (path.startsWith('http://') ||
+        path.startsWith('https://') ||
+        path.startsWith('gs://') ||
+        path.startsWith('blob:')) {
+      return CachedNetworkImage(
+        imageUrl: path,
+        cacheManager: DefaultCacheManager(),
+        fit: BoxFit.cover,
+        maxWidthDiskCache: 600,
+        memCacheWidth: 360,
+        errorWidget: (_, _, _) => const SizedBox.shrink(),
+      );
+    }
+
+    if (!kIsWeb) {
+      try {
+        final file = File(path);
+        if (file.existsSync()) {
+          return Image.file(
+            file,
+            fit: BoxFit.cover,
+            cacheWidth: 360,
+            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+          );
+        }
+      } catch (_) {}
+    }
+
+    return const SizedBox.shrink();
   }
 
   Widget _buildMiniBadge(String label, Color color) {

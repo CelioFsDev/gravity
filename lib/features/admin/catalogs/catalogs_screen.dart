@@ -1,3 +1,7 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/core/services/catalog_share_helper.dart';
@@ -317,6 +321,7 @@ class _CatalogsContent extends ConsumerWidget {
       itemBuilder: (context, index) {
         final catalog = catalogs[index];
         final role = ref.watch(currentRoleProvider);
+
         return _EnhancedCatalogCard(
           catalog: catalog,
           onShare: () => onShare(catalog),
@@ -478,25 +483,35 @@ class CatalogCard extends StatelessWidget {
   }
 }
 
-class _EnhancedCatalogCard extends StatelessWidget {
+class _EnhancedCatalogCard extends ConsumerWidget {
   final Catalog catalog;
+  final List<dynamic>? backgroundImageUris;
   final VoidCallback onShare;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
 
   const _EnhancedCatalogCard({
     required this.catalog,
+    this.backgroundImageUris,
     required this.onShare,
     this.onEdit,
     this.onDelete,
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final date = DateFormat('dd/MM/yyyy').format(catalog.updatedAt);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final resolvedBackgroundImageUris =
+        backgroundImageUris
+            ?.map((uri) => uri.toString())
+            .where((uri) => uri.trim().isNotEmpty)
+            .take(4)
+            .toList() ??
+        _resolveBackgroundImageUris(ref);
 
     return Container(
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: isDark
             ? AppTokens.cardDark.withOpacity(0.88)
@@ -517,77 +532,181 @@ class _EnhancedCatalogCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            _buildCatalogMark(context),
-            const SizedBox(width: 14),
-            Expanded(child: _buildCatalogInfo(context, date)),
-            const SizedBox(width: 8),
-            IconButton.filledTonal(
-              onPressed: onShare,
-              icon: const Icon(Icons.share_outlined, size: 20),
-              tooltip: 'Compartilhar',
-              style: IconButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                foregroundColor: Theme.of(context).colorScheme.primary,
+      child: Stack(
+        children: [
+          if (resolvedBackgroundImageUris.isNotEmpty)
+            Positioned.fill(
+              child: _buildWallpaper(context, resolvedBackgroundImageUris),
+            ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: isDark
+                      ? [
+                          AppTokens.cardDark.withOpacity(0.96),
+                          AppTokens.cardDark.withOpacity(0.82),
+                          AppTokens.cardDark.withOpacity(0.66),
+                        ]
+                      : [
+                          Colors.white.withOpacity(0.96),
+                          Colors.white.withOpacity(0.84),
+                          Colors.white.withOpacity(0.68),
+                        ],
+                ),
               ),
             ),
-            if (onEdit != null || onDelete != null) ...[
-              const SizedBox(width: 4),
-              PopupMenuButton<_CatalogAction>(
-                tooltip: 'Mais ações',
-                onSelected: (value) {
-                  switch (value) {
-                    case _CatalogAction.share:
-                      onShare();
-                      break;
-                    case _CatalogAction.edit:
-                      onEdit?.call();
-                      break;
-                    case _CatalogAction.delete:
-                      onDelete?.call();
-                      break;
-                  }
-                },
-                itemBuilder: (context) => [
-                  if (onEdit != null)
-                    const PopupMenuItem(
-                      value: _CatalogAction.edit,
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit_outlined, size: 18),
-                          SizedBox(width: 12),
-                          Text('Editar Detalhes'),
-                        ],
-                      ),
-                    ),
-                  if (onDelete != null)
-                    const PopupMenuItem(
-                      value: _CatalogAction.delete,
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.delete_outline,
-                            size: 18,
-                            color: AppTokens.accentRed,
+          ),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                _buildCatalogMark(context),
+                const SizedBox(width: 14),
+                Expanded(child: _buildCatalogInfo(context, date)),
+                const SizedBox(width: 8),
+                IconButton.filledTonal(
+                  onPressed: onShare,
+                  icon: const Icon(Icons.share_outlined, size: 20),
+                  tooltip: 'Compartilhar',
+                  style: IconButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                    foregroundColor: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                if (onEdit != null || onDelete != null) ...[
+                  const SizedBox(width: 4),
+                  PopupMenuButton<_CatalogAction>(
+                    tooltip: 'Mais ações',
+                    onSelected: (value) {
+                      switch (value) {
+                        case _CatalogAction.share:
+                          onShare();
+                          break;
+                        case _CatalogAction.edit:
+                          onEdit?.call();
+                          break;
+                        case _CatalogAction.delete:
+                          onDelete?.call();
+                          break;
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      if (onEdit != null)
+                        const PopupMenuItem(
+                          value: _CatalogAction.edit,
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit_outlined, size: 18),
+                              SizedBox(width: 12),
+                              Text('Editar Detalhes'),
+                            ],
                           ),
-                          SizedBox(width: 12),
-                          Text(
-                            'Excluir Catálogo',
-                            style: TextStyle(color: AppTokens.accentRed),
+                        ),
+                      if (onDelete != null)
+                        const PopupMenuItem(
+                          value: _CatalogAction.delete,
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.delete_outline,
+                                size: 18,
+                                color: AppTokens.accentRed,
+                              ),
+                              SizedBox(width: 12),
+                              Text(
+                                'Excluir Catálogo',
+                                style: TextStyle(color: AppTokens.accentRed),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ),
+                        ),
+                    ],
+                  ),
                 ],
-              ),
-            ],
-          ],
-        ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  List<String> _resolveBackgroundImageUris(WidgetRef ref) {
+    final productsState = ref.watch(productsViewModelProvider).valueOrNull;
+    final productById = {
+      for (final product in productsState?.allProducts ?? []) product.id: product,
+    };
+
+    return catalog.productIds
+        .map<String>((id) => productById[id]?.mainImage?.uri ?? '')
+        .where((uri) => uri.trim().isNotEmpty)
+        .take(4)
+        .toList();
+  }
+
+  Widget _buildWallpaper(BuildContext context, List<String> imageUris) {
+    final images = imageUris.take(4).toList();
+
+    if (images.length == 1) {
+      return _buildWallpaperImage(images.first);
+    }
+
+    return Row(
+      children: images
+          .map(
+            (uri) => Expanded(
+              child: _buildWallpaperImage(uri),
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  Widget _buildWallpaperImage(String uri) {
+    final path = uri.trim();
+
+    if (path.startsWith('data:')) {
+      final commaIndex = path.indexOf(',');
+      if (commaIndex != -1 && commaIndex + 1 < path.length) {
+        try {
+          return Image.memory(
+            base64Decode(path.substring(commaIndex + 1)),
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+          );
+        } catch (_) {
+          return const SizedBox.shrink();
+        }
+      }
+    }
+
+    if (path.startsWith('http://') ||
+        path.startsWith('https://') ||
+        path.startsWith('blob:')) {
+      return Image.network(
+        path,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => const SizedBox.shrink(),
+      );
+    }
+
+    if (!kIsWeb) {
+      try {
+        final file = File(path);
+        if (file.existsSync()) {
+          return Image.file(
+            file,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+          );
+        }
+      } catch (_) {}
+    }
+
+    return const SizedBox.shrink();
   }
 
   Widget _buildCatalogMark(BuildContext context) {
