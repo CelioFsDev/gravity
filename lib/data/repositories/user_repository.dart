@@ -159,7 +159,7 @@ class UserRepository {
     final normalizedTenantId = tenantId.trim();
     final normalizedStoreId = storeId.trim();
 
-    if (normalizedTenantId.isEmpty || normalizedStoreId.isEmpty) {
+    if (normalizedTenantId.isEmpty) {
       return Stream.value(const []);
     }
 
@@ -177,6 +177,7 @@ class UserRepository {
               .where((user) {
                 final userStoreId = user['currentStoreId'] as String?;
                 // Inclui se pertence à loja atual OU se é legado (sem loja definida)
+                if (normalizedStoreId.isEmpty) return true;
                 return userStoreId == null ||
                     userStoreId.trim().isEmpty ||
                     userStoreId.trim() == normalizedStoreId;

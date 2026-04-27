@@ -7,6 +7,7 @@ import 'package:catalogo_ja/data/repositories/admin_user_account_repository.dart
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/ui/widgets/section_card.dart';
+import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 
 class CreateEmailPasswordUserScreen extends ConsumerStatefulWidget {
@@ -40,6 +41,7 @@ class _CreateEmailPasswordUserScreenState
   Future<void> _submit() async {
     final form = _formKey.currentState;
     if (form == null || !form.validate()) return;
+    final selectedRole = _safeSelectedRole();
 
     setState(() => _isSubmitting = true);
 
@@ -49,7 +51,7 @@ class _CreateEmailPasswordUserScreenState
           .createEmailPasswordUser(
             email: _emailController.text.trim().toLowerCase(),
             password: _passwordController.text,
-            role: _selectedRole.name,
+            role: selectedRole.name,
             tenantId: ref.read(currentTenantProvider).valueOrNull?.id,
             storeId: ref.read(currentStoreIdProvider).valueOrNull,
           );
@@ -112,6 +114,31 @@ class _CreateEmailPasswordUserScreenState
         .label;
   }
 
+  bool _canAssignAdmin() {
+    final currentEmail =
+        ref.read(authViewModelProvider).valueOrNull?.email?.trim().toLowerCase();
+    return UserRole.superAdminEmails.contains(currentEmail);
+  }
+
+  List<UserRole> _assignableRoles() {
+    final canAssignAdmin = _canAssignAdmin();
+    return UserRole.values
+        .where(
+          (role) =>
+              role != UserRole.viewer &&
+              (canAssignAdmin || role != UserRole.admin),
+        )
+        .toList();
+  }
+
+  UserRole _safeSelectedRole() {
+    final assignableRoles = _assignableRoles();
+    if (assignableRoles.contains(_selectedRole)) return _selectedRole;
+    return assignableRoles.contains(UserRole.operator)
+        ? UserRole.operator
+        : UserRole.seller;
+  }
+
   String _functionErrorMessage(Object error) {
     if (error is FirebaseFunctionsException) {
       switch (error.code) {
@@ -153,6 +180,12 @@ class _CreateEmailPasswordUserScreenState
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(authViewModelProvider);
+    final assignableRoles = _assignableRoles();
+    final selectedRole = assignableRoles.contains(_selectedRole)
+        ? _selectedRole
+        : UserRole.seller;
+
     return AppScaffold(
       title: 'Novo Acesso',
       subtitle: 'Cadastrar usuário com email e senha',
@@ -188,7 +221,7 @@ class _CreateEmailPasswordUserScreenState
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<UserRole>(
-                      initialValue: _selectedRole,
+                      initialValue: selectedRole,
                       decoration: InputDecoration(
                         labelText: 'Perfil de Acesso',
                         prefixIcon: const Icon(
@@ -203,9 +236,7 @@ class _CreateEmailPasswordUserScreenState
                           borderSide: BorderSide.none,
                         ),
                       ),
-                      items: UserRole.values
-                          .where((role) => role != UserRole.viewer)
-                          .map((role) {
+                      items: assignableRoles.map((role) {
                         return DropdownMenuItem(
                           value: role,
                           child: Text(role.label),

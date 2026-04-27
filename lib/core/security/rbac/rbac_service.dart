@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:catalogo_ja/core/auth/user_role.dart';
 import 'package:catalogo_ja/core/security/rbac/permissions.dart';
 import 'package:catalogo_ja/core/security/rbac/roles.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
@@ -62,7 +63,7 @@ final currentAppRoleProvider = StreamProvider<AppRole>((ref) async* {
 
     final tenantId = userData['tenantId'] as String? ?? '';
     final storeId = userData['currentStoreId'] as String? ?? '';
-    final roleStr = _effectiveRoleName(
+    final roleStr = effectiveUserRoleName(
       userData,
       tenantId: tenantId,
       storeId: storeId,
@@ -80,29 +81,6 @@ final currentAppRoleProvider = StreamProvider<AppRole>((ref) async* {
     }
   }
 });
-
-String _effectiveRoleName(
-  Map<String, dynamic> userData, {
-  required String tenantId,
-  required String storeId,
-}) {
-  final rolesByStore = userData['rolesByStore'];
-  if (rolesByStore is Map && tenantId.isNotEmpty && storeId.isNotEmpty) {
-    final tenantStores = rolesByStore[tenantId];
-    if (tenantStores is Map) {
-      final role = tenantStores[storeId] as String?;
-      if (role != null && role.isNotEmpty) return role;
-    }
-  }
-
-  final rolesByTenant = userData['rolesByTenant'];
-  if (rolesByTenant is Map && tenantId.isNotEmpty) {
-    final role = rolesByTenant[tenantId] as String?;
-    if (role != null && role.isNotEmpty) return role;
-  }
-
-  return userData['role'] as String? ?? 'seller';
-}
 
 /// Provider do RBAC injetável em qualquer parte do app
 final rbacServiceProvider = Provider<RbacService>((ref) {

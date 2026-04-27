@@ -480,7 +480,7 @@ class _MyAppState extends ConsumerState<MyApp> {
       final data = doc.data() ?? {};
       final tenantId = data['tenantId'] as String? ?? '';
       final storeId = data['currentStoreId'] as String? ?? '';
-      final roleName = _effectiveRoleNameForData(
+      final roleName = effectiveUserRoleName(
         data,
         tenantId: tenantId,
         storeId: storeId,
@@ -492,29 +492,6 @@ class _MyAppState extends ConsumerState<MyApp> {
     } catch (_) {
       return ref.read(currentRoleProvider);
     }
-  }
-
-  String _effectiveRoleNameForData(
-    Map<String, dynamic> data, {
-    required String tenantId,
-    required String storeId,
-  }) {
-    final rolesByStore = data['rolesByStore'];
-    if (rolesByStore is Map && tenantId.isNotEmpty && storeId.isNotEmpty) {
-      final tenantStores = rolesByStore[tenantId];
-      if (tenantStores is Map) {
-        final role = tenantStores[storeId] as String?;
-        if (role != null && role.isNotEmpty) return role;
-      }
-    }
-
-    final rolesByTenant = data['rolesByTenant'];
-    if (rolesByTenant is Map && tenantId.isNotEmpty) {
-      final role = rolesByTenant[tenantId] as String?;
-      if (role != null && role.isNotEmpty) return role;
-    }
-
-    return data['role'] as String? ?? 'viewer';
   }
 
   @override

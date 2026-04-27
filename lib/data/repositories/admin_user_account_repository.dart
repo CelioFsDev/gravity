@@ -44,6 +44,7 @@ class AdminUserAccountRepository {
     String? storeId,
   }) async {
     final normalizedEmail = email.trim().toLowerCase();
+    _throwIfProtectedAccount(normalizedEmail);
     try {
       final callable = _functions.httpsCallable('createEmailPasswordUser');
       final response = await callable.call<Map<String, dynamic>>({
@@ -122,6 +123,7 @@ class AdminUserAccountRepository {
     String? storeId,
   }) async {
     final normalizedEmail = email.trim().toLowerCase();
+    _throwIfProtectedAccount(normalizedEmail);
     try {
       final callable = _functions.httpsCallable('updateUserAccess');
       await callable.call<Map<String, dynamic>>({
@@ -164,6 +166,7 @@ class AdminUserAccountRepository {
     String? storeId,
   }) async {
     final normalizedEmail = email.trim().toLowerCase();
+    _throwIfProtectedAccount(normalizedEmail);
     try {
       final callable = _functions.httpsCallable('deleteUserAccount');
       await callable.call<Map<String, dynamic>>({
@@ -173,15 +176,43 @@ class AdminUserAccountRepository {
       });
     } on FirebaseFunctionsException catch (error) {
       if (!_shouldUseLocalFallback(error)) rethrow;
-      await _firestore.collection('users').doc(normalizedEmail).delete();
+      final updates = <String, dynamic>{
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      final normalizedTenantId = tenantId?.trim() ?? '';
+      final normalizedStoreId = storeId?.trim() ?? '';
+
+      if (normalizedTenantId.isNotEmpty && normalizedStoreId.isNotEmpty) {
+        updates['rolesByStore.$normalizedTenantId.$normalizedStoreId'] =
+            FieldValue.delete();
+      } else if (normalizedTenantId.isNotEmpty) {
+        updates['rolesByTenant.$normalizedTenantId'] = FieldValue.delete();
+        updates['tenantIds'] = FieldValue.arrayRemove([normalizedTenantId]);
+      } else {
+        updates['disabled'] = true;
+      }
+
+      await _firestore.collection('users').doc(normalizedEmail).set(
+            updates,
+            SetOptions(merge: true),
+          );
     }
   }
 
   bool _shouldUseLocalFallback(FirebaseFunctionsException error) {
     return error.code == 'internal' ||
         error.code == 'not-found' ||
-        error.code == 'unavailable' ||
-        error.code == 'permission-denied';
+        error.code == 'unavailable';
+  }
+
+  void _throwIfProtectedAccount(String email) {
+    if (!UserRole.superAdminEmails.contains(email)) return;
+    throw FirebaseException(
+      plugin: 'admin-user-account',
+      code: 'permission-denied',
+      message: 'Conta protegida. Nao e permitido alterar ou remover este acesso.',
+    );
   }
 
   Future<CreatedUserAccount> _createEmailPasswordUserLocally({

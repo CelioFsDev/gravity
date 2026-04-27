@@ -121,7 +121,12 @@ class _StoreContactShareScreenState
           final sellers = snapshot.data
                   ?.where(
                     (u) =>
-                        (u['role'] as String?) == UserRole.seller.name &&
+                        effectiveUserRoleName(
+                          u,
+                          tenantId: currentTenantId,
+                          storeId: currentStoreId,
+                        ) ==
+                            UserRole.seller.name &&
                         (u['disabled'] as bool? ?? false) == false,
                   )
                   .toList() ??

@@ -21,29 +21,6 @@ class UserManagementScreen extends ConsumerStatefulWidget {
       _UserManagementScreenState();
 }
 
-String _effectiveUserRoleName(
-  Map<String, dynamic> user, {
-  required String tenantId,
-  required String storeId,
-}) {
-  final rolesByStore = user['rolesByStore'];
-  if (rolesByStore is Map && tenantId.isNotEmpty && storeId.isNotEmpty) {
-    final tenantStores = rolesByStore[tenantId];
-    if (tenantStores is Map) {
-      final role = tenantStores[storeId] as String?;
-      if (role != null && role.isNotEmpty) return role;
-    }
-  }
-
-  final rolesByTenant = user['rolesByTenant'];
-  if (rolesByTenant is Map && tenantId.isNotEmpty) {
-    final role = rolesByTenant[tenantId] as String?;
-    if (role != null && role.isNotEmpty) return role;
-  }
-
-  return user['role'] as String? ?? 'viewer';
-}
-
 class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
   bool _isSyncing = false;
   bool _didAutoSync = false;
@@ -301,11 +278,16 @@ class _UserRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final email = user['email'] as String;
+    final normalizedEmail = email.trim().toLowerCase();
+    final currentEmail =
+        ref.watch(authViewModelProvider).valueOrNull?.email?.trim().toLowerCase();
+    final currentIsSuperAdmin =
+        UserRole.superAdminEmails.contains(currentEmail);
     final displayName = user['displayName'] as String? ?? '';
     final photoURL = user['photoURL'] as String? ?? '';
     final tenantId = ref.watch(currentTenantProvider).valueOrNull?.id ?? '';
     final storeId = ref.watch(currentStoreIdProvider).valueOrNull ?? '';
-    final roleStr = _effectiveUserRoleName(
+    final roleStr = effectiveUserRoleName(
       user,
       tenantId: tenantId,
       storeId: storeId,
@@ -318,6 +300,10 @@ class _UserRow extends ConsumerWidget {
     );
 
     final bool isDisabled = user['disabled'] as bool? ?? false;
+    final isProtectedAccount =
+        UserRole.superAdminEmails.contains(normalizedEmail) ||
+        normalizedEmail == currentEmail ||
+        (role == UserRole.admin && !currentIsSuperAdmin);
 
     return Card(
       elevation: 0,
@@ -446,35 +432,43 @@ class _UserRow extends ConsumerWidget {
             ),
           ],
         ),
-        trailing: PopupMenuButton<String>(
-          onSelected: (value) {
-            if (value == 'edit') _showEditDialog(context, ref);
-            if (value == 'delete') _showDeleteDialog(context, ref);
-          },
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: 'edit',
-              child: Row(
-                children: [
-                  Icon(Icons.edit_outlined, size: 18),
-                  SizedBox(width: 8),
-                  Text('Alterar Perfil'),
+        trailing: isProtectedAccount
+            ? const Tooltip(
+                message: 'Conta protegida',
+                child: Icon(Icons.lock_outline, size: 20),
+              )
+            : PopupMenuButton<String>(
+                onSelected: (value) {
+                  if (value == 'edit') _showEditDialog(context, ref);
+                  if (value == 'delete') _showDeleteDialog(context, ref);
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit_outlined, size: 18),
+                        SizedBox(width: 8),
+                        Text('Alterar Perfil'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text(
+                          'Remover Acesso',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
+                icon: const Icon(Icons.more_vert),
               ),
-            ),
-            const PopupMenuItem(
-              value: 'delete',
-              child: Row(
-                children: [
-                  Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                  SizedBox(width: 8),
-                  Text('Excluir Registro', style: TextStyle(color: Colors.red)),
-                ],
-              ),
-            ),
-          ],
-          icon: const Icon(Icons.more_vert),
-        ),
       ),
     );
   }
@@ -486,13 +480,28 @@ class _UserRow extends ConsumerWidget {
     UserRole selectedRole = UserRole.values.firstWhere(
       (item) =>
           item.name ==
-          _effectiveUserRoleName(
+          effectiveUserRoleName(
             user,
             tenantId: ref.read(currentTenantProvider).valueOrNull?.id ?? '',
             storeId: ref.read(currentStoreIdProvider).valueOrNull ?? '',
           ),
       orElse: () => UserRole.viewer,
     );
+    final currentEmail =
+        ref.read(authViewModelProvider).valueOrNull?.email?.trim().toLowerCase();
+    final canAssignAdmin = UserRole.superAdminEmails.contains(currentEmail);
+    final assignableRoles = UserRole.values
+        .where(
+          (role) =>
+              role != UserRole.viewer &&
+              (canAssignAdmin || role != UserRole.admin),
+        )
+        .toList();
+    if (!assignableRoles.contains(selectedRole)) {
+      selectedRole = assignableRoles.contains(UserRole.operator)
+          ? UserRole.operator
+          : UserRole.seller;
+    }
     bool isSuspended = user['disabled'] as bool? ?? false;
 
     showDialog(
@@ -527,7 +536,7 @@ class _UserRow extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              ...UserRole.values.where((r) => r != UserRole.viewer).map(
+              ...assignableRoles.map(
                 (r) => RadioListTile<UserRole>(
                   title: Text(r.label),
                   value: r,
@@ -593,9 +602,9 @@ class _UserRow extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Excluir Registro?'),
+        title: const Text('Remover Acesso?'),
         content: Text(
-          'Deseja excluir ${user['email']}? Isso removerá o acesso no Firebase Auth e também apagará o registro no Firestore.',
+          'Deseja remover o acesso de ${user['email']} nesta empresa/loja?',
         ),
         actions: [
           TextButton(

@@ -10,6 +10,34 @@ part 'user_role.g.dart';
 
 String _normalizeEmail(String? email) => email?.trim().toLowerCase() ?? '';
 
+String effectiveUserRoleName(
+  Map<String, dynamic> data, {
+  required String tenantId,
+  required String storeId,
+}) {
+  final normalizedTenantId = tenantId.trim();
+  final normalizedStoreId = storeId.trim();
+
+  final rolesByStore = data['rolesByStore'];
+  if (rolesByStore is Map &&
+      normalizedTenantId.isNotEmpty &&
+      normalizedStoreId.isNotEmpty) {
+    final tenantStores = rolesByStore[normalizedTenantId];
+    if (tenantStores is Map) {
+      final storeRole = tenantStores[normalizedStoreId] as String?;
+      if (storeRole != null && storeRole.isNotEmpty) return storeRole;
+    }
+  }
+
+  final rolesByTenant = data['rolesByTenant'];
+  if (rolesByTenant is Map && normalizedTenantId.isNotEmpty) {
+    final tenantRole = rolesByTenant[normalizedTenantId] as String?;
+    if (tenantRole != null && tenantRole.isNotEmpty) return tenantRole;
+  }
+
+  return data['role'] as String? ?? UserRole.viewer.name;
+}
+
 enum UserRole {
   /// God Mode: Full access to everything
   admin('Administrador'),
@@ -123,33 +151,10 @@ class CurrentRole extends _$CurrentRole {
     state = role;
   }
 
-  String _effectiveRoleName(
-    Map<String, dynamic> data, {
-    required String tenantId,
-    required String storeId,
-  }) {
-    final rolesByStore = data['rolesByStore'];
-    if (rolesByStore is Map && tenantId.isNotEmpty && storeId.isNotEmpty) {
-      final tenantStores = rolesByStore[tenantId];
-      if (tenantStores is Map) {
-        final storeRole = tenantStores[storeId] as String?;
-        if (storeRole != null && storeRole.isNotEmpty) return storeRole;
-      }
-    }
-
-    final rolesByTenant = data['rolesByTenant'];
-    if (rolesByTenant is Map && tenantId.isNotEmpty) {
-      final tenantRole = rolesByTenant[tenantId] as String?;
-      if (tenantRole != null && tenantRole.isNotEmpty) return tenantRole;
-    }
-
-    return data['role'] as String? ?? 'viewer';
-  }
-
   UserRole _roleFromData(Map<String, dynamic> data) {
     final activeTenantId = data['tenantId'] as String? ?? '';
     final activeStoreId = data['currentStoreId'] as String? ?? '';
-    final roleStr = _effectiveRoleName(
+    final roleStr = effectiveUserRoleName(
       data,
       tenantId: activeTenantId,
       storeId: activeStoreId,
