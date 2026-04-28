@@ -143,6 +143,10 @@ class AppScaffold extends ConsumerWidget {
               ],
             ),
           ),
+          if (actions != null && actions!.isNotEmpty) ...[
+            ...actions!,
+            const SizedBox(width: 4),
+          ],
           IconButton(
             icon: Icon(
               Icons.person_outline_rounded,

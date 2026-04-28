@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:catalogo_ja/ui/motion/app_motion.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 
 class SectionCard extends StatelessWidget {
@@ -45,18 +46,22 @@ class SectionCard extends StatelessWidget {
           ),
           const SizedBox(height: AppTokens.space4),
         ],
-        Container(
-          width: double.infinity,
-          padding: padding ?? const EdgeInsets.all(AppTokens.space16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-            border: showBorder
-                ? Border.all(color: Theme.of(context).dividerColor)
-                : null,
-            boxShadow: const [AppTokens.shadowSm],
+        AppEntrance(
+          child: AnimatedContainer(
+            duration: AppMotion.medium,
+            curve: AppMotion.enterCurve,
+            width: double.infinity,
+            padding: padding ?? const EdgeInsets.all(AppTokens.space16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+              border: showBorder
+                  ? Border.all(color: Theme.of(context).dividerColor)
+                  : null,
+              boxShadow: const [AppTokens.shadowSm],
+            ),
+            child: child,
           ),
-          child: child,
         ),
       ],
     );

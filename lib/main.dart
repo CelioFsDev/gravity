@@ -165,6 +165,37 @@ class _MyAppState extends ConsumerState<MyApp> {
   late final GoRouter _router;
   late final _RouterRefreshNotifier _routerRefreshNotifier;
 
+  CustomTransitionPage<void> _buildPage(
+    GoRouterState state,
+    Widget child, {
+    Offset beginOffset = const Offset(0.03, 0),
+  }) {
+    return CustomTransitionPage<void>(
+      key: state.pageKey,
+      transitionDuration: const Duration(milliseconds: 320),
+      reverseTransitionDuration: const Duration(milliseconds: 240),
+      child: child,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+
+        return FadeTransition(
+          opacity: Tween<double>(begin: 0, end: 1).animate(curved),
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: beginOffset,
+              end: Offset.zero,
+            ).animate(curved),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -237,66 +268,84 @@ class _MyAppState extends ConsumerState<MyApp> {
       routes: [
         GoRoute(
           path: '/splash',
-          builder: (context, state) => const SplashScreen(),
+          pageBuilder: (context, state) =>
+              _buildPage(state, const SplashScreen()),
         ),
         GoRoute(
           path: '/login',
-          builder: (context, state) => const LoginScreen(),
+          pageBuilder: (context, state) => _buildPage(state, const LoginScreen()),
         ),
         GoRoute(
           path: '/register',
-          builder: (context, state) => const PublicRegisterScreen(),
+          pageBuilder: (context, state) =>
+              _buildPage(state, const PublicRegisterScreen()),
         ),
         GoRoute(
           path: '/legal/privacy',
-          builder: (context, state) =>
-              const LegalDocumentsScreen(type: LegalDocumentType.privacy),
+          pageBuilder: (context, state) => _buildPage(
+            state,
+            const LegalDocumentsScreen(type: LegalDocumentType.privacy),
+          ),
         ),
         GoRoute(
           path: '/legal/terms',
-          builder: (context, state) =>
-              const LegalDocumentsScreen(type: LegalDocumentType.terms),
+          pageBuilder: (context, state) => _buildPage(
+            state,
+            const LegalDocumentsScreen(type: LegalDocumentType.terms),
+          ),
         ),
         GoRoute(
           path: '/legal/delete-account',
-          builder: (context, state) =>
-              const LegalDocumentsScreen(type: LegalDocumentType.deletion),
+          pageBuilder: (context, state) => _buildPage(
+            state,
+            const LegalDocumentsScreen(type: LegalDocumentType.deletion),
+          ),
         ),
         GoRoute(
           path: '/onboarding',
-          builder: (context, state) => TenantOnboardingPage(),
+          pageBuilder: (context, state) =>
+              _buildPage(state, TenantOnboardingPage()),
         ),
         GoRoute(
           path: '/picker',
-          builder: (context, state) => TenantPickerPage(),
+          pageBuilder: (context, state) => _buildPage(state, TenantPickerPage()),
         ),
         GoRoute(
           path: '/',
-          builder: (context, state) => const PublicHomeScreen(),
+          pageBuilder: (context, state) =>
+              _buildPage(state, const PublicHomeScreen()),
         ),
         GoRoute(
           path: '/p/:productId',
-          builder: (context, state) {
+          pageBuilder: (context, state) {
             final productId = state.pathParameters['productId']!;
             final extra = state.extra as Map<String, dynamic>?;
 
             if (extra != null && extra.containsKey('product')) {
-              return PublicProductDetailScreen(
-                product: extra['product'] as Product,
-                mode: extra['mode'] as CatalogMode,
+              return _buildPage(
+                state,
+                PublicProductDetailScreen(
+                  product: extra['product'] as Product,
+                  mode: extra['mode'] as CatalogMode,
+                ),
               );
             }
 
-            return Scaffold(
-              appBar: AppBar(),
-              body: Center(child: Text('Carregando produto $productId...')),
+            return _buildPage(
+              state,
+              Scaffold(
+                appBar: AppBar(),
+                body: Center(child: Text('Carregando produto $productId...')),
+              ),
             );
           },
         ),
         GoRoute(
           path: '/c/:shareCode',
-          builder: (context, state) =>
-              CatalogHomePage(shareCode: state.pathParameters['shareCode']!),
+          pageBuilder: (context, state) => _buildPage(
+            state,
+            CatalogHomePage(shareCode: state.pathParameters['shareCode']!),
+          ),
         ),
         StatefulShellRoute.indexedStack(
           builder: (context, state, navigationShell) {
@@ -307,7 +356,8 @@ class _MyAppState extends ConsumerState<MyApp> {
               routes: [
                 GoRoute(
                   path: '/admin/dashboard',
-                  builder: (context, state) => const DashboardScreen(),
+                  pageBuilder: (context, state) =>
+                      _buildPage(state, const DashboardScreen()),
                 ),
               ],
             ),
@@ -315,7 +365,8 @@ class _MyAppState extends ConsumerState<MyApp> {
               routes: [
                 GoRoute(
                   path: '/admin/products',
-                  builder: (context, state) => const ProductsScreen(),
+                  pageBuilder: (context, state) =>
+                      _buildPage(state, const ProductsScreen()),
                 ),
               ],
             ),
@@ -323,16 +374,21 @@ class _MyAppState extends ConsumerState<MyApp> {
               routes: [
                 GoRoute(
                   path: '/admin/collections',
-                  builder: (context, state) => const CollectionsScreen(),
+                  pageBuilder: (context, state) =>
+                      _buildPage(state, const CollectionsScreen()),
                   routes: [
                     GoRoute(
                       path: 'new',
-                      builder: (context, state) => const CollectionFormScreen(),
+                      pageBuilder: (context, state) =>
+                          _buildPage(state, const CollectionFormScreen()),
                     ),
                     GoRoute(
                       path: ':id/edit',
-                      builder: (context, state) => CollectionFormScreen(
-                        collectionId: state.pathParameters['id'],
+                      pageBuilder: (context, state) => _buildPage(
+                        state,
+                        CollectionFormScreen(
+                          collectionId: state.pathParameters['id'],
+                        ),
                       ),
                     ),
                   ],
@@ -343,7 +399,8 @@ class _MyAppState extends ConsumerState<MyApp> {
               routes: [
                 GoRoute(
                   path: '/admin/categories',
-                  builder: (context, state) => const CategoriesScreen(),
+                  pageBuilder: (context, state) =>
+                      _buildPage(state, const CategoriesScreen()),
                 ),
               ],
             ),
@@ -351,7 +408,8 @@ class _MyAppState extends ConsumerState<MyApp> {
               routes: [
                 GoRoute(
                   path: '/admin/catalogs',
-                  builder: (context, state) => const CatalogsScreen(),
+                  pageBuilder: (context, state) =>
+                      _buildPage(state, const CatalogsScreen()),
                 ),
               ],
             ),
@@ -359,21 +417,23 @@ class _MyAppState extends ConsumerState<MyApp> {
               routes: [
                 GoRoute(
                   path: '/admin/imports',
-                  builder: (context, state) => const ImportMenuScreen(),
+                  pageBuilder: (context, state) =>
+                      _buildPage(state, const ImportMenuScreen()),
                   routes: [
                     GoRoute(
                       path: 'nuvemshop',
-                      builder: (context, state) =>
-                          const NuvemshopImportScreen(),
+                      pageBuilder: (context, state) =>
+                          _buildPage(state, const NuvemshopImportScreen()),
                     ),
                     GoRoute(
                       path: 'stock-update',
-                      builder: (context, state) => const StockUpdateScreen(),
+                      pageBuilder: (context, state) =>
+                          _buildPage(state, const StockUpdateScreen()),
                     ),
                     GoRoute(
                       path: 'backup',
-                      builder: (context, state) =>
-                          const CatalogoJaImportScreen(),
+                      pageBuilder: (context, state) =>
+                          _buildPage(state, const CatalogoJaImportScreen()),
                     ),
                   ],
                 ),
@@ -383,7 +443,8 @@ class _MyAppState extends ConsumerState<MyApp> {
               routes: [
                 GoRoute(
                   path: '/admin/profile',
-                  builder: (context, state) => const ProfileScreen(),
+                  pageBuilder: (context, state) =>
+                      _buildPage(state, const ProfileScreen()),
                 ),
               ],
             ),
@@ -391,7 +452,8 @@ class _MyAppState extends ConsumerState<MyApp> {
               routes: [
                 GoRoute(
                   path: '/admin/share',
-                  builder: (context, state) => const StoreContactShareScreen(),
+                  pageBuilder: (context, state) =>
+                      _buildPage(state, const StoreContactShareScreen()),
                 ),
               ],
             ),
@@ -399,11 +461,13 @@ class _MyAppState extends ConsumerState<MyApp> {
               routes: [
                 GoRoute(
                   path: '/admin/settings',
-                  builder: (context, state) => const SettingsScreen(),
+                  pageBuilder: (context, state) =>
+                      _buildPage(state, const SettingsScreen()),
                   routes: [
                     GoRoute(
                       path: 'users',
-                      builder: (context, state) => const UserManagementScreen(),
+                      pageBuilder: (context, state) =>
+                          _buildPage(state, const UserManagementScreen()),
                       redirect: (context, state) {
                         final role = ref.read(currentRoleProvider);
                         final email = ref
@@ -418,8 +482,10 @@ class _MyAppState extends ConsumerState<MyApp> {
                       routes: [
                         GoRoute(
                           path: 'create-login',
-                          builder: (context, state) =>
-                              const CreateEmailPasswordUserScreen(),
+                          pageBuilder: (context, state) => _buildPage(
+                            state,
+                            const CreateEmailPasswordUserScreen(),
+                          ),
                           redirect: (context, state) {
                             final role = ref.read(currentRoleProvider);
                             final email = ref
@@ -495,6 +561,8 @@ class _MyAppState extends ConsumerState<MyApp> {
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
         themeMode: mode,
+        themeAnimationDuration: const Duration(milliseconds: 280),
+        themeAnimationCurve: Curves.easeOutCubic,
         routerConfig: _router,
         debugShowCheckedModeBanner: false,
       ),

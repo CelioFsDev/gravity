@@ -9,6 +9,7 @@ import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
 import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
+import 'package:catalogo_ja/ui/motion/app_motion.dart';
 import 'package:catalogo_ja/features/admin/catalogs/catalog_editor_screen.dart';
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
@@ -150,12 +151,12 @@ class CatalogsScreen extends ConsumerWidget {
   void _openNew(BuildContext context, {bool quick = false}) {
     Navigator.of(
       context,
-    ).push(MaterialPageRoute(builder: (_) => CatalogEditorScreen(isQuick: quick)));
+    ).push(AppMotion.pageRoute(child: CatalogEditorScreen(isQuick: quick)));
   }
 
   void _openEdit(BuildContext context, Catalog catalog) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => CatalogEditorScreen(catalog: catalog)),
+      AppMotion.pageRoute(child: CatalogEditorScreen(catalog: catalog)),
     );
   }
 

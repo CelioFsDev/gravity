@@ -20,6 +20,7 @@ import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
 import 'package:catalogo_ja/ui/widgets/app_product_list_tile.dart';
 import 'package:uuid/uuid.dart';
 import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
+import 'package:catalogo_ja/ui/motion/app_motion.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
 import 'package:catalogo_ja/viewmodels/settings_viewmodel.dart';
 
@@ -542,7 +543,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         if (value == 'sync_download') _startCloudDownload(context);
         if (value == 'bulk_edit') {
           Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const ProductBulkEditScreen()),
+            AppMotion.pageRoute(child: const ProductBulkEditScreen()),
           );
         }
         if (value == 'export') _showExportOptions(context);
@@ -613,10 +614,14 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     _searchController.clear();
   }
 
-  void _openNewProduct(BuildContext context) {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const ProductFormScreen()));
+  Future<void> _openNewProduct(BuildContext context) async {
+    final createdProduct = await Navigator.of(context).push<Product>(
+      AppMotion.pageRoute(child: const ProductFormScreen()),
+    );
+
+    if (!context.mounted || createdProduct == null) return;
+
+    await Navigator.of(context).push(_buildCreatedProductRoute(createdProduct));
   }
 
   void _openImport(BuildContext context) {
@@ -642,9 +647,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const CatalogoJaImportScreen(),
-                    ),
+                    AppMotion.pageRoute(child: const CatalogoJaImportScreen()),
                   );
                 },
               ),
@@ -729,9 +732,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const NuvemshopImportScreen(),
-                    ),
+                    AppMotion.pageRoute(child: const NuvemshopImportScreen()),
                   );
                 },
               ),
@@ -828,7 +829,37 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
   void _openDetails(BuildContext context, Product product) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => ProductDetailScreen(product: product)),
+      AppMotion.pageRoute(child: ProductDetailScreen(product: product)),
+    );
+  }
+
+  Route _buildCreatedProductRoute(Product product) {
+    return PageRouteBuilder(
+      transitionDuration: const Duration(milliseconds: 520),
+      reverseTransitionDuration: const Duration(milliseconds: 260),
+      pageBuilder: (context, animation, secondaryAnimation) =>
+          ProductDetailScreen(product: product),
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+
+        return FadeTransition(
+          opacity: Tween<double>(begin: 0, end: 1).animate(curved),
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.94, end: 1).animate(curved),
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.04),
+                end: Offset.zero,
+              ).animate(curved),
+              child: child,
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -918,7 +949,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
   void _openEdit(BuildContext context, Product product) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => ProductFormScreen(product: product)),
+      AppMotion.pageRoute(child: ProductFormScreen(product: product)),
     );
   }
 
