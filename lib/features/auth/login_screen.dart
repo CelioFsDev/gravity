@@ -330,9 +330,55 @@ class _LoginPanel extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            const _LegalLinksRow(),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _LegalLinksRow extends StatelessWidget {
+  const _LegalLinksRow();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = isDark ? Colors.white54 : const Color(0xFF687385);
+
+    Widget legalButton(String label, String route) {
+      return TextButton(
+        onPressed: () => context.push(route),
+        style: TextButton.styleFrom(
+          minimumSize: const Size(0, 36),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isDark ? AppTokens.vibrantCyan : AppTokens.electricBlue,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
+    }
+
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text(
+          'Ao continuar, voce concorda com nossos',
+          style: TextStyle(color: color, fontSize: 12),
+          textAlign: TextAlign.center,
+        ),
+        legalButton('Termos', '/legal/terms'),
+        Text('e', style: TextStyle(color: color, fontSize: 12)),
+        legalButton('Privacidade', '/legal/privacy'),
+      ],
     );
   }
 }

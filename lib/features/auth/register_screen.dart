@@ -5,6 +5,7 @@ import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 class PublicRegisterScreen extends ConsumerStatefulWidget {
   const PublicRegisterScreen({super.key});
@@ -245,6 +246,10 @@ class _PublicRegisterScreenState extends ConsumerState<PublicRegisterScreen> {
                           icon: Icons.person_add_alt_1_rounded,
                         ),
 
+                        const SizedBox(height: 16),
+
+                        _LegalConsentLinks(isDark: isDark),
+
                         const SizedBox(height: 24),
 
                         TextButton(
@@ -329,6 +334,51 @@ class _PublicRegisterScreenState extends ConsumerState<PublicRegisterScreen> {
           borderSide: const BorderSide(color: AppTokens.electricBlue, width: 2),
         ),
       ),
+    );
+  }
+}
+
+class _LegalConsentLinks extends StatelessWidget {
+  const _LegalConsentLinks({required this.isDark});
+
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final mutedColor = isDark ? Colors.white54 : Colors.black45;
+
+    Widget link(String label, String route) {
+      return TextButton(
+        onPressed: () => context.push(route),
+        style: TextButton.styleFrom(
+          minimumSize: const Size(0, 34),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isDark ? AppTokens.vibrantCyan : AppTokens.electricBlue,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
+    }
+
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text(
+          'Ao criar sua conta, voce concorda com os',
+          style: TextStyle(color: mutedColor, fontSize: 12),
+          textAlign: TextAlign.center,
+        ),
+        link('Termos de Uso', '/legal/terms'),
+        Text('e com a', style: TextStyle(color: mutedColor, fontSize: 12)),
+        link('Politica de Privacidade', '/legal/privacy'),
+      ],
     );
   }
 }

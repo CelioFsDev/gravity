@@ -9,6 +9,7 @@ import 'package:catalogo_ja/ui/widgets/section_card.dart';
 import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
+import 'package:catalogo_ja/features/legal/legal_documents_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:go_router/go_router.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
@@ -362,6 +363,47 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   onChanged: (val) =>
                       setState(() => _isInitialSyncCompleted = val),
                   secondary: const Icon(Icons.cloud_sync_outlined),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          SectionCard(
+            title: 'Juridico e Privacidade',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Antes de vender o aplicativo, publique seus documentos legais e troque os dados de exemplo da empresa, dominio e email juridico.',
+                  style: TextStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 12),
+                SelectableText(
+                  'Arquivo para editar: lib/features/legal/legal_documents_screen.dart\n'
+                  'Email juridico atual: ${LegalContactConfig.privacyEmail}',
+                  style: const TextStyle(fontSize: 12, height: 1.5),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () => context.push('/legal/privacy'),
+                      icon: const Icon(Icons.privacy_tip_outlined),
+                      label: const Text('POLITICA'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () => context.push('/legal/terms'),
+                      icon: const Icon(Icons.gavel_outlined),
+                      label: const Text('TERMOS'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () => context.push('/legal/delete-account'),
+                      icon: const Icon(Icons.person_off_outlined),
+                      label: const Text('EXCLUSAO'),
+                    ),
+                  ],
                 ),
               ],
             ),

@@ -36,6 +36,7 @@ import 'package:catalogo_ja/features/admin/dashboard/dashboard_screen.dart';
 import 'package:catalogo_ja/features/theme/theme_providers.dart';
 import 'package:catalogo_ja/features/public/catalog_home_page.dart';
 import 'package:catalogo_ja/features/public/product_detail_screen.dart';
+import 'package:catalogo_ja/features/legal/legal_documents_screen.dart';
 import 'package:catalogo_ja/ui/theme/app_theme.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/features/auth/login_screen.dart';
@@ -204,6 +205,7 @@ class _MyAppState extends ConsumerState<MyApp> {
         final isPublicArea =
             state.matchedLocation == '/' ||
             state.matchedLocation == '/register' ||
+            state.matchedLocation.startsWith('/legal/') ||
             state.matchedLocation.startsWith('/c/') ||
             state.matchedLocation.startsWith('/p/');
 
@@ -257,6 +259,21 @@ class _MyAppState extends ConsumerState<MyApp> {
         GoRoute(
           path: '/register',
           builder: (context, state) => const PublicRegisterScreen(),
+        ),
+        GoRoute(
+          path: '/legal/privacy',
+          builder: (context, state) =>
+              const LegalDocumentsScreen(type: LegalDocumentType.privacy),
+        ),
+        GoRoute(
+          path: '/legal/terms',
+          builder: (context, state) =>
+              const LegalDocumentsScreen(type: LegalDocumentType.terms),
+        ),
+        GoRoute(
+          path: '/legal/delete-account',
+          builder: (context, state) =>
+              const LegalDocumentsScreen(type: LegalDocumentType.deletion),
         ),
         GoRoute(
           path: '/onboarding',
