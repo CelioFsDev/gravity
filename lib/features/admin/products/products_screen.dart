@@ -22,6 +22,7 @@ import 'package:uuid/uuid.dart';
 import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
 import 'package:catalogo_ja/ui/motion/app_motion.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
+import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/settings_viewmodel.dart';
 
 class ProductsScreen extends ConsumerStatefulWidget {
@@ -33,6 +34,15 @@ class ProductsScreen extends ConsumerStatefulWidget {
 
 class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   late final TextEditingController _searchController;
+  bool get _showSupportTools {
+    final email = ref
+        .read(authViewModelProvider)
+        .valueOrNull
+        ?.email
+        ?.trim()
+        .toLowerCase();
+    return UserRole.superAdminEmails.contains(email);
+  }
 
   @override
   void initState() {
@@ -653,9 +663,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.add_a_photo_outlined),
-                title: const Text('Vincular Fotos p/ Referência'),
+                title: const Text('Adicionar Fotos em Lote'),
                 subtitle: const Text(
-                  'Associa fotos automaticamente aos produtos puxando de uma pasta pela Referência.',
+                  'Seleciona várias fotos e associa aos produtos automaticamente.',
                 ),
                 onTap: () {
                   Navigator.pop(context);
@@ -693,8 +703,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   messenger.showSnackBar(SnackBar(content: Text(message)));
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.auto_fix_high_outlined),
+              if (_showSupportTools)
+                ListTile(
+                  leading: const Icon(Icons.auto_fix_high_outlined),
                 title: const Text('Reorganizar Fotos'),
                 subtitle: const Text(
                   'Religa fotos pelos nomes e limita P, detalhes e cores para evitar erro no PDF.',
@@ -725,9 +736,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.shopping_bag_outlined),
-                title: const Text('Sincronizar Planilha Nuvemshop'),
+                title: const Text('Importar Nuvemshop'),
                 subtitle: const Text(
-                  'Importa produtos e baixa fotos automaticamente do CSV Nuvemshop.',
+                  'Importa produtos e fotos da sua loja Nuvemshop.',
                 ),
                 onTap: () {
                   Navigator.pop(context);
@@ -760,7 +771,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
             children: [
               ListTile(
                 leading: const Icon(Icons.archive_outlined),
-                title: const Text('Backup Completo (com Fotos)'),
+                title: const Text('Backup Completo do Aplicativo'),
                 subtitle: const Text(
                   'Gera um arquivo .zip com todos os dados e imagens para migração.',
                 ),
@@ -782,8 +793,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   );
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.code),
+              if (_showSupportTools)
+                ListTile(
+                  leading: const Icon(Icons.code),
                 title: const Text('Backup Simples (Apenas Dados)'),
                 subtitle: const Text('Arquivo JSON leve sem imagens.'),
                 onTap: () {
@@ -791,9 +803,10 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   ProductTransferService.shareCatalogoJaBackup(context, ref);
                 },
               ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.file_present_outlined),
+              if (_showSupportTools) const Divider(),
+              if (_showSupportTools)
+                ListTile(
+                  leading: const Icon(Icons.file_present_outlined),
                 title: const Text('Planilha para Edição (CSV)'),
                 subtitle: const Text(
                   'Exporta produtos e fotos em formato CSV/ZIP.',

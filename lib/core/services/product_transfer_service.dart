@@ -11,6 +11,7 @@ import 'package:catalogo_ja/data/repositories/categories_repository.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/core/utils/user_friendly_error.dart';
 import 'package:csv/csv.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
@@ -54,7 +55,7 @@ class ProductTransferService {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Erro ao exportar: $e')));
+        ).showSnackBar(SnackBar(content: Text(UserFriendlyError.message(e))));
       }
     }
   }
@@ -83,7 +84,7 @@ class ProductTransferService {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Erro ao exportar backup: $e')));
+        ).showSnackBar(SnackBar(content: Text(UserFriendlyError.message(e))));
       }
     }
   }
@@ -106,7 +107,7 @@ class ProductTransferService {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Erro ao salvar template: $e')));
+        ).showSnackBar(SnackBar(content: Text(UserFriendlyError.message(e))));
       }
     }
   }
@@ -223,7 +224,29 @@ class ProductTransferService {
       barrierDismissible: false,
       builder: (ctx) {
         dialogContext = ctx;
-        return const Center(child: CircularProgressIndicator());
+        return const Center(
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text(
+                    'Preparando arquivo...',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    'Aguarde enquanto o aplicativo organiza os dados.',
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
       },
     );
 

@@ -178,6 +178,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                   isDark: isDark,
                                   onImport: () =>
                                       context.go('/admin/imports/backup'),
+                                  onNuvemshop: () =>
+                                      context.go('/admin/imports/nuvemshop'),
+                                  onCreateProduct: () =>
+                                      context.go('/admin/products'),
+                                  onCreateCatalog: () =>
+                                      context.go('/admin/catalogs'),
                                   onSkip: _markInitialDone,
                                 ),
                               ),
@@ -209,7 +215,44 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                 crossAxisSpacing: 12,
                                 childAspectRatio: 1.0,
                               ),
-                              delegate: SliverChildListDelegate([
+                              delegate: SliverChildListDelegate(needsSetup ? [
+                                _QuickActionCard(
+                                  label: 'Criar Produtos',
+                                  icon: Icons.add_box_rounded,
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFF10B981),
+                                      Color(0xFF059669),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  isDark: isDark,
+                                  onTap: () => context.go('/admin/products'),
+                                ),
+                                _QuickActionCard(
+                                  label: 'Importar Backup',
+                                  icon: Icons.settings_backup_restore_rounded,
+                                  gradient: AppTokens.primaryGradient,
+                                  isDark: isDark,
+                                  onTap: () => context.go('/admin/imports'),
+                                ),
+                                _QuickActionCard(
+                                  label: 'Importar Nuvemshop',
+                                  icon: Icons.shopping_bag_rounded,
+                                  gradient: AppTokens.warmGradient,
+                                  isDark: isDark,
+                                  onTap: () =>
+                                      context.go('/admin/imports/nuvemshop'),
+                                ),
+                                _QuickActionCard(
+                                  label: 'Criar Cat\u00e1logo',
+                                  icon: Icons.auto_awesome_motion_rounded,
+                                  gradient: AppTokens.accentGradient,
+                                  isDark: isDark,
+                                  onTap: () => context.go('/admin/catalogs'),
+                                ),
+                              ] : [
                                 _QuickActionCard(
                                   label: 'Novo Produto',
                                   icon: Icons.add_box_rounded,
@@ -445,11 +488,17 @@ class _SetupBanner extends StatelessWidget {
   const _SetupBanner({
     required this.isDark,
     required this.onImport,
+    required this.onNuvemshop,
+    required this.onCreateProduct,
+    required this.onCreateCatalog,
     required this.onSkip,
   });
 
   final bool isDark;
   final VoidCallback onImport;
+  final VoidCallback onNuvemshop;
+  final VoidCallback onCreateProduct;
+  final VoidCallback onCreateCatalog;
   final VoidCallback onSkip;
 
   @override
@@ -498,7 +547,7 @@ class _SetupBanner extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Configure seu banco de dados',
+                      'Comece sua loja',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 14,
@@ -508,7 +557,7 @@ class _SetupBanner extends StatelessWidget {
                     ),
                     SizedBox(height: 2),
                     Text(
-                      'Importe um backup ou comece do zero',
+                      'Escolha um caminho para cadastrar os primeiros produtos',
                       style: TextStyle(
                         color: Colors.white54,
                         fontSize: 11,
@@ -520,62 +569,36 @@ class _SetupBanner extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          Row(
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
             children: [
-              Expanded(
-                flex: 2,
-                child: GestureDetector(
-                  onTap: onImport,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 11),
-                    decoration: BoxDecoration(
-                      borderRadius:
-                          BorderRadius.circular(AppTokens.radiusMd),
-                      gradient: AppTokens.primaryGradient,
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.cloud_download_rounded,
-                            color: Colors.white, size: 15),
-                        SizedBox(width: 6),
-                        Text(
-                          'Importar Backup',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+              _SetupActionButton(
+                icon: Icons.add_box_rounded,
+                label: 'Criar produtos',
+                onTap: onCreateProduct,
+                primary: true,
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: GestureDetector(
-                  onTap: onSkip,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 11),
-                    decoration: BoxDecoration(
-                      borderRadius:
-                          BorderRadius.circular(AppTokens.radiusMd),
-                      border: Border.all(
-                          color: Colors.white.withOpacity(0.2)),
-                    ),
-                    child: const Text(
-                      'Do zero',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white60,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
+              _SetupActionButton(
+                icon: Icons.settings_backup_restore_rounded,
+                label: 'Importar backup',
+                onTap: onImport,
+              ),
+              _SetupActionButton(
+                icon: Icons.shopping_bag_rounded,
+                label: 'Importar Nuvemshop',
+                onTap: onNuvemshop,
+              ),
+              _SetupActionButton(
+                icon: Icons.auto_awesome_motion_rounded,
+                label: 'Criar cat\u00e1logo',
+                onTap: onCreateCatalog,
+              ),
+              _SetupActionButton(
+                icon: Icons.check_rounded,
+                label: 'Come\u00e7ar depois',
+                onTap: onSkip,
+                muted: true,
               ),
             ],
           ),
@@ -586,6 +609,68 @@ class _SetupBanner extends StatelessWidget {
 }
 
 // ─── Welcome Banner ───────────────────────────────────────────────────────────
+
+class _SetupActionButton extends StatelessWidget {
+  const _SetupActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.primary = false,
+    this.muted = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool primary;
+  final bool muted;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 160,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+            gradient: primary ? AppTokens.primaryGradient : null,
+            border: primary
+                ? null
+                : Border.all(color: Colors.white.withOpacity(0.2)),
+            color: muted ? Colors.white.withOpacity(0.04) : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                color: muted ? Colors.white60 : Colors.white,
+                size: 15,
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: muted ? Colors.white60 : Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _WelcomeBanner extends StatelessWidget {
   const _WelcomeBanner({

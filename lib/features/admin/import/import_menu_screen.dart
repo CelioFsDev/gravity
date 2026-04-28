@@ -4,14 +4,19 @@ import 'package:go_router/go_router.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/viewmodels/product_export_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/settings_viewmodel.dart';
 
 class ImportMenuScreen extends ConsumerWidget {
   const ImportMenuScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final exportState = ref.watch(productExportViewModelProvider);
+    final settings = ref.watch(settingsViewModelProvider);
+    final lastBackupLabel = _formatLastBackup(settings.lastFullBackupAt);
+
     return AppScaffold(
-      title: 'Importa\u00e7\u00f5es e Estoque',
+      title: 'Backup e Importa\u00e7\u00f5es',
       body: ListView(
         padding: const EdgeInsets.all(AppTokens.space24),
         children: [
@@ -34,7 +39,7 @@ class ImportMenuScreen extends ConsumerWidget {
           _buildItem(
             context,
             icon: Icons.settings_backup_restore,
-            title: 'Importar Backup CatalogoJa',
+            title: 'Restaurar Backup',
             subtitle: 'Restaurar dados de um arquivo .zip ou .json.',
             route: '/admin/imports/backup',
           ),
@@ -43,8 +48,12 @@ class ImportMenuScreen extends ConsumerWidget {
             context,
             icon: Icons.archive_outlined,
             title: 'Backup Completo do Aplicativo',
-            subtitle: 'Gerar um arquivo .zip com dados, cat\u00e1logos e fotos.',
+            subtitle: exportState.isLoading
+                ? 'Gerando backup... aguarde.'
+                : 'Arquivo .zip com produtos, cat\u00e1logos e fotos. $lastBackupLabel',
+            isBusy: exportState.isLoading,
             onTap: () {
+              if (exportState.isLoading) return;
               ref.read(productExportViewModelProvider.notifier).exportPackage();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -57,6 +66,16 @@ class ImportMenuScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  String _formatLastBackup(DateTime? value) {
+    if (value == null) return 'Nenhum backup gerado ainda.';
+    final day = value.day.toString().padLeft(2, '0');
+    final month = value.month.toString().padLeft(2, '0');
+    final year = value.year.toString();
+    final hour = value.hour.toString().padLeft(2, '0');
+    final minute = value.minute.toString().padLeft(2, '0');
+    return '\u00daltimo backup: $day/$month/$year \u00e0s $hour:$minute.';
   }
 
   Widget _buildItem(
@@ -99,6 +118,7 @@ class ImportMenuScreen extends ConsumerWidget {
     required String title,
     required String subtitle,
     required VoidCallback onTap,
+    bool isBusy = false,
   }) {
     return Card(
       elevation: 0,
@@ -117,12 +137,24 @@ class ImportMenuScreen extends ConsumerWidget {
             color: AppTokens.accentBlue.withOpacity(0.1),
             shape: BoxShape.circle,
           ),
-          child: Icon(icon, color: AppTokens.accentBlue),
+          child: isBusy
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Icon(icon, color: AppTokens.accentBlue),
         ),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: onTap,
+        trailing: isBusy
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.chevron_right),
+        onTap: isBusy ? null : onTap,
       ),
     );
   }

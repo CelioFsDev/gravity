@@ -22,6 +22,7 @@ import 'package:archive/archive.dart';
 import 'package:catalogo_ja/core/services/catalogo_ja_package_service.dart';
 import 'package:catalogo_ja/core/services/image_cache_service.dart';
 import 'package:catalogo_ja/core/services/photo_classification_service.dart';
+import 'package:catalogo_ja/core/utils/user_friendly_error.dart';
 import 'package:catalogo_ja/viewmodels/catalog_public_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
@@ -201,7 +202,11 @@ class ProductImportViewModel extends _$ProductImportViewModel {
             } catch (e) {
               state = state.copyWith(
                 isLoading: false,
-                errorMessage: "Erro ao importar pacote: $e",
+                errorMessage: UserFriendlyError.message(
+                  e,
+                  fallback:
+                      'N\u00e3o foi poss\u00edvel importar o pacote. Verifique o arquivo e tente novamente.',
+                ),
               );
               return;
             }
@@ -224,7 +229,11 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        errorMessage: "Erro ao ler CSV: $e",
+        errorMessage: UserFriendlyError.message(
+          e,
+          fallback:
+              'N\u00e3o foi poss\u00edvel ler a planilha. Verifique o arquivo e tente novamente.',
+        ),
       );
     }
   }
@@ -324,7 +333,11 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        errorMessage: "Erro ao processar imagens: $e",
+        errorMessage: UserFriendlyError.message(
+          e,
+          fallback:
+              'N\u00e3o foi poss\u00edvel processar as imagens selecionadas. Tente novamente.',
+        ),
       );
     }
   }
@@ -507,7 +520,8 @@ class ProductImportViewModel extends _$ProductImportViewModel {
             PhotoLinkReportItem(
               fileName: fileName,
               linked: false,
-              reason: 'Erro ao processar: $e',
+              reason:
+                  'N\u00e3o foi poss\u00edvel processar esta foto. Tente selecionar o arquivo novamente.',
             ),
           );
         }
@@ -584,13 +598,18 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        errorMessage: "Erro ao vincular fotos: $e",
+        errorMessage: UserFriendlyError.message(
+          e,
+          fallback:
+              'N\u00e3o foi poss\u00edvel vincular as fotos agora. Tente novamente.',
+        ),
       );
+      final message = state.errorMessage!;
       loadingNotifier.updateTask(
         taskId,
-        message: 'Erro: $e',
+        message: message,
         isDone: true,
-        error: e.toString(),
+        error: message,
       );
       Future.delayed(
         const Duration(seconds: 5),
@@ -724,13 +743,18 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         isLoading: false,
         isDone: true,
         progress: 1.0,
-        errorMessage: "Erro na sincronização: $e",
+        errorMessage: UserFriendlyError.message(
+          e,
+          fallback:
+              'N\u00e3o foi poss\u00edvel sincronizar as fotos agora. Tente novamente.',
+        ),
       );
+      final message = state.errorMessage!;
       loadingNotifier.updateTask(
         taskId,
-        message: 'Erro: $e',
+        message: message,
         isDone: true,
-        error: e.toString(),
+        error: message,
       );
       Future.delayed(
         const Duration(seconds: 5),
@@ -1526,7 +1550,11 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        errorMessage: "Erro ao salvar: $e",
+        errorMessage: UserFriendlyError.message(
+          e,
+          fallback:
+              'N\u00e3o foi poss\u00edvel salvar as altera\u00e7\u00f5es agora. Tente novamente.',
+        ),
       );
     }
   }
@@ -1582,7 +1610,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     } catch (e) {
       debugPrint('Error reading CSV: $e');
       throw Exception(
-        'Erro ao ler o conte\u00fado do arquivo: $e. Verifique se o arquivo n\u00e3o est\u00e1 aberto em outro programa.',
+        'N\u00e3o foi poss\u00edvel ler o conte\u00fado do arquivo. Verifique se ele n\u00e3o est\u00e1 aberto em outro programa.',
       );
     }
   }
@@ -1800,7 +1828,11 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Erro ao processar estoque: $e',
+        errorMessage: UserFriendlyError.message(
+          e,
+          fallback:
+              'N\u00e3o foi poss\u00edvel processar o estoque. Confira o texto informado e tente novamente.',
+        ),
       );
       rethrow;
     }
