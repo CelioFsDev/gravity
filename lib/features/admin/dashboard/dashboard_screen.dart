@@ -137,13 +137,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final needsSetup = !settings.isInitialSyncCompleted;
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final firstName = authUser?.displayName?.split(' ').first ?? 'Usuário';
+    final displayName = authUser?.displayName?.trim();
+    final emailName = authUser?.email?.split('@').first.trim();
+    final rawName = displayName != null && displayName.isNotEmpty
+        ? displayName
+        : (emailName != null && emailName.isNotEmpty ? emailName : 'Usuário');
+    final firstName = rawName.split(RegExp(r'\s+')).first;
 
     return Stack(
       children: [
         AppScaffold(
           showHeader: true,
-          title: 'Início',
+          title: '${_greeting()}, $firstName',
           subtitle: 'Visão geral',
           body: StreamBuilder<_DashboardStats>(
             stream: _statsStream,
@@ -207,13 +212,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                             sliver: SliverGrid(
                               gridDelegate:
                                   SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount:
-                                    MediaQuery.of(context).size.width > 600
-                                        ? 4
-                                        : 3,
+                                crossAxisCount: needsSetup
+                                    ? 2
+                                    : (MediaQuery.of(context).size.width > 600
+                                          ? 4
+                                          : 3),
                                 mainAxisSpacing: 12,
                                 crossAxisSpacing: 12,
-                                childAspectRatio: 1.0,
+                                childAspectRatio: needsSetup ? 1.0 : 1.0,
                               ),
                               delegate: SliverChildListDelegate(needsSetup ? [
                                 _QuickActionCard(
@@ -235,7 +241,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                   icon: Icons.settings_backup_restore_rounded,
                                   gradient: AppTokens.primaryGradient,
                                   isDark: isDark,
-                                  onTap: () => context.go('/admin/imports'),
+                                  onTap: () =>
+                                      context.go('/admin/imports/backup'),
                                 ),
                                 _QuickActionCard(
                                   label: 'Importar Nuvemshop',
@@ -280,14 +287,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                   gradient: AppTokens.goldGradient,
                                   isDark: isDark,
                                   onTap: () => context.go('/admin/share'),
-                                ),
-                                _QuickActionCard(
-                                  label: 'Importar PDF',
-                                  icon: Icons.picture_as_pdf_rounded,
-                                  gradient: AppTokens.warmGradient,
-                                  isDark: isDark,
-                                  onTap: () => context.go(
-                                      '/admin/imports/stock-update'),
                                 ),
                                 _QuickActionCard(
                                   label: 'Sincronizar',
@@ -926,24 +925,29 @@ class _QuickActionCard extends StatelessWidget {
                   ],
           ),
           child: Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 10,
+            ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
                     gradient: gradient,
                   ),
                   child: Icon(icon, color: Colors.white, size: 20),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Text(
                   label,
                   style: TextStyle(
                     fontSize: 11,
+                    height: 1.08,
                     fontWeight: FontWeight.w700,
                     color: isDark
                         ? Colors.white70

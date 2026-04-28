@@ -39,14 +39,13 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
       showHeader: true,
       title: 'Coleções',
       subtitle: 'Gerencie suas coleções e catálogos',
-      actions: [
-        if (role.canManageRegistrations)
-          FilledButton.icon(
-            onPressed: () => context.go('/admin/collections/new'),
-            icon: const Icon(Icons.add),
-            label: const Text('Nova Coleção'),
-          ),
-      ],
+      floatingActionButton: role.canManageRegistrations
+          ? FloatingActionButton.extended(
+              onPressed: () => context.go('/admin/collections/new'),
+              icon: const Icon(Icons.add),
+              label: const Text('Nova'),
+            )
+          : null,
       body: categoriesState.when(
         data: (state) {
           final collections = state.categories
@@ -266,10 +265,25 @@ class _CollectionCard extends ConsumerWidget {
   }
 
   Widget _buildPlaceholder(BuildContext context) {
-    return Image.asset(
-      'assets/branding/catalogs/catalogoja_catalogs_mini_1365x420.png',
-      fit: BoxFit.cover,
+    return Container(
       width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppTokens.accentBlue.withOpacity(0.18),
+            AppTokens.vibrantCyan.withOpacity(0.12),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: const Center(
+        child: Icon(
+          Icons.collections_bookmark_outlined,
+          color: AppTokens.accentBlue,
+          size: 36,
+        ),
+      ),
     );
   }
 

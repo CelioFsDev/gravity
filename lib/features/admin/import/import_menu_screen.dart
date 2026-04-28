@@ -20,48 +20,64 @@ class ImportMenuScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(AppTokens.space24),
         children: [
-          _buildItem(
+          _buildSection(
             context,
-            icon: Icons.inventory_2_outlined,
-            title: 'Atualizar Estoque (PDF)',
-            subtitle: 'Colar texto de relat\u00f3rio para atualizar quantidades.',
-            route: '/admin/imports/stock-update',
+            title: 'Backup do aplicativo',
+            description:
+                'Gere uma c\u00f3pia completa dos dados do aplicativo para guardar em local seguro. Use antes de trocar de aparelho, reinstalar o app ou fazer grandes altera\u00e7\u00f5es.',
+            child: _buildActionItem(
+              context,
+              icon: Icons.archive_outlined,
+              title: 'Backup Completo do Aplicativo',
+              subtitle: exportState.isLoading
+                  ? 'Gerando backup... aguarde.'
+                  : 'Salva produtos, cat\u00e1logos, categorias e fotos em um arquivo .zip. $lastBackupLabel',
+              isBusy: exportState.isLoading,
+              onTap: () {
+                if (exportState.isLoading) return;
+                ref
+                    .read(productExportViewModelProvider.notifier)
+                    .exportPackage();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Gerando backup completo em segundo plano...',
+                    ),
+                    backgroundColor: AppTokens.accentBlue,
+                  ),
+                );
+              },
+            ),
           ),
-          const SizedBox(height: AppTokens.space16),
-          _buildItem(
+          const SizedBox(height: AppTokens.space24),
+          _buildSection(
             context,
-            icon: Icons.cloud_download_outlined,
-            title: 'Importar Nuvemshop',
-            subtitle: 'Sincronizar produtos da Nuvemshop via CSV.',
-            route: '/admin/imports/nuvemshop',
+            title: 'Restaurar backup completo',
+            description:
+                'Use esta op\u00e7\u00e3o para recuperar os dados salvos em um backup do Cat\u00e1logo J\u00e1. Ela \u00e9 indicada quando voc\u00ea est\u00e1 configurando um aparelho novo ou precisa trazer dados antigos de volta.',
+            child: _buildItem(
+              context,
+              icon: Icons.settings_backup_restore,
+              title: 'Restaurar Backup Completo',
+              subtitle:
+                  'Importa produtos, cat\u00e1logos, categorias e fotos de um arquivo .zip ou .json.',
+              route: '/admin/imports/backup',
+            ),
           ),
-          const SizedBox(height: AppTokens.space16),
-          _buildItem(
+          const SizedBox(height: AppTokens.space24),
+          _buildSection(
             context,
-            icon: Icons.settings_backup_restore,
-            title: 'Restaurar Backup',
-            subtitle: 'Restaurar dados de um arquivo .zip ou .json.',
-            route: '/admin/imports/backup',
-          ),
-          const SizedBox(height: AppTokens.space16),
-          _buildActionItem(
-            context,
-            icon: Icons.archive_outlined,
-            title: 'Backup Completo do Aplicativo',
-            subtitle: exportState.isLoading
-                ? 'Gerando backup... aguarde.'
-                : 'Arquivo .zip com produtos, cat\u00e1logos e fotos. $lastBackupLabel',
-            isBusy: exportState.isLoading,
-            onTap: () {
-              if (exportState.isLoading) return;
-              ref.read(productExportViewModelProvider.notifier).exportPackage();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Gerando backup completo em segundo plano...'),
-                  backgroundColor: AppTokens.accentBlue,
-                ),
-              );
-            },
+            title: 'Importar produtos',
+            description:
+                'Traga produtos cadastrados em outras plataformas para dentro do aplicativo. A importa\u00e7\u00e3o da Nuvemshop usa uma planilha CSV exportada da sua loja.',
+            child: _buildItem(
+              context,
+              icon: Icons.cloud_download_outlined,
+              title: 'Importar Nuvemshop',
+              subtitle:
+                  'Importa produtos da Nuvemshop por CSV e ajuda a iniciar o cat\u00e1logo sem cadastrar tudo manualmente.',
+              route: '/admin/imports/nuvemshop',
+            ),
           ),
         ],
       ),
@@ -76,6 +92,40 @@ class ImportMenuScreen extends ConsumerWidget {
     final hour = value.hour.toString().padLeft(2, '0');
     final minute = value.minute.toString().padLeft(2, '0');
     return '\u00daltimo backup: $day/$month/$year \u00e0s $hour:$minute.';
+  }
+
+  Widget _buildSection(
+    BuildContext context, {
+    required String title,
+    required String description,
+    required Widget child,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+            color: isDark ? Colors.white : AppTokens.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          description,
+          style: TextStyle(
+            fontSize: 13,
+            height: 1.35,
+            color: isDark ? Colors.white70 : AppTokens.textSecondary,
+          ),
+        ),
+        const SizedBox(height: AppTokens.space12),
+        child,
+      ],
+    );
   }
 
   Widget _buildItem(

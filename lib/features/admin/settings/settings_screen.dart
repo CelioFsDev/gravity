@@ -24,6 +24,8 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  static const bool _showPublicLinkSettings = false;
+
   late final TextEditingController _storeNameController;
   late final TextEditingController _whatsappController;
   late final TextEditingController _baseUrlController;
@@ -317,57 +319,67 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Widget _buildSettingsTab() {
+    final user = ref.watch(authViewModelProvider).valueOrNull;
+    final supportEmail = user?.email?.trim().toLowerCase() ?? '';
+    final showSupportTools = UserRole.superAdminEmails.contains(supportEmail);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTokens.space24),
       child: Column(
         children: [
-          SectionCard(
-            title: 'Ajustes de Sistema',
-            child: Column(
-              children: [
-                _buildField(
-                  controller: _baseUrlController,
-                  label: 'URL Base do Catálogo',
-                  hint: 'https://seusite.com',
-                  icon: Icons.language_outlined,
-                  helper: 'Usado para gerar links de compartilhamento',
-                  onChanged: (_) => setState(() {}),
-                ),
-                const SizedBox(height: 12),
-                _buildLinkPreview(),
-                const SizedBox(height: 16),
-                _buildField(
-                  controller: _remotePhotoUrlController,
-                  label: 'URL Base para Fotos (Nuvem)',
-                  hint: 'https://seusite.com/fotos',
-                  icon: Icons.cloud_download_outlined,
-                  helper: 'Pasta onde as fotos estão hospedadas',
-                ),
-                const SizedBox(height: 24),
-                SwitchListTile(
-                  title: const Text('Modo somente local'),
-                  subtitle: const Text(
-                    'Evita downloads automáticos da nuvem. Upload manual envia apenas alterações pendentes.',
-                  ),
-                  value: _localOnlyMode,
-                  onChanged: (val) => setState(() => _localOnlyMode = val),
-                  secondary: const Icon(Icons.cloud_off_outlined),
-                ),
-                const SizedBox(height: 8),
-                SwitchListTile(
-                  title: const Text('Carga Inicial Concluída'),
-                  subtitle: const Text(
-                    'Se desativado, o app exigirá importação do ZIP para iniciar.',
-                  ),
-                  value: _isInitialSyncCompleted,
-                  onChanged: (val) =>
-                      setState(() => _isInitialSyncCompleted = val),
-                  secondary: const Icon(Icons.cloud_sync_outlined),
-                ),
-              ],
+          if (showSupportTools || _showPublicLinkSettings) ...[
+            SectionCard(
+              title: 'Ajustes de Sistema',
+              child: Column(
+                children: [
+                  if (_showPublicLinkSettings) ...[
+                    _buildField(
+                      controller: _baseUrlController,
+                      label: 'URL Base do Catálogo',
+                      hint: 'https://seusite.com',
+                      icon: Icons.language_outlined,
+                      helper: 'Usado para gerar links de compartilhamento',
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildLinkPreview(),
+                    const SizedBox(height: 16),
+                    _buildField(
+                      controller: _remotePhotoUrlController,
+                      label: 'URL Base para Fotos (Nuvem)',
+                      hint: 'https://seusite.com/fotos',
+                      icon: Icons.cloud_download_outlined,
+                      helper: 'Pasta onde as fotos estão hospedadas',
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                  if (showSupportTools) ...[
+                    SwitchListTile(
+                      title: const Text('Modo somente local'),
+                      subtitle: const Text(
+                        'Evita downloads automáticos da nuvem. Upload manual envia apenas alterações pendentes.',
+                      ),
+                      value: _localOnlyMode,
+                      onChanged: (val) => setState(() => _localOnlyMode = val),
+                      secondary: const Icon(Icons.cloud_off_outlined),
+                    ),
+                    const SizedBox(height: 8),
+                    SwitchListTile(
+                      title: const Text('Carga Inicial Concluída'),
+                      subtitle: const Text(
+                        'Se desativado, o app exigirá importação do ZIP para iniciar.',
+                      ),
+                      value: _isInitialSyncCompleted,
+                      onChanged: (val) =>
+                          setState(() => _isInitialSyncCompleted = val),
+                      secondary: const Icon(Icons.cloud_sync_outlined),
+                    ),
+                  ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
+          ],
           SectionCard(
             title: 'Juridico e Privacidade',
             child: Column(
@@ -425,6 +437,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Widget _buildMaintenanceTab() {
     final user = ref.watch(authViewModelProvider).valueOrNull;
+    final supportEmail = user?.email?.trim().toLowerCase() ?? '';
+    final showSupportTools = UserRole.superAdminEmails.contains(supportEmail);
     final canManage = ref
         .watch(currentRoleProvider)
         .canManageUsers(user?.email);
@@ -455,30 +469,32 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             const SizedBox(height: 24),
           ],
-          SectionCard(
-            title: 'Manutenção de Dados',
-            child: Column(
-              children: [
-                const Text(
-                  'Use esta ferramenta para escanear o banco de dados em busca de catálogos antigos que não aparecem na sua conta atual.',
-                  style: TextStyle(fontSize: 13),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppTokens.accentOrange,
-                    ),
-                    onPressed: _findMyLostData,
-                    icon: const Icon(Icons.history_outlined),
-                    label: const Text('ESCANEAR E RESGATAR DADOS'),
+          if (showSupportTools) ...[
+            SectionCard(
+              title: 'Manutenção de Dados',
+              child: Column(
+                children: [
+                  const Text(
+                    'Use esta ferramenta para escanear o banco de dados em busca de catálogos antigos que não aparecem na sua conta atual.',
+                    style: TextStyle(fontSize: 13),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppTokens.accentOrange,
+                      ),
+                      onPressed: _findMyLostData,
+                      icon: const Icon(Icons.history_outlined),
+                      label: const Text('ESCANEAR E RESGATAR DADOS'),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
+          ],
           SectionCard(
             title: 'Sincronização Global',
             child: Column(

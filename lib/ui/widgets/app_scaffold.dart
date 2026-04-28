@@ -128,6 +128,8 @@ class AppScaffold extends ConsumerWidget {
               children: [
                 Text(
                   title!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w900,

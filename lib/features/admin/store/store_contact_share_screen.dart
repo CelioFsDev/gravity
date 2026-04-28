@@ -321,27 +321,44 @@ class _StoreContactShareScreenState
             ),
           ],
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final copyButton = SizedBox(
+                height: 56,
                 child: OutlinedButton.icon(
                   onPressed: () =>
                       _copyToClipboard(context, _messageController.text),
                   icon: const Icon(Icons.copy_rounded),
                   label: const Text('COPIAR'),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: AppPrimaryButton(
-                  onPressed: _messageController.text.trim().isEmpty
-                      ? null
-                      : () => _handleShare(context, _messageController.text),
-                  icon: Icons.share_rounded,
-                  label: 'COMPARTILHAR',
-                ),
-              ),
-            ],
+              );
+              final shareButton = AppPrimaryButton(
+                onPressed: _messageController.text.trim().isEmpty
+                    ? null
+                    : () => _handleShare(context, _messageController.text),
+                icon: Icons.share_rounded,
+                label: 'COMPARTILHAR',
+              );
+
+              if (constraints.maxWidth < 430) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    copyButton,
+                    const SizedBox(height: 12),
+                    shareButton,
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(child: copyButton),
+                  const SizedBox(width: 12),
+                  Expanded(child: shareButton),
+                ],
+              );
+            },
           ),
         ],
       ),
