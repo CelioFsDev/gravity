@@ -254,12 +254,16 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
     final localDoc = await _localRepo.getBySlug(slug);
     if (localDoc != null) return localDoc;
 
-    final snapshot = await _collection
-        .where('slug', isEqualTo: slug)
-        .limit(1)
-        .get();
-    if (snapshot.docs.isNotEmpty) {
-      return Category.fromMap(snapshot.docs.first.data());
+    try {
+      final snapshot = await _collection
+          .where('slug', isEqualTo: slug)
+          .limit(1)
+          .get();
+      if (snapshot.docs.isNotEmpty) {
+        return Category.fromMap(snapshot.docs.first.data());
+      }
+    } catch (e) {
+      print('Erro ao buscar categoria por slug na nuvem (usando local): $e');
     }
     return null;
   }

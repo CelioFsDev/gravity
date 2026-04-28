@@ -40,7 +40,12 @@ class AppScaffold extends ConsumerWidget {
     final hasTitle = title != null;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final canPop = context.canPop();
-    final shouldShowBackButton = showBackButton ?? canPop;
+    final hasDrawerAccess = onMenuPressed != null || _hasParentDrawer(context);
+    final currentLocation = _currentLocation(context);
+    final preferMenuButton =
+        hasDrawerAccess && _isAdminRootLocation(currentLocation);
+    final shouldShowBackButton =
+        showBackButton ?? (preferMenuButton ? false : canPop);
     
     final activeTask = ref.watch(
       globalLoadingProvider.select((tasks) {
@@ -183,6 +188,31 @@ class AppScaffold extends ConsumerWidget {
       return Scaffold.maybeOf(context)?.hasDrawer ?? false;
     } catch (_) {
       return false;
+    }
+  }
+
+  String? _currentLocation(BuildContext context) {
+    try {
+      return GoRouterState.of(context).matchedLocation;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool _isAdminRootLocation(String? location) {
+    switch (location) {
+      case '/admin/dashboard':
+      case '/admin/products':
+      case '/admin/collections':
+      case '/admin/categories':
+      case '/admin/catalogs':
+      case '/admin/imports':
+      case '/admin/profile':
+      case '/admin/share':
+      case '/admin/settings':
+        return true;
+      default:
+        return false;
     }
   }
 

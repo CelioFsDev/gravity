@@ -142,7 +142,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     return Stack(
       children: [
         AppScaffold(
-          showHeader: false,
+          showHeader: true,
           title: 'Início',
           subtitle: 'Visão geral',
           body: StreamBuilder<_DashboardStats>(
