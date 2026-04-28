@@ -189,18 +189,20 @@ class AdminShellScreen extends ConsumerWidget {
                               child: SafeArea(
                                 top: false,
                                 child: Padding(
-                                  padding:
-                                      const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    0,
+                                    16,
+                                    12,
+                                  ),
                                   child: _FloatingBottomNav(
                                     currentIndex: navigationShell.currentIndex,
                                     onDestinationSelected: onAdminNavigation,
                                     visibleIndices: bottomNavIndices
                                         .where(
-                                          (index) =>
-                                              visibleDestinations.any(
-                                                (item) =>
-                                                    item.branchIndex == index,
-                                              ),
+                                          (index) => visibleDestinations.any(
+                                            (item) => item.branchIndex == index,
+                                          ),
                                         )
                                         .toList(),
                                     isDark: isDark,
@@ -289,7 +291,7 @@ class _Sidebar extends ConsumerWidget {
                             ? Image.asset(
                                 'assets/branding/icons/catalogoja_icons_glass_1024x1024.png',
                                 fit: BoxFit.contain,
-                                errorBuilder: (_, __, ___) => const Icon(
+                                errorBuilder: (_, _, _) => const Icon(
                                   Icons.auto_awesome_rounded,
                                   color: Colors.white,
                                   size: 20,
@@ -549,8 +551,9 @@ class _SidebarItem extends StatelessWidget {
                     style: TextStyle(
                       color: isSelected ? Colors.white : Colors.white54,
                       fontSize: 14,
-                      fontWeight:
-                          isSelected ? FontWeight.w700 : FontWeight.w500,
+                      fontWeight: isSelected
+                          ? FontWeight.w700
+                          : FontWeight.w500,
                     ),
                   ),
                 ),

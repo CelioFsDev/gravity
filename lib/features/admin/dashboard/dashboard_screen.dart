@@ -7,13 +7,22 @@ import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/data/repositories/categories_repository.dart';
 import 'package:catalogo_ja/data/repositories/catalogs_repository.dart';
-import 'package:catalogo_ja/models/product.dart';
-import 'package:catalogo_ja/models/category.dart';
-import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/viewmodels/global_sync_viewmodel.dart';
 import 'package:catalogo_ja/ui/widgets/sync_progress_overlay.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/settings_viewmodel.dart';
+
+class _DashboardStats {
+  const _DashboardStats({
+    required this.productCount,
+    required this.categoryCount,
+    required this.catalogCount,
+  });
+
+  final int productCount;
+  final int categoryCount;
+  final int catalogCount;
+}
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -26,6 +35,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _greetingController;
   late Animation<double> _greetingFade;
+  late final Stream<_DashboardStats> _statsStream;
 
   @override
   void initState() {
@@ -38,6 +48,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       parent: _greetingController,
       curve: Curves.easeOut,
     );
+    _statsStream = _combineStatsStreams();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -52,6 +63,57 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   void dispose() {
     _greetingController.dispose();
     super.dispose();
+  }
+
+  Stream<_DashboardStats> _combineStatsStreams() {
+    final productsStream = ref.read(productsRepositoryProvider).watchProducts();
+    final categoriesStream =
+        ref.read(categoriesRepositoryProvider).watchCategories();
+    final catalogsStream = ref.read(catalogsRepositoryProvider).watchCatalogs();
+
+    return Stream<_DashboardStats>.multi((controller) {
+      var productCount = 0;
+      var categoryCount = 0;
+      var catalogCount = 0;
+      var hasProducts = false;
+      var hasCategories = false;
+      var hasCatalogs = false;
+
+      void emitIfReady() {
+        if (!hasProducts || !hasCategories || !hasCatalogs) return;
+        controller.add(
+          _DashboardStats(
+            productCount: productCount,
+            categoryCount: categoryCount,
+            catalogCount: catalogCount,
+          ),
+        );
+      }
+
+      final productsSub = productsStream.listen((items) {
+        productCount = items.length;
+        hasProducts = true;
+        emitIfReady();
+      }, onError: controller.addError);
+
+      final categoriesSub = categoriesStream.listen((items) {
+        categoryCount = items.length;
+        hasCategories = true;
+        emitIfReady();
+      }, onError: controller.addError);
+
+      final catalogsSub = catalogsStream.listen((items) {
+        catalogCount = items.length;
+        hasCatalogs = true;
+        emitIfReady();
+      }, onError: controller.addError);
+
+      controller.onCancel = () async {
+        await productsSub.cancel();
+        await categoriesSub.cancel();
+        await catalogsSub.cancel();
+      };
+    });
   }
 
   String _greeting() {
@@ -69,10 +131,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
   @override
   Widget build(BuildContext context) {
-    final productsAsync = ref.watch(productsRepositoryProvider).watchProducts();
-    final categoriesAsync =
-        ref.watch(categoriesRepositoryProvider).watchCategories();
-    final catalogsAsync = ref.watch(catalogsRepositoryProvider).watchCatalogs();
     final syncProgress = ref.watch(syncProgressProvider);
     final authUser = ref.watch(authViewModelProvider).valueOrNull;
     final settings = ref.watch(settingsViewModelProvider);
@@ -87,24 +145,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           showHeader: false,
           title: 'Início',
           subtitle: 'Visão geral',
-          body: StreamBuilder<List<Product>>(
-            stream: productsAsync,
-            builder: (context, productsSnapshot) {
-              return StreamBuilder<List<Category>>(
-                stream: categoriesAsync,
-                builder: (context, categoriesSnapshot) {
-                  return StreamBuilder<List<Catalog>>(
-                    stream: catalogsAsync,
-                    builder: (context, catalogsSnapshot) {
-                      final productCount =
-                          productsSnapshot.data?.length ?? 0;
-                      final categoryCount =
-                          categoriesSnapshot.data?.length ?? 0;
-                      final catalogCount =
-                          catalogsSnapshot.data?.length ?? 0;
+          body: StreamBuilder<_DashboardStats>(
+            stream: _statsStream,
+            builder: (context, snapshot) {
+              final stats = snapshot.data ??
+                  const _DashboardStats(
+                    productCount: 0,
+                    categoryCount: 0,
+                    catalogCount: 0,
+                  );
 
-                      return CustomScrollView(
-                        slivers: [
+              return CustomScrollView(
+                slivers: [
                           // ── Welcome Banner ───────────────────────────
                           SliverToBoxAdapter(
                             child: FadeTransition(
@@ -237,19 +289,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                             sliver: SliverToBoxAdapter(
                               child: _buildStatsSection(
                                 context,
-                                productCount: productCount,
-                                categoryCount: categoryCount,
-                                catalogCount: catalogCount,
+                                productCount: stats.productCount,
+                                categoryCount: stats.categoryCount,
+                                catalogCount: stats.catalogCount,
                                 isDark: isDark,
                               ),
                             ),
                           ),
                         ],
                       );
-                    },
-                  );
-                },
-              );
             },
           ),
         ),

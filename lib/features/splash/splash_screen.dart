@@ -69,7 +69,7 @@ class _SplashScreenState extends State<SplashScreen>
             AppAssets.splashPremium,
             fit: BoxFit.cover,
             alignment: Alignment.center,
-            errorBuilder: (_, __, ___) => _FallbackAnimatedBg(
+            errorBuilder: (_, _, _) => _FallbackAnimatedBg(
               pulse: _pulse,
               pulseController: _pulseController,
             ),
@@ -78,9 +78,8 @@ class _SplashScreenState extends State<SplashScreen>
           // ── Orbs de glow animados por cima ──────────────────────────────
           AnimatedBuilder(
             animation: _pulseController,
-            builder: (context, _) => CustomPaint(
-              painter: _GlowOrbPainter(pulse: _pulse.value),
-            ),
+            builder: (context, _) =>
+                CustomPaint(painter: _GlowOrbPainter(pulse: _pulse.value)),
           ),
 
           // ── Gradiente suave no rodapé para legibilidade ──────────────────
@@ -119,8 +118,9 @@ class _SplashScreenState extends State<SplashScreen>
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          borderRadius:
-                              BorderRadius.circular(AppTokens.radiusFull),
+                          borderRadius: BorderRadius.circular(
+                            AppTokens.radiusFull,
+                          ),
                           border: Border.all(
                             color: AppTokens.accentGold.withOpacity(0.5),
                           ),
@@ -195,9 +195,8 @@ class _FallbackAnimatedBg extends StatelessWidget {
         // Orbs
         AnimatedBuilder(
           animation: pulseController,
-          builder: (context, _) => CustomPaint(
-            painter: _GlowOrbPainter(pulse: pulse.value),
-          ),
+          builder: (context, _) =>
+              CustomPaint(painter: _GlowOrbPainter(pulse: pulse.value)),
         ),
 
         // Logo + texto centralizados
@@ -224,8 +223,9 @@ class _FallbackAnimatedBg extends StatelessWidget {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color:
-                            AppTokens.electricBlue.withOpacity(pulse.value * 0.4),
+                        color: AppTokens.electricBlue.withOpacity(
+                          pulse.value * 0.4,
+                        ),
                         blurRadius: 50,
                         spreadRadius: 8,
                       ),
@@ -236,7 +236,7 @@ class _FallbackAnimatedBg extends StatelessWidget {
                     child: Image.asset(
                       AppAssets.appIconGlass,
                       fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => const Icon(
+                      errorBuilder: (_, _, _) => const Icon(
                         Icons.auto_awesome_rounded,
                         color: Colors.white,
                         size: 48,
@@ -293,15 +293,18 @@ class _GlowOrbPainter extends CustomPainter {
     final paint = Paint()..style = PaintingStyle.fill;
 
     // Top-right blue orb
-    paint.shader = RadialGradient(
-      colors: [
-        AppTokens.electricBlue.withOpacity(0.1 * pulse),
-        Colors.transparent,
-      ],
-    ).createShader(Rect.fromCircle(
-      center: Offset(size.width * 0.85, size.height * 0.15),
-      radius: 200,
-    ));
+    paint.shader =
+        RadialGradient(
+          colors: [
+            AppTokens.electricBlue.withOpacity(0.1 * pulse),
+            Colors.transparent,
+          ],
+        ).createShader(
+          Rect.fromCircle(
+            center: Offset(size.width * 0.85, size.height * 0.15),
+            radius: 200,
+          ),
+        );
     canvas.drawCircle(
       Offset(size.width * 0.85, size.height * 0.15),
       200,
@@ -309,39 +312,36 @@ class _GlowOrbPainter extends CustomPainter {
     );
 
     // Bottom-left cyan orb
-    paint.shader = RadialGradient(
-      colors: [
-        AppTokens.vibrantCyan.withOpacity(0.07 * pulse),
-        Colors.transparent,
-      ],
-    ).createShader(Rect.fromCircle(
-      center: Offset(size.width * 0.1, size.height * 0.75),
-      radius: 180,
-    ));
-    canvas.drawCircle(
-      Offset(size.width * 0.1, size.height * 0.75),
-      180,
-      paint,
-    );
+    paint.shader =
+        RadialGradient(
+          colors: [
+            AppTokens.vibrantCyan.withOpacity(0.07 * pulse),
+            Colors.transparent,
+          ],
+        ).createShader(
+          Rect.fromCircle(
+            center: Offset(size.width * 0.1, size.height * 0.75),
+            radius: 180,
+          ),
+        );
+    canvas.drawCircle(Offset(size.width * 0.1, size.height * 0.75), 180, paint);
 
     // Center purple orb
-    paint.shader = RadialGradient(
-      colors: [
-        AppTokens.softPurple.withOpacity(0.05 * pulse),
-        Colors.transparent,
-      ],
-    ).createShader(Rect.fromCircle(
-      center: Offset(size.width * 0.5, size.height * 0.45),
-      radius: 220,
-    ));
-    canvas.drawCircle(
-      Offset(size.width * 0.5, size.height * 0.45),
-      220,
-      paint,
-    );
+    paint.shader =
+        RadialGradient(
+          colors: [
+            AppTokens.softPurple.withOpacity(0.05 * pulse),
+            Colors.transparent,
+          ],
+        ).createShader(
+          Rect.fromCircle(
+            center: Offset(size.width * 0.5, size.height * 0.45),
+            radius: 220,
+          ),
+        );
+    canvas.drawCircle(Offset(size.width * 0.5, size.height * 0.45), 220, paint);
   }
 
   @override
-  bool shouldRepaint(_GlowOrbPainter oldDelegate) =>
-      oldDelegate.pulse != pulse;
+  bool shouldRepaint(_GlowOrbPainter oldDelegate) => oldDelegate.pulse != pulse;
 }

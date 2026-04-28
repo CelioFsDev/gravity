@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -43,8 +42,14 @@ class AppScaffold extends ConsumerWidget {
     final canPop = context.canPop();
     final shouldShowBackButton = showBackButton ?? canPop;
     
-    final _ = ref.watch(globalLoadingProvider);
-    final activeTask = ref.watch(globalLoadingProvider.notifier).mainActiveTask();
+    final activeTask = ref.watch(
+      globalLoadingProvider.select((tasks) {
+        for (final task in tasks.values) {
+          if (!task.isDone) return task;
+        }
+        return null;
+      }),
+    );
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,

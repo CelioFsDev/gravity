@@ -67,11 +67,7 @@ class AppAssets {
 class AppIcons {
   static const String _path = 'assets/icon';
 
-  static Widget _asset(
-    String name,
-    IconData fallback, {
-    double size = 24,
-  }) {
+  static Widget _asset(String name, IconData fallback, {double size = 24}) {
     final cacheSize = (size * 3).round();
     return Image.asset(
       '$_path/$name.png',
@@ -81,7 +77,7 @@ class AppIcons {
       cacheHeight: cacheSize,
       filterQuality: FilterQuality.high,
       gaplessPlayback: true,
-      errorBuilder: (_, __, ___) => Icon(fallback, size: size),
+      errorBuilder: (_, _, _) => Icon(fallback, size: size),
     );
   }
 

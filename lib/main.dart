@@ -2,7 +2,6 @@ import 'package:catalogo_ja/features/admin/users/create_email_password_user_scre
 import 'package:catalogo_ja/features/auth/register_screen.dart';
 import 'package:catalogo_ja/features/admin/profile/profile_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -48,18 +47,6 @@ import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart' hide Category;
-
-/// Provider that checks if the user is disabled, manually defined to avoid build issues.
-final currentUserStatusProvider = StreamProvider<bool>((ref) {
-  final user = ref.watch(authViewModelProvider).valueOrNull;
-  if (user == null || user.email == null) return Stream.value(false);
-  final email = user.email!.trim().toLowerCase();
-  return FirebaseFirestore.instance
-      .collection('users')
-      .doc(email)
-      .snapshots()
-      .map((doc) => doc.data()?['disabled'] as bool? ?? false);
-});
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -239,7 +226,7 @@ class _MyAppState extends ConsumerState<MyApp> {
         }
 
         if (state.matchedLocation.startsWith('/admin')) {
-          final role = await _effectiveRoleForRedirect(user.email);
+          final role = ref.read(currentRoleProvider);
           if (!_canAccessAdminLocation(role, state.matchedLocation)) {
             return _defaultAdminLocationFor(role);
           }
@@ -417,10 +404,8 @@ class _MyAppState extends ConsumerState<MyApp> {
                     GoRoute(
                       path: 'users',
                       builder: (context, state) => const UserManagementScreen(),
-                      redirect: (context, state) async {
-                        final role = await _effectiveRoleForRedirect(
-                          ref.read(authViewModelProvider).valueOrNull?.email,
-                        );
+                      redirect: (context, state) {
+                        final role = ref.read(currentRoleProvider);
                         final email = ref
                             .read(authViewModelProvider)
                             .valueOrNull
@@ -435,10 +420,8 @@ class _MyAppState extends ConsumerState<MyApp> {
                           path: 'create-login',
                           builder: (context, state) =>
                               const CreateEmailPasswordUserScreen(),
-                          redirect: (context, state) async {
-                            final role = await _effectiveRoleForRedirect(
-                              ref.read(authViewModelProvider).valueOrNull?.email,
-                            );
+                          redirect: (context, state) {
+                            final role = ref.read(currentRoleProvider);
                             final email = ref
                                 .read(authViewModelProvider)
                                 .valueOrNull
@@ -482,33 +465,6 @@ class _MyAppState extends ConsumerState<MyApp> {
     if (role.canViewCatalogs) return '/admin/catalogs';
     if (role.canShare) return '/admin/share';
     return '/';
-  }
-
-  Future<UserRole> _effectiveRoleForRedirect(String? rawEmail) async {
-    final email = rawEmail?.trim().toLowerCase() ?? '';
-    if (email.isEmpty) return UserRole.viewer;
-    if (UserRole.superAdminEmails.contains(email)) return UserRole.admin;
-
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(email)
-          .get();
-      final data = doc.data() ?? {};
-      final tenantId = data['tenantId'] as String? ?? '';
-      final storeId = data['currentStoreId'] as String? ?? '';
-      final roleName = effectiveUserRoleName(
-        data,
-        tenantId: tenantId,
-        storeId: storeId,
-      );
-      return UserRole.values.firstWhere(
-        (role) => role.name == roleName,
-        orElse: () => UserRole.viewer,
-      );
-    } catch (_) {
-      return ref.read(currentRoleProvider);
-    }
   }
 
   @override
