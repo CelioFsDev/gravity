@@ -32,6 +32,7 @@ import 'package:catalogo_ja/features/admin/settings/settings_screen.dart';
 import 'package:catalogo_ja/features/admin/users/user_management_screen.dart';
 import 'package:catalogo_ja/features/admin/store/store_contact_share_screen.dart';
 import 'package:catalogo_ja/features/admin/dashboard/dashboard_screen.dart';
+import 'package:catalogo_ja/features/admin/backup/backup_screen.dart';
 import 'package:catalogo_ja/features/theme/theme_providers.dart';
 import 'package:catalogo_ja/features/public/catalog_home_page.dart';
 import 'package:catalogo_ja/features/public/product_detail_screen.dart';
@@ -438,6 +439,14 @@ class _MyAppState extends ConsumerState<MyApp> {
                 ),
               ],
             ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: '/admin/backup',
+                  builder: (context, state) => const BackupScreen(),
+                ),
+              ],
+            ),
           ],
         ),
       ],
@@ -457,6 +466,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     if (location.startsWith('/admin/profile')) return role.canViewProfile;
     if (location.startsWith('/admin/share')) return role.canShare;
     if (location.startsWith('/admin/settings')) return role.canViewSettings;
+    if (location.startsWith('/admin/backup')) return role.canViewBackup;
     return true;
   }
 

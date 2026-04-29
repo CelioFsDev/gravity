@@ -219,6 +219,8 @@ extension UserRoleGuards on UserRole {
   bool get canViewImports => this == UserRole.admin;
 
   bool get canViewSettings => this == UserRole.admin;
+
+  bool get canViewBackup => this == UserRole.admin;
 }
 
 /// Provider to check if the current user is disabled/suspended

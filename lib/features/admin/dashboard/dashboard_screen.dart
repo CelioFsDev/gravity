@@ -265,8 +265,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                     end: Alignment.bottomRight,
                                   ),
                                   isDark: isDark,
-                                  onTap: () =>
-                                      context.go('/admin/imports/backup'),
+                                  onTap: () => context.go('/admin/backup'),
                                 ),
                               ]),
                             ),

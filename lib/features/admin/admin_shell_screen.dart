@@ -76,6 +76,13 @@ class AdminShellScreen extends ConsumerWidget {
       label: 'Ajustes',
       color: AppTokens.textSecondaryDark,
     ),
+    _NavItem(
+      branchIndex: 9,
+      icon: Icons.backup_rounded,
+      iconOutlined: Icons.backup_outlined,
+      label: 'Backup',
+      color: AppTokens.accentGreen,
+    ),
   ];
 
   @override
@@ -112,6 +119,7 @@ class AdminShellScreen extends ConsumerWidget {
       '/admin/profile',
       '/admin/share',
       '/admin/settings',
+      '/admin/backup',
     ].contains(location);
 
     return LayoutBuilder(
@@ -699,6 +707,7 @@ class _NavItem {
       6 => role.canViewProfile,
       7 => role.canShare,
       8 => role.canViewSettings,
+      9 => role.canViewBackup,
       _ => false,
     };
   }

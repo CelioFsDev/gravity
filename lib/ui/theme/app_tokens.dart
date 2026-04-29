@@ -143,3 +143,76 @@ class AppTokens {
   static Color iconOnDark = Colors.white.withOpacity(0.85);
   static Color iconOnLight = textSecondary;
 }
+
+class AppMotion {
+  AppMotion._();
+
+  static const Duration instant = Duration(milliseconds: 80);
+  static const Duration fast = Duration(milliseconds: 150);
+  static const Duration medium = Duration(milliseconds: 220);
+  static const Duration slow = Duration(milliseconds: 320);
+  static const Duration slower = Duration(milliseconds: 450);
+
+  static const Duration short = fast;
+  static const Duration normal = medium;
+  static const Duration long = slow;
+
+  static const Curve standard = Curves.easeInOutCubic;
+  static const Curve easeIn = Curves.easeInCubic;
+  static const Curve easeOut = Curves.easeOutCubic;
+  static const Curve emphasized = Curves.easeOutExpo;
+  static const Curve decelerate = Curves.easeOut;
+
+  static const AnimationStyle fastStyle = AnimationStyle(
+    duration: fast,
+    reverseDuration: instant,
+    curve: easeOut,
+    reverseCurve: easeIn,
+  );
+
+  static const AnimationStyle standardStyle = AnimationStyle(
+    duration: medium,
+    reverseDuration: fast,
+    curve: standard,
+    reverseCurve: easeIn,
+  );
+
+  static const AnimationStyle sheetStyle = AnimationStyle(
+    duration: slow,
+    reverseDuration: medium,
+    curve: easeOut,
+    reverseCurve: easeIn,
+  );
+
+  static PageRouteBuilder<T> pageRoute<T>({
+    required Widget child,
+    RouteSettings? settings,
+    bool fullscreenDialog = false,
+  }) {
+    return PageRouteBuilder<T>(
+      settings: settings,
+      fullscreenDialog: fullscreenDialog,
+      transitionDuration: medium,
+      reverseTransitionDuration: fast,
+      pageBuilder: (context, animation, secondaryAnimation) => child,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        final curvedAnimation = CurvedAnimation(
+          parent: animation,
+          curve: easeOut,
+          reverseCurve: easeIn,
+        );
+
+        return FadeTransition(
+          opacity: curvedAnimation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0.04, 0),
+              end: Offset.zero,
+            ).animate(curvedAnimation),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+}
