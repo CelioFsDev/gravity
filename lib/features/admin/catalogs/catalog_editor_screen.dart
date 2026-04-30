@@ -51,7 +51,7 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
       title: widget.catalog == null
           ? 'Novo Cat\u00e1logo'
           : 'Editar Cat\u00e1logo',
-      subtitle: 'Selecione produtos e personalize o cat\u00e1logo',
+      showHeader: true,
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(48),
         child: Container(
@@ -111,28 +111,35 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          Consumer(
-            builder: (context, ref, _) {
-              final productsState = ref.watch(productsViewModelProvider);
-              return productsState.when(
-                data: (pData) => ProductsSelectionTab(
-                  selectedIds: state.catalog.productIds,
-                  onToggle: notifier.toggleProduct,
-                  onSelectMany: notifier.selectProducts,
-                  onDeselectMany: notifier.deselectProducts,
-                  allProducts: pData.allProducts,
-                  categories: pData.categories
-                      .where(
-                        (c) =>
-                            c.type == CategoryType.productType ||
-                            c.type == CategoryType.collection,
-                      )
-                      .toList(),
+          Column(
+            children: [
+              Expanded(
+                child: Consumer(
+                  builder: (context, ref, _) {
+                    final productsState = ref.watch(productsViewModelProvider);
+                    return productsState.when(
+                      data: (pData) => ProductsSelectionTab(
+                        selectedIds: state.catalog.productIds,
+                        onToggle: notifier.toggleProduct,
+                        onSelectMany: notifier.selectProducts,
+                        onDeselectMany: notifier.deselectProducts,
+                        allProducts: pData.allProducts,
+                        categories: pData.categories
+                            .where(
+                              (c) =>
+                                  c.type == CategoryType.productType ||
+                                  c.type == CategoryType.collection,
+                            )
+                            .toList(),
+                      ),
+                      error: (e, s) => Center(child: Text('Erro: $e')),
+                      loading: () =>
+                          const Center(child: CircularProgressIndicator()),
+                    );
+                  },
                 ),
-                error: (e, s) => Center(child: Text('Erro: $e')),
-                loading: () => const Center(child: CircularProgressIndicator()),
-              );
-            },
+              ),
+            ],
           ),
           _buildSettingsTab(state, notifier),
         ],
@@ -171,6 +178,41 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                   },
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildEditorIntro() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).dividerColor.withOpacity(0.6),
+          ),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.catalog == null ? 'Novo Catálogo' : 'Editar Catálogo',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'Selecione produtos e personalize o catálogo',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
       ),
     );
   }

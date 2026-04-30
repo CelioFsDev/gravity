@@ -93,8 +93,15 @@ class AppScaffold extends ConsumerWidget {
                 canOpenAdminDrawer: canOpenAdminDrawer,
                 openAdminDrawer: openAdminDrawer,
               ),
-            if (!useAppBar && !showHeader && canOpenAdminDrawer)
-              _buildMenuOnlyHeader(context, isDark, openAdminDrawer),
+            if (!useAppBar &&
+                !showHeader &&
+                (canOpenAdminDrawer || shouldShowBackButton))
+              _buildMenuOnlyHeader(
+                context,
+                isDark,
+                openAdminDrawer,
+                shouldShowBackButton: shouldShowBackButton,
+              ),
             if (bottom != null) ...[bottom!],
             Expanded(child: body),
           ],
@@ -108,19 +115,39 @@ class AppScaffold extends ConsumerWidget {
   Widget _buildMenuOnlyHeader(
     BuildContext context,
     bool isDark,
-    VoidCallback? openAdminDrawer,
-  ) {
+    VoidCallback? openAdminDrawer, {
+    required bool shouldShowBackButton,
+  }) {
     return Align(
       alignment: Alignment.centerLeft,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-        child: IconButton.filledTonal(
-          tooltip: 'Abrir menu',
-          onPressed: openAdminDrawer,
-          icon: Icon(
-            Icons.menu_rounded,
-            color: isDark ? AppTokens.vibrantCyan : AppTokens.electricBlue,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (openAdminDrawer != null) ...[
+              IconButton.filledTonal(
+                tooltip: 'Abrir menu',
+                onPressed: openAdminDrawer,
+                icon: Icon(
+                  Icons.menu_rounded,
+                  color: isDark ? AppTokens.vibrantCyan : AppTokens.electricBlue,
+                ),
+              ),
+            ],
+            if (shouldShowBackButton) ...[
+              if (openAdminDrawer != null) const SizedBox(width: 8),
+              IconButton(
+                tooltip: 'Voltar',
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  size: 20,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );

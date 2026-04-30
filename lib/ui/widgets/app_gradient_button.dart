@@ -22,6 +22,9 @@ class AppGradientButton extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isEnabled = onPressed != null && !isLoading;
     final effectiveGradient = gradient ?? AppTokens.primaryGradient;
+    final contentColor = isEnabled
+        ? Colors.white
+        : (isDark ? Colors.white54 : Colors.black54);
 
     return Container(
       width: double.infinity,
@@ -47,25 +50,25 @@ class AppGradientButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           child: Center(
             child: isLoading
-                ? const SizedBox(
+                ? SizedBox(
                     height: 20,
                     width: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      valueColor: AlwaysStoppedAnimation<Color>(contentColor),
                     ),
                   )
                 : Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (icon != null) ...[
-                        Icon(icon, size: 20, color: Colors.white),
+                        Icon(icon, size: 20, color: contentColor),
                         const SizedBox(width: 10),
                       ],
                       Text(
                         label,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: contentColor,
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -0.2,

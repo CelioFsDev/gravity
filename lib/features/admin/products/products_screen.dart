@@ -1,3 +1,4 @@
+import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/models/category.dart';
@@ -19,7 +20,7 @@ import 'package:catalogo_ja/ui/widgets/app_search_field.dart';
 import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
 import 'package:catalogo_ja/ui/widgets/app_product_list_tile.dart';
 import 'package:uuid/uuid.dart';
-import 'package:catalogo_ja/ui/motion/app_motion.dart';
+import 'package:catalogo_ja/ui/motion/app_motion.dart' hide AppMotion;
 import 'package:catalogo_ja/core/auth/user_role.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/settings_viewmodel.dart';
@@ -555,9 +556,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         if (value == 'sync_download') _startCloudDownload(context);
 
         if (value == 'bulk_edit') {
-          Navigator.of(context).push(
-            AppMotion.pageRoute(child: const ProductBulkEditScreen()),
-          );
+          Navigator.of(
+            context,
+          ).push(AppMotion.pageRoute(child: const ProductBulkEditScreen()));
         }
 
         if (value == 'export') _showExportOptions(context);
@@ -631,9 +632,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   }
 
   Future<void> _openNewProduct(BuildContext context) async {
-    final createdProduct = await Navigator.of(context).push<Product>(
-      AppMotion.pageRoute(child: const ProductFormScreen()),
-    );
+    final createdProduct = await Navigator.of(
+      context,
+    ).push<Product>(AppMotion.pageRoute(child: const ProductFormScreen()));
 
     if (!context.mounted || createdProduct == null) return;
 
@@ -860,9 +861,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   }
 
   void _openDetails(BuildContext context, Product product) {
-    Navigator.of(context).push(
-      AppMotion.pageRoute(child: ProductDetailScreen(product: product)),
-    );
+    Navigator.of(
+      context,
+    ).push(AppMotion.pageRoute(child: ProductDetailScreen(product: product)));
   }
 
   Route _buildCreatedProductRoute(Product product) {
@@ -976,9 +977,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   }
 
   void _openEdit(BuildContext context, Product product) {
-    Navigator.of(context).push(
-      AppMotion.pageRoute(child: ProductFormScreen(product: product)),
-    );
+    Navigator.of(
+      context,
+    ).push(AppMotion.pageRoute(child: ProductFormScreen(product: product)));
   }
 
   void _deleteProduct(Product product) {
@@ -1581,10 +1582,7 @@ class _SheetOption<T> {
   final T value;
   final String label;
 
-  const _SheetOption({
-    required this.value,
-    required this.label,
-  });
+  const _SheetOption({required this.value, required this.label});
 }
 
 class _ProductsListSection extends StatefulWidget {

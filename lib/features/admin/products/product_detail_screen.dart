@@ -11,7 +11,7 @@ import 'package:catalogo_ja/features/admin/products/product_form_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:catalogo_ja/core/utils/price_calculator.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
-import 'package:catalogo_ja/ui/motion/app_motion.dart';
+import 'package:catalogo_ja/ui/motion/app_motion.dart' hide AppMotion;
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/ui/widgets/section_card.dart';
 import 'package:catalogo_ja/ui/widgets/app_badge_pill.dart';
@@ -47,7 +47,10 @@ class ProductDetailScreen extends ConsumerWidget {
       useAppBar: false,
       actions: [
         IconButton(
-          icon: Icon(Icons.edit_note_rounded, color: isDark ? AppTokens.vibrantCyan : AppTokens.electricBlue),
+          icon: Icon(
+            Icons.edit_note_rounded,
+            color: isDark ? AppTokens.vibrantCyan : AppTokens.electricBlue,
+          ),
           onPressed: () {
             Navigator.of(context).push(
               AppMotion.pageRoute(
@@ -57,7 +60,10 @@ class ProductDetailScreen extends ConsumerWidget {
           },
         ),
         IconButton(
-          icon: const Icon(Icons.delete_outline_rounded, color: AppTokens.accentRed),
+          icon: const Icon(
+            Icons.delete_outline_rounded,
+            color: AppTokens.accentRed,
+          ),
           onPressed: () {
             ref
                 .read(productsViewModelProvider.notifier)
@@ -73,31 +79,35 @@ class ProductDetailScreen extends ConsumerWidget {
           children: [
             const SizedBox(height: 16),
             // Images Carousel
-            if (updatedProduct.images.isNotEmpty || updatedProduct.photos.isNotEmpty)
+            if (updatedProduct.images.isNotEmpty ||
+                updatedProduct.photos.isNotEmpty)
               SizedBox(
                 height: 340,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
-                  itemCount: updatedProduct.images.isNotEmpty 
-                      ? updatedProduct.images.length 
+                  itemCount: updatedProduct.images.isNotEmpty
+                      ? updatedProduct.images.length
                       : updatedProduct.photos.length,
                   itemBuilder: (context, index) {
-                    final img = updatedProduct.images.isNotEmpty 
+                    final img = updatedProduct.images.isNotEmpty
                         ? updatedProduct.images[index]
                         : updatedProduct.photos[index].toProductImage();
-                        
+
                     return Container(
                       margin: const EdgeInsets.only(right: 16),
                       width: 300,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
-                          color: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
+                          color: (isDark ? Colors.white : Colors.black)
+                              .withOpacity(0.05),
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+                            color: Colors.black.withOpacity(
+                              isDark ? 0.3 : 0.05,
+                            ),
                             blurRadius: 15,
                             offset: const Offset(0, 8),
                           ),
@@ -117,7 +127,11 @@ class ProductDetailScreen extends ConsumerWidget {
                   color: isDark ? AppTokens.surfaceDark : Colors.grey[100],
                   borderRadius: BorderRadius.circular(24),
                 ),
-                child: const Icon(Icons.image_not_supported_outlined, size: 48, color: Colors.grey),
+                child: const Icon(
+                  Icons.image_not_supported_outlined,
+                  size: 48,
+                  color: Colors.grey,
+                ),
               ),
 
             const SizedBox(height: 32),
@@ -143,14 +157,22 @@ class ProductDetailScreen extends ConsumerWidget {
               title: 'Informações Básicas',
               child: Column(
                 children: [
-                  _buildDetailRow(context, 'SKU', updatedProduct.sku.isEmpty ? '-' : updatedProduct.sku, isDark),
+                  _buildDetailRow(
+                    context,
+                    'SKU',
+                    updatedProduct.sku.isEmpty ? '-' : updatedProduct.sku,
+                    isDark,
+                  ),
                   const Divider(height: 24),
                   _buildDetailRow(
                     context,
                     'Categorias',
                     updatedProduct.categoryIds
                         .map((id) => categoryById[id])
-                        .where((c) => c != null && c.type == CategoryType.productType)
+                        .where(
+                          (c) =>
+                              c != null && c.type == CategoryType.productType,
+                        )
                         .map((c) => c!.safeName)
                         .join(', '),
                     isDark,
@@ -171,11 +193,13 @@ class ProductDetailScreen extends ConsumerWidget {
                         child: _buildPriceBox(
                           context,
                           'Varejo',
-                          currency.format(PriceCalculator.effectiveRetail(
-                            updatedProduct.getRetailPrice(currentStoreId),
-                            updatedProduct.promoEnabled,
-                            updatedProduct.promoPercent,
-                          )),
+                          currency.format(
+                            PriceCalculator.effectiveRetail(
+                              updatedProduct.getRetailPrice(currentStoreId),
+                              updatedProduct.promoEnabled,
+                              updatedProduct.promoPercent,
+                            ),
+                          ),
                           AppTokens.electricBlue,
                           isDark,
                         ),
@@ -185,11 +209,13 @@ class ProductDetailScreen extends ConsumerWidget {
                         child: _buildPriceBox(
                           context,
                           'Atacado',
-                          currency.format(PriceCalculator.effectiveWholesale(
-                            updatedProduct.getWholesalePrice(currentStoreId),
-                            updatedProduct.promoEnabled,
-                            updatedProduct.promoPercent,
-                          )),
+                          currency.format(
+                            PriceCalculator.effectiveWholesale(
+                              updatedProduct.getWholesalePrice(currentStoreId),
+                              updatedProduct.promoEnabled,
+                              updatedProduct.promoPercent,
+                            ),
+                          ),
                           AppTokens.softPurple,
                           isDark,
                         ),
@@ -228,10 +254,21 @@ class ProductDetailScreen extends ConsumerWidget {
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: updatedProduct.getAvailableSizes(currentStoreId).isEmpty
-                        ? [Text('-', style: TextStyle(color: isDark ? Colors.white38 : Colors.black38))]
-                        : updatedProduct.getAvailableSizes(currentStoreId)
-                              .map((s) => _buildAttributeChip(context, s, isDark))
+                    children:
+                        updatedProduct.getAvailableSizes(currentStoreId).isEmpty
+                        ? [
+                            Text(
+                              '-',
+                              style: TextStyle(
+                                color: isDark ? Colors.white38 : Colors.black38,
+                              ),
+                            ),
+                          ]
+                        : updatedProduct
+                              .getAvailableSizes(currentStoreId)
+                              .map(
+                                (s) => _buildAttributeChip(context, s, isDark),
+                              )
                               .toList(),
                   ),
                   const SizedBox(height: 24),
@@ -248,10 +285,23 @@ class ProductDetailScreen extends ConsumerWidget {
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: updatedProduct.getAvailableColors(currentStoreId).isEmpty
-                        ? [Text('-', style: TextStyle(color: isDark ? Colors.white38 : Colors.black38))]
-                        : updatedProduct.getAvailableColors(currentStoreId)
-                              .map((c) => _buildAttributeChip(context, c, isDark))
+                    children:
+                        updatedProduct
+                            .getAvailableColors(currentStoreId)
+                            .isEmpty
+                        ? [
+                            Text(
+                              '-',
+                              style: TextStyle(
+                                color: isDark ? Colors.white38 : Colors.black38,
+                              ),
+                            ),
+                          ]
+                        : updatedProduct
+                              .getAvailableColors(currentStoreId)
+                              .map(
+                                (c) => _buildAttributeChip(context, c, isDark),
+                              )
                               .toList(),
                   ),
                 ],
@@ -278,7 +328,13 @@ class ProductDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildPriceBox(BuildContext context, String label, String value, Color color, bool isDark) {
+  Widget _buildPriceBox(
+    BuildContext context,
+    String label,
+    String value,
+    Color color,
+    bool isDark,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -291,7 +347,12 @@ class ProductDetailScreen extends ConsumerWidget {
         children: [
           Text(
             label.toUpperCase(),
-            style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: color, letterSpacing: 0.5),
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w900,
+              color: color,
+              letterSpacing: 0.5,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
@@ -307,7 +368,13 @@ class ProductDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildInfoBox(BuildContext context, String label, String value, IconData icon, bool isDark) {
+  Widget _buildInfoBox(
+    BuildContext context,
+    String label,
+    String value,
+    IconData icon,
+    bool isDark,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -320,25 +387,40 @@ class ProductDetailScreen extends ConsumerWidget {
           const SizedBox(width: 12),
           Text(
             label,
-            style: TextStyle(fontSize: 13, color: isDark ? Colors.white54 : Colors.black45),
+            style: TextStyle(
+              fontSize: 13,
+              color: isDark ? Colors.white54 : Colors.black45,
+            ),
           ),
           const Spacer(),
           Text(
             value,
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: isDark ? Colors.white : Colors.black87),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDetailRow(BuildContext context, String label, String value, bool isDark) {
+  Widget _buildDetailRow(
+    BuildContext context,
+    String label,
+    String value,
+    bool isDark,
+  ) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           label,
-          style: TextStyle(color: isDark ? Colors.white54 : Colors.black54, fontSize: 14),
+          style: TextStyle(
+            color: isDark ? Colors.white54 : Colors.black54,
+            fontSize: 14,
+          ),
         ),
         Text(
           value,
@@ -358,7 +440,9 @@ class ProductDetailScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: (isDark ? Colors.white : Colors.black).withOpacity(0.05)),
+        border: Border.all(
+          color: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
+        ),
       ),
       child: Text(
         label,
@@ -373,7 +457,10 @@ class ProductDetailScreen extends ConsumerWidget {
 
   Widget _buildDetailImage(BuildContext context, ProductImage? image) {
     if (image == null || image.uri.trim().isEmpty) {
-      return _buildErrorImage(context, icon: Icons.image_not_supported_outlined);
+      return _buildErrorImage(
+        context,
+        icon: Icons.image_not_supported_outlined,
+      );
     }
 
     final cleanUri = image.uri.trim();
@@ -385,7 +472,8 @@ class ProductDetailScreen extends ConsumerWidget {
           return Image.memory(
             base64Decode(cleanUri.substring(commaIndex + 1)),
             fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => _buildErrorImage(context),
+            errorBuilder: (context, error, stackTrace) =>
+                _buildErrorImage(context),
           );
         } catch (_) {}
       }
@@ -396,19 +484,19 @@ class ProductDetailScreen extends ConsumerWidget {
         cleanUri.startsWith('https://') ||
         cleanUri.startsWith('gs://') ||
         cleanUri.startsWith('blob:')) {
-      
       return Image.network(
         cleanUri,
         fit: BoxFit.cover,
         cacheWidth: 800,
-        errorBuilder: (context, error, stackTrace) => _buildErrorImage(context, uri: cleanUri),
+        errorBuilder: (context, error, stackTrace) =>
+            _buildErrorImage(context, uri: cleanUri),
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
           return Center(
             child: CircularProgressIndicator(
               value: loadingProgress.expectedTotalBytes != null
                   ? loadingProgress.cumulativeBytesLoaded /
-                      loadingProgress.expectedTotalBytes!
+                        loadingProgress.expectedTotalBytes!
                   : null,
               strokeWidth: 2,
             ),
@@ -428,18 +516,18 @@ class ProductDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildErrorImage(BuildContext context, {IconData icon = Icons.broken_image_outlined, String? uri}) {
+  Widget _buildErrorImage(
+    BuildContext context, {
+    IconData icon = Icons.broken_image_outlined,
+    String? uri,
+  }) {
     return Container(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       alignment: Alignment.center,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            icon,
-            size: 48,
-            color: AppTokens.accentRed.withOpacity(0.5),
-          ),
+          Icon(icon, size: 48, color: AppTokens.accentRed.withOpacity(0.5)),
           if (uri != null && kDebugMode)
             Padding(
               padding: const EdgeInsets.all(8.0),

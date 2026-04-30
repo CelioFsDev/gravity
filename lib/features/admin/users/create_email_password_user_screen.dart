@@ -181,6 +181,8 @@ class _CreateEmailPasswordUserScreenState
     final selectedRole = assignableRoles.contains(_selectedRole)
         ? _selectedRole
         : UserRole.seller;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final disabledContentColor = isDark ? Colors.white54 : Colors.black54;
 
     return AppScaffold(
       title: 'Novo Acesso',
@@ -312,12 +314,12 @@ class _CreateEmailPasswordUserScreenState
                     ),
                   ),
                   icon: _isSubmitting
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white,
+                            color: disabledContentColor,
                           ),
                         )
                       : const Icon(Icons.person_add_alt_1_outlined),

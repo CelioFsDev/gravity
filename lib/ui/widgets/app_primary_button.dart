@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:catalogo_ja/ui/motion/app_motion.dart';
-import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart' hide AppMotion;
 
 class AppPrimaryButton extends StatelessWidget {
   final String label;
@@ -18,6 +18,9 @@ class AppPrimaryButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isEnabled = onPressed != null;
+    final contentColor = isEnabled
+        ? Colors.white
+        : (isDark ? Colors.white54 : Colors.black54);
 
     return AppPressableScale(
       child: AnimatedContainer(
@@ -68,7 +71,7 @@ class AppPrimaryButton extends StatelessWidget {
                   mainAxisSize: MainAxisSize.max,
                   children: [
                     if (icon != null) ...[
-                      Icon(icon, size: 20, color: Colors.white),
+                      Icon(icon, size: 20, color: contentColor),
                       const SizedBox(width: 10),
                     ],
                     Flexible(
@@ -76,8 +79,8 @@ class AppPrimaryButton extends StatelessWidget {
                         label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: contentColor,
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -0.2,

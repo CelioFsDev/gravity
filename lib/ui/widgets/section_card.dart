@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:catalogo_ja/ui/motion/app_motion.dart';
-import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart' hide AppMotion;
 
 class SectionCard extends StatelessWidget {
   final String? title;

@@ -226,6 +226,8 @@ class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppTokens.electricBlue,
           foregroundColor: Colors.white,
+          disabledBackgroundColor: Colors.black12,
+          disabledForegroundColor: Colors.black54,
           elevation: 0,
           shadowColor: Colors.transparent,
           minimumSize: const Size(0, 52),
@@ -243,6 +245,8 @@ class AppTheme {
         style: FilledButton.styleFrom(
           backgroundColor: AppTokens.electricBlue,
           foregroundColor: Colors.white,
+          disabledBackgroundColor: Colors.black12,
+          disabledForegroundColor: Colors.black54,
           minimumSize: const Size(0, 52),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppTokens.radiusMd),
@@ -512,6 +516,8 @@ class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppTokens.electricBlue,
           foregroundColor: Colors.white,
+          disabledBackgroundColor: Colors.white10,
+          disabledForegroundColor: Colors.white54,
           elevation: 0,
           shadowColor: Colors.transparent,
           minimumSize: const Size(0, 52),
@@ -529,6 +535,8 @@ class AppTheme {
         style: FilledButton.styleFrom(
           backgroundColor: AppTokens.electricBlue,
           foregroundColor: Colors.white,
+          disabledBackgroundColor: Colors.white10,
+          disabledForegroundColor: Colors.white54,
           minimumSize: const Size(0, 52),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppTokens.radiusMd),

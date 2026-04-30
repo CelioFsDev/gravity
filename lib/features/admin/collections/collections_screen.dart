@@ -35,42 +35,17 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
     final role = ref.watch(currentRoleProvider);
 
     return AppScaffold(
-      showHeader: false,
+      showHeader: true,
       title: 'Coleções',
-      subtitle: 'Gerencie suas coleções e catálogos',
       actions: [
         if (role.canManageRegistrations)
-          FilledButton.icon(
-            label: const Text('Nova Coleção'),
-            icon: const Icon(Icons.add_rounded),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size(0, 40),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-            ),
-            onPressed: _openNewCollection,
+          IconButton(
+            tooltip: 'Limpar caches',
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: () => ref.refresh(categoriesViewModelProvider),
           ),
       ],
-      floatingActionButton: role.canManageRegistrations
-          ? Padding(
-              padding: const EdgeInsets.only(bottom: 80),
-              child: FloatingActionButton.extended(
-                onPressed: _openNewCollection,
-                label: const Text(
-                  'NOVA COLEÇÃO',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
-                  ),
-                ),
-                icon: const Icon(Icons.add_rounded),
-                backgroundColor: AppTokens.softPurple,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-            )
-          : null,
+      floatingActionButton: null,
       body: categoriesState.when(
         data: (state) {
           final collections = state.categories
@@ -99,10 +74,43 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
           }
 
           return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(24, 8, 24, 0),
+                child: Text(
+                  'Gerencie suas coleções e catálogos',
+                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                ),
+              ),
+              if (role.canManageRegistrations)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _openNewCollection,
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text(
+                        'NOVA COLEÇÃO',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppTokens.space24,
+                  vertical: 12,
                 ),
                 child: AppSearchField(
                   controller: _searchController,
@@ -114,7 +122,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                   },
                 ),
               ),
-              const SizedBox(height: AppTokens.space24),
+              const SizedBox(height: 8),
               Expanded(
                 child: ListView.separated(
                   padding: const EdgeInsets.fromLTRB(
