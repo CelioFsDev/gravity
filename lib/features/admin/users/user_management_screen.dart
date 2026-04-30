@@ -491,11 +491,7 @@ class _UserRow extends ConsumerWidget {
         ref.read(authViewModelProvider).valueOrNull?.email?.trim().toLowerCase();
     final canAssignAdmin = UserRole.superAdminEmails.contains(currentEmail);
     final assignableRoles = UserRole.values
-        .where(
-          (role) =>
-              role != UserRole.viewer &&
-              (canAssignAdmin || role != UserRole.admin),
-        )
+        .where((role) => canAssignAdmin || role != UserRole.admin)
         .toList();
     if (!assignableRoles.contains(selectedRole)) {
       selectedRole = assignableRoles.contains(UserRole.operator)
@@ -536,16 +532,24 @@ class _UserRow extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              ...assignableRoles.map(
-                (r) => RadioListTile<UserRole>(
-                  title: Text(r.label),
-                  value: r,
-                  groupValue: selectedRole,
-                  contentPadding: EdgeInsets.zero,
-                  onChanged: (val) {
-                    if (val != null) setState(() => selectedRole = val);
-                  },
+              DropdownButtonFormField<UserRole>(
+                initialValue: selectedRole,
+                decoration: InputDecoration(
+                  labelText: 'Perfil de Acesso',
+                  prefixIcon: const Icon(Icons.admin_panel_settings_outlined),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
+                items: assignableRoles.map((role) {
+                  return DropdownMenuItem(
+                    value: role,
+                    child: Text(role.label),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) setState(() => selectedRole = value);
+                },
               ),
             ],
           ),

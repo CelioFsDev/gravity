@@ -42,9 +42,35 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
         if (role.canManageRegistrations)
           FilledButton.icon(
             label: const Text('Nova Coleção'),
-            onPressed: () {},
+            icon: const Icon(Icons.add_rounded),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(0, 40),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+            ),
+            onPressed: _openNewCollection,
           ),
       ],
+      floatingActionButton: role.canManageRegistrations
+          ? Padding(
+              padding: const EdgeInsets.only(bottom: 80),
+              child: FloatingActionButton.extended(
+                onPressed: _openNewCollection,
+                label: const Text(
+                  'NOVA COLEÇÃO',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
+                ),
+                icon: const Icon(Icons.add_rounded),
+                backgroundColor: AppTokens.softPurple,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            )
+          : null,
       body: categoriesState.when(
         data: (state) {
           // Filter collections
@@ -139,6 +165,10 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
       ),
     );
+  }
+
+  void _openNewCollection() {
+    context.push('/admin/collections/new');
   }
 
   Future<void> _confirmDelete(BuildContext context, String id) async {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:catalogo_ja/features/admin/admin_shell_scope.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/core/providers/global_loading_provider.dart';
 import 'package:catalogo_ja/features/theme/theme_providers.dart';
@@ -38,6 +39,18 @@ class AppScaffold extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final canPop = Navigator.of(context).canPop();
     final shouldShowBackButton = showBackButton ?? canPop;
+    final adminShellScope = AdminShellScope.maybeOf(context);
+    final canOpenAdminDrawer = adminShellScope?.canOpenDrawer ?? false;
+    final openAdminDrawer = adminShellScope?.openDrawer;
+    final appBarActions = [
+      if (canOpenAdminDrawer && shouldShowBackButton)
+        IconButton(
+          tooltip: 'Voltar',
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+      ...?actions,
+    ];
 
     final _ = ref.watch(globalLoadingProvider);
     final activeTask = ref
@@ -48,9 +61,17 @@ class AppScaffold extends ConsumerWidget {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: (useAppBar && hasTitle)
           ? AppBar(
-              automaticallyImplyLeading: shouldShowBackButton,
+              automaticallyImplyLeading:
+                  !canOpenAdminDrawer && shouldShowBackButton,
+              leading: canOpenAdminDrawer
+                  ? IconButton(
+                      tooltip: 'Abrir menu',
+                      icon: const Icon(Icons.menu_rounded),
+                      onPressed: openAdminDrawer,
+                    )
+                  : null,
               title: Text(title!),
-              actions: actions,
+              actions: appBarActions,
               backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               elevation: 0,
             )
@@ -61,7 +82,16 @@ class AppScaffold extends ConsumerWidget {
           children: [
             if (activeTask != null) _buildGlobalProgress(context, activeTask),
             if (!useAppBar && showHeader && hasTitle)
-              _buildSimpleHeader(context, ref, isDark, shouldShowBackButton),
+              _buildSimpleHeader(
+                context,
+                ref,
+                isDark,
+                shouldShowBackButton,
+                canOpenAdminDrawer: canOpenAdminDrawer,
+                openAdminDrawer: openAdminDrawer,
+              ),
+            if (!useAppBar && !showHeader && canOpenAdminDrawer)
+              _buildMenuOnlyHeader(context, isDark, openAdminDrawer),
             if (bottom != null) ...[bottom!],
             Expanded(child: body),
           ],
@@ -72,12 +102,35 @@ class AppScaffold extends ConsumerWidget {
     );
   }
 
+  Widget _buildMenuOnlyHeader(
+    BuildContext context,
+    bool isDark,
+    VoidCallback? openAdminDrawer,
+  ) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+        child: IconButton.filledTonal(
+          tooltip: 'Abrir menu',
+          onPressed: openAdminDrawer,
+          icon: Icon(
+            Icons.menu_rounded,
+            color: isDark ? AppTokens.vibrantCyan : AppTokens.electricBlue,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildSimpleHeader(
     BuildContext context,
     WidgetRef ref,
     bool isDark,
-    bool shouldShowBackButton,
-  ) {
+    bool shouldShowBackButton, {
+    required bool canOpenAdminDrawer,
+    required VoidCallback? openAdminDrawer,
+  }) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       decoration: BoxDecoration(
@@ -91,6 +144,18 @@ class AppScaffold extends ConsumerWidget {
       ),
       child: Row(
         children: [
+          if (canOpenAdminDrawer) ...[
+            IconButton(
+              tooltip: 'Abrir menu',
+              onPressed: openAdminDrawer,
+              icon: Icon(
+                Icons.menu_rounded,
+                size: 24,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
           if (shouldShowBackButton) ...[
             IconButton(
               onPressed: () => Navigator.of(context).maybePop(),

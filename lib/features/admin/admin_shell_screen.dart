@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:catalogo_ja/features/admin/admin_shell_scope.dart';
 import 'package:catalogo_ja/features/theme/theme_providers.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
@@ -11,6 +12,9 @@ class AdminShellScreen extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
 
   const AdminShellScreen({super.key, required this.navigationShell});
+
+  static final GlobalKey<ScaffoldState> _scaffoldKey =
+      GlobalKey<ScaffoldState>();
 
   static final _destinations = [
     _NavItem(
@@ -135,6 +139,7 @@ class AdminShellScreen extends ConsumerWidget {
         final bottomNavIndices = [0, 1, 4, 7, 8];
 
         return Scaffold(
+          key: _scaffoldKey,
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           drawer: isWide
               ? null
@@ -158,8 +163,11 @@ class AdminShellScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
-          body: isWide
-              ? Row(
+          body: AdminShellScope(
+            canOpenDrawer: !isWide,
+            openDrawer: () => _scaffoldKey.currentState?.openDrawer(),
+            child: isWide
+                ? Row(
                   children: [
                     _Sidebar(
                       currentIndex: navigationShell.currentIndex,
@@ -183,8 +191,8 @@ class AdminShellScreen extends ConsumerWidget {
                       ),
                     ),
                   ],
-                )
-              : Column(
+                  )
+                : Column(
                   children: [
                     Expanded(
                       child: Stack(
@@ -231,7 +239,8 @@ class AdminShellScreen extends ConsumerWidget {
                       ),
                     ),
                   ],
-                ),
+                  ),
+          ),
         );
       },
     );

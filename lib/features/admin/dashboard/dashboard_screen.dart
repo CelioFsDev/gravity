@@ -7,6 +7,7 @@ import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/data/repositories/categories_repository.dart';
 import 'package:catalogo_ja/data/repositories/catalogs_repository.dart';
+import 'package:catalogo_ja/data/repositories/user_repository.dart';
 import 'package:catalogo_ja/viewmodels/global_sync_viewmodel.dart';
 import 'package:catalogo_ja/ui/widgets/sync_progress_overlay.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
@@ -23,6 +24,16 @@ class _DashboardStats {
   final int categoryCount;
   final int catalogCount;
 }
+
+final _dashboardUserProfileProvider =
+    StreamProvider.autoDispose.family<Map<String, dynamic>?, String>((
+      ref,
+      email,
+    ) {
+      return ref.watch(userRepositoryProvider).getUserStream(email);
+    });
+
+const bool _showStockUpdatePdfShortcut = false;
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -123,6 +134,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     return 'Boa noite';
   }
 
+  String _firstNameFrom(String? name) {
+    final trimmedName = name?.trim() ?? '';
+    if (trimmedName.isEmpty) return 'Usuário';
+    return trimmedName.split(RegExp(r'\s+')).first;
+  }
+
   Future<void> _markInitialDone() async {
     await ref
         .read(settingsViewModelProvider.notifier)
@@ -137,8 +154,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final needsSetup = !settings.isInitialSyncCompleted;
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final firstName = authUser?.displayName?.split(' ').first ?? 'Usuário';
-
+    final email = authUser?.email?.trim().toLowerCase() ?? '';
+    final profile = email.isEmpty
+        ? null
+        : ref.watch(_dashboardUserProfileProvider(email)).valueOrNull;
+    final profileName = profile?['displayName'] as String?;
+    final profileFirstName = _firstNameFrom(
+      profileName?.trim().isNotEmpty == true
+          ? profileName
+          : authUser?.displayName,
+    );
     return Stack(
       children: [
         AppScaffold(
@@ -163,7 +188,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                               opacity: _greetingFade,
                               child: _WelcomeBanner(
                                 greeting: _greeting(),
-                                firstName: firstName,
+                                firstName: profileFirstName,
                                 isDark: isDark,
                               ),
                             ),
@@ -238,14 +263,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                   isDark: isDark,
                                   onTap: () => context.go('/admin/share'),
                                 ),
-                                _QuickActionCard(
-                                  label: 'Importar PDF',
-                                  icon: Icons.picture_as_pdf_rounded,
-                                  gradient: AppTokens.warmGradient,
-                                  isDark: isDark,
-                                  onTap: () => context.go(
-                                      '/admin/imports/stock-update'),
-                                ),
+                                if (_showStockUpdatePdfShortcut)
+                                  _QuickActionCard(
+                                    label: 'Importar PDF',
+                                    icon: Icons.picture_as_pdf_rounded,
+                                    gradient: AppTokens.warmGradient,
+                                    isDark: isDark,
+                                    onTap: () => context.go(
+                                      '/admin/imports/stock-update',
+                                    ),
+                                  ),
                                 _QuickActionCard(
                                   label: 'Sincronizar',
                                   icon: Icons.cloud_sync_rounded,

@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 
+const bool _showStockUpdatePdf = false;
+
 class ImportMenuScreen extends StatelessWidget {
   const ImportMenuScreen({super.key});
 
@@ -13,14 +15,17 @@ class ImportMenuScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(AppTokens.space24),
         children: [
-          _buildItem(
-            context,
-            icon: Icons.inventory_2_outlined,
-            title: 'Atualizar Estoque (PDF)',
-            subtitle: 'Colar texto de relat\u00f3rio para atualizar quantidades.',
-            route: '/admin/imports/stock-update',
-          ),
-          const SizedBox(height: AppTokens.space16),
+          if (_showStockUpdatePdf) ...[
+            _buildItem(
+              context,
+              icon: Icons.inventory_2_outlined,
+              title: 'Atualizar Estoque (PDF)',
+              subtitle:
+                  'Colar texto de relat\u00f3rio para atualizar quantidades.',
+              route: '/admin/imports/stock-update',
+            ),
+            const SizedBox(height: AppTokens.space16),
+          ],
           _buildItem(
             context,
             icon: Icons.cloud_download_outlined,
