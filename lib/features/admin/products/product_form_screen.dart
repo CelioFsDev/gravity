@@ -305,11 +305,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       );
       newOverrides[_currentStoreId!] = override;
 
-      if (widget.product != null) {
-        product = widget.product!.copyWith(storeOverrides: newOverrides);
-      } else {
-        product = product.copyWith(storeOverrides: newOverrides);
-      }
+      product = product.copyWith(storeOverrides: newOverrides);
     }
 
     try {
@@ -858,20 +854,15 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     }
   }
 
-
-
-
-
-
   List<ProductImage> _imagesFromPhotos(List<ProductPhoto> photos) {
     return photos.map((p) => p.toProductImage()).toList();
   }
-
 
   List<ProductPhoto> _normalizePhotosForSave() {
     if (_photos.isEmpty) return const [];
     return _prioritizePrimaryPhoto(_dedupePhotosByPath(_photos));
   }
+
   int _mainIndexFromPhotos(List<ProductPhoto> photos) {
     final typePrimaryIndex = photos.indexWhere((p) => p.photoType == 'P');
     if (typePrimaryIndex >= 0) return typePrimaryIndex;
@@ -1517,10 +1508,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
             color: isDark ? AppTokens.surfaceDark : Colors.white,
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.3),
-                blurRadius: 20,
-              ),
+              BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 20),
             ],
           ),
           child: Column(
@@ -1549,8 +1537,11 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                 borderRadius: BorderRadius.circular(10),
                 child: LinearProgressIndicator(
                   value: progress.progress,
-                  backgroundColor: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
-                  valueColor: const AlwaysStoppedAnimation(AppTokens.electricBlue),
+                  backgroundColor: (isDark ? Colors.white : Colors.black)
+                      .withOpacity(0.05),
+                  valueColor: const AlwaysStoppedAnimation(
+                    AppTokens.electricBlue,
+                  ),
                   minHeight: 8,
                 ),
               ),
@@ -1639,7 +1630,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
               Center(
                 child: AppPrimaryButton(
                   onPressed: _addPrimaryPhoto,
-                  icon: photoP == null ? Icons.add_a_photo_rounded : Icons.refresh_rounded,
+                  icon: photoP == null
+                      ? Icons.add_a_photo_rounded
+                      : Icons.refresh_rounded,
                   label: photoP == null ? 'ADICIONAR FOTO' : 'TROCAR FOTO',
                 ),
               ),
@@ -1770,13 +1763,21 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: isDark 
-              ? [Colors.white.withOpacity(0.05), Colors.white.withOpacity(0.02)]
-              : [AppTokens.electricBlue.withOpacity(0.05), AppTokens.electricBlue.withOpacity(0.01)],
+            colors: isDark
+                ? [
+                    Colors.white.withOpacity(0.05),
+                    Colors.white.withOpacity(0.02),
+                  ]
+                : [
+                    AppTokens.electricBlue.withOpacity(0.05),
+                    AppTokens.electricBlue.withOpacity(0.01),
+                  ],
           ),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isDark ? Colors.white10 : AppTokens.electricBlue.withOpacity(0.1),
+            color: isDark
+                ? Colors.white10
+                : AppTokens.electricBlue.withOpacity(0.1),
           ),
         ),
         child: Column(
@@ -1786,10 +1787,12 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: isDark ? AppTokens.vibrantCyan.withOpacity(0.1) : AppTokens.electricBlue.withOpacity(0.1),
+                color: isDark
+                    ? AppTokens.vibrantCyan.withOpacity(0.1)
+                    : AppTokens.electricBlue.withOpacity(0.1),
               ),
               child: Icon(
-                Icons.add_a_photo_rounded, 
+                Icons.add_a_photo_rounded,
                 color: isDark ? AppTokens.vibrantCyan : AppTokens.electricBlue,
                 size: 20,
               ),
@@ -1865,25 +1868,39 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           maxLines: maxLines,
           decoration: InputDecoration(
             hintText: 'Digite $label...',
-            hintStyle: TextStyle(color: isDark ? Colors.white24 : Colors.black26, fontSize: 14),
+            hintStyle: TextStyle(
+              color: isDark ? Colors.white24 : Colors.black26,
+              fontSize: 14,
+            ),
             filled: true,
             fillColor: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide.none,
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.black12),
+              borderSide: BorderSide(
+                color: isDark ? Colors.white10 : Colors.black12,
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: AppTokens.electricBlue, width: 2),
+              borderSide: const BorderSide(
+                color: AppTokens.electricBlue,
+                width: 2,
+              ),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: AppTokens.accentRed, width: 1),
+              borderSide: const BorderSide(
+                color: AppTokens.accentRed,
+                width: 1,
+              ),
             ),
           ),
           style: TextStyle(

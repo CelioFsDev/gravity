@@ -24,9 +24,29 @@ class HiveCategoriesRepository implements CategoriesRepositoryContract {
   final Box<Product> _productsBox;
   final String? Function() _getTenantId;
 
-  HiveCategoriesRepository(this._categoriesBox, this._productsBox, this._getTenantId);
+  HiveCategoriesRepository(
+    this._categoriesBox,
+    this._productsBox,
+    this._getTenantId,
+  );
 
   Box<Category> get box => _categoriesBox;
+
+  Future<void> _migrateMissingTenantIds() async {
+    final tenantId = _getTenantId();
+    if (tenantId == null || tenantId.isEmpty) return;
+
+    final updates = <String, Category>{};
+    for (final category in _categoriesBox.values) {
+      if ((category.tenantId ?? '').isEmpty) {
+        updates[category.id] = category.copyWith(tenantId: tenantId);
+      }
+    }
+
+    if (updates.isNotEmpty) {
+      await _categoriesBox.putAll(updates);
+    }
+  }
 
   List<Category> _filter(Iterable<Category> items) {
     final tenantId = _getTenantId();
@@ -46,7 +66,10 @@ class HiveCategoriesRepository implements CategoriesRepositoryContract {
   }
 
   @override
-  Future<List<Category>> getCategories() async => _filter(_categoriesBox.values);
+  Future<List<Category>> getCategories() async {
+    await _migrateMissingTenantIds();
+    return _filter(_categoriesBox.values);
+  }
 
   @override
   Future<void> addCategory(Category category) async {
@@ -122,8 +145,8 @@ CategoriesRepositoryContract categoriesRepository(CategoriesRepositoryRef ref) {
   final productsBox = Hive.box<Product>('products');
 
   return HiveCategoriesRepository(
-    categoriesBox, 
-    productsBox, 
+    categoriesBox,
+    productsBox,
     () => ref.read(currentTenantProvider).valueOrNull?.id,
   );
 }

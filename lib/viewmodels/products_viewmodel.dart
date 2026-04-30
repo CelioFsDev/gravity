@@ -1,10 +1,11 @@
-import 'package:catalogo_ja/data/repositories/tenant_repository.dart';
-import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
-import 'package:catalogo_ja/data/repositories/firestore_products_repository.dart';
 import 'package:catalogo_ja/core/sync/providers/sync_providers.dart';
+import 'package:catalogo_ja/data/repositories/settings_repository.dart';
+import 'package:catalogo_ja/data/repositories/tenant_repository.dart';
+import 'package:catalogo_ja/data/repositories/firestore_products_repository.dart';
 import 'package:catalogo_ja/data/repositories/categories_repository.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
+import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:catalogo_ja/core/services/photo_classification_service.dart';
 import 'package:catalogo_ja/models/product.dart';
@@ -20,7 +21,6 @@ import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 import 'dart:async';
 
 part 'products_viewmodel.g.dart';
@@ -183,7 +183,7 @@ class ProductsViewModel extends _$ProductsViewModel {
         await ref.watch(currentTenantProvider.future);
       }
 
-      final productRepository = ref.watch(productsRepositoryProvider);
+      final productRepository = ref.watch(syncProductsRepositoryProvider);
       final categoryRepository = ref.watch(categoriesRepositoryProvider);
       final products = await productRepository.getProducts();
       final categories = await categoryRepository.getCategories();
@@ -415,8 +415,8 @@ class ProductsViewModel extends _$ProductsViewModel {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       // 🏠 Local-First: Salva apenas localmente (Hive).
-      final localRepository = ref.read(productsRepositoryProvider);
-      await localRepository.addProduct(product);
+      final repository = ref.read(syncProductsRepositoryProvider);
+      await repository.addProduct(product);
 
       _notifyChanges();
       ref
@@ -434,8 +434,8 @@ class ProductsViewModel extends _$ProductsViewModel {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       // 🏠 Local-First: Atualiza apenas o Hive.
-      final localRepository = ref.read(productsRepositoryProvider);
-      await localRepository.updateProduct(product);
+      final repository = ref.read(syncProductsRepositoryProvider);
+      await repository.updateProduct(product);
 
       _notifyChanges();
       ref
@@ -465,7 +465,9 @@ class ProductsViewModel extends _$ProductsViewModel {
       }
 
       _notifyChanges();
-      ref.read(appLoggerProvider.notifier).log(
+      ref
+          .read(appLoggerProvider.notifier)
+          .log(
             AppEvent.productUpdated,
             parameters: {'bulkCount': products.length},
           );
@@ -482,27 +484,22 @@ class ProductsViewModel extends _$ProductsViewModel {
       // 1. Primeiro sincroniza Categorias/Coleções (importante para integridade)
       final categoriesNotifier = ref.read(categoriesViewModelProvider.notifier);
       await categoriesNotifier.syncAllToCloud();
-      
+
       // 2. Depois sincroniza Produtos
       final repository = ref.read(syncProductsRepositoryProvider);
-      
+
       if (repository is FirestoreProductsRepository) {
-        final queueRepo = ref.read(syncQueueRepositoryProvider);
-        final count = queueRepo
-            .getPendingOrErrorItems()
-            .where((item) => item.entityType == 'product')
-            .length;
-        progressNotifier.updateProgress(
-          0.5,
-          'Sincronizando produtos pendentes...',
+        final count = await repository.syncAllPending(
+          onProgress: (p, m) => progressNotifier.updateProgress(p, m),
         );
-        await ref.read(syncWorkerProvider).processQueue();
-        progressNotifier.stopSync(message: 'Sincronização concluída: $count produtos atualizados.');
+        progressNotifier.stopSync(
+          message: 'Sincronização concluída: $count produtos atualizados.',
+        );
         await refresh();
         _notifyChanges();
         return count;
       }
-      
+
       return 0;
     } catch (e) {
       progressNotifier.stopSync(message: 'Erro na sincronização: $e');
@@ -517,14 +514,6 @@ class ProductsViewModel extends _$ProductsViewModel {
     progressNotifier.startSync('Buscando produtos na nuvem...');
 
     try {
-      final settings = ref.read(settingsRepositoryProvider).getSettings();
-      if (settings.localOnlyMode) {
-        progressNotifier.stopSync(
-          message: 'Modo somente local ativo. Download da nuvem bloqueado.',
-        );
-        return 0;
-      }
-
       final tenant = await ref.read(currentTenantProvider.future);
       String? tenantId = tenant?.id;
 
@@ -548,10 +537,12 @@ class ProductsViewModel extends _$ProductsViewModel {
 
       final localRepo =
           ref.read(productsRepositoryProvider) as HiveProductsRepository;
+      final storageService = ref.read(saasPhotoStorageProvider);
       final firestoreRepo = FirestoreProductsRepository(
         localRepo,
-        SaaSPhotoStorageService(),
+        storageService,
         tenantId,
+        ref.read(syncQueueRepositoryProvider),
       );
 
       // 2. Busca inicial
@@ -562,14 +553,15 @@ class ProductsViewModel extends _$ProductsViewModel {
         final settings = ref.read(settingsRepositoryProvider).getSettings();
         if (!settings.isInitialSyncCompleted) {
           progressNotifier.stopSync(
-            message: 'Carga inicial pendente. Use a opção de importar backup via WinRAR (ZIP).',
+            message:
+                'Carga inicial pendente. Use a opção de importar backup via WinRAR (ZIP).',
           );
           return 0; // Abort download to save Firebase reads
         }
       }
 
       // 4. Busca na Nuvem (apenas novidades)
-      print('Buscando produtos na nuvem...');
+      debugPrint('Buscando produtos na nuvem...');
       final localMap = {for (var p in currentLocalProducts) p.id: p};
       DateTime? mostRecentLocal;
       if (currentLocalProducts.isNotEmpty) {
@@ -583,9 +575,7 @@ class ProductsViewModel extends _$ProductsViewModel {
       );
 
       if (cloudProducts.isEmpty) {
-        progressNotifier.stopSync(
-          message: 'Tudo atualizado!',
-        );
+        progressNotifier.stopSync(message: 'Tudo atualizado!');
         return 0;
       }
 
@@ -596,19 +586,23 @@ class ProductsViewModel extends _$ProductsViewModel {
           (i + 1) / cloudProducts.length,
           'Baixando ${i + 1}/${cloudProducts.length}: ${p.name}',
         );
-        
+
         final localProduct = localMap[p.id];
         // Se já existe localmente e não é mais novo que o local, ignora
-        if (localProduct != null && !p.updatedAt.isAfter(localProduct.updatedAt)) {
+        if (localProduct != null &&
+            !p.updatedAt.isAfter(localProduct.updatedAt)) {
           continue;
         }
 
         // Se o local está pendente de upload, evitamos sobreescrever sem aviso (simples merge for cloud)
-        if (localProduct != null && localProduct.syncStatus == SyncStatus.pendingUpdate) {
-           // Em caso de conflito, poderíamos marcar como SyncStatus.conflict
-           await localRepo.addProduct(p.copyWith(syncStatus: SyncStatus.conflict));
+        if (localProduct != null &&
+            localProduct.syncStatus == SyncStatus.pendingUpdate) {
+          // Em caso de conflito, poderíamos marcar como SyncStatus.conflict
+          await localRepo.addProduct(
+            p.copyWith(syncStatus: SyncStatus.conflict),
+          );
         } else {
-           await localRepo.addProduct(p.copyWith(syncStatus: SyncStatus.synced));
+          await localRepo.addProduct(p.copyWith(syncStatus: SyncStatus.synced));
         }
         updateCount++;
       }
@@ -638,8 +632,8 @@ class ProductsViewModel extends _$ProductsViewModel {
       final repository = ref.read(syncProductsRepositoryProvider);
       // 🔥 Melhoria SaaS: busca local de alta velocidade primeiro
       final localRepo = ref.read(productsRepositoryProvider);
-      final products = await localRepo.getProducts(); 
-      
+      final products = await localRepo.getProducts();
+
       final productsToUpdate = <Product>[];
 
       for (final product in products) {
@@ -673,7 +667,7 @@ class ProductsViewModel extends _$ProductsViewModel {
         } else {
           await localRepo.updateProductsBulk(productsToUpdate);
         }
-        
+
         await refresh();
         _notifyChanges();
       }
@@ -943,7 +937,7 @@ class ProductsViewModel extends _$ProductsViewModel {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       try {
-        final repository = ref.read(productsRepositoryProvider);
+        final repository = ref.read(syncProductsRepositoryProvider);
         final categoriesRepository = ref.read(categoriesRepositoryProvider);
         final products = await repository.getProducts();
         final categories = await categoriesRepository.getCategories();

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/core/providers/global_loading_provider.dart';
 import 'package:catalogo_ja/features/theme/theme_providers.dart';
@@ -17,7 +16,6 @@ class AppScaffold extends ConsumerWidget {
   final bool useAppBar;
   final Widget? bottom;
   final bool? showBackButton;
-  final VoidCallback? onMenuPressed;
 
   const AppScaffold({
     super.key,
@@ -32,24 +30,19 @@ class AppScaffold extends ConsumerWidget {
     this.useAppBar = false,
     this.bottom,
     this.showBackButton,
-    this.onMenuPressed,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final hasTitle = title != null;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final canPop = context.canPop();
+    final canPop = Navigator.of(context).canPop();
     final shouldShowBackButton = showBackButton ?? canPop;
-    
-    final activeTask = ref.watch(
-      globalLoadingProvider.select((tasks) {
-        for (final task in tasks.values) {
-          if (!task.isDone) return task;
-        }
-        return null;
-      }),
-    );
+
+    final _ = ref.watch(globalLoadingProvider);
+    final activeTask = ref
+        .watch(globalLoadingProvider.notifier)
+        .mainActiveTask();
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -68,12 +61,7 @@ class AppScaffold extends ConsumerWidget {
           children: [
             if (activeTask != null) _buildGlobalProgress(context, activeTask),
             if (!useAppBar && showHeader && hasTitle)
-              _buildSimpleHeader(
-                context,
-                ref,
-                isDark,
-                shouldShowBackButton,
-              ),
+              _buildSimpleHeader(context, ref, isDark, shouldShowBackButton),
             if (bottom != null) ...[bottom!],
             Expanded(child: body),
           ],
@@ -105,14 +93,12 @@ class AppScaffold extends ConsumerWidget {
         children: [
           if (shouldShowBackButton) ...[
             IconButton(
-              onPressed: () => context.pop(),
-              icon: Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: isDark ? Colors.white : Colors.black87),
-            ),
-            const SizedBox(width: 8),
-          ] else if (onMenuPressed != null || _hasParentDrawer(context)) ...[
-            IconButton(
-              onPressed: onMenuPressed ?? () => Scaffold.of(context).openDrawer(),
-              icon: Icon(Icons.menu_rounded, size: 24, color: isDark ? Colors.white : Colors.black87),
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: Icon(
+                Icons.arrow_back_ios_new_rounded,
+                size: 20,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
             ),
             const SizedBox(width: 8),
           ],
@@ -150,7 +136,7 @@ class AppScaffold extends ConsumerWidget {
               size: 20,
             ),
             onPressed: () {
-              context.go('/admin/profile');
+              Navigator.of(context).pushNamed('/admin/profile');
             },
           ),
           const SizedBox(width: 8),
@@ -161,12 +147,13 @@ class AppScaffold extends ConsumerWidget {
               size: 20,
             ),
             onPressed: () {
-              ref.read(themeModeProvider.notifier).update(
-                (state) =>
-                    state == ThemeMode.dark
+              ref
+                  .read(themeModeProvider.notifier)
+                  .update(
+                    (state) => state == ThemeMode.dark
                         ? ThemeMode.light
                         : ThemeMode.dark,
-              );
+                  );
             },
           ),
         ],
@@ -174,25 +161,14 @@ class AppScaffold extends ConsumerWidget {
     );
   }
 
-  bool _hasParentDrawer(BuildContext context) {
-    try {
-      return Scaffold.maybeOf(context)?.hasDrawer ?? false;
-    } catch (_) {
-      return false;
-    }
-  }
-
   Widget _buildGlobalProgress(BuildContext context, Object activeTask) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceVariant,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         border: Border(
-          bottom: BorderSide(
-            color: Theme.of(context).dividerColor,
-            width: 1,
-          ),
+          bottom: BorderSide(color: Theme.of(context).dividerColor, width: 1),
         ),
       ),
       child: Column(

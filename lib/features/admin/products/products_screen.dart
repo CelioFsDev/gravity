@@ -21,6 +21,7 @@ import 'package:catalogo_ja/ui/widgets/app_product_list_tile.dart';
 import 'package:uuid/uuid.dart';
 import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
+import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/settings_viewmodel.dart';
 
 class ProductsScreen extends ConsumerStatefulWidget {
@@ -32,6 +33,15 @@ class ProductsScreen extends ConsumerStatefulWidget {
 
 class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   late final TextEditingController _searchController;
+  bool get _showSupportTools {
+    final email = ref
+        .read(authViewModelProvider)
+        .valueOrNull
+        ?.email
+        ?.trim()
+        .toLowerCase();
+    return UserRole.superAdminEmails.contains(email);
+  }
 
   @override
   void initState() {
@@ -542,7 +552,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         if (value == 'sync_download') _startCloudDownload(context);
         if (value == 'bulk_edit') {
           Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const ProductBulkEditScreen()),
+            MaterialPageRoute(
+              builder: (context) => const ProductBulkEditScreen(),
+            ),
           );
         }
         if (value == 'export') _showExportOptions(context);
@@ -613,10 +625,14 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     _searchController.clear();
   }
 
-  void _openNewProduct(BuildContext context) {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const ProductFormScreen()));
+  Future<void> _openNewProduct(BuildContext context) async {
+    final createdProduct = await Navigator.of(context).push<Product>(
+      MaterialPageRoute(builder: (_) => const ProductFormScreen()),
+    );
+
+    if (!context.mounted || createdProduct == null) return;
+
+    await Navigator.of(context).push(_buildCreatedProductRoute(createdProduct));
   }
 
   void _openImport(BuildContext context) {
@@ -643,16 +659,16 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   Navigator.pop(context);
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => const CatalogoJaImportScreen(),
+                      builder: (context) => const CatalogoJaImportScreen(),
                     ),
                   );
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.add_a_photo_outlined),
-                title: const Text('Vincular Fotos p/ Referência'),
+                title: const Text('Adicionar Fotos em Lote'),
                 subtitle: const Text(
-                  'Associa fotos automaticamente aos produtos puxando de uma pasta pela Referência.',
+                  'Seleciona várias fotos e associa aos produtos automaticamente.',
                 ),
                 onTap: () {
                   Navigator.pop(context);
@@ -690,48 +706,49 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   messenger.showSnackBar(SnackBar(content: Text(message)));
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.auto_fix_high_outlined),
-                title: const Text('Reorganizar Fotos'),
-                subtitle: const Text(
-                  'Religa fotos pelos nomes e limita P, detalhes e cores para evitar erro no PDF.',
-                ),
-                onTap: () async {
-                  Navigator.pop(context);
-                  try {
-                    final updatedCount = await ref
-                        .read(productsViewModelProvider.notifier)
-                        .reorganizePhotosPriority();
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          updatedCount > 0
-                              ? 'Reorganização concluída em $updatedCount produto(s).'
-                              : 'Nenhum produto precisou de reorganização.',
+              if (_showSupportTools)
+                ListTile(
+                  leading: const Icon(Icons.auto_fix_high_outlined),
+                  title: const Text('Reorganizar Fotos'),
+                  subtitle: const Text(
+                    'Religa fotos pelos nomes e limita P, detalhes e cores para evitar erro no PDF.',
+                  ),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    try {
+                      final updatedCount = await ref
+                          .read(productsViewModelProvider.notifier)
+                          .reorganizePhotosPriority();
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            updatedCount > 0
+                                ? 'Reorganização concluída em $updatedCount produto(s).'
+                                : 'Nenhum produto precisou de reorganização.',
+                          ),
                         ),
-                      ),
-                    );
-                  } catch (e) {
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Erro ao reorganizar fotos: $e')),
-                    );
-                  }
-                },
-              ),
+                      );
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Erro ao reorganizar fotos: $e'),
+                        ),
+                      );
+                    }
+                  },
+                ),
               ListTile(
                 leading: const Icon(Icons.shopping_bag_outlined),
-                title: const Text('Sincronizar Planilha Nuvemshop'),
+                title: const Text('Importar Nuvemshop'),
                 subtitle: const Text(
-                  'Importa produtos e baixa fotos automaticamente do CSV Nuvemshop.',
+                  'Importa produtos e fotos da sua loja Nuvemshop.',
                 ),
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const NuvemshopImportScreen(),
-                    ),
+                    AppMotion.pageRoute(child: const NuvemshopImportScreen()),
                   );
                 },
               ),
@@ -759,7 +776,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
             children: [
               ListTile(
                 leading: const Icon(Icons.archive_outlined),
-                title: const Text('Backup Completo (com Fotos)'),
+                title: const Text('Backup Completo do Aplicativo'),
                 subtitle: const Text(
                   'Gera um arquivo .zip com todos os dados e imagens para migração.',
                 ),
@@ -781,27 +798,29 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   );
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.code),
-                title: const Text('Backup Simples (Apenas Dados)'),
-                subtitle: const Text('Arquivo JSON leve sem imagens.'),
-                onTap: () {
-                  Navigator.pop(context);
-                  ProductTransferService.shareCatalogoJaBackup(context, ref);
-                },
-              ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.file_present_outlined),
-                title: const Text('Planilha para Edição (CSV)'),
-                subtitle: const Text(
-                  'Exporta produtos e fotos em formato CSV/ZIP.',
+              if (_showSupportTools)
+                ListTile(
+                  leading: const Icon(Icons.code),
+                  title: const Text('Backup Simples (Apenas Dados)'),
+                  subtitle: const Text('Arquivo JSON leve sem imagens.'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    ProductTransferService.shareCatalogoJaBackup(context, ref);
+                  },
                 ),
-                onTap: () {
-                  Navigator.pop(context);
-                  ProductTransferService.shareProductsPackage(context, ref);
-                },
-              ),
+              if (_showSupportTools) const Divider(),
+              if (_showSupportTools)
+                ListTile(
+                  leading: const Icon(Icons.file_present_outlined),
+                  title: const Text('Planilha para Edição (CSV)'),
+                  subtitle: const Text(
+                    'Exporta produtos e fotos em formato CSV/ZIP.',
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    ProductTransferService.shareProductsPackage(context, ref);
+                  },
+                ),
               const SizedBox(height: 12),
             ],
           ),
@@ -827,8 +846,38 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   }
 
   void _openDetails(BuildContext context, Product product) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => ProductDetailScreen(product: product)),
+    Navigator.of(
+      context,
+    ).push(AppMotion.pageRoute(child: ProductDetailScreen(product: product)));
+  }
+
+  Route _buildCreatedProductRoute(Product product) {
+    return PageRouteBuilder(
+      transitionDuration: const Duration(milliseconds: 520),
+      reverseTransitionDuration: const Duration(milliseconds: 260),
+      pageBuilder: (context, animation, secondaryAnimation) =>
+          ProductDetailScreen(product: product),
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+
+        return FadeTransition(
+          opacity: Tween<double>(begin: 0, end: 1).animate(curved),
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.94, end: 1).animate(curved),
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.04),
+                end: Offset.zero,
+              ).animate(curved),
+              child: child,
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -917,9 +966,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   }
 
   void _openEdit(BuildContext context, Product product) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => ProductFormScreen(product: product)),
-    );
+    Navigator.of(
+      context,
+    ).push(AppMotion.pageRoute(child: ProductFormScreen(product: product)));
   }
 
   void _deleteProduct(Product product) {
@@ -1010,50 +1059,108 @@ class _ProductsContent extends ConsumerWidget {
         if (syncProgress.isSyncing)
           _buildSyncProgressBanner(context, syncProgress),
         Expanded(
-          // Added Expanded to make RefreshIndicator take available space
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
-            child: RefreshIndicator(
-              onRefresh: onRefresh,
-              displacement: 20,
-              color: AppTokens.accentBlue,
-              child: ListView(
-                physics:
-                    const AlwaysScrollableScrollPhysics(), // Important for Pull-to-Refresh
-                children: [
-                  const SizedBox(height: AppTokens.space16),
-                  _SearchAndFiltersSection(
-                    state: state,
-                    controller: searchController,
-                    onSearchChanged: onSearchChanged,
-                    onClearFilters: hasFilters ? onClearFilters : null,
-
-                    onSelectCategory: onSelectCategory,
-                    onSelectStatus: onSelectStatus,
-                    onSelectSort: onSelectSort,
+          child: RefreshIndicator(
+            onRefresh: onRefresh,
+            displacement: 20,
+            color: AppTokens.accentBlue,
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppTokens.space24,
                   ),
-                  const SizedBox(height: AppTokens.space24),
-                  _ProductsListSection(
-                    state: state,
-                    onNewProduct: onNewProduct,
-                    onViewProduct: onViewProduct,
-                    onEditProduct: onEditProduct,
-                    onDeleteProduct: onDeleteProduct,
-                    onDuplicateProduct: onDuplicateProduct,
-                    onTogglePromo: onTogglePromo,
-                    selectedIds: state.selectedProductIds,
-                    onToggleSelection: onToggleSelection,
-                    isInitialSyncCompleted: ref
-                        .watch(settingsViewModelProvider)
-                        .isInitialSyncCompleted,
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate.fixed([
+                      const SizedBox(height: AppTokens.space16),
+                      _SearchAndFiltersSection(
+                        state: state,
+                        controller: searchController,
+                        onSearchChanged: onSearchChanged,
+                        onClearFilters: hasFilters ? onClearFilters : null,
+                        onSelectCategory: onSelectCategory,
+                        onSelectStatus: onSelectStatus,
+                        onSelectSort: onSelectSort,
+                      ),
+                      const SizedBox(height: AppTokens.space24),
+                    ]),
                   ),
-                  const SizedBox(height: AppTokens.space48),
-                ],
-              ),
+                ),
+                _buildProductsSliver(
+                  ref,
+                  isInitialSyncCompleted: ref
+                      .watch(settingsViewModelProvider)
+                      .isInitialSyncCompleted,
+                ),
+                const SliverToBoxAdapter(
+                  child: SizedBox(height: AppTokens.space48),
+                ),
+              ],
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildProductsSliver(
+    WidgetRef ref, {
+    required bool isInitialSyncCompleted,
+  }) {
+    if (state.filteredProducts.isEmpty) {
+      return SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
+        sliver: SliverToBoxAdapter(
+          child: !isInitialSyncCompleted
+              ? const AppEmptyState(
+                  icon: Icons.cloud_download_outlined,
+                  title: 'Carga Inicial NecessÃ¡ria',
+                  subtitle:
+                      'Como este Ã© seu primeiro acesso neste aparelho, vocÃª precisa importar o Backup (ZIP - "WinRAR") para carregar os produtos, evitando custos elevados de rede. VÃ¡ em "Importar".',
+                  message: '',
+                )
+              : const AppEmptyState(
+                  icon: Icons.inventory_2_outlined,
+                  title: 'Nenhum produto encontrado',
+                  subtitle:
+                      'Tente ajustar seus filtros ou cadastre um novo produto.',
+                  message: '',
+                ),
+        ),
+      );
+    }
+
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
+      sliver: SliverList.builder(
+        itemCount: state.filteredProducts.length,
+        itemBuilder: (context, index) {
+          final product = state.filteredProducts[index];
+          final isSelected = state.selectedProductIds.contains(product.id);
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: AppProductListTile(
+              product: product,
+              isSelected: isSelected,
+              onTap: () => onViewProduct(product),
+              onLongPress: () => onToggleSelection(product.id),
+              onEdit: onEditProduct != null
+                  ? () => onEditProduct!(product)
+                  : null,
+              onDelete: onDeleteProduct != null
+                  ? () => onDeleteProduct!(product)
+                  : null,
+              onDuplicate: onDuplicateProduct != null
+                  ? () => onDuplicateProduct!(product)
+                  : null,
+              onTogglePromo: onTogglePromo != null
+                  ? () => onTogglePromo!(product)
+                  : null,
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -1456,7 +1563,7 @@ class _SheetOption<T> {
   const _SheetOption({required this.value, required this.label});
 }
 
-class _ProductsListSection extends StatelessWidget {
+class _ProductsListSection extends StatefulWidget {
   final ProductsState state;
   final VoidCallback onNewProduct;
   final ValueChanged<Product> onViewProduct;
@@ -1472,19 +1579,27 @@ class _ProductsListSection extends StatelessWidget {
     required this.state,
     required this.onNewProduct,
     required this.onViewProduct,
-    this.onEditProduct,
-    this.onDeleteProduct,
-    this.onDuplicateProduct,
-    this.onTogglePromo,
     required this.selectedIds,
     required this.onToggleSelection,
     required this.isInitialSyncCompleted,
-  });
+    ValueChanged<Product>? onEditProduct,
+    ValueChanged<Product>? onDeleteProduct,
+    ValueChanged<Product>? onDuplicateProduct,
+    ValueChanged<Product>? onTogglePromo,
+  }) : onEditProduct = onEditProduct,
+       onDeleteProduct = onDeleteProduct,
+       onDuplicateProduct = onDuplicateProduct,
+       onTogglePromo = onTogglePromo;
 
   @override
+  State<_ProductsListSection> createState() => _ProductsListSectionState();
+}
+
+class _ProductsListSectionState extends State<_ProductsListSection> {
+  @override
   Widget build(BuildContext context) {
-    if (state.filteredProducts.isEmpty) {
-      if (!isInitialSyncCompleted) {
+    if (widget.state.filteredProducts.isEmpty) {
+      if (!widget.isInitialSyncCompleted) {
         return const AppEmptyState(
           icon: Icons.cloud_download_outlined,
           title: 'Carga Inicial Necessária',
@@ -1505,29 +1620,29 @@ class _ProductsListSection extends StatelessWidget {
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: state.filteredProducts.length,
+      itemCount: widget.state.filteredProducts.length,
       itemBuilder: (context, index) {
-        final product = state.filteredProducts[index];
-        final isSelected = selectedIds.contains(product.id);
+        final product = widget.state.filteredProducts[index];
+        final isSelected = widget.selectedIds.contains(product.id);
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: AppProductListTile(
             product: product,
             isSelected: isSelected,
-            onTap: () => onViewProduct(product),
-            onLongPress: () => onToggleSelection(product.id),
-            onEdit: onEditProduct != null
-                ? () => onEditProduct!(product)
+            onTap: () => widget.onViewProduct(product),
+            onLongPress: () => widget.onToggleSelection(product.id),
+            onEdit: widget.onEditProduct != null
+                ? () => widget.onEditProduct!(product)
                 : null,
-            onDelete: onDeleteProduct != null
-                ? () => onDeleteProduct!(product)
+            onDelete: widget.onDeleteProduct != null
+                ? () => widget.onDeleteProduct!(product)
                 : null,
-            onDuplicate: onDuplicateProduct != null
-                ? () => onDuplicateProduct!(product)
+            onDuplicate: widget.onDuplicateProduct != null
+                ? () => widget.onDuplicateProduct!(product)
                 : null,
-            onTogglePromo: onTogglePromo != null
-                ? () => onTogglePromo!(product)
+            onTogglePromo: widget.onTogglePromo != null
+                ? () => widget.onTogglePromo!(product)
                 : null,
           ),
         );

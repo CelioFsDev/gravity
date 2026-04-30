@@ -88,6 +88,10 @@ class AdminShellScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     void onAdminNavigation(int index) {
+      if (index < 0 || index >= navigationShell.route.branches.length) {
+        debugPrint('Ignoring invalid admin branch index: $index');
+        return;
+      }
       navigationShell.goBranch(
         index,
         initialLocation: index == navigationShell.currentIndex,
@@ -136,17 +140,22 @@ class AdminShellScreen extends ConsumerWidget {
               ? null
               : Drawer(
                   backgroundColor: AppTokens.deepNavy,
-                  child: _Sidebar(
-                    currentIndex: navigationShell.currentIndex,
-                    onDestinationSelected: (index) {
-                      onAdminNavigation(index);
-                      Navigator.pop(context);
-                    },
-                    displayTitle: displayTitle,
-                    logoUrl: logoUrl,
-                    visibleDestinations: visibleDestinations,
-                    authEmail: authUser?.email,
-                    ref: ref,
+                  child: Builder(
+                    builder: (drawerContext) => _Sidebar(
+                      currentIndex: navigationShell.currentIndex,
+                      onDestinationSelected: (index) {
+                        Navigator.of(drawerContext).pop();
+                        Future<void>.delayed(
+                          const Duration(milliseconds: 260),
+                          () => onAdminNavigation(index),
+                        );
+                      },
+                      displayTitle: displayTitle,
+                      logoUrl: logoUrl,
+                      visibleDestinations: visibleDestinations,
+                      authEmail: authUser?.email,
+                      ref: ref,
+                    ),
                   ),
                 ),
           body: isWide

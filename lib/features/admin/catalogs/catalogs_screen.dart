@@ -123,7 +123,10 @@ class CatalogsScreen extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.add_circle_outline, color: AppTokens.accentBlue),
+              leading: const Icon(
+                Icons.add_circle_outline,
+                color: AppTokens.accentBlue,
+              ),
               title: const Text('Novo Catálogo'),
               subtitle: const Text('Cria e salva na sua lista de catálogos'),
               onTap: () {
@@ -132,9 +135,14 @@ class CatalogsScreen extends ConsumerWidget {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.bolt_outlined, color: AppTokens.accentOrange),
+              leading: const Icon(
+                Icons.bolt_outlined,
+                color: AppTokens.accentOrange,
+              ),
               title: const Text('Catálogo Rápido'),
-              subtitle: const Text('Cria apenas para enviar PDF (sem salvar na lista)'),
+              subtitle: const Text(
+                'Cria apenas para enviar PDF (sem salvar na lista)',
+              ),
               onTap: () {
                 Navigator.pop(context);
                 _openNew(context, quick: true);
@@ -148,9 +156,9 @@ class CatalogsScreen extends ConsumerWidget {
   }
 
   void _openNew(BuildContext context, {bool quick = false}) {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => CatalogEditorScreen(isQuick: quick)));
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => CatalogEditorScreen(isQuick: quick)),
+    );
   }
 
   void _openEdit(BuildContext context, Catalog catalog) {
@@ -258,11 +266,7 @@ class _CatalogsBackground extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: isDark
-              ? [
-                  AppTokens.deepNavy,
-                  AppTokens.surfaceDark,
-                  AppTokens.deepNavy,
-                ]
+              ? [AppTokens.deepNavy, AppTokens.surfaceDark, AppTokens.deepNavy]
               : [
                   const Color(0xFFF0F7FF),
                   const Color(0xFFF7FBF9),
@@ -292,6 +296,12 @@ class _CatalogsContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final productsState = ref.watch(productsViewModelProvider).valueOrNull;
+    final productById = {
+      for (final product in productsState?.allProducts ?? [])
+        product.id: product,
+    };
+
     if (catalogs.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
@@ -321,12 +331,23 @@ class _CatalogsContent extends ConsumerWidget {
       itemBuilder: (context, index) {
         final catalog = catalogs[index];
         final role = ref.watch(currentRoleProvider);
+        final List<dynamic> backgroundImageUris = catalog.productIds
+            .map((id) => productById[id]?.mainImage?.uri ?? '')
+            .where((uri) => uri.trim().isNotEmpty)
+            .take(4)
+            .toList();
 
         return _EnhancedCatalogCard(
           catalog: catalog,
           onShare: () => onShare(catalog),
           onEdit: role.canEditCatalog ? () => onEdit(catalog) : null,
           onDelete: role.canEditCatalog ? () => onDelete(catalog) : null,
+          backgroundImageUris: [
+            backgroundImageUris.isNotEmpty ? backgroundImageUris[0] : '',
+            backgroundImageUris.length > 1 ? backgroundImageUris[1] : '',
+            backgroundImageUris.length > 2 ? backgroundImageUris[2] : '',
+            backgroundImageUris.length > 3 ? backgroundImageUris[3] : '',
+          ],
         );
       },
     );
@@ -483,32 +504,25 @@ class CatalogCard extends StatelessWidget {
   }
 }
 
-class _EnhancedCatalogCard extends ConsumerWidget {
+class _EnhancedCatalogCard extends StatelessWidget {
   final Catalog catalog;
-  final List<dynamic>? backgroundImageUris;
+  final List<String> backgroundImageUris;
   final VoidCallback onShare;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
 
   const _EnhancedCatalogCard({
     required this.catalog,
-    this.backgroundImageUris,
+    required this.backgroundImageUris,
     required this.onShare,
     this.onEdit,
     this.onDelete,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final date = DateFormat('dd/MM/yyyy').format(catalog.updatedAt);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final resolvedBackgroundImageUris =
-        backgroundImageUris
-            ?.map((uri) => uri.toString())
-            .where((uri) => uri.trim().isNotEmpty)
-            .take(4)
-            .toList() ??
-        _resolveBackgroundImageUris(ref);
 
     return Container(
       clipBehavior: Clip.antiAlias,
@@ -534,10 +548,8 @@ class _EnhancedCatalogCard extends ConsumerWidget {
       ),
       child: Stack(
         children: [
-          if (resolvedBackgroundImageUris.isNotEmpty)
-            Positioned.fill(
-              child: _buildWallpaper(context, resolvedBackgroundImageUris),
-            ),
+          if (backgroundImageUris.isNotEmpty)
+            Positioned.fill(child: _buildWallpaper(context)),
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -572,7 +584,9 @@ class _EnhancedCatalogCard extends ConsumerWidget {
                   icon: const Icon(Icons.share_outlined, size: 20),
                   tooltip: 'Compartilhar',
                   style: IconButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.primaryContainer,
                     foregroundColor: Theme.of(context).colorScheme.primary,
                   ),
                 ),
@@ -634,21 +648,8 @@ class _EnhancedCatalogCard extends ConsumerWidget {
     );
   }
 
-  List<String> _resolveBackgroundImageUris(WidgetRef ref) {
-    final productsState = ref.watch(productsViewModelProvider).valueOrNull;
-    final productById = {
-      for (final product in productsState?.allProducts ?? []) product.id: product,
-    };
-
-    return catalog.productIds
-        .map<String>((id) => productById[id]?.mainImage?.uri ?? '')
-        .where((uri) => uri.trim().isNotEmpty)
-        .take(4)
-        .toList();
-  }
-
-  Widget _buildWallpaper(BuildContext context, List<String> imageUris) {
-    final images = imageUris.take(4).toList();
+  Widget _buildWallpaper(BuildContext context) {
+    final images = backgroundImageUris.take(4).toList();
 
     if (images.length == 1) {
       return _buildWallpaperImage(images.first);
@@ -656,11 +657,7 @@ class _EnhancedCatalogCard extends ConsumerWidget {
 
     return Row(
       children: images
-          .map(
-            (uri) => Expanded(
-              child: _buildWallpaperImage(uri),
-            ),
-          )
+          .map((uri) => Expanded(child: _buildWallpaperImage(uri)))
           .toList(),
     );
   }
