@@ -2,8 +2,48 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 
+class _AppPageTransitionsBuilder extends PageTransitionsBuilder {
+  const _AppPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    final curved = CurvedAnimation(
+      parent: animation,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+
+    return FadeTransition(
+      opacity: Tween<double>(begin: 0.92, end: 1).animate(curved),
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0.02, 0.02),
+          end: Offset.zero,
+        ).animate(curved),
+        child: child,
+      ),
+    );
+  }
+}
+
 class AppTheme {
   AppTheme._();
+
+  static const _pageTransitionsTheme = PageTransitionsTheme(
+    builders: {
+      TargetPlatform.android: _AppPageTransitionsBuilder(),
+      TargetPlatform.iOS: _AppPageTransitionsBuilder(),
+      TargetPlatform.linux: _AppPageTransitionsBuilder(),
+      TargetPlatform.macOS: _AppPageTransitionsBuilder(),
+      TargetPlatform.windows: _AppPageTransitionsBuilder(),
+    },
+  );
 
   static ThemeData light() {
     final base = ThemeData(
@@ -298,6 +338,7 @@ class AppTheme {
               : AppTokens.borderLight,
         ),
       ),
+      pageTransitionsTheme: _pageTransitionsTheme,
     );
   }
 
@@ -593,6 +634,7 @@ class AppTheme {
               : AppTokens.borderDark,
         ),
       ),
+      pageTransitionsTheme: _pageTransitionsTheme,
     );
   }
 }

@@ -23,13 +23,14 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       qrTargetUrl: (fields[9] as String?) ?? '',
       companyInstagramUrl: (fields[10] as String?) ?? '',
       localOnlyMode: (fields[11] as bool?) ?? true,
+      lastFullBackupAt: fields[12] as DateTime?,
     );
   }
 
   @override
   void write(BinaryWriter writer, AppSettings obj) {
     writer
-      ..writeByte(12)
+      ..writeByte(13)
       ..writeByte(0)
       ..write(obj.storeName)
       ..writeByte(1)
@@ -53,7 +54,9 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       ..writeByte(10)
       ..write(obj.companyInstagramUrl)
       ..writeByte(11)
-      ..write(obj.localOnlyMode);
+      ..write(obj.localOnlyMode)
+      ..writeByte(12)
+      ..write(obj.lastFullBackupAt);
   }
 }
 
@@ -70,6 +73,7 @@ class AppSettings {
   final bool isInitialSyncCompleted;
   final bool localOnlyMode;
   final String qrTargetUrl;
+  final DateTime? lastFullBackupAt;
 
   AppSettings({
     required this.storeName,
@@ -84,6 +88,7 @@ class AppSettings {
     this.isInitialSyncCompleted = false,
     this.localOnlyMode = true,
     this.qrTargetUrl = '',
+    this.lastFullBackupAt,
   });
 
   AppSettings copyWith({
@@ -99,6 +104,7 @@ class AppSettings {
     bool? isInitialSyncCompleted,
     bool? localOnlyMode,
     String? qrTargetUrl,
+    DateTime? lastFullBackupAt,
   }) {
     return AppSettings(
       storeName: storeName ?? this.storeName,
@@ -113,6 +119,7 @@ class AppSettings {
       isInitialSyncCompleted: isInitialSyncCompleted ?? this.isInitialSyncCompleted,
       localOnlyMode: localOnlyMode ?? this.localOnlyMode,
       qrTargetUrl: qrTargetUrl ?? this.qrTargetUrl,
+      lastFullBackupAt: lastFullBackupAt ?? this.lastFullBackupAt,
     );
   }
 
@@ -130,6 +137,7 @@ class AppSettings {
       isInitialSyncCompleted: false,
       localOnlyMode: true,
       qrTargetUrl: '',
+      lastFullBackupAt: null,
     );
   }
 }

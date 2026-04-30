@@ -19,7 +19,7 @@ import 'package:catalogo_ja/ui/widgets/app_search_field.dart';
 import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
 import 'package:catalogo_ja/ui/widgets/app_product_list_tile.dart';
 import 'package:uuid/uuid.dart';
-import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
+import 'package:catalogo_ja/ui/motion/app_motion.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/settings_viewmodel.dart';
@@ -33,6 +33,7 @@ class ProductsScreen extends ConsumerStatefulWidget {
 
 class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   late final TextEditingController _searchController;
+
   bool get _showSupportTools {
     final email = ref
         .read(authViewModelProvider)
@@ -40,6 +41,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         ?.email
         ?.trim()
         .toLowerCase();
+
     return UserRole.superAdminEmails.contains(email);
   }
 
@@ -62,18 +64,15 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     return AppScaffold(
       showHeader: true,
       title: 'Produtos',
-      subtitle: 'Gerencie seu estoque e pre\u00e7os',
+      subtitle: 'Gerencie seu estoque e preços',
       body: Column(
         children: [
-          // Modern Header with KPIs
           _buildHeader(
             context,
             Theme.of(context).brightness == Brightness.dark,
           ),
-
           _buildBulkActionsBar(context),
           _buildSyncReminderBanner(context),
-
           Expanded(
             child: state.whenStandard(
               onRetry: () =>
@@ -122,9 +121,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         ],
       ),
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(
-          bottom: 80,
-        ), // Avoid overlap with bottom nav
+        padding: const EdgeInsets.only(bottom: 80),
         child: FloatingActionButton.extended(
           onPressed: () => _openNewProduct(context),
           label: const Text(
@@ -164,7 +161,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Row for KPIs
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -204,6 +200,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     IconData icon,
   ) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       width: 120,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -269,6 +266,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
   Widget _buildBulkActionsBar(BuildContext context) {
     final state = ref.watch(productsViewModelProvider).value;
+
     if (state == null || state.selectedProductIds.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -345,7 +343,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
   void _showBulkCategoryDialog(BuildContext context) {
     final state = ref.read(productsViewModelProvider).value;
+
     if (state == null) return;
+
     final notifier = ref.read(productsViewModelProvider.notifier);
     final selectedCategoryIds = <String>{};
 
@@ -374,6 +374,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     itemBuilder: (context, index) {
                       final cat = state.categories[index];
                       final isSelected = selectedCategoryIds.contains(cat.id);
+
                       return CheckboxListTile(
                         value: isSelected,
                         title: Text(cat.safeName),
@@ -487,9 +488,11 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     final pendingProducts = state.allProducts
         .where((p) => p.syncStatus == SyncStatus.pendingUpdate)
         .length;
+
     final pendingCategories = categoriesState.categories
         .where((c) => c.syncStatus == SyncStatus.pendingUpdate)
         .length;
+
     final totalPending = pendingProducts + pendingCategories;
 
     if (totalPending == 0) return const SizedBox.shrink();
@@ -550,13 +553,13 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       onSelected: (value) {
         if (value == 'sync_upload') _startCloudSync(context);
         if (value == 'sync_download') _startCloudDownload(context);
+
         if (value == 'bulk_edit') {
           Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => const ProductBulkEditScreen(),
-            ),
+            AppMotion.pageRoute(child: const ProductBulkEditScreen()),
           );
         }
+
         if (value == 'export') _showExportOptions(context);
       },
       itemBuilder: (context) => const [
@@ -618,16 +621,18 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
   void _clearFilters(ProductsState state) {
     final notifier = ref.read(productsViewModelProvider.notifier);
+
     notifier.setSearchQuery('');
     notifier.setCategoryFilter(null);
     notifier.setStatusFilter(ProductStatusFilter.all);
     notifier.setSortOption(ProductSort.recent);
+
     _searchController.clear();
   }
 
   Future<void> _openNewProduct(BuildContext context) async {
     final createdProduct = await Navigator.of(context).push<Product>(
-      MaterialPageRoute(builder: (_) => const ProductFormScreen()),
+      AppMotion.pageRoute(child: const ProductFormScreen()),
     );
 
     if (!context.mounted || createdProduct == null) return;
@@ -658,9 +663,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const CatalogoJaImportScreen(),
-                    ),
+                    AppMotion.pageRoute(child: const CatalogoJaImportScreen()),
                   );
                 },
               ),
@@ -683,14 +686,19 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 ),
                 onTap: () async {
                   final messenger = ScaffoldMessenger.of(context);
+
                   Navigator.pop(context);
+
                   ref.read(productImportViewModelProvider.notifier).reset();
+
                   await ref
                       .read(productImportViewModelProvider.notifier)
                       .syncRemoteImagesFromUrl();
+
                   if (!mounted) return;
 
                   final syncState = ref.read(productImportViewModelProvider);
+
                   if (syncState.errorMessage != null) {
                     messenger.showSnackBar(
                       SnackBar(content: Text(syncState.errorMessage!)),
@@ -700,9 +708,11 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
                   final matched = syncState.imagesMatchedCount;
                   final total = syncState.imagesTotalCount;
+
                   final message = matched > 0
                       ? 'Sincronização concluída: $matched produto(s) com foto em $total verificados.'
                       : 'Sincronização concluída sem fotos encontradas. Verifique a URL Base e os nomes (REF.ext).';
+
                   messenger.showSnackBar(SnackBar(content: Text(message)));
                 },
               ),
@@ -715,11 +725,14 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   ),
                   onTap: () async {
                     Navigator.pop(context);
+
                     try {
                       final updatedCount = await ref
                           .read(productsViewModelProvider.notifier)
                           .reorganizePhotosPriority();
+
                       if (!context.mounted) return;
+
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
@@ -731,6 +744,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                       );
                     } catch (e) {
                       if (!context.mounted) return;
+
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text('Erro ao reorganizar fotos: $e'),
@@ -782,10 +796,11 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 ),
                 onTap: () {
                   Navigator.pop(context);
+
                   final viewModel = ref.read(
                     productExportViewModelProvider.notifier,
                   );
-                  // Dispara e deixa o GlobalLoadingIndicator cuidar da UI
+
                   viewModel.exportPackage();
 
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -832,7 +847,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   void _startPhotoReferenceLinking() {
     ref.read(productImportViewModelProvider.notifier).reset();
 
-    // Dispara em background usando o novo sistema do AppScaffold
     ref
         .read(productImportViewModelProvider.notifier)
         .pickAndMatchImagesToExistingProducts();
@@ -846,9 +860,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   }
 
   void _openDetails(BuildContext context, Product product) {
-    Navigator.of(
-      context,
-    ).push(AppMotion.pageRoute(child: ProductDetailScreen(product: product)));
+    Navigator.of(context).push(
+      AppMotion.pageRoute(child: ProductDetailScreen(product: product)),
+    );
   }
 
   Route _buildCreatedProductRoute(Product product) {
@@ -884,7 +898,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   void _startCloudSync(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
 
-    // 1. Avisa que começou em segundo plano
     messenger.showSnackBar(
       const SnackBar(
         content: Text('Sincronizando produtos com a nuvem em segundo plano...'),
@@ -893,7 +906,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       ),
     );
 
-    // 2. Dispara a sincronização sem 'await' para não travar a tela
     ref
         .read(productsViewModelProvider.notifier)
         .syncAllToCloud()
@@ -926,7 +938,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   void _startCloudDownload(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
 
-    // 1. Avisa que começou em segundo plano
     messenger.showSnackBar(
       const SnackBar(
         content: Text('Baixando catálogo da nuvem em segundo plano...'),
@@ -935,7 +946,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       ),
     );
 
-    // 2. Dispara a descarga sem 'await' para não travar a tela
     ref
         .read(productsViewModelProvider.notifier)
         .syncFromCloud()
@@ -966,9 +976,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   }
 
   void _openEdit(BuildContext context, Product product) {
-    Navigator.of(
-      context,
-    ).push(AppMotion.pageRoute(child: ProductFormScreen(product: product)));
+    Navigator.of(context).push(
+      AppMotion.pageRoute(child: ProductFormScreen(product: product)),
+    );
   }
 
   void _deleteProduct(Product product) {
@@ -982,6 +992,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
+
     ref.read(productsViewModelProvider.notifier).addProduct(copy);
   }
 
@@ -990,11 +1001,13 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     final percent = enabled && product.promoPercent <= 0
         ? 10.0
         : product.promoPercent;
+
     final updated = product.copyWith(
       promoEnabled: enabled,
       promoPercent: enabled ? percent : 0.0,
       updatedAt: DateTime.now(),
     );
+
     ref.read(productsViewModelProvider.notifier).updateProduct(updated);
   }
 }
@@ -1004,7 +1017,6 @@ class _ProductsContent extends ConsumerWidget {
   final TextEditingController searchController;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onClearFilters;
-
   final ValueChanged<String?> onSelectCategory;
   final ValueChanged<ProductStatusFilter> onSelectStatus;
   final ValueChanged<ProductSort> onSelectSort;
@@ -1022,7 +1034,6 @@ class _ProductsContent extends ConsumerWidget {
     required this.searchController,
     required this.onSearchChanged,
     required this.onClearFilters,
-
     required this.onSelectCategory,
     required this.onSelectStatus,
     required this.onSelectSort,
@@ -1114,9 +1125,9 @@ class _ProductsContent extends ConsumerWidget {
           child: !isInitialSyncCompleted
               ? const AppEmptyState(
                   icon: Icons.cloud_download_outlined,
-                  title: 'Carga Inicial NecessÃ¡ria',
+                  title: 'Carga Inicial Necessária',
                   subtitle:
-                      'Como este Ã© seu primeiro acesso neste aparelho, vocÃª precisa importar o Backup (ZIP - "WinRAR") para carregar os produtos, evitando custos elevados de rede. VÃ¡ em "Importar".',
+                      'Como este é seu primeiro acesso neste aparelho, você precisa importar o Backup (ZIP - "WinRAR") para carregar os produtos, evitando custos elevados de rede. Vá em "Importar".',
                   message: '',
                 )
               : const AppEmptyState(
@@ -1217,6 +1228,7 @@ class _ProductsContent extends ConsumerWidget {
 
 class _KpiSection extends StatelessWidget {
   final ProductsState state;
+
   const _KpiSection({required this.state});
 
   @override
@@ -1274,7 +1286,6 @@ class _SearchAndFiltersSection extends StatelessWidget {
   final TextEditingController controller;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback? onClearFilters;
-
   final ValueChanged<String?> onSelectCategory;
   final ValueChanged<ProductStatusFilter> onSelectStatus;
   final ValueChanged<ProductSort> onSelectSort;
@@ -1284,7 +1295,6 @@ class _SearchAndFiltersSection extends StatelessWidget {
     required this.controller,
     required this.onSearchChanged,
     required this.onClearFilters,
-
     required this.onSelectCategory,
     required this.onSelectStatus,
     required this.onSelectSort,
@@ -1343,10 +1353,12 @@ class _SearchAndFiltersSection extends StatelessWidget {
 
   String _categoryLabel(ProductsState state) {
     if (state.productTypeFilterId == null) return 'Categoria';
+
     final category = state.categories
         .where((c) => c.id == state.productTypeFilterId)
         .map((c) => c.name)
         .firstOrNull;
+
     return category ?? 'Categoria';
   }
 
@@ -1388,16 +1400,19 @@ class _SearchAndFiltersSection extends StatelessWidget {
     final categories = state.categories
         .where((c) => c.type == CategoryType.productType)
         .toList();
+
     final options = <_SheetOption<String?>>[
       const _SheetOption(value: null, label: 'Todas categorias'),
       ...categories.map((c) => _SheetOption(value: c.id, label: c.safeName)),
     ];
+
     final result = await _showSelectionSheet<String?>(
       context,
       title: 'Categoria',
       options: options,
       selected: state.productTypeFilterId,
     );
+
     if (result != null || state.productTypeFilterId != null) {
       onSelectCategory(result);
     }
@@ -1412,28 +1427,32 @@ class _SearchAndFiltersSection extends StatelessWidget {
       _SheetOption(value: ProductStatusFilter.withPhotos, label: 'Com Fotos'),
       _SheetOption(value: ProductStatusFilter.noPhotos, label: 'Sem Fotos'),
     ];
+
     final result = await _showSelectionSheet<ProductStatusFilter>(
       context,
       title: 'Status',
       options: options,
       selected: state.statusFilter,
     );
+
     if (result != null) onSelectStatus(result);
   }
 
   Future<void> _selectSort(BuildContext context) async {
     final options = const [
       _SheetOption(value: ProductSort.recent, label: 'Mais recentes'),
-      _SheetOption(value: ProductSort.priceAsc, label: 'Menor preco'),
-      _SheetOption(value: ProductSort.priceDesc, label: 'Maior preco'),
+      _SheetOption(value: ProductSort.priceAsc, label: 'Menor preço'),
+      _SheetOption(value: ProductSort.priceDesc, label: 'Maior preço'),
       _SheetOption(value: ProductSort.aToZ, label: 'A-Z'),
     ];
+
     final result = await _showSelectionSheet<ProductSort>(
       context,
       title: 'Ordenar por',
       options: options,
       selected: state.sortOption,
     );
+
     if (result != null) onSelectSort(result);
   }
 
@@ -1480,6 +1499,7 @@ class _SearchAndFiltersSection extends StatelessWidget {
                 itemBuilder: (context, index) {
                   final option = options[index];
                   final isSelected = option.value == selected;
+
                   return ListTile(
                     title: Text(
                       option.label,
@@ -1560,7 +1580,11 @@ class _FilterChip extends StatelessWidget {
 class _SheetOption<T> {
   final T value;
   final String label;
-  const _SheetOption({required this.value, required this.label});
+
+  const _SheetOption({
+    required this.value,
+    required this.label,
+  });
 }
 
 class _ProductsListSection extends StatefulWidget {
@@ -1582,14 +1606,11 @@ class _ProductsListSection extends StatefulWidget {
     required this.selectedIds,
     required this.onToggleSelection,
     required this.isInitialSyncCompleted,
-    ValueChanged<Product>? onEditProduct,
-    ValueChanged<Product>? onDeleteProduct,
-    ValueChanged<Product>? onDuplicateProduct,
-    ValueChanged<Product>? onTogglePromo,
-  }) : onEditProduct = onEditProduct,
-       onDeleteProduct = onDeleteProduct,
-       onDuplicateProduct = onDuplicateProduct,
-       onTogglePromo = onTogglePromo;
+    this.onEditProduct,
+    this.onDeleteProduct,
+    this.onDuplicateProduct,
+    this.onTogglePromo,
+  });
 
   @override
   State<_ProductsListSection> createState() => _ProductsListSectionState();

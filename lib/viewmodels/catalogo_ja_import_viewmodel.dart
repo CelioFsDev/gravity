@@ -10,6 +10,7 @@ import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/catalog_public_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
+import 'package:catalogo_ja/core/utils/user_friendly_error.dart';
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -169,7 +170,11 @@ class CatalogoJaImportViewModel extends _$CatalogoJaImportViewModel {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Erro ao ler arquivo: $e',
+        errorMessage: UserFriendlyError.message(
+          e,
+          fallback:
+              'N\u00e3o foi poss\u00edvel ler esse backup. Verifique se o arquivo est\u00e1 correto e tente novamente.',
+        ),
       );
     }
   }
@@ -231,7 +236,11 @@ class CatalogoJaImportViewModel extends _$CatalogoJaImportViewModel {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Erro ao importar: $e',
+        errorMessage: UserFriendlyError.message(
+          e,
+          fallback:
+              'N\u00e3o foi poss\u00edvel importar o backup agora. Tente novamente em alguns instantes.',
+        ),
       );
     }
   }

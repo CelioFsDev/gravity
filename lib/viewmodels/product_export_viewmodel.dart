@@ -1,6 +1,8 @@
 import 'package:catalogo_ja/core/services/catalogo_ja_package_service.dart';
 import 'package:catalogo_ja/core/services/whatsapp_share_service.dart';
 import 'package:catalogo_ja/core/providers/global_loading_provider.dart';
+import 'package:catalogo_ja/core/utils/user_friendly_error.dart';
+import 'package:catalogo_ja/viewmodels/settings_viewmodel.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'product_export_viewmodel.g.dart';
@@ -108,19 +110,28 @@ class ProductExportViewModel extends _$ProductExportViewModel {
 
       state = state.copyWith(
         isLoading: false,
-        successMessage: 'Exporta\u00e7\u00e3o conclu\u00edda',
+        successMessage: 'Backup completo gerado',
       );
+      await ref
+          .read(settingsViewModelProvider.notifier)
+          .updateSettings(lastFullBackupAt: DateTime.now());
       
-      loadingNotifier.updateTask(taskId, progress: 1.0, message: 'Concluído!', isDone: true);
+      loadingNotifier.updateTask(taskId, progress: 1.0, message: 'Backup completo gerado!', isDone: true);
       // Remove after some delay or immediately if UI is updated
       Future.delayed(const Duration(seconds: 3), () => loadingNotifier.removeTask(taskId));
       
     } catch (e) {
+      final message = UserFriendlyError.message(e);
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Erro ao exportar: $e',
+        errorMessage: message,
       );
-      loadingNotifier.updateTask(taskId, message: 'Erro: $e', isDone: true, error: e.toString());
+      loadingNotifier.updateTask(
+        taskId,
+        message: message,
+        isDone: true,
+        error: message,
+      );
       Future.delayed(const Duration(seconds: 5), () => loadingNotifier.removeTask(taskId));
     }
   }

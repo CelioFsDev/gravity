@@ -11,6 +11,7 @@ import 'package:catalogo_ja/features/admin/products/product_form_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:catalogo_ja/core/utils/price_calculator.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/motion/app_motion.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/ui/widgets/section_card.dart';
 import 'package:catalogo_ja/ui/widgets/app_badge_pill.dart';
@@ -49,8 +50,8 @@ class ProductDetailScreen extends ConsumerWidget {
           icon: Icon(Icons.edit_note_rounded, color: isDark ? AppTokens.vibrantCyan : AppTokens.electricBlue),
           onPressed: () {
             Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => ProductFormScreen(product: updatedProduct),
+              AppMotion.pageRoute(
+                child: ProductFormScreen(product: updatedProduct),
               ),
             );
           },

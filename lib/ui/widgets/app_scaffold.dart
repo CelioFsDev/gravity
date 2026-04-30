@@ -37,11 +37,14 @@ class AppScaffold extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final hasTitle = title != null;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final canPop = Navigator.of(context).canPop();
     final shouldShowBackButton = showBackButton ?? canPop;
+
     final adminShellScope = AdminShellScope.maybeOf(context);
     final canOpenAdminDrawer = adminShellScope?.canOpenDrawer ?? false;
     final openAdminDrawer = adminShellScope?.openDrawer;
+
     final appBarActions = [
       if (canOpenAdminDrawer && shouldShowBackButton)
         IconButton(
@@ -174,6 +177,8 @@ class AppScaffold extends ConsumerWidget {
               children: [
                 Text(
                   title!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w900,
@@ -194,6 +199,10 @@ class AppScaffold extends ConsumerWidget {
               ],
             ),
           ),
+          if (actions != null && actions!.isNotEmpty) ...[
+            ...actions!,
+            const SizedBox(width: 4),
+          ],
           IconButton(
             icon: Icon(
               Icons.person_outline_rounded,

@@ -447,18 +447,22 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
     if (localMatch != null) return localMatch;
 
     // Se não achar local, tenta na nuvem (pode ser um item novo recém criado por outro device)
-    final snapshot = await _collection
-        .where('ref', isEqualTo: ref)
-        .limit(1)
-        .get();
-    if (snapshot.docs.isNotEmpty) {
-      final cloudProduct = Product.fromMap(
-        snapshot.docs.first.data(),
-      ).copyWith(syncStatus: SyncStatus.synced);
-      await _localRepo.addProduct(
-        cloudProduct,
-      ); // Salva local para a próxima vez
-      return cloudProduct;
+    try {
+      final snapshot = await _collection
+          .where('ref', isEqualTo: ref)
+          .limit(1)
+          .get();
+      if (snapshot.docs.isNotEmpty) {
+        final cloudProduct = Product.fromMap(
+          snapshot.docs.first.data(),
+        ).copyWith(syncStatus: SyncStatus.synced);
+        await _localRepo.addProduct(
+          cloudProduct,
+        ); // Salva local para a próxima vez
+        return cloudProduct;
+      }
+    } catch (e) {
+      debugPrint('Erro ao buscar produto por REF na nuvem (usando local): $e');
     }
     return null;
   }

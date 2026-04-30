@@ -27,11 +27,11 @@ class _DashboardStats {
 
 final _dashboardUserProfileProvider =
     StreamProvider.autoDispose.family<Map<String, dynamic>?, String>((
-      ref,
-      email,
-    ) {
-      return ref.watch(userRepositoryProvider).getUserStream(email);
-    });
+  ref,
+  email,
+) {
+  return ref.watch(userRepositoryProvider).getUserStream(email);
+});
 
 const bool _showStockUpdatePdfShortcut = false;
 
@@ -51,19 +51,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   @override
   void initState() {
     super.initState();
+
     _greetingController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
     )..forward();
+
     _greetingFade = CurvedAnimation(
       parent: _greetingController,
       curve: Curves.easeOut,
     );
+
     _statsStream = _combineStatsStreams();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+
       final syncProgress = ref.read(syncProgressProvider);
+
       if (!syncProgress.isSyncing) {
         ref.read(globalSyncViewModelProvider.notifier).performSilentWifiSync();
       }
@@ -86,12 +91,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       var productCount = 0;
       var categoryCount = 0;
       var catalogCount = 0;
+
       var hasProducts = false;
       var hasCategories = false;
       var hasCatalogs = false;
 
       void emitIfReady() {
         if (!hasProducts || !hasCategories || !hasCatalogs) return;
+
         controller.add(
           _DashboardStats(
             productCount: productCount,
@@ -129,14 +136,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
   String _greeting() {
     final hour = DateTime.now().hour;
+
     if (hour < 12) return 'Bom dia';
     if (hour < 18) return 'Boa tarde';
+
     return 'Boa noite';
   }
 
   String _firstNameFrom(String? name) {
     final trimmedName = name?.trim() ?? '';
+
     if (trimmedName.isEmpty) return 'Usuário';
+
     return trimmedName.split(RegExp(r'\s+')).first;
   }
 
@@ -152,23 +163,26 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final authUser = ref.watch(authViewModelProvider).valueOrNull;
     final settings = ref.watch(settingsViewModelProvider);
     final needsSetup = !settings.isInitialSyncCompleted;
-
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final email = authUser?.email?.trim().toLowerCase() ?? '';
     final profile = email.isEmpty
         ? null
         : ref.watch(_dashboardUserProfileProvider(email)).valueOrNull;
+
     final profileName = profile?['displayName'] as String?;
+
     final profileFirstName = _firstNameFrom(
       profileName?.trim().isNotEmpty == true
           ? profileName
           : authUser?.displayName,
     );
+
     return Stack(
       children: [
         AppScaffold(
-          showHeader: false,
-          title: 'Início',
+          showHeader: true,
+          title: '${_greeting()}, $profileFirstName',
           subtitle: 'Visão geral',
           body: StreamBuilder<_DashboardStats>(
             stream: _statsStream,
@@ -182,59 +196,99 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
               return CustomScrollView(
                 slivers: [
-                          // ── Welcome Banner ───────────────────────────
-                          SliverToBoxAdapter(
-                            child: FadeTransition(
-                              opacity: _greetingFade,
-                              child: _WelcomeBanner(
-                                greeting: _greeting(),
-                                firstName: profileFirstName,
-                                isDark: isDark,
-                              ),
-                            ),
-                          ),
-
-                          // ── Setup Banner (quando não há backup) ──────
-                          if (needsSetup)
-                            SliverPadding(
-                              padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                              sliver: SliverToBoxAdapter(
-                                child: _SetupBanner(
+                  SliverToBoxAdapter(
+                    child: FadeTransition(
+                      opacity: _greetingFade,
+                      child: _WelcomeBanner(
+                        greeting: _greeting(),
+                        firstName: profileFirstName,
+                        isDark: isDark,
+                      ),
+                    ),
+                  ),
+                  if (needsSetup)
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                      sliver: SliverToBoxAdapter(
+                        child: _SetupBanner(
+                          isDark: isDark,
+                          onImport: () => context.go('/admin/imports/backup'),
+                          onNuvemshop: () =>
+                              context.go('/admin/imports/nuvemshop'),
+                          onCreateProduct: () => context.go('/admin/products'),
+                          onCreateCatalog: () => context.go('/admin/catalogs'),
+                          onSkip: _markInitialDone,
+                        ),
+                      ),
+                    ),
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(
+                      20,
+                      needsSetup ? 24 : 8,
+                      20,
+                      8,
+                    ),
+                    sliver: SliverToBoxAdapter(
+                      child: _SectionTitle(
+                        label: 'Ações Rápidas',
+                        gradient: AppTokens.primaryGradient,
+                        isDark: isDark,
+                      ),
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                    sliver: SliverGrid(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: needsSetup
+                            ? 2
+                            : (MediaQuery.of(context).size.width > 600 ? 4 : 3),
+                        mainAxisSpacing: 12,
+                        crossAxisSpacing: 12,
+                        childAspectRatio: 1.0,
+                      ),
+                      delegate: SliverChildListDelegate(
+                        needsSetup
+                            ? [
+                                _QuickActionCard(
+                                  label: 'Criar Produtos',
+                                  icon: Icons.add_box_rounded,
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFF10B981),
+                                      Color(0xFF059669),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
                                   isDark: isDark,
-                                  onImport: () =>
-                                      context.go('/admin/imports/backup'),
-                                  onSkip: _markInitialDone,
+                                  onTap: () => context.go('/admin/products'),
                                 ),
-                              ),
-                            ),
-
-                          // ── Quick Actions ────────────────────────────
-                          SliverPadding(
-                            padding: EdgeInsets.fromLTRB(
-                                20, needsSetup ? 24 : 8, 20, 8),
-                            sliver: SliverToBoxAdapter(
-                              child: _SectionTitle(
-                                label: 'Ações Rápidas',
-                                gradient: AppTokens.primaryGradient,
-                                isDark: isDark,
-                              ),
-                            ),
-                          ),
-
-                          SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-                            sliver: SliverGrid(
-                              gridDelegate:
-                                  SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount:
-                                    MediaQuery.of(context).size.width > 600
-                                        ? 4
-                                        : 3,
-                                mainAxisSpacing: 12,
-                                crossAxisSpacing: 12,
-                                childAspectRatio: 1.0,
-                              ),
-                              delegate: SliverChildListDelegate([
+                                _QuickActionCard(
+                                  label: 'Importar Backup',
+                                  icon: Icons.settings_backup_restore_rounded,
+                                  gradient: AppTokens.primaryGradient,
+                                  isDark: isDark,
+                                  onTap: () =>
+                                      context.go('/admin/imports/backup'),
+                                ),
+                                _QuickActionCard(
+                                  label: 'Importar Nuvemshop',
+                                  icon: Icons.shopping_bag_rounded,
+                                  gradient: AppTokens.warmGradient,
+                                  isDark: isDark,
+                                  onTap: () =>
+                                      context.go('/admin/imports/nuvemshop'),
+                                ),
+                                _QuickActionCard(
+                                  label: 'Criar Catálogo',
+                                  icon: Icons.auto_awesome_motion_rounded,
+                                  gradient: AppTokens.accentGradient,
+                                  isDark: isDark,
+                                  onTap: () => context.go('/admin/catalogs'),
+                                ),
+                              ]
+                            : [
                                 _QuickActionCard(
                                   label: 'Novo Produto',
                                   icon: Icons.add_box_rounded,
@@ -294,36 +348,34 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                   isDark: isDark,
                                   onTap: () => context.go('/admin/backup'),
                                 ),
-                              ]),
-                            ),
-                          ),
-
-                          // ── Resumo ───────────────────────────────────
-                          SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
-                            sliver: SliverToBoxAdapter(
-                              child: _SectionTitle(
-                                label: 'Resumo',
-                                gradient: AppTokens.accentGradient,
-                                isDark: isDark,
-                              ),
-                            ),
-                          ),
-
-                          SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
-                            sliver: SliverToBoxAdapter(
-                              child: _buildStatsSection(
-                                context,
-                                productCount: stats.productCount,
-                                categoryCount: stats.categoryCount,
-                                catalogCount: stats.catalogCount,
-                                isDark: isDark,
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
+                              ],
+                      ),
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
+                    sliver: SliverToBoxAdapter(
+                      child: _SectionTitle(
+                        label: 'Resumo',
+                        gradient: AppTokens.accentGradient,
+                        isDark: isDark,
+                      ),
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
+                    sliver: SliverToBoxAdapter(
+                      child: _buildStatsSection(
+                        context,
+                        productCount: stats.productCount,
+                        categoryCount: stats.categoryCount,
+                        catalogCount: stats.catalogCount,
+                        isDark: isDark,
+                      ),
+                    ),
+                  ),
+                ],
+              );
             },
           ),
         ),
@@ -346,6 +398,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth > 500;
+
         if (isWide) {
           return Row(
             children: [
@@ -381,6 +434,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             ],
           );
         }
+
         return Column(
           children: [
             Row(
@@ -425,8 +479,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 }
 
-// ─── Section Title ────────────────────────────────────────────────────────────
-
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle({
     required this.label,
@@ -465,17 +517,21 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-// ─── Setup Banner ─────────────────────────────────────────────────────────────
-
 class _SetupBanner extends StatelessWidget {
   const _SetupBanner({
     required this.isDark,
     required this.onImport,
+    required this.onNuvemshop,
+    required this.onCreateProduct,
+    required this.onCreateCatalog,
     required this.onSkip,
   });
 
   final bool isDark;
   final VoidCallback onImport;
+  final VoidCallback onNuvemshop;
+  final VoidCallback onCreateProduct;
+  final VoidCallback onCreateCatalog;
   final VoidCallback onSkip;
 
   @override
@@ -524,7 +580,7 @@ class _SetupBanner extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Configure seu banco de dados',
+                      'Comece sua loja',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 14,
@@ -534,7 +590,7 @@ class _SetupBanner extends StatelessWidget {
                     ),
                     SizedBox(height: 2),
                     Text(
-                      'Importe um backup ou comece do zero',
+                      'Escolha um caminho para cadastrar os primeiros produtos',
                       style: TextStyle(
                         color: Colors.white54,
                         fontSize: 11,
@@ -546,62 +602,36 @@ class _SetupBanner extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          Row(
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
             children: [
-              Expanded(
-                flex: 2,
-                child: GestureDetector(
-                  onTap: onImport,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 11),
-                    decoration: BoxDecoration(
-                      borderRadius:
-                          BorderRadius.circular(AppTokens.radiusMd),
-                      gradient: AppTokens.primaryGradient,
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.cloud_download_rounded,
-                            color: Colors.white, size: 15),
-                        SizedBox(width: 6),
-                        Text(
-                          'Importar Backup',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+              _SetupActionButton(
+                icon: Icons.add_box_rounded,
+                label: 'Criar produtos',
+                onTap: onCreateProduct,
+                primary: true,
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: GestureDetector(
-                  onTap: onSkip,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 11),
-                    decoration: BoxDecoration(
-                      borderRadius:
-                          BorderRadius.circular(AppTokens.radiusMd),
-                      border: Border.all(
-                          color: Colors.white.withOpacity(0.2)),
-                    ),
-                    child: const Text(
-                      'Do zero',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white60,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
+              _SetupActionButton(
+                icon: Icons.settings_backup_restore_rounded,
+                label: 'Importar backup',
+                onTap: onImport,
+              ),
+              _SetupActionButton(
+                icon: Icons.shopping_bag_rounded,
+                label: 'Importar Nuvemshop',
+                onTap: onNuvemshop,
+              ),
+              _SetupActionButton(
+                icon: Icons.auto_awesome_motion_rounded,
+                label: 'Criar catálogo',
+                onTap: onCreateCatalog,
+              ),
+              _SetupActionButton(
+                icon: Icons.check_rounded,
+                label: 'Começar depois',
+                onTap: onSkip,
+                muted: true,
               ),
             ],
           ),
@@ -611,7 +641,67 @@ class _SetupBanner extends StatelessWidget {
   }
 }
 
-// ─── Welcome Banner ───────────────────────────────────────────────────────────
+class _SetupActionButton extends StatelessWidget {
+  const _SetupActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.primary = false,
+    this.muted = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool primary;
+  final bool muted;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 160,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+            gradient: primary ? AppTokens.primaryGradient : null,
+            border: primary
+                ? null
+                : Border.all(color: Colors.white.withOpacity(0.2)),
+            color: muted ? Colors.white.withOpacity(0.04) : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                color: muted ? Colors.white60 : Colors.white,
+                size: 15,
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: muted ? Colors.white60 : Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _WelcomeBanner extends StatelessWidget {
   const _WelcomeBanner({
@@ -627,14 +717,32 @@ class _WelcomeBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
+
     const dias = [
-      'Segunda', 'Terça', 'Quarta', 'Quinta',
-      'Sexta', 'Sábado', 'Domingo',
+      'Segunda',
+      'Terça',
+      'Quarta',
+      'Quinta',
+      'Sexta',
+      'Sábado',
+      'Domingo',
     ];
+
     const meses = [
-      'jan', 'fev', 'mar', 'abr', 'mai', 'jun',
-      'jul', 'ago', 'set', 'out', 'nov', 'dez',
+      'jan',
+      'fev',
+      'mar',
+      'abr',
+      'mai',
+      'jun',
+      'jul',
+      'ago',
+      'set',
+      'out',
+      'nov',
+      'dez',
     ];
+
     final dateStr =
         '${dias[now.weekday - 1]}, ${now.day} de ${meses[now.month - 1]}';
 
@@ -684,10 +792,11 @@ class _WelcomeBanner extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 4),
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
-                  borderRadius:
-                      BorderRadius.circular(AppTokens.radiusFull),
+                  borderRadius: BorderRadius.circular(AppTokens.radiusFull),
                   color: Colors.white.withOpacity(0.08),
                 ),
                 child: Text(
@@ -727,8 +836,6 @@ class _WelcomeBanner extends StatelessWidget {
     );
   }
 }
-
-// ─── Stat Card ────────────────────────────────────────────────────────────────
 
 class _StatCard extends StatelessWidget {
   const _StatCard({
@@ -824,8 +931,6 @@ class _StatCard extends StatelessWidget {
       );
 }
 
-// ─── Quick Action Card ────────────────────────────────────────────────────────
-
 class _QuickActionCard extends StatelessWidget {
   const _QuickActionCard({
     required this.label,
@@ -867,28 +972,31 @@ class _QuickActionCard extends StatelessWidget {
                   ],
           ),
           child: Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 10,
+            ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
                     gradient: gradient,
                   ),
                   child: Icon(icon, color: Colors.white, size: 20),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Text(
                   label,
                   style: TextStyle(
                     fontSize: 11,
+                    height: 1.08,
                     fontWeight: FontWeight.w700,
-                    color: isDark
-                        ? Colors.white70
-                        : AppTokens.textSecondary,
+                    color: isDark ? Colors.white70 : AppTokens.textSecondary,
                     letterSpacing: -0.1,
                   ),
                   textAlign: TextAlign.center,

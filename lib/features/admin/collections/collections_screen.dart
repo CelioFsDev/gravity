@@ -36,8 +36,8 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
 
     return AppScaffold(
       showHeader: false,
-      title: 'Cole\u00e7\u00f5es',
-      subtitle: 'Gerencie suas cole\u00e7\u00f5es e cat\u00e1logos',
+      title: 'Coleções',
+      subtitle: 'Gerencie suas coleções e catálogos',
       actions: [
         if (role.canManageRegistrations)
           FilledButton.icon(
@@ -73,26 +73,27 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
           : null,
       body: categoriesState.when(
         data: (state) {
-          // Filter collections
           final collections = state.categories
               .where((c) => c.type == CategoryType.collection)
               .where(
                 (c) =>
                     _searchQuery.isEmpty ||
                     c.safeName.toLowerCase().contains(
-                      _searchQuery.toLowerCase(),
-                    ),
+                          _searchQuery.toLowerCase(),
+                        ),
               )
               .toList();
 
           if (collections.isEmpty && _searchQuery.isEmpty) {
             return AppEmptyState(
               icon: Icons.collections_bookmark_outlined,
-              title: 'Nenhuma cole\u00e7\u00e3o',
+              title: 'Nenhuma coleção',
               message:
-                  'Crie sua primeira cole\u00e7\u00e3o para organizar seus produtos.',
-              actionLabel: 'Criar Cole\u00e7\u00e3o',
-              onAction: () => context.push('/admin/collections/new'),
+                  'Crie sua primeira coleção para organizar seus produtos.',
+              actionLabel:
+                  role.canManageRegistrations ? 'Criar Coleção' : null,
+              onAction:
+                  role.canManageRegistrations ? _openNewCollection : null,
               subtitle: '',
             );
           }
@@ -105,7 +106,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                 ),
                 child: AppSearchField(
                   controller: _searchController,
-                  hintText: 'Buscar cole\u00e7\u00f5es...',
+                  hintText: 'Buscar coleções...',
                   onChanged: (value) => setState(() => _searchQuery = value),
                   onClear: () {
                     _searchController.clear();
@@ -126,6 +127,7 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                   separatorBuilder: (_, _) => const SizedBox(height: 16),
                   itemBuilder: (context, index) {
                     final collection = collections[index];
+
                     return _CollectionCard(
                       collection: collection,
                       onEdit: () => context.push(
@@ -143,18 +145,17 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
           if (_searchQuery.isEmpty) {
             return AppEmptyState(
               icon: Icons.collections_bookmark_outlined,
-              title: 'Nenhuma cole\u00e7\u00e3o',
+              title: 'Nenhuma coleção',
               message:
-                  'Ainda n\u00e3o h\u00e1 cole\u00e7\u00f5es cadastradas para esta empresa.',
-              actionLabel: role.canManageRegistrations
-                  ? 'Criar Cole\u00e7\u00e3o'
-                  : null,
-              onAction: role.canManageRegistrations
-                  ? () => context.push('/admin/collections/new')
-                  : null,
+                  'Ainda não há coleções cadastradas para esta empresa.',
+              actionLabel:
+                  role.canManageRegistrations ? 'Criar Coleção' : null,
+              onAction:
+                  role.canManageRegistrations ? _openNewCollection : null,
               subtitle: '',
             );
           }
+
           return AppErrorView(
             error: e,
             stackTrace: s,
@@ -175,9 +176,9 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Excluir Cole\u00e7\u00e3o?'),
+        title: const Text('Excluir Coleção?'),
         content: const Text(
-          'Esta a\u00e7\u00e3o n\u00e3o pode ser desfeita. Os produtos vinculados perder\u00e3o esta associa\u00e7\u00e3o.',
+          'Esta ação não pode ser desfeita. Os produtos vinculados perderão esta associação.',
         ),
         actions: [
           TextButton(
@@ -225,7 +226,6 @@ class _CollectionCard extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Mini Cover Preview (AspectRatio 1365/420 ~= 3.25)
             SizedBox(
               height: 120,
               width: double.infinity,
@@ -246,7 +246,9 @@ class _CollectionCard extends ConsumerWidget {
                             Expanded(
                               child: Text(
                                 collection.safeName,
-                                style: Theme.of(context).textTheme.titleMedium
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
                                     ?.copyWith(fontWeight: FontWeight.bold),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -263,7 +265,9 @@ class _CollectionCard extends ConsumerWidget {
                         const SizedBox(height: 4),
                         Text(
                           'Slug: ${collection.slug}',
-                          style: Theme.of(context).textTheme.bodySmall
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
                               ?.copyWith(color: AppTokens.textMuted),
                         ),
                       ],
@@ -294,10 +298,25 @@ class _CollectionCard extends ConsumerWidget {
   }
 
   Widget _buildPlaceholder(BuildContext context) {
-    return Image.asset(
-      'assets/branding/catalogs/catalogoja_catalogs_mini_1365x420.png',
-      fit: BoxFit.cover,
+    return Container(
       width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppTokens.accentBlue.withOpacity(0.18),
+            AppTokens.vibrantCyan.withOpacity(0.12),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: const Center(
+        child: Icon(
+          Icons.collections_bookmark_outlined,
+          color: AppTokens.accentBlue,
+          size: 36,
+        ),
+      ),
     );
   }
 

@@ -214,17 +214,23 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
 
   @override
   Future<bool> isSlugTaken(String slug, {String? excludeId}) async {
-    final snapshot = await _collection
-        .where('slug', isEqualTo: slug)
-        .get();
+    try {
+      final snapshot = await _collection
+          .where('slug', isEqualTo: slug)
+          .get();
 
-    if (snapshot.docs.isEmpty) return false;
-    if (excludeId != null &&
-        snapshot.docs.length == 1 &&
-        snapshot.docs.first.id == excludeId) {
-      return false;
+      if (snapshot.docs.isEmpty) return false;
+      if (excludeId != null &&
+          snapshot.docs.length == 1 &&
+          snapshot.docs.first.id == excludeId) {
+        return false;
+      }
+      return true;
+    } catch (e) {
+      print('Erro ao verificar slug de catalogo na nuvem (usando local): $e');
+      final localDoc = await _localRepo.getBySlug(slug);
+      return localDoc != null && localDoc.id != excludeId;
     }
-    return true;
   }
 
   @override
@@ -232,12 +238,16 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
     final localDoc = await _localRepo.getBySlug(slug);
     if (localDoc != null) return localDoc;
 
-    final snapshot = await _collection
-        .where('slug', isEqualTo: slug)
-        .limit(1)
-        .get();
-    if (snapshot.docs.isNotEmpty) {
-      return Catalog.fromMap(snapshot.docs.first.data());
+    try {
+      final snapshot = await _collection
+          .where('slug', isEqualTo: slug)
+          .limit(1)
+          .get();
+      if (snapshot.docs.isNotEmpty) {
+        return Catalog.fromMap(snapshot.docs.first.data());
+      }
+    } catch (e) {
+      print('Erro ao buscar catalogo por slug na nuvem (usando local): $e');
     }
     return null;
   }

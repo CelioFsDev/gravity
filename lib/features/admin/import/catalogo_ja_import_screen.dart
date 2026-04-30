@@ -5,6 +5,7 @@ import 'package:catalogo_ja/core/services/export_import_service.dart';
 import 'package:catalogo_ja/viewmodels/catalogo_ja_import_viewmodel.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/viewmodels/settings_viewmodel.dart';
+import 'package:catalogo_ja/core/utils/user_friendly_error.dart';
 
 class CatalogoJaImportScreen extends ConsumerStatefulWidget {
   const CatalogoJaImportScreen({super.key});
@@ -23,7 +24,10 @@ class _CatalogoJaImportScreenState
     final viewModel = ref.read(catalogoJaImportViewModelProvider.notifier);
 
     // Auto-marca isInitialSyncCompleted quando importação conclui com sucesso
-    if (state.step == 2 && state.result != null && !_markedDone) {
+    if (state.step == 2 &&
+        state.result != null &&
+        state.result!.successCount > 0 &&
+        !_markedDone) {
       _markedDone = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref
@@ -34,7 +38,7 @@ class _CatalogoJaImportScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Importar Backup (CatalogoJa)'),
+        title: const Text('Restaurar Backup'),
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () {
@@ -53,7 +57,29 @@ class _CatalogoJaImportScreenState
     CatalogoJaImportViewModel viewModel,
   ) {
     if (state.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 20),
+              Text(
+                'Processando backup...',
+                style: TextStyle(fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Isso pode levar alguns minutos. Mantenha o aplicativo aberto.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+      );
     }
 
     if (state.errorMessage != null) {
@@ -114,7 +140,7 @@ class _CatalogoJaImportScreenState
             ),
             const SizedBox(height: 24),
             Text(
-              'Selecione o arquivo de backup',
+              'Selecione o backup para restaurar',
               style: Theme.of(context).textTheme.headlineSmall,
               textAlign: TextAlign.center,
             ),
@@ -270,17 +296,36 @@ class _CatalogoJaImportScreenState
     CatalogoJaImportViewModel viewModel,
   ) {
     final result = state.result!;
+    final hasSuccess = result.successCount > 0;
+    final hasErrors = result.errorCount > 0 || result.errors.isNotEmpty;
+    final title = hasSuccess
+        ? (hasErrors
+              ? 'Importa\u00e7\u00e3o conclu\u00edda com avisos'
+              : 'Importa\u00e7\u00e3o conclu\u00edda')
+        : (hasErrors ? 'Importa\u00e7\u00e3o n\u00e3o conclu\u00edda' : 'Nenhum item importado');
+    final icon = hasSuccess
+        ? (hasErrors ? Icons.warning_amber_rounded : Icons.check_circle)
+        : Icons.error_outline;
+    final iconColor = hasSuccess
+        ? (hasErrors ? Colors.orange : Colors.green)
+        : Colors.red;
+
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.check_circle, color: Colors.green, size: 80),
+            Icon(
+              icon,
+              color: iconColor,
+              size: 80,
+            ),
             const SizedBox(height: 24),
             Text(
-              'Importa\u00e7\u00e3o Conclu\u00edda!',
+              title,
               style: Theme.of(context).textTheme.headlineMedium,
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
             _buildStatRow(
@@ -311,11 +356,13 @@ class _CatalogoJaImportScreenState
                       'Erros:',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    ...result.errors
-                        .take(3)
-                        .map(
+                    ...result.errors.take(3).map(
                           (e) => Text(
-                            e,
+                            UserFriendlyError.message(
+                              e,
+                              fallback:
+                                  'Um item n\u00e3o p\u00f4de ser importado. Revise o backup e tente novamente.',
+                            ),
                             style: const TextStyle(fontSize: 12),
                             softWrap: true,
                             overflow: TextOverflow.visible,

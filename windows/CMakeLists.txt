@@ -4,6 +4,8 @@ project(catalogo_ja LANGUAGES CXX)
 
 # Required for older third-party CMakeLists (e.g., Firebase C++ SDK) when using recent CMake versions.
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+# Reduce noisy deprecation warnings emitted by third-party extracted SDKs in build/.
+set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
 
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
@@ -48,6 +50,12 @@ function(APPLY_STANDARD_SETTINGS TARGET)
   target_compile_definitions(${TARGET} PRIVATE "$<$<CONFIG:Debug>:_DEBUG>")
   target_compile_definitions(${TARGET} PRIVATE "_CRT_SECURE_NO_WARNINGS")
 endfunction()
+
+if(MSVC)
+  # Firebase/Firestore Windows debug libs may ship without matching PDB files.
+  # Suppress linker warning LNK4099 to keep local debug builds readable.
+  add_link_options(/ignore:4099)
+endif()
 
 # Flutter library and tool build rules.
 set(FLUTTER_MANAGED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/flutter")

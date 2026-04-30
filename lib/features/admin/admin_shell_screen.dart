@@ -186,7 +186,10 @@ class AdminShellScreen extends ConsumerWidget {
                         ),
                         child: Container(
                           color: Theme.of(context).scaffoldBackgroundColor,
-                          child: navigationShell,
+                          child: _AnimatedBranchContent(
+                            currentIndex: navigationShell.currentIndex,
+                            child: navigationShell,
+                          ),
                         ),
                       ),
                     ),
@@ -203,7 +206,10 @@ class AdminShellScreen extends ConsumerWidget {
                               padding: EdgeInsets.only(
                                 bottom: isRootPage ? 96 : 0,
                               ),
-                              child: navigationShell,
+                              child: _AnimatedBranchContent(
+                                currentIndex: navigationShell.currentIndex,
+                                child: navigationShell,
+                              ),
                             ),
                           ),
                           if (isRootPage)
@@ -728,5 +734,76 @@ class _NavItem {
       9 => role.canViewBackup,
       _ => false,
     };
+  }
+}
+
+class _AnimatedBranchContent extends StatefulWidget {
+  const _AnimatedBranchContent({
+    required this.currentIndex,
+    required this.child,
+  });
+
+  final int currentIndex;
+  final Widget child;
+
+  @override
+  State<_AnimatedBranchContent> createState() => _AnimatedBranchContentState();
+}
+
+class _AnimatedBranchContentState extends State<_AnimatedBranchContent>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _fade;
+  late final Animation<Offset> _slide;
+  late int _lastIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastIndex = widget.currentIndex;
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 260),
+    )..forward();
+
+    final curved = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+
+    _fade = Tween<double>(begin: 0, end: 1).animate(curved);
+    _slide = Tween<Offset>(
+      begin: const Offset(0.02, 0),
+      end: Offset.zero,
+    ).animate(curved);
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnimatedBranchContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_lastIndex != widget.currentIndex) {
+      _lastIndex = widget.currentIndex;
+      _controller
+        ..stop()
+        ..forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _fade,
+      child: SlideTransition(
+        position: _slide,
+        child: widget.child,
+      ),
+    );
   }
 }

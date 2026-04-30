@@ -332,7 +332,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
             duration: Duration(seconds: 4),
           ),
         );
-        Navigator.of(context).pop();
+        Navigator.of(context).pop(widget.product == null ? product : null);
       }
     } catch (e) {
       if (mounted) {
@@ -2121,6 +2121,21 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     List<Category> collections,
     List<Category> categories,
   ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final chipBorderColor = isDark
+        ? Colors.white.withOpacity(0.12)
+        : Colors.black.withOpacity(0.10);
+    final chipTextColor = isDark ? Colors.white70 : Colors.black87;
+    final selectedChipColor = isDark
+        ? AppTokens.electricBlue.withOpacity(0.22)
+        : AppTokens.electricBlue.withOpacity(0.14);
+    final selectedChipBorderColor = isDark
+        ? AppTokens.vibrantCyan.withOpacity(0.55)
+        : AppTokens.electricBlue.withOpacity(0.35);
+    final selectedChipTextColor = isDark
+        ? Colors.white
+        : AppTokens.textPrimary;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2204,8 +2219,26 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           children: categories.map((cat) {
             final isSelected = _selectedCategoryIds.contains(cat.id);
             return FilterChip(
-              label: Text(cat.safeName),
+              label: Text(
+                cat.safeName,
+                style: TextStyle(
+                  color: isSelected ? selectedChipTextColor : chipTextColor,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                ),
+              ),
               selected: isSelected,
+              showCheckmark: false,
+              backgroundColor:
+                  isDark ? Colors.white.withOpacity(0.04) : Colors.white,
+              selectedColor: selectedChipColor,
+              side: BorderSide(
+                color: isSelected
+                    ? selectedChipBorderColor
+                    : chipBorderColor,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               onSelected: (val) {
                 setState(() {
                   if (val) {
