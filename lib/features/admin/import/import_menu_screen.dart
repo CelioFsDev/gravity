@@ -6,6 +6,8 @@ import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/viewmodels/product_export_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/settings_viewmodel.dart';
 
+const bool _showStockUpdatePdf = false;
+
 class ImportMenuScreen extends ConsumerWidget {
   const ImportMenuScreen({super.key});
 
@@ -16,7 +18,7 @@ class ImportMenuScreen extends ConsumerWidget {
     final lastBackupLabel = _formatLastBackup(settings.lastFullBackupAt);
 
     return AppScaffold(
-      title: 'Backup e Importa\u00e7\u00f5es',
+      title: 'Backup e Importações',
       body: ListView(
         padding: const EdgeInsets.all(AppTokens.space24),
         children: [
@@ -24,20 +26,22 @@ class ImportMenuScreen extends ConsumerWidget {
             context,
             title: 'Backup do aplicativo',
             description:
-                'Gere uma c\u00f3pia completa dos dados do aplicativo para guardar em local seguro. Use antes de trocar de aparelho, reinstalar o app ou fazer grandes altera\u00e7\u00f5es.',
+                'Gere uma cópia completa dos dados do aplicativo para guardar em local seguro. Use antes de trocar de aparelho, reinstalar o app ou fazer grandes alterações.',
             child: _buildActionItem(
               context,
               icon: Icons.archive_outlined,
               title: 'Backup Completo do Aplicativo',
               subtitle: exportState.isLoading
                   ? 'Gerando backup... aguarde.'
-                  : 'Salva produtos, cat\u00e1logos, categorias e fotos em um arquivo .zip. $lastBackupLabel',
+                  : 'Salva produtos, catálogos, categorias e fotos em um arquivo .zip. $lastBackupLabel',
               isBusy: exportState.isLoading,
               onTap: () {
                 if (exportState.isLoading) return;
+
                 ref
                     .read(productExportViewModelProvider.notifier)
                     .exportPackage();
+
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text(
@@ -50,32 +54,52 @@ class ImportMenuScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: AppTokens.space24),
+
+          if (_showStockUpdatePdf) ...[
+            _buildSection(
+              context,
+              title: 'Atualizar estoque',
+              description:
+                  'Use esta opção para colar o texto de um relatório e atualizar quantidades automaticamente.',
+              child: _buildItem(
+                context,
+                icon: Icons.inventory_2_outlined,
+                title: 'Atualizar Estoque (PDF)',
+                subtitle:
+                    'Colar texto de relatório para atualizar quantidades.',
+                route: '/admin/imports/stock-update',
+              ),
+            ),
+            const SizedBox(height: AppTokens.space24),
+          ],
+
           _buildSection(
             context,
             title: 'Restaurar backup completo',
             description:
-                'Use esta op\u00e7\u00e3o para recuperar os dados salvos em um backup do Cat\u00e1logo J\u00e1. Ela \u00e9 indicada quando voc\u00ea est\u00e1 configurando um aparelho novo ou precisa trazer dados antigos de volta.',
+                'Use esta opção para recuperar os dados salvos em um backup do Catálogo Já. Ela é indicada quando você está configurando um aparelho novo ou precisa trazer dados antigos de volta.',
             child: _buildItem(
               context,
               icon: Icons.settings_backup_restore,
               title: 'Restaurar Backup Completo',
               subtitle:
-                  'Importa produtos, cat\u00e1logos, categorias e fotos de um arquivo .zip ou .json.',
+                  'Importa produtos, catálogos, categorias e fotos de um arquivo .zip ou .json.',
               route: '/admin/imports/backup',
             ),
           ),
           const SizedBox(height: AppTokens.space24),
+
           _buildSection(
             context,
             title: 'Importar produtos',
             description:
-                'Traga produtos cadastrados em outras plataformas para dentro do aplicativo. A importa\u00e7\u00e3o da Nuvemshop usa uma planilha CSV exportada da sua loja.',
+                'Traga produtos cadastrados em outras plataformas para dentro do aplicativo. A importação da Nuvemshop usa uma planilha CSV exportada da sua loja.',
             child: _buildItem(
               context,
               icon: Icons.cloud_download_outlined,
               title: 'Importar Nuvemshop',
               subtitle:
-                  'Importa produtos da Nuvemshop por CSV e ajuda a iniciar o cat\u00e1logo sem cadastrar tudo manualmente.',
+                  'Importa produtos da Nuvemshop por CSV e ajuda a iniciar o catálogo sem cadastrar tudo manualmente.',
               route: '/admin/imports/nuvemshop',
             ),
           ),
@@ -86,12 +110,14 @@ class ImportMenuScreen extends ConsumerWidget {
 
   String _formatLastBackup(DateTime? value) {
     if (value == null) return 'Nenhum backup gerado ainda.';
+
     final day = value.day.toString().padLeft(2, '0');
     final month = value.month.toString().padLeft(2, '0');
     final year = value.year.toString();
     final hour = value.hour.toString().padLeft(2, '0');
     final minute = value.minute.toString().padLeft(2, '0');
-    return '\u00daltimo backup: $day/$month/$year \u00e0s $hour:$minute.';
+
+    return 'Último backup: $day/$month/$year às $hour:$minute.';
   }
 
   Widget _buildSection(
@@ -154,8 +180,14 @@ class ImportMenuScreen extends ConsumerWidget {
           ),
           child: Icon(icon, color: AppTokens.accentBlue),
         ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(fontSize: 12),
+        ),
         trailing: const Icon(Icons.chevron_right),
         onTap: () => context.go(route),
       ),
@@ -195,8 +227,14 @@ class ImportMenuScreen extends ConsumerWidget {
                 )
               : Icon(icon, color: AppTokens.accentBlue),
         ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(fontSize: 12),
+        ),
         trailing: isBusy
             ? const SizedBox(
                 width: 20,

@@ -26,6 +26,28 @@ class HiveProductsRepository implements ProductsRepositoryContract {
 
   Box<Product> get box => _productsBox;
 
+  Product _withCurrentTenant(Product product) {
+    final tenantId = _getTenantId();
+    if (product.tenantId != null || tenantId == null) return product;
+    return product.copyWith(tenantId: tenantId);
+  }
+
+  Future<void> _migrateMissingTenantIds() async {
+    final tenantId = _getTenantId();
+    if (tenantId == null) return;
+
+    final updates = <String, Product>{};
+    for (final product in _productsBox.values) {
+      if (product.tenantId == null) {
+        updates[product.id] = product.copyWith(tenantId: tenantId);
+      }
+    }
+
+    if (updates.isNotEmpty) {
+      await _productsBox.putAll(updates);
+    }
+  }
+
   List<Product> _filter(Iterable<Product> items) {
     final tenantId = _getTenantId();
     if (tenantId == null) return [];
@@ -33,7 +55,10 @@ class HiveProductsRepository implements ProductsRepositoryContract {
   }
 
   @override
-  Future<List<Product>> getProducts() async => _filter(_productsBox.values);
+  Future<List<Product>> getProducts() async {
+    await _migrateMissingTenantIds();
+    return _filter(_productsBox.values);
+  }
 
   @override
   Future<Product?> getProduct(String id) async {
@@ -45,25 +70,36 @@ class HiveProductsRepository implements ProductsRepositoryContract {
 
   @override
   Future<List<Product>> getProductsByCategory(String categoryId) async {
-    return _filter(_productsBox.values)
-        .where((p) => p.categoryIds.contains(categoryId))
-        .toList();
+    return _filter(
+      _productsBox.values,
+    ).where((p) => p.categoryIds.contains(categoryId)).toList();
   }
 
   @override
-  Future<void> addProduct(Product product, {Function(double, String)? onProgress}) async {
-    await _productsBox.put(product.id, product);
+  Future<void> addProduct(
+    Product product, {
+    Function(double, String)? onProgress,
+  }) async {
+    final productToSave = _withCurrentTenant(product);
+    await _productsBox.put(productToSave.id, productToSave);
   }
 
   @override
-  Future<void> updateProduct(Product product, {Function(double, String)? onProgress}) async => 
-      addProduct(product, onProgress: onProgress);
+  Future<void> updateProduct(
+    Product product, {
+    Function(double, String)? onProgress,
+  }) async => addProduct(product, onProgress: onProgress);
 
   @override
-  Future<void> updateProductsBulk(List<Product> products, {Function(double, String)? onProgress}) async {
-    final Map<String, Product> updates = {for (var p in products) p.id: p};
+  Future<void> updateProductsBulk(
+    List<Product> products, {
+    Function(double, String)? onProgress,
+  }) async {
+    final Map<String, Product> updates = {
+      for (var p in products) p.id: _withCurrentTenant(p),
+    };
     await _productsBox.putAll(updates);
-    
+
     if (onProgress != null) {
       onProgress(1.0, 'Produtos locais atualizados!');
     }
@@ -80,7 +116,10 @@ class HiveProductsRepository implements ProductsRepositoryContract {
   }
 
   @override
-  Future<void> syncProductToCloud(Product product, {Function(double, String)? onProgress}) async {
+  Future<void> syncProductToCloud(
+    Product product, {
+    Function(double, String)? onProgress,
+  }) async {
     await addProduct(product);
   }
 

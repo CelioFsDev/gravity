@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
+import 'package:catalogo_ja/features/admin/admin_shell_scope.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/core/providers/global_loading_provider.dart';
 import 'package:catalogo_ja/features/theme/theme_providers.dart';
@@ -17,7 +17,6 @@ class AppScaffold extends ConsumerWidget {
   final bool useAppBar;
   final Widget? bottom;
   final bool? showBackButton;
-  final VoidCallback? onMenuPressed;
 
   const AppScaffold({
     super.key,
@@ -32,37 +31,50 @@ class AppScaffold extends ConsumerWidget {
     this.useAppBar = false,
     this.bottom,
     this.showBackButton,
-    this.onMenuPressed,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final hasTitle = title != null;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final canPop = context.canPop();
-    final hasDrawerAccess = onMenuPressed != null || _hasParentDrawer(context);
-    final currentLocation = _currentLocation(context);
-    final preferMenuButton =
-        hasDrawerAccess && _isAdminRootLocation(currentLocation);
-    final shouldShowBackButton =
-        showBackButton ?? (preferMenuButton ? false : canPop);
-    
-    final activeTask = ref.watch(
-      globalLoadingProvider.select((tasks) {
-        for (final task in tasks.values) {
-          if (!task.isDone) return task;
-        }
-        return null;
-      }),
-    );
+
+    final canPop = Navigator.of(context).canPop();
+    final shouldShowBackButton = showBackButton ?? canPop;
+
+    final adminShellScope = AdminShellScope.maybeOf(context);
+    final canOpenAdminDrawer = adminShellScope?.canOpenDrawer ?? false;
+    final openAdminDrawer = adminShellScope?.openDrawer;
+
+    final appBarActions = [
+      if (canOpenAdminDrawer && shouldShowBackButton)
+        IconButton(
+          tooltip: 'Voltar',
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+      ...?actions,
+    ];
+
+    final _ = ref.watch(globalLoadingProvider);
+    final activeTask = ref
+        .watch(globalLoadingProvider.notifier)
+        .mainActiveTask();
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: (useAppBar && hasTitle)
           ? AppBar(
-              automaticallyImplyLeading: shouldShowBackButton,
+              automaticallyImplyLeading:
+                  !canOpenAdminDrawer && shouldShowBackButton,
+              leading: canOpenAdminDrawer
+                  ? IconButton(
+                      tooltip: 'Abrir menu',
+                      icon: const Icon(Icons.menu_rounded),
+                      onPressed: openAdminDrawer,
+                    )
+                  : null,
               title: Text(title!),
-              actions: actions,
+              actions: appBarActions,
               backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               elevation: 0,
             )
@@ -78,7 +90,11 @@ class AppScaffold extends ConsumerWidget {
                 ref,
                 isDark,
                 shouldShowBackButton,
+                canOpenAdminDrawer: canOpenAdminDrawer,
+                openAdminDrawer: openAdminDrawer,
               ),
+            if (!useAppBar && !showHeader && canOpenAdminDrawer)
+              _buildMenuOnlyHeader(context, isDark, openAdminDrawer),
             if (bottom != null) ...[bottom!],
             Expanded(child: body),
           ],
@@ -89,12 +105,35 @@ class AppScaffold extends ConsumerWidget {
     );
   }
 
+  Widget _buildMenuOnlyHeader(
+    BuildContext context,
+    bool isDark,
+    VoidCallback? openAdminDrawer,
+  ) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+        child: IconButton.filledTonal(
+          tooltip: 'Abrir menu',
+          onPressed: openAdminDrawer,
+          icon: Icon(
+            Icons.menu_rounded,
+            color: isDark ? AppTokens.vibrantCyan : AppTokens.electricBlue,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildSimpleHeader(
     BuildContext context,
     WidgetRef ref,
     bool isDark,
-    bool shouldShowBackButton,
-  ) {
+    bool shouldShowBackButton, {
+    required bool canOpenAdminDrawer,
+    required VoidCallback? openAdminDrawer,
+  }) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       decoration: BoxDecoration(
@@ -108,16 +147,26 @@ class AppScaffold extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          if (shouldShowBackButton) ...[
+          if (canOpenAdminDrawer) ...[
             IconButton(
-              onPressed: () => context.pop(),
-              icon: Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: isDark ? Colors.white : Colors.black87),
+              tooltip: 'Abrir menu',
+              onPressed: openAdminDrawer,
+              icon: Icon(
+                Icons.menu_rounded,
+                size: 24,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
             ),
             const SizedBox(width: 8),
-          ] else if (onMenuPressed != null || _hasParentDrawer(context)) ...[
+          ],
+          if (shouldShowBackButton) ...[
             IconButton(
-              onPressed: onMenuPressed ?? () => Scaffold.of(context).openDrawer(),
-              icon: Icon(Icons.menu_rounded, size: 24, color: isDark ? Colors.white : Colors.black87),
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: Icon(
+                Icons.arrow_back_ios_new_rounded,
+                size: 20,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
             ),
             const SizedBox(width: 8),
           ],
@@ -161,7 +210,7 @@ class AppScaffold extends ConsumerWidget {
               size: 20,
             ),
             onPressed: () {
-              context.go('/admin/profile');
+              Navigator.of(context).pushNamed('/admin/profile');
             },
           ),
           const SizedBox(width: 8),
@@ -172,12 +221,13 @@ class AppScaffold extends ConsumerWidget {
               size: 20,
             ),
             onPressed: () {
-              ref.read(themeModeProvider.notifier).update(
-                (state) =>
-                    state == ThemeMode.dark
+              ref
+                  .read(themeModeProvider.notifier)
+                  .update(
+                    (state) => state == ThemeMode.dark
                         ? ThemeMode.light
                         : ThemeMode.dark,
-              );
+                  );
             },
           ),
         ],
@@ -185,50 +235,14 @@ class AppScaffold extends ConsumerWidget {
     );
   }
 
-  bool _hasParentDrawer(BuildContext context) {
-    try {
-      return Scaffold.maybeOf(context)?.hasDrawer ?? false;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  String? _currentLocation(BuildContext context) {
-    try {
-      return GoRouterState.of(context).matchedLocation;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  bool _isAdminRootLocation(String? location) {
-    switch (location) {
-      case '/admin/dashboard':
-      case '/admin/products':
-      case '/admin/collections':
-      case '/admin/categories':
-      case '/admin/catalogs':
-      case '/admin/imports':
-      case '/admin/profile':
-      case '/admin/share':
-      case '/admin/settings':
-        return true;
-      default:
-        return false;
-    }
-  }
-
   Widget _buildGlobalProgress(BuildContext context, Object activeTask) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceVariant,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         border: Border(
-          bottom: BorderSide(
-            color: Theme.of(context).dividerColor,
-            width: 1,
-          ),
+          bottom: BorderSide(color: Theme.of(context).dividerColor, width: 1),
         ),
       ),
       child: Column(

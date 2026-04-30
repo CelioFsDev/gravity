@@ -273,6 +273,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   }
 
   Future<void> _saveCategory(
+    BuildContext dialogContext,
     CategoriesViewModel notifier,
     bool isEdit,
     Category? category,
@@ -294,7 +295,12 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
         return;
       }
 
-      Navigator.of(context).pop();
+      if (!dialogContext.mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (dialogContext.mounted) {
+          Navigator.of(dialogContext).pop();
+        }
+      });
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -333,7 +339,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                 ),
                 autofocus: true,
                 onSubmitted: (_) {
-                  _saveCategory(notifier, isEdit, category);
+                  _saveCategory(context, notifier, isEdit, category);
                 },
               ),
             ],
@@ -344,7 +350,8 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
               child: const Text('Cancelar'),
             ),
             FilledButton(
-              onPressed: () => _saveCategory(notifier, isEdit, category),
+              onPressed: () =>
+                  _saveCategory(context, notifier, isEdit, category),
               child: Text(isEdit ? 'Salvar' : 'Criar'),
             ),
           ],

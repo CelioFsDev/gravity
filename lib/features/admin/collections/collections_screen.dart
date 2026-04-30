@@ -1,17 +1,16 @@
 import 'dart:io';
-
-import 'package:catalogo_ja/core/auth/user_role.dart';
-import 'package:catalogo_ja/models/category.dart';
-import 'package:catalogo_ja/ui/theme/app_tokens.dart';
-import 'package:catalogo_ja/ui/widgets/app_badge_pill.dart';
-import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
-import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
-import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
-import 'package:catalogo_ja/ui/widgets/app_search_field.dart';
-import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
+import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
+import 'package:catalogo_ja/ui/widgets/app_badge_pill.dart';
+import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
+import 'package:catalogo_ja/ui/widgets/app_search_field.dart';
+import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
+import 'package:catalogo_ja/core/auth/user_role.dart';
 
 class CollectionsScreen extends ConsumerStatefulWidget {
   const CollectionsScreen({super.key});
@@ -36,14 +35,40 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
     final role = ref.watch(currentRoleProvider);
 
     return AppScaffold(
-      showHeader: true,
+      showHeader: false,
       title: 'Coleções',
       subtitle: 'Gerencie suas coleções e catálogos',
+      actions: [
+        if (role.canManageRegistrations)
+          FilledButton.icon(
+            label: const Text('Nova Coleção'),
+            icon: const Icon(Icons.add_rounded),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(0, 40),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+            ),
+            onPressed: _openNewCollection,
+          ),
+      ],
       floatingActionButton: role.canManageRegistrations
-          ? FloatingActionButton.extended(
-              onPressed: () => context.go('/admin/collections/new'),
-              icon: const Icon(Icons.add),
-              label: const Text('Nova'),
+          ? Padding(
+              padding: const EdgeInsets.only(bottom: 80),
+              child: FloatingActionButton.extended(
+                onPressed: _openNewCollection,
+                label: const Text(
+                  'NOVA COLEÇÃO',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
+                ),
+                icon: const Icon(Icons.add_rounded),
+                backgroundColor: AppTokens.softPurple,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
             )
           : null,
       body: categoriesState.when(
@@ -54,23 +79,22 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                 (c) =>
                     _searchQuery.isEmpty ||
                     c.safeName.toLowerCase().contains(
-                      _searchQuery.toLowerCase(),
-                    ),
+                          _searchQuery.toLowerCase(),
+                        ),
               )
               .toList();
 
           if (collections.isEmpty && _searchQuery.isEmpty) {
             return AppEmptyState(
               icon: Icons.collections_bookmark_outlined,
-              title: 'Nenhuma cole\u00e7\u00e3o',
-              subtitle:
-                  'Crie sua primeira cole\u00e7\u00e3o para organizar seus produtos.',
+              title: 'Nenhuma coleção',
+              message:
+                  'Crie sua primeira coleção para organizar seus produtos.',
               actionLabel:
-                  role.canManageRegistrations ? 'Criar cole\u00e7\u00e3o' : null,
+                  role.canManageRegistrations ? 'Criar Coleção' : null,
               onAction:
-                  role.canManageRegistrations
-                      ? () => context.go('/admin/collections/new')
-                      : null,
+                  role.canManageRegistrations ? _openNewCollection : null,
+              subtitle: '',
             );
           }
 
@@ -103,9 +127,10 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                   separatorBuilder: (_, _) => const SizedBox(height: 16),
                   itemBuilder: (context, index) {
                     final collection = collections[index];
+
                     return _CollectionCard(
                       collection: collection,
-                      onEdit: () => context.go(
+                      onEdit: () => context.push(
                         '/admin/collections/${collection.id}/edit',
                       ),
                       onDelete: () => _confirmDelete(context, collection.id),
@@ -120,22 +145,22 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
           if (_searchQuery.isEmpty) {
             return AppEmptyState(
               icon: Icons.collections_bookmark_outlined,
-              title: 'Nenhuma cole\u00e7\u00e3o',
-              subtitle:
-                  'Ainda n\u00e3o h\u00e1 cole\u00e7\u00f5es cadastradas para esta empresa.',
+              title: 'Nenhuma coleção',
+              message:
+                  'Ainda não há coleções cadastradas para esta empresa.',
               actionLabel:
-                  role.canManageRegistrations ? 'Criar cole\u00e7\u00e3o' : null,
+                  role.canManageRegistrations ? 'Criar Coleção' : null,
               onAction:
-                  role.canManageRegistrations
-                      ? () => context.go('/admin/collections/new')
-                      : null,
+                  role.canManageRegistrations ? _openNewCollection : null,
+              subtitle: '',
             );
           }
+
           return AppErrorView(
             error: e,
             stackTrace: s,
-            onRetry:
-                () => ref.read(categoriesViewModelProvider.notifier).refresh(),
+            onRetry: () =>
+                ref.read(categoriesViewModelProvider.notifier).refresh(),
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -143,11 +168,15 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
     );
   }
 
+  void _openNewCollection() {
+    context.push('/admin/collections/new');
+  }
+
   Future<void> _confirmDelete(BuildContext context, String id) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Excluir coleção?'),
+        title: const Text('Excluir Coleção?'),
         content: const Text(
           'Esta ação não pode ser desfeita. Os produtos vinculados perderão esta associação.',
         ),
@@ -217,7 +246,9 @@ class _CollectionCard extends ConsumerWidget {
                             Expanded(
                               child: Text(
                                 collection.safeName,
-                                style: Theme.of(context).textTheme.titleMedium
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
                                     ?.copyWith(fontWeight: FontWeight.bold),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -234,7 +265,9 @@ class _CollectionCard extends ConsumerWidget {
                         const SizedBox(height: 4),
                         Text(
                           'Slug: ${collection.slug}',
-                          style: Theme.of(context).textTheme.bodySmall
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
                               ?.copyWith(color: AppTokens.textMuted),
                         ),
                       ],

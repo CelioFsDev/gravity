@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:catalogo_ja/core/sync/models/sync_queue_item.dart';
+import 'package:catalogo_ja/core/sync/repositories/sync_queue_repository.dart';
 import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
 import 'package:catalogo_ja/data/repositories/contracts/products_repository_contract.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
@@ -9,6 +11,7 @@ import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 
 class FirestoreProductsRepository implements ProductsRepositoryContract {
@@ -16,11 +19,13 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
   final HiveProductsRepository _localRepo;
   final SaaSPhotoStorageService _storageService;
   final String _tenantId;
+  final SyncQueueRepository _syncQueue;
 
   FirestoreProductsRepository(
     this._localRepo,
     this._storageService,
     this._tenantId,
+    this._syncQueue,
   );
 
   // 🔑 Cache em memória: evita re-leituras do Firestore dentro da mesma sessão.
@@ -112,17 +117,8 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
             return cloudImg;
           }).toList();
 
-          final preservedPhotos = cloudProduct.photos.map((cloudPhoto) {
-            final localPhoto = localProduct.photos.firstWhere(
-              (l) => l.path == cloudPhoto.path,
-              orElse: () => cloudPhoto,
-            );
-            return cloudPhoto; // Para fotos o path geralmente é a URL, o ProductImage que guarda o local
-          }).toList();
-
           final pWithSync = cloudProduct.copyWith(
             images: preservedImages,
-            // photos: preservedPhotos, // Mantemos as URLs nas fotos para compatibilidade, mas o item local usa ProductImage
             syncStatus: SyncStatus.synced,
           );
 
@@ -160,40 +156,14 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
     return snapshot.docs.map((doc) => Product.fromMap(doc.data())).toList();
   }
 
-  bool _hasLocalOnlyPhotos(Product product) {
-    final hasBase64Photos = product.photos.any(
-      (p) => p.path.startsWith('data:'),
-    );
-    final hasBase64Images = product.images.any(
-      (i) => i.uri.startsWith('data:'),
-    );
-    final hasLocalPathPhotos = product.photos.any(
-      (p) =>
-          !p.path.startsWith('http') &&
-          !p.path.startsWith('data:') &&
-          p.path.isNotEmpty,
-    );
-    final hasLocalPathImages = product.images.any(
-      (i) =>
-          !i.uri.startsWith('http') &&
-          !i.uri.startsWith('gs://') &&
-          !i.uri.startsWith('data:') &&
-          i.uri.isNotEmpty,
-    );
-    return hasBase64Photos ||
-        hasBase64Images ||
-        hasLocalPathPhotos ||
-        hasLocalPathImages;
-  }
-
   @override
   Future<void> addProduct(
     Product product, {
     Function(double, String)? onProgress,
   }) async {
-    final productToSave = product.syncStatus == SyncStatus.synced
-        ? product
-        : product.copyWith(syncStatus: SyncStatus.pendingUpdate);
+    final productToSave = product.copyWith(
+      syncStatus: SyncStatus.pendingUpdate,
+    );
     // 🏠 Local-First: Salva no Hive instantaneamente
     await _localRepo.addProduct(productToSave);
     invalidateCache();
@@ -212,12 +182,10 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
       return;
     }
 
-    final productToSave = product.syncStatus == SyncStatus.synced
-        ? product
-        : product.copyWith(
-            syncStatus: SyncStatus.pendingUpdate,
-            updatedAt: DateTime.now(),
-          );
+    final productToSave = product.copyWith(
+      syncStatus: SyncStatus.pendingUpdate,
+      updatedAt: DateTime.now(),
+    );
 
     await _localRepo.updateProduct(productToSave);
     invalidateCache();
@@ -422,7 +390,25 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
       await _localRepo.addProduct(pWithTenant);
     }
 
-    await batch.commit();
+    try {
+      await batch.commit();
+    } catch (_) {
+      for (final product in products) {
+        final productToSync = product.copyWith(
+          tenantId: _tenantId,
+          syncStatus: SyncStatus.pendingUpdate,
+        );
+        await _syncQueue.enqueue(
+          SyncQueueItem(
+            tenantId: _tenantId,
+            entityType: 'product',
+            entityId: product.id,
+            operation: SyncOperation.update,
+            payload: productToSync.toMap(),
+          ),
+        );
+      }
+    }
     invalidateCache();
 
     if (onProgress != null) {
@@ -432,9 +418,21 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
 
   @override
   Future<void> deleteProduct(String id) async {
-    await _collection.doc(id).delete();
     await _localRepo.deleteProduct(id);
     invalidateCache(); // 🔑 Invalida cache após deletão
+
+    try {
+      await _collection.doc(id).delete();
+    } catch (_) {
+      await _syncQueue.enqueue(
+        SyncQueueItem(
+          tenantId: _tenantId,
+          entityType: 'product',
+          entityId: id,
+          operation: SyncOperation.delete,
+        ),
+      );
+    }
   }
 
   @override
@@ -502,6 +500,9 @@ final syncProductsRepositoryProvider = Provider<ProductsRepositoryContract>((
           localRepo,
           storageService,
           tenant.id,
+          SyncQueueRepository(
+            Hive.box<SyncQueueItem>(SyncQueueRepository.boxName),
+          ),
         );
       }
       return localRepo;

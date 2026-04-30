@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:catalogo_ja/features/admin/admin_shell_scope.dart';
 import 'package:catalogo_ja/features/theme/theme_providers.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
@@ -11,6 +12,9 @@ class AdminShellScreen extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
 
   const AdminShellScreen({super.key, required this.navigationShell});
+
+  static final GlobalKey<ScaffoldState> _scaffoldKey =
+      GlobalKey<ScaffoldState>();
 
   static final _destinations = [
     _NavItem(
@@ -76,11 +80,22 @@ class AdminShellScreen extends ConsumerWidget {
       label: 'Ajustes',
       color: AppTokens.textSecondaryDark,
     ),
+    _NavItem(
+      branchIndex: 9,
+      icon: Icons.backup_rounded,
+      iconOutlined: Icons.backup_outlined,
+      label: 'Backup',
+      color: AppTokens.accentGreen,
+    ),
   ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     void onAdminNavigation(int index) {
+      if (index < 0 || index >= navigationShell.route.branches.length) {
+        debugPrint('Ignoring invalid admin branch index: $index');
+        return;
+      }
       navigationShell.goBranch(
         index,
         initialLocation: index == navigationShell.currentIndex,
@@ -112,6 +127,7 @@ class AdminShellScreen extends ConsumerWidget {
       '/admin/profile',
       '/admin/share',
       '/admin/settings',
+      '/admin/backup',
     ].contains(location);
 
     return LayoutBuilder(
@@ -123,26 +139,35 @@ class AdminShellScreen extends ConsumerWidget {
         final bottomNavIndices = [0, 1, 4, 7, 8];
 
         return Scaffold(
+          key: _scaffoldKey,
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           drawer: isWide
               ? null
               : Drawer(
                   backgroundColor: AppTokens.deepNavy,
-                  child: _Sidebar(
-                    currentIndex: navigationShell.currentIndex,
-                    onDestinationSelected: (index) {
-                      onAdminNavigation(index);
-                      Navigator.pop(context);
-                    },
-                    displayTitle: displayTitle,
-                    logoUrl: logoUrl,
-                    visibleDestinations: visibleDestinations,
-                    authEmail: authUser?.email,
-                    ref: ref,
+                  child: Builder(
+                    builder: (drawerContext) => _Sidebar(
+                      currentIndex: navigationShell.currentIndex,
+                      onDestinationSelected: (index) {
+                        Navigator.of(drawerContext).pop();
+                        Future<void>.delayed(
+                          const Duration(milliseconds: 260),
+                          () => onAdminNavigation(index),
+                        );
+                      },
+                      displayTitle: displayTitle,
+                      logoUrl: logoUrl,
+                      visibleDestinations: visibleDestinations,
+                      authEmail: authUser?.email,
+                      ref: ref,
+                    ),
                   ),
                 ),
-          body: isWide
-              ? Row(
+          body: AdminShellScope(
+            canOpenDrawer: !isWide,
+            openDrawer: () => _scaffoldKey.currentState?.openDrawer(),
+            child: isWide
+                ? Row(
                   children: [
                     _Sidebar(
                       currentIndex: navigationShell.currentIndex,
@@ -169,8 +194,8 @@ class AdminShellScreen extends ConsumerWidget {
                       ),
                     ),
                   ],
-                )
-              : Column(
+                  )
+                : Column(
                   children: [
                     Expanded(
                       child: Stack(
@@ -220,7 +245,8 @@ class AdminShellScreen extends ConsumerWidget {
                       ),
                     ),
                   ],
-                ),
+                  ),
+          ),
         );
       },
     );
@@ -705,6 +731,7 @@ class _NavItem {
       6 => role.canViewProfile,
       7 => role.canShare,
       8 => role.canViewSettings,
+      9 => role.canViewBackup,
       _ => false,
     };
   }

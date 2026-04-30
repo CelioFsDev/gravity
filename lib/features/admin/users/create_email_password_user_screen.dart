@@ -123,11 +123,7 @@ class _CreateEmailPasswordUserScreenState
   List<UserRole> _assignableRoles() {
     final canAssignAdmin = _canAssignAdmin();
     return UserRole.values
-        .where(
-          (role) =>
-              role != UserRole.viewer &&
-              (canAssignAdmin || role != UserRole.admin),
-        )
+        .where((role) => canAssignAdmin || role != UserRole.admin)
         .toList();
   }
 

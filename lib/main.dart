@@ -2,6 +2,7 @@ import 'package:catalogo_ja/features/admin/users/create_email_password_user_scre
 import 'package:catalogo_ja/features/auth/register_screen.dart';
 import 'package:catalogo_ja/features/admin/profile/profile_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -32,10 +33,10 @@ import 'package:catalogo_ja/features/admin/settings/settings_screen.dart';
 import 'package:catalogo_ja/features/admin/users/user_management_screen.dart';
 import 'package:catalogo_ja/features/admin/store/store_contact_share_screen.dart';
 import 'package:catalogo_ja/features/admin/dashboard/dashboard_screen.dart';
+import 'package:catalogo_ja/features/admin/backup/backup_screen.dart';
 import 'package:catalogo_ja/features/theme/theme_providers.dart';
 import 'package:catalogo_ja/features/public/catalog_home_page.dart';
 import 'package:catalogo_ja/features/public/product_detail_screen.dart';
-import 'package:catalogo_ja/features/legal/legal_documents_screen.dart';
 import 'package:catalogo_ja/ui/theme/app_theme.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/features/auth/login_screen.dart';
@@ -45,14 +46,25 @@ import 'package:catalogo_ja/pages/tenant/tenant_picker_page.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart' hide Category;
 
+/// Provider that checks if the user is disabled, manually defined to avoid build issues.
+final currentUserStatusProvider = StreamProvider<bool>((ref) {
+  final user = ref.watch(authViewModelProvider).valueOrNull;
+  if (user == null || user.email == null) return Stream.value(false);
+  final email = user.email!.trim().toLowerCase();
+  return FirebaseFirestore.instance
+      .collection('users')
+      .doc(email)
+      .snapshots()
+      .map((doc) => doc.data()?['disabled'] as bool? ?? false);
+});
+
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  // Nota: NÃO usamos FlutterNativeSplash.preserve() aqui.
-  // A native splash some assim que o Flutter renderiza o primeiro frame.
-  // O SplashScreen Flutter cuida da transição suave.
+  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
   // Initialize Hive
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
@@ -123,6 +135,7 @@ void main() async {
       FlutterError.onError = (errorDetails) {
         FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
       };
+
       // Pass ALL errors to Crashlytics
       PlatformDispatcher.instance.onError = (error, stack) {
         FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
@@ -150,7 +163,8 @@ void main() async {
       ),
     );
   } finally {
-    // Nada a fazer aqui — FlutterNativeSplash é gerenciado pelo SplashScreen
+    // Garante que a splash saia da tela mesmo se tudo der errado
+    FlutterNativeSplash.remove();
   }
 }
 
@@ -219,11 +233,12 @@ class _MyAppState extends ConsumerState<MyApp> {
         final isAuthRoute =
             state.matchedLocation == '/login' ||
             state.matchedLocation == '/register';
+
         final isSplash = state.matchedLocation == '/splash';
+
         final isPublicArea =
             state.matchedLocation == '/' ||
             state.matchedLocation == '/register' ||
-            state.matchedLocation.startsWith('/legal/') ||
             state.matchedLocation.startsWith('/c/') ||
             state.matchedLocation.startsWith('/p/');
 
@@ -257,7 +272,7 @@ class _MyAppState extends ConsumerState<MyApp> {
         }
 
         if (state.matchedLocation.startsWith('/admin')) {
-          final role = ref.read(currentRoleProvider);
+          final role = await _effectiveRoleForRedirect(user.email);
           if (!_canAccessAdminLocation(role, state.matchedLocation)) {
             return _defaultAdminLocationFor(role);
           }
@@ -273,33 +288,13 @@ class _MyAppState extends ConsumerState<MyApp> {
         ),
         GoRoute(
           path: '/login',
-          pageBuilder: (context, state) => _buildPage(state, const LoginScreen()),
+          pageBuilder: (context, state) =>
+              _buildPage(state, const LoginScreen()),
         ),
         GoRoute(
           path: '/register',
           pageBuilder: (context, state) =>
               _buildPage(state, const PublicRegisterScreen()),
-        ),
-        GoRoute(
-          path: '/legal/privacy',
-          pageBuilder: (context, state) => _buildPage(
-            state,
-            const LegalDocumentsScreen(type: LegalDocumentType.privacy),
-          ),
-        ),
-        GoRoute(
-          path: '/legal/terms',
-          pageBuilder: (context, state) => _buildPage(
-            state,
-            const LegalDocumentsScreen(type: LegalDocumentType.terms),
-          ),
-        ),
-        GoRoute(
-          path: '/legal/delete-account',
-          pageBuilder: (context, state) => _buildPage(
-            state,
-            const LegalDocumentsScreen(type: LegalDocumentType.deletion),
-          ),
         ),
         GoRoute(
           path: '/onboarding',
@@ -308,7 +303,8 @@ class _MyAppState extends ConsumerState<MyApp> {
         ),
         GoRoute(
           path: '/picker',
-          pageBuilder: (context, state) => _buildPage(state, TenantPickerPage()),
+          pageBuilder: (context, state) =>
+              _buildPage(state, TenantPickerPage()),
         ),
         GoRoute(
           path: '/',
@@ -466,41 +462,60 @@ class _MyAppState extends ConsumerState<MyApp> {
                   routes: [
                     GoRoute(
                       path: 'users',
-                      pageBuilder: (context, state) =>
-                          _buildPage(state, const UserManagementScreen()),
-                      redirect: (context, state) {
-                        final role = ref.read(currentRoleProvider);
+                      builder: (context, state) =>
+                          const UserManagementScreen(),
+                      redirect: (context, state) async {
+                        final role = await _effectiveRoleForRedirect(
+                          ref.read(authViewModelProvider).valueOrNull?.email,
+                        );
+
                         final email = ref
                             .read(authViewModelProvider)
                             .valueOrNull
                             ?.email;
+
                         if (!role.canManageUsers(email)) {
                           return '/admin/settings';
                         }
+
                         return null;
                       },
                       routes: [
                         GoRoute(
                           path: 'create-login',
-                          pageBuilder: (context, state) => _buildPage(
-                            state,
-                            const CreateEmailPasswordUserScreen(),
-                          ),
-                          redirect: (context, state) {
-                            final role = ref.read(currentRoleProvider);
+                          builder: (context, state) =>
+                              const CreateEmailPasswordUserScreen(),
+                          redirect: (context, state) async {
+                            final role = await _effectiveRoleForRedirect(
+                              ref
+                                  .read(authViewModelProvider)
+                                  .valueOrNull
+                                  ?.email,
+                            );
+
                             final email = ref
                                 .read(authViewModelProvider)
                                 .valueOrNull
                                 ?.email;
+
                             if (!role.canManageUsers(email)) {
                               return '/admin/settings';
                             }
+
                             return null;
                           },
                         ),
                       ],
                     ),
                   ],
+                ),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: '/admin/backup',
+                  builder: (context, state) => const BackupScreen(),
                 ),
               ],
             ),
@@ -523,6 +538,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     if (location.startsWith('/admin/profile')) return role.canViewProfile;
     if (location.startsWith('/admin/share')) return role.canShare;
     if (location.startsWith('/admin/settings')) return role.canViewSettings;
+    if (location.startsWith('/admin/backup')) return role.canViewBackup;
     return true;
   }
 
@@ -531,6 +547,59 @@ class _MyAppState extends ConsumerState<MyApp> {
     if (role.canViewCatalogs) return '/admin/catalogs';
     if (role.canShare) return '/admin/share';
     return '/';
+  }
+
+  Future<UserRole> _effectiveRoleForRedirect(String? rawEmail) async {
+    final email = rawEmail?.trim().toLowerCase() ?? '';
+    if (email.isEmpty) return UserRole.viewer;
+    if (UserRole.superAdminEmails.contains(email)) return UserRole.admin;
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(email)
+          .get();
+
+      final data = doc.data() ?? {};
+      final tenantId = data['tenantId'] as String? ?? '';
+      final storeId = data['currentStoreId'] as String? ?? '';
+
+      final roleName = _effectiveRoleNameForData(
+        data,
+        tenantId: tenantId,
+        storeId: storeId,
+      );
+
+      return UserRole.values.firstWhere(
+        (role) => role.name == roleName,
+        orElse: () => UserRole.viewer,
+      );
+    } catch (_) {
+      return ref.read(currentRoleProvider);
+    }
+  }
+
+  String _effectiveRoleNameForData(
+    Map<String, dynamic> data, {
+    required String tenantId,
+    required String storeId,
+  }) {
+    final rolesByStore = data['rolesByStore'];
+    if (rolesByStore is Map && tenantId.isNotEmpty && storeId.isNotEmpty) {
+      final tenantStores = rolesByStore[tenantId];
+      if (tenantStores is Map) {
+        final role = tenantStores[storeId] as String?;
+        if (role != null && role.isNotEmpty) return role;
+      }
+    }
+
+    final rolesByTenant = data['rolesByTenant'];
+    if (rolesByTenant is Map && tenantId.isNotEmpty) {
+      final role = rolesByTenant[tenantId] as String?;
+      if (role != null && role.isNotEmpty) return role;
+    }
+
+    return data['role'] as String? ?? 'viewer';
   }
 
   @override
@@ -572,12 +641,14 @@ class _MyAppState extends ConsumerState<MyApp> {
 
 class PublicHomeScreen extends ConsumerStatefulWidget {
   const PublicHomeScreen({super.key});
+
   @override
   ConsumerState<PublicHomeScreen> createState() => _PublicHomeScreenState();
 }
 
 class _PublicHomeScreenState extends ConsumerState<PublicHomeScreen> {
   final _codeController = TextEditingController();
+
   @override
   void dispose() {
     _codeController.dispose();
@@ -592,9 +663,10 @@ class _PublicHomeScreenState extends ConsumerState<PublicHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = ref.watch(themeModeProvider) == ThemeMode.dark;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Cat\u00e1logo'),
+        title: const Text('Catálogo'),
         actions: [
           IconButton(
             icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
@@ -615,14 +687,14 @@ class _PublicHomeScreenState extends ConsumerState<PublicHomeScreen> {
                 child: Column(
                   children: [
                     Text(
-                      'Acesse seu cat\u00e1logo',
+                      'Acesse seu catálogo',
                       style: Theme.of(context).textTheme.headlineSmall,
                     ),
                     const SizedBox(height: 16),
                     TextField(
                       controller: _codeController,
                       decoration: const InputDecoration(
-                        labelText: 'C\u00f3digo do cat\u00e1logo',
+                        labelText: 'Código do catálogo',
                         prefixIcon: Icon(Icons.link),
                       ),
                       onSubmitted: (_) => _openCatalog(),
@@ -664,6 +736,7 @@ class _RouterRefreshNotifier extends ChangeNotifier {
       authViewModelProvider,
       (_, _) => notifyListeners(),
     );
+
     _roleSubscription = ref.listenManual(
       currentRoleProvider,
       (_, _) => notifyListeners(),

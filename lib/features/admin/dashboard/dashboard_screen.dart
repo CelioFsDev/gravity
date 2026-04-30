@@ -7,6 +7,7 @@ import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/data/repositories/categories_repository.dart';
 import 'package:catalogo_ja/data/repositories/catalogs_repository.dart';
+import 'package:catalogo_ja/data/repositories/user_repository.dart';
 import 'package:catalogo_ja/viewmodels/global_sync_viewmodel.dart';
 import 'package:catalogo_ja/ui/widgets/sync_progress_overlay.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
@@ -24,6 +25,16 @@ class _DashboardStats {
   final int catalogCount;
 }
 
+final _dashboardUserProfileProvider =
+    StreamProvider.autoDispose.family<Map<String, dynamic>?, String>((
+  ref,
+  email,
+) {
+  return ref.watch(userRepositoryProvider).getUserStream(email);
+});
+
+const bool _showStockUpdatePdfShortcut = false;
+
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
@@ -40,19 +51,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   @override
   void initState() {
     super.initState();
+
     _greetingController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
     )..forward();
+
     _greetingFade = CurvedAnimation(
       parent: _greetingController,
       curve: Curves.easeOut,
     );
+
     _statsStream = _combineStatsStreams();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+
       final syncProgress = ref.read(syncProgressProvider);
+
       if (!syncProgress.isSyncing) {
         ref.read(globalSyncViewModelProvider.notifier).performSilentWifiSync();
       }
@@ -75,12 +91,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       var productCount = 0;
       var categoryCount = 0;
       var catalogCount = 0;
+
       var hasProducts = false;
       var hasCategories = false;
       var hasCatalogs = false;
 
       void emitIfReady() {
         if (!hasProducts || !hasCategories || !hasCatalogs) return;
+
         controller.add(
           _DashboardStats(
             productCount: productCount,
@@ -118,9 +136,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
   String _greeting() {
     final hour = DateTime.now().hour;
+
     if (hour < 12) return 'Bom dia';
     if (hour < 18) return 'Boa tarde';
+
     return 'Boa noite';
+  }
+
+  String _firstNameFrom(String? name) {
+    final trimmedName = name?.trim() ?? '';
+
+    if (trimmedName.isEmpty) return 'Usuário';
+
+    return trimmedName.split(RegExp(r'\s+')).first;
   }
 
   Future<void> _markInitialDone() async {
@@ -135,20 +163,26 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final authUser = ref.watch(authViewModelProvider).valueOrNull;
     final settings = ref.watch(settingsViewModelProvider);
     final needsSetup = !settings.isInitialSyncCompleted;
-
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final displayName = authUser?.displayName?.trim();
-    final emailName = authUser?.email?.split('@').first.trim();
-    final rawName = displayName != null && displayName.isNotEmpty
-        ? displayName
-        : (emailName != null && emailName.isNotEmpty ? emailName : 'Usuário');
-    final firstName = rawName.split(RegExp(r'\s+')).first;
+
+    final email = authUser?.email?.trim().toLowerCase() ?? '';
+    final profile = email.isEmpty
+        ? null
+        : ref.watch(_dashboardUserProfileProvider(email)).valueOrNull;
+
+    final profileName = profile?['displayName'] as String?;
+
+    final profileFirstName = _firstNameFrom(
+      profileName?.trim().isNotEmpty == true
+          ? profileName
+          : authUser?.displayName,
+    );
 
     return Stack(
       children: [
         AppScaffold(
           showHeader: true,
-          title: '${_greeting()}, $firstName',
+          title: '${_greeting()}, $profileFirstName',
           subtitle: 'Visão geral',
           body: StreamBuilder<_DashboardStats>(
             stream: _statsStream,
@@ -162,66 +196,60 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
               return CustomScrollView(
                 slivers: [
-                          // ── Welcome Banner ───────────────────────────
-                          SliverToBoxAdapter(
-                            child: FadeTransition(
-                              opacity: _greetingFade,
-                              child: _WelcomeBanner(
-                                greeting: _greeting(),
-                                firstName: firstName,
-                                isDark: isDark,
-                              ),
-                            ),
-                          ),
-
-                          // ── Setup Banner (quando não há backup) ──────
-                          if (needsSetup)
-                            SliverPadding(
-                              padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                              sliver: SliverToBoxAdapter(
-                                child: _SetupBanner(
-                                  isDark: isDark,
-                                  onImport: () =>
-                                      context.go('/admin/imports/backup'),
-                                  onNuvemshop: () =>
-                                      context.go('/admin/imports/nuvemshop'),
-                                  onCreateProduct: () =>
-                                      context.go('/admin/products'),
-                                  onCreateCatalog: () =>
-                                      context.go('/admin/catalogs'),
-                                  onSkip: _markInitialDone,
-                                ),
-                              ),
-                            ),
-
-                          // ── Quick Actions ────────────────────────────
-                          SliverPadding(
-                            padding: EdgeInsets.fromLTRB(
-                                20, needsSetup ? 24 : 8, 20, 8),
-                            sliver: SliverToBoxAdapter(
-                              child: _SectionTitle(
-                                label: 'Ações Rápidas',
-                                gradient: AppTokens.primaryGradient,
-                                isDark: isDark,
-                              ),
-                            ),
-                          ),
-
-                          SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-                            sliver: SliverGrid(
-                              gridDelegate:
-                                  SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: needsSetup
-                                    ? 2
-                                    : (MediaQuery.of(context).size.width > 600
-                                          ? 4
-                                          : 3),
-                                mainAxisSpacing: 12,
-                                crossAxisSpacing: 12,
-                                childAspectRatio: needsSetup ? 1.0 : 1.0,
-                              ),
-                              delegate: SliverChildListDelegate(needsSetup ? [
+                  SliverToBoxAdapter(
+                    child: FadeTransition(
+                      opacity: _greetingFade,
+                      child: _WelcomeBanner(
+                        greeting: _greeting(),
+                        firstName: profileFirstName,
+                        isDark: isDark,
+                      ),
+                    ),
+                  ),
+                  if (needsSetup)
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                      sliver: SliverToBoxAdapter(
+                        child: _SetupBanner(
+                          isDark: isDark,
+                          onImport: () => context.go('/admin/imports/backup'),
+                          onNuvemshop: () =>
+                              context.go('/admin/imports/nuvemshop'),
+                          onCreateProduct: () => context.go('/admin/products'),
+                          onCreateCatalog: () => context.go('/admin/catalogs'),
+                          onSkip: _markInitialDone,
+                        ),
+                      ),
+                    ),
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(
+                      20,
+                      needsSetup ? 24 : 8,
+                      20,
+                      8,
+                    ),
+                    sliver: SliverToBoxAdapter(
+                      child: _SectionTitle(
+                        label: 'Ações Rápidas',
+                        gradient: AppTokens.primaryGradient,
+                        isDark: isDark,
+                      ),
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                    sliver: SliverGrid(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: needsSetup
+                            ? 2
+                            : (MediaQuery.of(context).size.width > 600 ? 4 : 3),
+                        mainAxisSpacing: 12,
+                        crossAxisSpacing: 12,
+                        childAspectRatio: 1.0,
+                      ),
+                      delegate: SliverChildListDelegate(
+                        needsSetup
+                            ? [
                                 _QuickActionCard(
                                   label: 'Criar Produtos',
                                   icon: Icons.add_box_rounded,
@@ -253,13 +281,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                       context.go('/admin/imports/nuvemshop'),
                                 ),
                                 _QuickActionCard(
-                                  label: 'Criar Cat\u00e1logo',
+                                  label: 'Criar Catálogo',
                                   icon: Icons.auto_awesome_motion_rounded,
                                   gradient: AppTokens.accentGradient,
                                   isDark: isDark,
                                   onTap: () => context.go('/admin/catalogs'),
                                 ),
-                              ] : [
+                              ]
+                            : [
                                 _QuickActionCard(
                                   label: 'Novo Produto',
                                   icon: Icons.add_box_rounded,
@@ -288,6 +317,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                   isDark: isDark,
                                   onTap: () => context.go('/admin/share'),
                                 ),
+                                if (_showStockUpdatePdfShortcut)
+                                  _QuickActionCard(
+                                    label: 'Importar PDF',
+                                    icon: Icons.picture_as_pdf_rounded,
+                                    gradient: AppTokens.warmGradient,
+                                    isDark: isDark,
+                                    onTap: () => context.go(
+                                      '/admin/imports/stock-update',
+                                    ),
+                                  ),
                                 _QuickActionCard(
                                   label: 'Sincronizar',
                                   icon: Icons.cloud_sync_rounded,
@@ -307,39 +346,36 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                     end: Alignment.bottomRight,
                                   ),
                                   isDark: isDark,
-                                  onTap: () =>
-                                      context.go('/admin/imports/backup'),
+                                  onTap: () => context.go('/admin/backup'),
                                 ),
-                              ]),
-                            ),
-                          ),
-
-                          // ── Resumo ───────────────────────────────────
-                          SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
-                            sliver: SliverToBoxAdapter(
-                              child: _SectionTitle(
-                                label: 'Resumo',
-                                gradient: AppTokens.accentGradient,
-                                isDark: isDark,
-                              ),
-                            ),
-                          ),
-
-                          SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
-                            sliver: SliverToBoxAdapter(
-                              child: _buildStatsSection(
-                                context,
-                                productCount: stats.productCount,
-                                categoryCount: stats.categoryCount,
-                                catalogCount: stats.catalogCount,
-                                isDark: isDark,
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
+                              ],
+                      ),
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
+                    sliver: SliverToBoxAdapter(
+                      child: _SectionTitle(
+                        label: 'Resumo',
+                        gradient: AppTokens.accentGradient,
+                        isDark: isDark,
+                      ),
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
+                    sliver: SliverToBoxAdapter(
+                      child: _buildStatsSection(
+                        context,
+                        productCount: stats.productCount,
+                        categoryCount: stats.categoryCount,
+                        catalogCount: stats.catalogCount,
+                        isDark: isDark,
+                      ),
+                    ),
+                  ),
+                ],
+              );
             },
           ),
         ),
@@ -362,6 +398,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth > 500;
+
         if (isWide) {
           return Row(
             children: [
@@ -397,6 +434,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             ],
           );
         }
+
         return Column(
           children: [
             Row(
@@ -441,8 +479,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 }
 
-// ─── Section Title ────────────────────────────────────────────────────────────
-
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle({
     required this.label,
@@ -480,8 +516,6 @@ class _SectionTitle extends StatelessWidget {
     );
   }
 }
-
-// ─── Setup Banner ─────────────────────────────────────────────────────────────
 
 class _SetupBanner extends StatelessWidget {
   const _SetupBanner({
@@ -590,12 +624,12 @@ class _SetupBanner extends StatelessWidget {
               ),
               _SetupActionButton(
                 icon: Icons.auto_awesome_motion_rounded,
-                label: 'Criar cat\u00e1logo',
+                label: 'Criar catálogo',
                 onTap: onCreateCatalog,
               ),
               _SetupActionButton(
                 icon: Icons.check_rounded,
-                label: 'Come\u00e7ar depois',
+                label: 'Começar depois',
                 onTap: onSkip,
                 muted: true,
               ),
@@ -606,8 +640,6 @@ class _SetupBanner extends StatelessWidget {
     );
   }
 }
-
-// ─── Welcome Banner ───────────────────────────────────────────────────────────
 
 class _SetupActionButton extends StatelessWidget {
   const _SetupActionButton({
@@ -685,14 +717,32 @@ class _WelcomeBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
+
     const dias = [
-      'Segunda', 'Terça', 'Quarta', 'Quinta',
-      'Sexta', 'Sábado', 'Domingo',
+      'Segunda',
+      'Terça',
+      'Quarta',
+      'Quinta',
+      'Sexta',
+      'Sábado',
+      'Domingo',
     ];
+
     const meses = [
-      'jan', 'fev', 'mar', 'abr', 'mai', 'jun',
-      'jul', 'ago', 'set', 'out', 'nov', 'dez',
+      'jan',
+      'fev',
+      'mar',
+      'abr',
+      'mai',
+      'jun',
+      'jul',
+      'ago',
+      'set',
+      'out',
+      'nov',
+      'dez',
     ];
+
     final dateStr =
         '${dias[now.weekday - 1]}, ${now.day} de ${meses[now.month - 1]}';
 
@@ -742,10 +792,11 @@ class _WelcomeBanner extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 4),
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
-                  borderRadius:
-                      BorderRadius.circular(AppTokens.radiusFull),
+                  borderRadius: BorderRadius.circular(AppTokens.radiusFull),
                   color: Colors.white.withOpacity(0.08),
                 ),
                 child: Text(
@@ -785,8 +836,6 @@ class _WelcomeBanner extends StatelessWidget {
     );
   }
 }
-
-// ─── Stat Card ────────────────────────────────────────────────────────────────
 
 class _StatCard extends StatelessWidget {
   const _StatCard({
@@ -882,8 +931,6 @@ class _StatCard extends StatelessWidget {
       );
 }
 
-// ─── Quick Action Card ────────────────────────────────────────────────────────
-
 class _QuickActionCard extends StatelessWidget {
   const _QuickActionCard({
     required this.label,
@@ -949,9 +996,7 @@ class _QuickActionCard extends StatelessWidget {
                     fontSize: 11,
                     height: 1.08,
                     fontWeight: FontWeight.w700,
-                    color: isDark
-                        ? Colors.white70
-                        : AppTokens.textSecondary,
+                    color: isDark ? Colors.white70 : AppTokens.textSecondary,
                     letterSpacing: -0.1,
                   ),
                   textAlign: TextAlign.center,

@@ -407,6 +407,10 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
             if (path == null)
               FilledButton.tonal(
                 onPressed: onPick,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(0, 40),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
