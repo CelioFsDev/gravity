@@ -9,7 +9,6 @@ import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
 import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
-import 'package:catalogo_ja/ui/motion/app_motion.dart' hide AppMotion;
 import 'package:catalogo_ja/features/admin/catalogs/catalog_editor_screen.dart';
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
