@@ -18,6 +18,7 @@ import 'package:catalogo_ja/core/error/app_failure.dart';
 import 'package:catalogo_ja/core/services/app_logger.dart';
 import 'package:path/path.dart' as p;
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -171,6 +172,39 @@ final syncProgressProvider =
     StateNotifierProvider<SyncProgressNotifier, SyncProgress>(
       (ref) => SyncProgressNotifier(),
     );
+
+final cloudProductUpdatesPendingProvider = StreamProvider.autoDispose<bool>((
+  ref,
+) {
+  final tenant = ref.watch(currentTenantProvider).valueOrNull;
+  final state = ref.watch(productsViewModelProvider).valueOrNull;
+  final settings = ref.watch(settingsRepositoryProvider).getSettings();
+
+  if (tenant == null || settings.localOnlyMode || state == null) {
+    return Stream<bool>.value(false);
+  }
+
+  if (state.allProducts.isEmpty && !settings.isInitialSyncCompleted) {
+    return Stream<bool>.value(false);
+  }
+
+  Query<Map<String, dynamic>> query = FirebaseFirestore.instance
+      .collection('tenants')
+      .doc(tenant.id)
+      .collection('products');
+
+  if (state.allProducts.isNotEmpty) {
+    final mostRecentLocal = state.allProducts
+        .map((p) => p.updatedAt)
+        .reduce((a, b) => a.isAfter(b) ? a : b);
+    query = query.where(
+      'updatedAt',
+      isGreaterThan: mostRecentLocal.toIso8601String(),
+    );
+  }
+
+  return query.limit(1).snapshots().map((snapshot) => snapshot.docs.isNotEmpty);
+});
 
 @riverpod
 class ProductsViewModel extends _$ProductsViewModel {
@@ -460,8 +494,8 @@ class ProductsViewModel extends _$ProductsViewModel {
         );
         progressNotifier.stopSync();
       } else {
-        final localRepository = ref.read(productsRepositoryProvider);
-        await localRepository.updateProductsBulk(products);
+        final cloudRepository = ref.read(syncProductsRepositoryProvider);
+        await cloudRepository.updateProductsBulk(products);
       }
 
       _notifyChanges();
@@ -662,11 +696,7 @@ class ProductsViewModel extends _$ProductsViewModel {
 
       if (productsToUpdate.isNotEmpty) {
         // ⚡ OTIMIZAÇÃO SAAS: Salva em Lote (Batch Firestore no Web)
-        if (kIsWeb) {
-          await repository.updateProductsBulk(productsToUpdate);
-        } else {
-          await localRepo.updateProductsBulk(productsToUpdate);
-        }
+        await repository.updateProductsBulk(productsToUpdate);
 
         await refresh();
         _notifyChanges();

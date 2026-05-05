@@ -12,6 +12,7 @@ import 'package:catalogo_ja/data/repositories/firestore_catalogs_repository.dart
 import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/catalog.dart';
+import 'package:catalogo_ja/models/sync_status.dart';
 import 'package:catalogo_ja/core/utils/encoding_utils.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:path_provider/path_provider.dart';
@@ -328,9 +329,13 @@ class ExportImportService {
             final productToSave = pDTO.toModel(tenantId: tenantId).copyWith(
               id: existing.id, // KEEP LOCAL ID
               categoryIds: newCategoryIds,
+              syncStatus: SyncStatus.synced,
             );
 
-            await _productsRepo.updateProduct(productToSave);
+            await _productsRepo.saveImportedProduct(
+              productToSave,
+              shouldSync: false,
+            );
             success++;
           }
         } else {
@@ -341,9 +346,13 @@ class ExportImportService {
 
           final productToSave = pDTO.toModel(tenantId: tenantId).copyWith(
             categoryIds: newCategoryIds,
+            syncStatus: SyncStatus.pendingUpdate,
           );
 
-          await _productsRepo.addProduct(productToSave);
+          await _productsRepo.saveImportedProduct(
+            productToSave,
+            shouldSync: true,
+          );
           success++;
         }
       } catch (e) {

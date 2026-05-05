@@ -478,6 +478,8 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   Widget _buildSyncReminderBanner(BuildContext context) {
     final stateValue = ref.watch(productsViewModelProvider);
     final categoriesValue = ref.watch(categoriesViewModelProvider);
+    final hasCloudUpdates =
+        ref.watch(cloudProductUpdatesPendingProvider).valueOrNull ?? false;
 
     final state = stateValue.valueOrNull;
     final categoriesState = categoriesValue.valueOrNull;
@@ -495,6 +497,58 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         .length;
 
     final totalPending = pendingProducts + pendingCategories;
+
+    if (totalPending == 0 && hasCloudUpdates) {
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.blue.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+          border: Border.all(color: Colors.blue.withOpacity(0.3)),
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.cloud_download_outlined,
+              color: Colors.blue,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Alterações da nuvem pendentes',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Colors.blue[900],
+                    ),
+                  ),
+                  Text(
+                    'Outro celular atualizou produtos desta loja.',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            TextButton(
+              onPressed: () => _startCloudDownload(context),
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                foregroundColor: Colors.blue[800],
+              ),
+              child: const Text('BAIXAR'),
+            ),
+          ],
+        ),
+      );
+    }
 
     if (totalPending == 0) return const SizedBox.shrink();
 

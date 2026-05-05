@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:catalogo_ja/core/sync/models/sync_queue_item.dart';
@@ -20,6 +21,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
   final SaaSPhotoStorageService _storageService;
   final String _tenantId;
   final SyncQueueRepository _syncQueue;
+  final Set<String> _autoSyncInFlight = <String>{};
 
   FirestoreProductsRepository(
     this._localRepo,
@@ -76,7 +78,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
         final since = mostRecentLocal.subtract(const Duration(seconds: 10));
         query = query.where(
           'updatedAt',
-          isGreaterThan: Timestamp.fromDate(since),
+          isGreaterThan: since.toIso8601String(),
         );
       }
 
@@ -147,9 +149,9 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
     if (since != null) {
       query = query.where(
         'updatedAt',
-        isGreaterThan: Timestamp.fromDate(
-          since.subtract(const Duration(seconds: 10)),
-        ),
+        isGreaterThan: since
+            .subtract(const Duration(seconds: 10))
+            .toIso8601String(),
       );
     }
     final snapshot = await query.get().timeout(const Duration(seconds: 15));
@@ -167,6 +169,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
     // 🏠 Local-First: Salva no Hive instantaneamente
     await _localRepo.addProduct(productToSave);
     invalidateCache();
+    _scheduleAutoSync(productToSave);
   }
 
   @override
@@ -189,6 +192,47 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
 
     await _localRepo.updateProduct(productToSave);
     invalidateCache();
+    _scheduleAutoSync(productToSave);
+  }
+
+  @override
+  Future<void> saveImportedProduct(
+    Product product, {
+    required bool shouldSync,
+  }) async {
+    final productToSave = product.copyWith(
+      tenantId: _tenantId,
+      syncStatus: shouldSync ? SyncStatus.pendingUpdate : SyncStatus.synced,
+    );
+
+    await _localRepo.updateProduct(productToSave);
+    invalidateCache();
+  }
+
+  void _scheduleAutoSync(Product product) {
+    if (_autoSyncInFlight.contains(product.id)) return;
+    _autoSyncInFlight.add(product.id);
+
+    unawaited(
+      Future<void>(() async {
+        try {
+          await syncProductToCloud(product);
+        } catch (e) {
+          debugPrint('Erro no upload automatico do produto ${product.id}: $e');
+          await _syncQueue.enqueue(
+            SyncQueueItem(
+              tenantId: _tenantId,
+              entityType: 'product',
+              entityId: product.id,
+              operation: SyncOperation.update,
+              payload: product.toMap(),
+            ),
+          );
+        } finally {
+          _autoSyncInFlight.remove(product.id);
+        }
+      }),
+    );
   }
 
   @override

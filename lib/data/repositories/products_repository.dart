@@ -91,6 +91,18 @@ class HiveProductsRepository implements ProductsRepositoryContract {
   }) async => addProduct(product, onProgress: onProgress);
 
   @override
+  Future<void> saveImportedProduct(
+    Product product, {
+    required bool shouldSync,
+  }) async {
+    await addProduct(
+      product.copyWith(
+        syncStatus: shouldSync ? SyncStatus.pendingUpdate : SyncStatus.synced,
+      ),
+    );
+  }
+
+  @override
   Future<void> updateProductsBulk(
     List<Product> products, {
     Function(double, String)? onProgress,

@@ -8,6 +8,7 @@ abstract class ProductsRepositoryContract {
   Future<List<Product>> getProductsByCategory(String categoryId);
   Future<void> addProduct(Product product, {Function(double, String)? onProgress});
   Future<void> updateProduct(Product product, {Function(double, String)? onProgress});
+  Future<void> saveImportedProduct(Product product, {required bool shouldSync});
   Future<void> updateProductsBulk(List<Product> products, {Function(double, String)? onProgress});
   Future<void> deleteProduct(String id);
   Future<void> clearAll();
