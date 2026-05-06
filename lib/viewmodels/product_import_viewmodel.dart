@@ -286,7 +286,9 @@ class ProductImportViewModel extends _$ProductImportViewModel {
                 final newPhoto = ProductPhoto(
                   path: copiedPath,
                   colorKey: classification.colorName,
-                  photoType: classification.photoType, // Placeholder "C"
+                  photoType: classification.photoType,
+                  id: null,
+                  url: '', // Placeholder "C"
                 );
 
                 currentPhotos = ref
@@ -298,6 +300,8 @@ class ProductImportViewModel extends _$ProductImportViewModel {
                   path: copiedPath,
                   isPrimary: type == PhotoClassificationService.typePrimary,
                   photoType: type,
+                  id: null,
+                  url: '',
                 );
 
                 // Replace if same type exists
@@ -312,7 +316,9 @@ class ProductImportViewModel extends _$ProductImportViewModel {
               }
             } else {
               // Generic photo
-              currentPhotos.add(ProductPhoto(path: copiedPath));
+              currentPhotos.add(
+                ProductPhoto(path: copiedPath, id: null, url: ''),
+              );
             }
 
             updatedProducts[productIdx] = matchedProduct.copyWith(
@@ -477,6 +483,8 @@ class ProductImportViewModel extends _$ProductImportViewModel {
                 isPrimary:
                     classification?.photoType == 'P' ||
                     file.name.toLowerCase().contains('principal'),
+                id: null,
+                url: '',
               );
               productsToUpdate.putIfAbsent(product.id, () => []).add(photo);
               matchedCount++;
@@ -835,6 +843,8 @@ class ProductImportViewModel extends _$ProductImportViewModel {
         isPrimary:
             classification?.photoType == 'P' ||
             file.name.toLowerCase().contains('principal'),
+        id: null,
+        url: '',
       );
       productsToUpdate.putIfAbsent(product.id, () => []).add(photo);
       matchedCount++;

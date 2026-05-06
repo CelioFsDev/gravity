@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:catalogo_ja/models/sync_status.dart';
 
 part 'catalog.g.dart';
@@ -215,6 +216,13 @@ class Catalog {
   }
 
   factory Catalog.fromMap(Map<String, dynamic> map) {
+    DateTime parseDate(dynamic value) {
+      if (value == null) return DateTime.now();
+      if (value is Timestamp) return value.toDate();
+      if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
+      return DateTime.now();
+    }
+
     return Catalog(
       id: map['id'] ?? '',
       name: map['name'] ?? '',
@@ -228,8 +236,8 @@ class Catalog {
       banners: (map['banners'] as List? ?? [])
           .map((b) => CatalogBanner.fromMap(Map<String, dynamic>.from(b)))
           .toList(),
-      createdAt: DateTime.parse(map['createdAt']),
-      updatedAt: DateTime.parse(map['updatedAt']),
+      createdAt: parseDate(map['createdAt']),
+      updatedAt: parseDate(map['updatedAt']),
       mode: CatalogMode.values.firstWhere(
         (e) => e.name == map['mode'],
         orElse: () => CatalogMode.varejo,

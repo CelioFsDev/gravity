@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:catalogo_ja/core/services/public_catalog_snapshot_service.dart';
+import 'package:catalogo_ja/core/utils/string_utils.dart';
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/models/sync_status.dart';
 import 'package:catalogo_ja/data/repositories/catalogs_repository.dart';
@@ -74,6 +76,55 @@ class CatalogsViewModel extends _$CatalogsViewModel {
   }
 
   /// Sincroniza todos os catálogos locais para a nuvem
+  Future<Catalog> prepareCatalogForSharing(Catalog catalog) async {
+    final repository = ref.read(syncCatalogsRepositoryProvider);
+    final normalizedShareCode = catalog.shareCode.trim().isEmpty
+        ? StringUtils.generateBase62(10).toLowerCase()
+        : catalog.shareCode.trim().toLowerCase();
+    final needsUpdate =
+        !catalog.isPublic ||
+        catalog.shareCode.trim() != normalizedShareCode ||
+        catalog.syncStatus != SyncStatus.pendingUpdate;
+
+    var toShare = needsUpdate
+        ? catalog.copyWith(
+            isPublic: true,
+            shareCode: normalizedShareCode,
+            updatedAt: DateTime.now(),
+            syncStatus: SyncStatus.pendingUpdate,
+          )
+        : catalog;
+
+    if (needsUpdate) {
+      await repository.addCatalog(toShare);
+      ref.invalidateSelf();
+    }
+
+    if (repository is FirestoreCatalogsRepository) {
+      try {
+        await repository.syncCatalogToCloud(toShare);
+        toShare = toShare.copyWith(syncStatus: SyncStatus.synced);
+      } catch (e) {
+        throw Exception(
+          'Nao foi possivel publicar este catalogo na nuvem. '
+          'Verifique conexao/sincronizacao e tente novamente.',
+        );
+      }
+    }
+
+    if (toShare.isPublic) {
+      try {
+        await ref.read(publicCatalogSnapshotServiceProvider).publish(toShare);
+      } catch (e) {
+        // O link continua funcionando pelo fallback do Firestore.
+        // ignore: avoid_print
+        print('Erro ao publicar snapshot do catalogo: $e');
+      }
+    }
+
+    return toShare;
+  }
+
   Future<int> syncAllToCloud() async {
     final progressNotifier = ref.read(syncProgressProvider.notifier);
     try {

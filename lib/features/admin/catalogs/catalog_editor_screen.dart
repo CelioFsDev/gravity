@@ -4,19 +4,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/models/category.dart' show CategoryType;
 import 'package:catalogo_ja/viewmodels/catalog_editor_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
 import 'package:catalogo_ja/features/admin/catalogs/tabs/products_selection_tab.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/ui/widgets/section_card.dart';
 import 'package:catalogo_ja/core/services/catalog_share_helper.dart';
+import 'package:catalogo_ja/core/config/public_catalog_config.dart';
+import 'package:catalogo_ja/core/services/public_catalog_snapshot_service.dart';
+import 'package:catalogo_ja/core/utils/string_utils.dart';
 
 class CatalogEditorScreen extends ConsumerStatefulWidget {
   final Catalog? catalog;
   final bool isQuick;
 
   const CatalogEditorScreen({super.key, this.catalog, this.isQuick = false});
-  static const defaultBaseUrl = 'https://CatalogoJa.app';
+  static const defaultBaseUrl = PublicCatalogConfig.defaultBaseUrl;
 
   @override
   ConsumerState<CatalogEditorScreen> createState() =>
@@ -26,6 +30,107 @@ class CatalogEditorScreen extends ConsumerStatefulWidget {
 class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+
+  Future<Catalog> _prepareQuickCatalogForSharing(Catalog catalog) async {
+    final normalizedName = catalog.name.trim().isEmpty
+        ? 'Catalogo rapido'
+        : catalog.name.trim();
+    final normalizedSlug = _normalizeQuickSlug(catalog.slug, normalizedName);
+    final normalizedShareCode = catalog.shareCode.trim().isEmpty
+        ? StringUtils.generateBase62(10).toLowerCase()
+        : catalog.shareCode.trim().toLowerCase();
+
+    final quickCatalog = catalog.copyWith(
+      name: normalizedName,
+      slug: normalizedSlug,
+      isPublic: true,
+      shareCode: normalizedShareCode,
+      updatedAt: DateTime.now(),
+    );
+
+    await ref.read(publicCatalogSnapshotServiceProvider).publish(quickCatalog);
+    return quickCatalog;
+  }
+
+  String _normalizeQuickSlug(String slug, String fallbackName) {
+    final source = slug.trim().isEmpty ? fallbackName : slug;
+    final normalized = source
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9-]'), '-')
+        .replaceAll(RegExp(r'-+'), '-')
+        .replaceAll(RegExp(r'^-+|-+$'), '');
+
+    return normalized.length >= 3 ? normalized : 'catalogo-rapido';
+  }
+
+  Future<void> _shareQuickOnly(CatalogEditorState currentState) async {
+    try {
+      final quickCatalog = await _prepareQuickCatalogForSharing(
+        currentState.catalog,
+      );
+      if (!context.mounted) return;
+      await CatalogShareHelper.showShareOptions(
+        context: context,
+        ref: ref,
+        catalog: quickCatalog,
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Nao foi possivel publicar a vitrine rapida. Tente novamente.',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<Catalog?> _savePublicCatalogForSharing(
+    CatalogEditorState currentState,
+    CatalogEditorViewModel notifier,
+  ) async {
+    if (currentState.catalog.name.trim().isEmpty) {
+      if (!mounted) return null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Informe o nome do catálogo.')),
+      );
+      return null;
+    }
+
+    if (currentState.catalog.slug.trim().length < 3) {
+      notifier.updateSlug(currentState.catalog.name);
+    }
+
+    notifier.setIsPublic(true);
+    final success = await notifier.save();
+    if (!success || !mounted) {
+      final latestState = ref.read(
+        catalogEditorViewModelProvider(widget.catalog?.id),
+      );
+      final msg =
+          latestState.slugError?.trim().isNotEmpty == true
+              ? latestState.slugError!
+              : 'Nao foi possivel salvar o catalogo para compartilhar.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      return null;
+    }
+
+    final savedCatalog =
+        ref.read(catalogEditorViewModelProvider(widget.catalog?.id)).catalog;
+    try {
+      return await ref
+          .read(catalogsViewModelProvider.notifier)
+          .prepareCatalogForSharing(savedCatalog);
+    } catch (e) {
+      if (!mounted) return null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+      return null;
+    }
+  }
 
   @override
   void initState() {
@@ -77,11 +182,20 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
         if (canShare)
           IconButton(
             icon: const Icon(Icons.share_outlined),
-            onPressed: () => CatalogShareHelper.showShareOptions(
-              context: context,
-              ref: ref,
-              catalog: state.catalog,
-            ),
+            onPressed: () async {
+              if (widget.isQuick) {
+                await _shareQuickOnly(state);
+                return;
+              }
+              final catalogToShare =
+                  await _savePublicCatalogForSharing(state, notifier);
+              if (catalogToShare == null || !context.mounted) return;
+              await CatalogShareHelper.showShareOptions(
+                context: context,
+                ref: ref,
+                catalog: catalogToShare,
+              );
+            },
           ),
         IconButton(
           icon: state.isSaving
@@ -91,14 +205,7 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
               ? null
               : () async {
                   if (widget.isQuick) {
-                    // Just share without saving to Firestore list
-                    // (Actually the ViewModel might still save it to local state,
-                    // but we won't persist it to the catalogs collection)
-                    await CatalogShareHelper.showShareOptions(
-                      context: context,
-                      ref: ref,
-                      catalog: state.catalog,
-                    );
+                    await _shareQuickOnly(state);
                   } else {
                     final success = await notifier.save();
                     if (success && context.mounted) {
@@ -164,11 +271,7 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                 ? null
                 : () async {
                     if (widget.isQuick) {
-                      await CatalogShareHelper.showShareOptions(
-                        context: context,
-                        ref: ref,
-                        catalog: state.catalog,
-                      );
+                      await _shareQuickOnly(state);
                     } else {
                       final success = await notifier.save();
                       if (success && context.mounted) {

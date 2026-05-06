@@ -14,7 +14,7 @@ Future<PublicCatalogData?> catalogPublic(
 ) async {
   try {
     final repo = ref.watch(publicCatalogRepositoryProvider);
-    final data = await repo.getPublicCatalogData(shareCode.toLowerCase());
+    final data = await repo.getPublicCatalogData(shareCode.trim().toLowerCase());
     return data;
   } catch (e) {
     throw e.toAppFailure(action: 'fetch', entity: 'PublicCatalog');

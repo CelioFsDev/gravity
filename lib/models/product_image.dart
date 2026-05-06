@@ -13,6 +13,7 @@ enum ProductImageSource {
   memory,
   @HiveField(3)
   unknown,
+  storage,
 }
 
 @HiveType(typeId: 26)

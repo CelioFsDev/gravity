@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:catalogo_ja/models/category_type.dart';
 import 'package:catalogo_ja/models/sync_status.dart';
 
@@ -249,12 +250,19 @@ class Category {
   }
 
   factory Category.fromMap(Map<String, dynamic> map) {
+    DateTime parseDate(dynamic value) {
+      if (value == null) return DateTime.now();
+      if (value is Timestamp) return value.toDate();
+      if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
+      return DateTime.now();
+    }
+
     return Category(
       id: map['id'] ?? '',
       name: map['name'],
       order: map['order'] ?? 0,
-      createdAt: DateTime.parse(map['createdAt']),
-      updatedAt: DateTime.parse(map['updatedAt']),
+      createdAt: parseDate(map['createdAt']),
+      updatedAt: parseDate(map['updatedAt']),
       type: CategoryType.values.firstWhere(
         (e) => e.name == map['type'],
         orElse: () => CategoryType.productType,

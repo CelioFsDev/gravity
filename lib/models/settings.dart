@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+import 'package:catalogo_ja/core/config/public_catalog_config.dart';
 
 class AppSettingsAdapter extends TypeAdapter<AppSettings> {
   @override
@@ -127,7 +128,7 @@ class AppSettings {
     return AppSettings(
       storeName: 'Minha Loja',
       whatsappNumber: '',
-      publicBaseUrl: 'https://CatalogoJa.app',
+      publicBaseUrl: PublicCatalogConfig.defaultBaseUrl,
       updatedAt: DateTime.now(),
       remoteImageBaseUrl: '',
       geminiApiKey: '',

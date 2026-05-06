@@ -12,7 +12,7 @@ class CartState {
     this.items = const [],
   });
 
-  double get subtotal => items.fold(0, (sum, item) => sum + item.totalPrice);
+  double get subtotal => items.fold(0.0, (sum, item) => sum + item.totalPrice);
   int get totalItems => items.fold(0, (sum, item) => sum + item.quantity);
 
   CartState copyWith({
@@ -32,6 +32,10 @@ class CartViewModel extends StateNotifier<CartState> {
   CartViewModel() : super(CartState(tenantId: '', catalogId: ''));
 
   void initCart(String tenantId, String catalogId) {
+    if (state.catalogId != catalogId) {
+      state = CartState(tenantId: tenantId, catalogId: catalogId);
+      return;
+    }
     state = state.copyWith(tenantId: tenantId, catalogId: catalogId);
   }
 

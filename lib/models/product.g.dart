@@ -17,17 +17,19 @@ class ProductPhotoAdapter extends TypeAdapter<ProductPhoto> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return ProductPhoto(
-      path: fields[0] as String,
+      path: fields[0] as String? ?? '',
       colorKey: fields[1] as String?,
-      isPrimary: fields[2] as bool,
+      isPrimary: fields[2] as bool? ?? false,
       photoType: fields[3] as String?,
+      id: fields[4] as String?,
+      url: fields[5] as String? ?? '',
     );
   }
 
   @override
   void write(BinaryWriter writer, ProductPhoto obj) {
     writer
-      ..writeByte(4)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.path)
       ..writeByte(1)
@@ -35,7 +37,11 @@ class ProductPhotoAdapter extends TypeAdapter<ProductPhoto> {
       ..writeByte(2)
       ..write(obj.isPrimary)
       ..writeByte(3)
-      ..write(obj.photoType);
+      ..write(obj.photoType)
+      ..writeByte(4)
+      ..write(obj.id)
+      ..writeByte(5)
+      ..write(obj.url);
   }
 
   @override
@@ -60,33 +66,40 @@ class ProductAdapter extends TypeAdapter<Product> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return Product(
-      id: fields[0] as String,
-      name: fields[1] as String,
-      ref: fields[2] as String,
-      sku: fields[3] as String,
-      categoryIds: (fields[17] as List).cast<String>(),
-      priceRetail: fields[5] as double,
-      priceWholesale: fields[6] as double,
-      minWholesaleQty: fields[7] as int,
-      sizes: (fields[8] as List).cast<String>(),
-      colors: (fields[9] as List).cast<String>(),
-      images: (fields[10] as List).cast<ProductImage>(),
-      mainImageIndex: fields[11] as int,
-      isActive: fields[12] as bool,
-      isOutOfStock: fields[13] as bool,
-      promoEnabled: fields[14] as bool,
-      createdAt: fields[15] as DateTime,
-      photos: (fields[24] as List).cast<ProductPhoto>(),
-      promoPercent: fields[16] as double,
-      slug: fields[18] as String,
+      id: fields[0] as String? ?? '',
+      name: fields[1] as String? ?? '',
+      ref: fields[2] as String? ?? '',
+      sku: fields[3] as String? ?? '',
+      categoryIds: (fields[17] as List?)?.cast<String>() ?? <String>[],
+      priceRetail: (fields[5] as num?)?.toDouble() ?? 0,
+      priceWholesale: (fields[6] as num?)?.toDouble() ?? 0,
+      minWholesaleQty: fields[7] as int? ?? 1,
+      sizes: (fields[8] as List?)?.cast<String>() ?? <String>[],
+      colors: (fields[9] as List?)?.cast<String>() ?? <String>[],
+      images: (fields[10] as List?)?.cast<ProductImage>() ?? <ProductImage>[],
+      mainImageIndex: fields[11] as int? ?? 0,
+      isActive: fields[12] as bool? ?? true,
+      isOutOfStock: fields[13] as bool? ?? false,
+      promoEnabled: fields[14] as bool? ?? false,
+      createdAt: fields[15] as DateTime? ?? DateTime.now(),
+      photos: (fields[24] as List?)?.cast<ProductPhoto>() ?? <ProductPhoto>[],
+      promoPercent: (fields[16] as num?)?.toDouble() ?? 0,
+      slug: fields[18] as String? ?? '',
       description: fields[19] as String?,
-      tags: (fields[20] as List).cast<String>(),
-      remoteImages: (fields[21] as List).cast<String>(),
-      variants: (fields[22] as List).cast<ProductVariant>(),
+      tags: (fields[20] as List?)?.cast<String>() ?? <String>[],
+      remoteImages: (fields[21] as List?)?.cast<String>() ?? <String>[],
+      variants:
+          (fields[22] as List?)?.cast<ProductVariant>() ?? <ProductVariant>[],
       tenantId: fields[25] as String?,
-      storeOverrides: (fields[26] as Map).map((dynamic k, dynamic v) =>
-          MapEntry(k as String, (v as Map).cast<String, dynamic>())),
-      syncStatus: fields[27] as SyncStatus,
+      storeOverrides: (fields[26] as Map?)
+              ?.map(
+                (dynamic k, dynamic v) => MapEntry(
+                  k.toString(),
+                  v is Map ? v.cast<String, dynamic>() : <String, dynamic>{},
+                ),
+              ) ??
+          <String, Map<String, dynamic>>{},
+      syncStatus: fields[27] as SyncStatus? ?? SyncStatus.synced,
       updatedAt: fields[23] as DateTime?,
     );
   }

@@ -3,8 +3,11 @@
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },
+  "storage": {
+    "rules": "firebase/storage.rules"
+  },
   "hosting": {
-    "site": "catalogoja",
+    "site": "catalogo-ja-89aae",
     "public": "build/web",
     "ignore": [
       "firebase.json",

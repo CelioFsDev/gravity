@@ -34,162 +34,220 @@ class AppProductCard extends StatelessWidget {
     final hasPromo = product.promoEnabled;
     final mainImg = product.mainImage;
 
-    return AppCard(
-      padding: EdgeInsets.zero,
+    return GestureDetector(
       onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Image Area
-          Expanded(
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                _buildImage(mainImg),
-                if (hasPromo)
-                  const Positioned(
-                    top: AppTokens.space8,
-                    left: AppTokens.space8,
-                    child: AppBadgePill(
-                      label: 'PROMO',
-                      color: AppTokens.accentRed,
-                    ),
-                  ),
-                if (product.isOutOfStock)
-                  Container(
-                    color: Colors.black.withOpacity(0.4),
-                    alignment: Alignment.center,
-                    child: const AppBadgePill(
-                      label: 'ESGOTADO',
-                      color: Colors.white,
-                      isLarge: true,
-                    ),
-                  ),
-              ],
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
             ),
-          ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Image Area
+            Expanded(
+              flex: 4,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(24),
+                    ),
+                    child: _buildImage(mainImg),
+                  ),
+                  if (hasPromo)
+                    Positioned(
+                      top: 12,
+                      left: 12,
+                      child: _buildTag('PROMO', const Color(0xFFF43F5E)),
+                    ),
+                  if (product.isOutOfStock)
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.5),
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(24),
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: _buildTag('ESGOTADO', Colors.white, isLarge: true),
+                    ),
+                ],
+              ),
+            ),
 
-          // Info Area
-          Padding(
-            padding: const EdgeInsets.all(AppTokens.space12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  product.ref,
-                  style: Theme.of(context).textTheme.labelSmall,
+            // Info Area
+            Expanded(
+              flex: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          product.ref.toUpperCase(),
+                          style: TextStyle(
+                            color: Colors.grey.shade400,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          product.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF1E293B),
+                            fontSize: 14,
+                            height: 1.2,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          currency.format(price),
+                          style: const TextStyle(
+                            color: Color(0xFF0F172A),
+                            fontWeight: FontWeight.w900,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.add_shopping_cart_rounded,
+                            size: 14,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  product.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: AppTokens.space8),
-                Text(
-                  currency.format(price),
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppTokens.accentBlue,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
+              ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTag(String label, Color color, {bool isLarge = false}) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: isLarge ? 12 : 8,
+        vertical: isLarge ? 6 : 4,
+      ),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
         ],
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color == Colors.white ? Colors.black : Colors.white,
+          fontSize: isLarge ? 12 : 9,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.5,
+        ),
       ),
     );
   }
 
   Widget _buildImage(ProductImage? img) {
     if (img == null || img.uri.isEmpty) {
-      return SvgPicture.asset(
-        'assets/branding/placeholders/catalogoja_placeholder_produto_1024x1024.svg',
-        fit: BoxFit.cover,
-      );
+      return _buildPlaceholder();
     }
 
-    final Widget imageWidget;
-    final isDataUrl = img.uri.startsWith('data:');
-    final isRemote =
-        img.sourceType == ProductImageSource.networkUrl ||
-        img.uri.startsWith('http://') ||
-        img.uri.startsWith('https://') ||
-        img.uri.startsWith('blob:');
+    final String uri = img.uri;
 
-    if (isDataUrl) {
-      imageWidget = _buildDataUrlImage(img.uri);
-    } else if (isRemote) {
-      imageWidget = CachedNetworkImage(
-        imageUrl: img.uri,
+    // Check for gs:// or other unsupported schemes on web
+    if (uri.startsWith('gs://')) {
+      // Ideally we should resolve this, but for now show placeholder to avoid crash or empty
+      return _buildPlaceholder(icon: Icons.cloud_off);
+    }
+
+    if (uri.startsWith('data:')) {
+      return _buildDataUrlImage(uri);
+    }
+
+    if (uri.startsWith('http') || uri.startsWith('blob:')) {
+      return CachedNetworkImage(
+        imageUrl: uri,
         fit: BoxFit.cover,
         placeholder: (context, url) => Container(
-          color: AppTokens.bg,
-          padding: const EdgeInsets.all(AppTokens.space24),
+          color: const Color(0xFFF1F5F9),
           child: const Center(
             child: SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Color(0xFFCBD5E1),
+              ),
             ),
           ),
         ),
-        errorWidget: (context, url, error) => SvgPicture.asset(
-          'assets/branding/placeholders/catalogoja_placeholder_produto_1024x1024.svg',
-          fit: BoxFit.cover,
-        ),
-      );
-    } else if (img.sourceType == ProductImageSource.localPath && !kIsWeb) {
-      imageWidget = Image.file(
-        File(img.uri),
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => SvgPicture.asset(
-          'assets/branding/placeholders/catalogoja_placeholder_produto_1024x1024.svg',
-          fit: BoxFit.cover,
-        ),
-      );
-    } else {
-      imageWidget = SvgPicture.asset(
-        'assets/branding/placeholders/catalogoja_placeholder_produto_1024x1024.svg',
-        fit: BoxFit.cover,
+        errorWidget: (context, url, error) => _buildPlaceholder(),
       );
     }
 
-    return ClipRRect(
-      borderRadius: const BorderRadius.vertical(
-        top: Radius.circular(AppTokens.radiusMd),
+    if (!kIsWeb) {
+      final file = File(uri);
+      if (file.existsSync()) {
+        return Image.file(file, fit: BoxFit.cover);
+      }
+    }
+
+    return _buildPlaceholder();
+  }
+
+  Widget _buildPlaceholder({IconData icon = Icons.image_outlined}) {
+    return Container(
+      color: const Color(0xFFF1F5F9),
+      child: Center(
+        child: Icon(icon, color: const Color(0xFFCBD5E1), size: 32),
       ),
-      child: imageWidget,
     );
   }
 
   Widget _buildDataUrlImage(String uri) {
-    final commaIndex = uri.indexOf(',');
-    if (commaIndex == -1 || commaIndex + 1 >= uri.length) {
-      return SvgPicture.asset(
-        'assets/branding/placeholders/catalogoja_placeholder_produto_1024x1024.svg',
-        fit: BoxFit.cover,
-      );
-    }
-
     try {
+      final commaIndex = uri.indexOf(',');
+      if (commaIndex == -1) return _buildPlaceholder();
       final bytes = base64Decode(uri.substring(commaIndex + 1));
-      return Image.memory(
-        bytes,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => SvgPicture.asset(
-          'assets/branding/placeholders/catalogoja_placeholder_produto_1024x1024.svg',
-          fit: BoxFit.cover,
-        ),
-      );
+      return Image.memory(bytes, fit: BoxFit.cover);
     } catch (_) {
-      return SvgPicture.asset(
-        'assets/branding/placeholders/catalogoja_placeholder_produto_1024x1024.svg',
-        fit: BoxFit.cover,
-      );
+      return _buildPlaceholder();
     }
   }
 }

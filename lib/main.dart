@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/firebase_options.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:go_router/go_router.dart';
@@ -45,6 +46,7 @@ import 'package:catalogo_ja/pages/tenant/tenant_onboarding_page.dart';
 import 'package:catalogo_ja/pages/tenant/tenant_picker_page.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/catalog_public_viewmodel.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -65,6 +67,8 @@ final currentUserStatusProvider = StreamProvider<bool>((ref) {
 void main() async {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+
+  await initializeDateFormatting('pt_BR', null);
 
   // Initialize Hive
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
@@ -220,6 +224,7 @@ class _MyAppState extends ConsumerState<MyApp> {
       redirect: (context, state) async {
         final authState = ref.read(authViewModelProvider);
         final user = authState.valueOrNull;
+        final locationPath = state.uri.path;
 
         // Forced status check (manual provider call to avoid generator lag)
         final isDisabled =
@@ -231,16 +236,15 @@ class _MyAppState extends ConsumerState<MyApp> {
         }
 
         final isAuthRoute =
-            state.matchedLocation == '/login' ||
-            state.matchedLocation == '/register';
+            locationPath == '/login' || locationPath == '/register';
 
-        final isSplash = state.matchedLocation == '/splash';
+        final isSplash = locationPath == '/splash';
 
         final isPublicArea =
-            state.matchedLocation == '/' ||
-            state.matchedLocation == '/register' ||
-            state.matchedLocation.startsWith('/c/') ||
-            state.matchedLocation.startsWith('/p/');
+            locationPath == '/' ||
+            locationPath == '/register' ||
+            locationPath.startsWith('/c/') ||
+            locationPath.startsWith('/p/');
 
         if (isPublicArea || isSplash) return null;
 
@@ -251,8 +255,7 @@ class _MyAppState extends ConsumerState<MyApp> {
         // ✨ SaaS Logic: Se logado mas sem tenant ativo, FORÇA a seleção de empresa
         final currentTenantAsync = ref.read(currentTenantProvider);
         final isSelectingTenant =
-            state.matchedLocation == '/onboarding' ||
-            state.matchedLocation == '/picker';
+            locationPath == '/onboarding' || locationPath == '/picker';
 
         // Só redireciona se já terminou de carregar (AsyncData) e o valor for nulo
         if (currentTenantAsync is AsyncData &&
@@ -271,7 +274,7 @@ class _MyAppState extends ConsumerState<MyApp> {
           return needsOnboarding ? '/onboarding' : '/picker';
         }
 
-        if (state.matchedLocation.startsWith('/admin')) {
+        if (locationPath.startsWith('/admin')) {
           final role = await _effectiveRoleForRedirect(user.email);
           if (!_canAccessAdminLocation(role, state.matchedLocation)) {
             return _defaultAdminLocationFor(role);
@@ -323,6 +326,7 @@ class _MyAppState extends ConsumerState<MyApp> {
                 PublicProductDetailScreen(
                   product: extra['product'] as Product,
                   mode: extra['mode'] as CatalogMode,
+                  shareCode: extra['shareCode'] as String?,
                 ),
               );
             }
@@ -337,11 +341,91 @@ class _MyAppState extends ConsumerState<MyApp> {
           },
         ),
         GoRoute(
+          path: '/c/:shareCode/p/:productId',
+          pageBuilder: (context, state) {
+            final productId = state.pathParameters['productId']!;
+            final shareCode = state.pathParameters['shareCode']!;
+            final extra = state.extra as Map<String, dynamic>?;
+
+            if (extra != null && extra.containsKey('product')) {
+              return _buildPage(
+                state,
+                PublicProductDetailScreen(
+                  product: extra['product'] as Product,
+                  mode: extra['mode'] as CatalogMode,
+                  shareCode: shareCode,
+                ),
+              );
+            }
+
+            return _buildPage(
+              state,
+              Consumer(
+                builder: (context, ref, _) {
+                  final catalogAsync = ref.watch(catalogPublicProvider(shareCode));
+
+                  return catalogAsync.when(
+                    loading: () => const Scaffold(
+                      backgroundColor: Color(0xFFF8FAFC),
+                      body: Center(child: CircularProgressIndicator()),
+                    ),
+                    error: (error, _) => Scaffold(
+                      backgroundColor: const Color(0xFFF8FAFC),
+                      body: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            'Nao foi possivel carregar este produto.\n$error',
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                    ),
+                    data: (data) {
+                      Product? product;
+                      if (data != null) {
+                        for (final item in data.products) {
+                          if (item.id == productId) {
+                            product = item;
+                            break;
+                          }
+                        }
+                      }
+
+                      if (data == null || product == null) {
+                        return Scaffold(
+                          backgroundColor: const Color(0xFFF8FAFC),
+                          appBar: AppBar(),
+                          body: const Center(
+                            child: Text('Produto nao encontrado'),
+                          ),
+                        );
+                      }
+
+                      return PublicProductDetailScreen(
+                        product: product,
+                        mode: data.catalog.mode,
+                        shareCode: shareCode,
+                      );
+                    },
+                  );
+                },
+              ),
+            );
+          },
+        ),
+        GoRoute(
           path: '/c/:shareCode',
-          pageBuilder: (context, state) => _buildPage(
-            state,
-            CatalogHomePage(shareCode: state.pathParameters['shareCode']!),
-          ),
+          pageBuilder: (context, state) {
+            final query = state.uri.queryParameters;
+            return _buildPage(
+              state,
+              CatalogHomePage(
+                shareCode: state.pathParameters['shareCode']!,
+                sellerWhatsapp: query['w'] ?? query['whatsapp'],
+              ),
+            );
+          },
         ),
         StatefulShellRoute.indexedStack(
           builder: (context, state, navigationShell) {
@@ -462,8 +546,7 @@ class _MyAppState extends ConsumerState<MyApp> {
                   routes: [
                     GoRoute(
                       path: 'users',
-                      builder: (context, state) =>
-                          const UserManagementScreen(),
+                      builder: (context, state) => const UserManagementScreen(),
                       redirect: (context, state) async {
                         final role = await _effectiveRoleForRedirect(
                           ref.read(authViewModelProvider).valueOrNull?.email,

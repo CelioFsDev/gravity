@@ -10,8 +10,6 @@ import 'package:catalogo_ja/models/product_image.dart';
 
 part 'product.g.dart';
 
-
-
 // KEEP ProductPhoto for backward compatibility during migration, but mark it?
 // The user wants ProductImage instead. I'll keep it as a legacy holder if needed.
 @HiveType(typeId: 11)
@@ -28,11 +26,19 @@ class ProductPhoto {
   @HiveField(3)
   final String? photoType;
 
+  @HiveField(4)
+  final String? id;
+
+  @HiveField(5)
+  final String url;
+
   const ProductPhoto({
     required this.path,
     this.colorKey,
     this.isPrimary = false,
     this.photoType,
+    this.id,
+    this.url = '',
   });
 
   ProductPhoto copyWith({
@@ -40,28 +46,33 @@ class ProductPhoto {
     String? colorKey,
     bool? isPrimary,
     String? photoType,
+    String? id,
+    String? url,
   }) {
     return ProductPhoto(
       path: path ?? this.path,
       colorKey: colorKey ?? this.colorKey,
       isPrimary: isPrimary ?? this.isPrimary,
       photoType: photoType ?? this.photoType,
+      id: id ?? this.id,
+      url: url ?? this.url,
     );
   }
 
   ProductImage toProductImage() {
+    final imageUri = url.isNotEmpty ? url : path;
     final isRemote =
-        path.startsWith('http://') ||
-        path.startsWith('https://') ||
-        path.startsWith('gs://') ||
-        path.startsWith('data:') ||
-        path.startsWith('blob:');
+        imageUri.startsWith('http://') ||
+        imageUri.startsWith('https://') ||
+        imageUri.startsWith('gs://') ||
+        imageUri.startsWith('data:') ||
+        imageUri.startsWith('blob:');
     return ProductImage(
-      id: 'legacy_${path.hashCode}',
+      id: id ?? 'legacy_${imageUri.hashCode}',
       sourceType: isRemote
           ? ProductImageSource.networkUrl
           : ProductImageSource.localPath,
-      uri: path,
+      uri: imageUri,
       label: photoType ?? (isPrimary ? 'principal' : null),
       colorTag: colorKey,
       order: isPrimary ? 0 : 1,
@@ -254,14 +265,18 @@ class Product {
       'minWholesaleQty': minWholesaleQty,
       'sizes': List<String>.from(sizes),
       'colors': List<String>.from(colors),
-      'images': images.map((img) => {
-        'id': img.id,
-        'uri': img.uri,
-        'sourceType': img.sourceType.index,
-        'label': img.label,
-        'order': img.order,
-        'colorTag': img.colorTag,
-      }).toList(),
+      'images': images
+          .map(
+            (img) => {
+              'id': img.id,
+              'uri': img.uri,
+              'sourceType': img.sourceType.index,
+              'label': img.label,
+              'order': img.order,
+              'colorTag': img.colorTag,
+            },
+          )
+          .toList(),
       'mainImageIndex': mainImageIndex,
       'isActive': isActive,
       'isOutOfStock': isOutOfStock,
@@ -272,18 +287,24 @@ class Product {
       'description': description,
       'tags': List<String>.from(tags),
       'remoteImages': List<String>.from(remoteImages),
-      'variants': variants.map((v) => {
-        'sku': v.sku,
-        'stock': v.stock,
-        'attributes': v.attributes,
-      }).toList(),
+      'variants': variants
+          .map(
+            (v) => {'sku': v.sku, 'stock': v.stock, 'attributes': v.attributes},
+          )
+          .toList(),
       'updatedAt': updatedAt.toIso8601String(),
-      'photos': photos.map((p) => {
-        'path': p.path,
-        'colorKey': p.colorKey,
-        'isPrimary': p.isPrimary,
-        'photoType': p.photoType,
-      }).toList(),
+      'photos': photos
+          .map(
+            (p) => {
+              'path': p.path,
+              'colorKey': p.colorKey,
+              'isPrimary': p.isPrimary,
+              'photoType': p.photoType,
+              'id': p.id,
+              'url': p.url,
+            },
+          )
+          .toList(),
       'tenantId': tenantId,
       'storeOverrides': storeOverrides,
       'syncStatus': syncStatus.index,
@@ -305,7 +326,8 @@ class Product {
       sku: map['sku'] ?? '',
       categoryIds: List<String>.from(map['categoryIds'] ?? []),
       priceRetail: (map['priceRetail'] ?? map['priceVarejo'] ?? 0.0).toDouble(),
-      priceWholesale: (map['priceWholesale'] ?? map['priceAtacado'] ?? 0.0).toDouble(),
+      priceWholesale: (map['priceWholesale'] ?? map['priceAtacado'] ?? 0.0)
+          .toDouble(),
       minWholesaleQty: map['minWholesaleQty'] ?? 1,
       sizes: List<String>.from(map['sizes'] ?? []),
       colors: List<String>.from(map['colors'] ?? []),
@@ -323,7 +345,8 @@ class Product {
       isActive: map['isActive'] ?? true,
       isOutOfStock: map['isOutOfStock'] ?? false,
       promoEnabled: map['promoEnabled'] ?? map['isOnSale'] ?? false,
-      promoPercent: (map['promoPercent'] ?? map['saleDiscountPercent'] ?? 0.0).toDouble(),
+      promoPercent: (map['promoPercent'] ?? map['saleDiscountPercent'] ?? 0.0)
+          .toDouble(),
       slug: map['slug'] ?? '',
       description: map['description'],
       tags: List<String>.from(map['tags'] ?? []),
@@ -334,20 +357,32 @@ class Product {
       createdAt: parseDate(map['createdAt']),
       updatedAt: parseDate(map['updatedAt']),
       photos: (map['photos'] as List? ?? [])
-          .map((p) => ProductPhoto(
-                path: p['path'] ?? '',
-                colorKey: p['colorKey'],
-                isPrimary: p['isPrimary'] ?? false,
-                photoType: p['photoType'],
-              ))
+          .where((p) => p is Map || p is String)
+          .map((p) {
+            if (p is String) {
+              return ProductPhoto(path: p);
+            }
+
+            final photoMap = Map<String, dynamic>.from(p as Map);
+            return ProductPhoto(
+              path: (photoMap['path'] ?? photoMap['url'] ?? '').toString(),
+              colorKey: photoMap['colorKey']?.toString(),
+              isPrimary: photoMap['isPrimary'] as bool? ?? false,
+              photoType: photoMap['photoType']?.toString(),
+              id: photoMap['id']?.toString(),
+              url: photoMap['url']?.toString() ?? '',
+            );
+          })
           .toList(),
       tenantId: map['tenantId'],
-      storeOverrides: (map['storeOverrides'] as Map?)?.map(
-            (k, v) => MapEntry(k.toString(), Map<String, dynamic>.from(v as Map)),
+      storeOverrides:
+          (map['storeOverrides'] as Map?)?.map(
+            (k, v) =>
+                MapEntry(k.toString(), Map<String, dynamic>.from(v as Map)),
           ) ??
           {},
-      syncStatus: map['syncStatus'] != null 
-          ? SyncStatus.values[map['syncStatus'] as int] 
+      syncStatus: map['syncStatus'] != null
+          ? SyncStatus.values[map['syncStatus'] as int]
           : SyncStatus.synced,
     );
   }
@@ -363,20 +398,20 @@ class Product {
         return l == 'P' || l == 'p' || l.toLowerCase() == 'principal';
       }).toList();
       if (main.isNotEmpty) return main.first;
-      
+
       // Fallback: highest-priority order
       final sorted = List<ProductImage>.from(images)
         ..sort((a, b) => a.order.compareTo(b.order));
       return sorted.first;
     }
-    
+
     // Priority 2: Legacy photos list
     if (photos.isNotEmpty) {
       final mainP = photos.where((p) => p.isPrimary).toList();
       if (mainP.isNotEmpty) return mainP.first.toProductImage();
       return photos.first.toProductImage();
     }
-    
+
     return null;
   }
 
@@ -474,15 +509,17 @@ class Product {
       _getOverride(storeId)?['isActive'] as bool? ?? isActive;
 
   List<String> getAvailableSizes(String? storeId) {
-    final unavailable =
-        List<String>.from(_getOverride(storeId)?['unavailableSizes'] ?? []);
+    final unavailable = List<String>.from(
+      _getOverride(storeId)?['unavailableSizes'] ?? [],
+    );
     if (unavailable.isEmpty) return sizes;
     return sizes.where((s) => !unavailable.contains(s)).toList();
   }
 
   List<String> getAvailableColors(String? storeId) {
-    final unavailable =
-        List<String>.from(_getOverride(storeId)?['unavailableColors'] ?? []);
+    final unavailable = List<String>.from(
+      _getOverride(storeId)?['unavailableColors'] ?? [],
+    );
     if (unavailable.isEmpty) return colors;
     return colors.where((c) => !unavailable.contains(c)).toList();
   }
@@ -493,34 +530,38 @@ class Product {
   /// 🔄 Verifica se o produto tem fotos locais pendentes de sincronização
   bool get hasLocalOnlyPhotos {
     // Verifica na lista moderna de images
-    final hasLocalImages = images.any((i) =>
-        i.sourceType == ProductImageSource.localPath ||
-        i.uri.startsWith('data:') ||
-        i.uri.startsWith('blob:') ||
-        (!i.uri.startsWith('http') && !i.uri.startsWith('gs://')));
+    final hasLocalImages = images.any(
+      (i) =>
+          i.sourceType == ProductImageSource.localPath ||
+          i.uri.startsWith('data:') ||
+          i.uri.startsWith('blob:') ||
+          (!i.uri.startsWith('http') && !i.uri.startsWith('gs://')),
+    );
 
     if (hasLocalImages) return true;
 
     // Verifica na lista legado de photos
-    return photos.any((p) =>
-        (!p.path.startsWith('http') && !p.path.startsWith('gs://')) ||
-        p.path.startsWith('data:') ||
-        p.path.startsWith('blob:'));
+    return photos.any(
+      (p) =>
+          (!p.path.startsWith('http') && !p.path.startsWith('gs://')) ||
+          p.path.startsWith('data:') ||
+          p.path.startsWith('blob:'),
+    );
   }
 
-  /// Verifica alterações reais baseadas em JSON do objeto, 
+  /// Verifica alterações reais baseadas em JSON do objeto,
   /// ignorando datas de atualização e status de sincronismo.
   bool hasMeaningfulChanges(Product other) {
     final myMap = toMap()
       ..remove('updatedAt')
       ..remove('createdAt')
       ..remove('syncStatus');
-    
+
     final otherMap = other.toMap()
       ..remove('updatedAt')
       ..remove('createdAt')
       ..remove('syncStatus');
-      
+
     return jsonEncode(myMap) != jsonEncode(otherMap);
   }
 }
