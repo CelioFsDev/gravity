@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:catalogo_ja/data/repositories/contracts/categories_repository_contract.dart';
 import 'package:catalogo_ja/data/repositories/contracts/products_repository_contract.dart';
@@ -52,7 +51,10 @@ class PublicCatalogSnapshotService {
     for (final photo in product.photos) {
       if (photo.path.startsWith('gs://')) {
         try {
-          final relativePath = photo.path.replaceFirst(RegExp(r'gs://[^/]+/'), '');
+          final relativePath = photo.path.replaceFirst(
+            RegExp(r'gs://[^/]+/'),
+            '',
+          );
           final url = await _storage.ref().child(relativePath).getDownloadURL();
           newPhotos.add(photo.copyWith(path: url));
         } catch (e) {
@@ -64,10 +66,7 @@ class PublicCatalogSnapshotService {
       }
     }
 
-    return product.copyWith(
-      images: newImages,
-      photos: newPhotos,
-    );
+    return product.copyWith(images: newImages, photos: newPhotos);
   }
 
   Future<String?> publish(Catalog catalog) async {
@@ -76,7 +75,7 @@ class PublicCatalogSnapshotService {
     final products = await _productsRepo.getProducts();
     final categories = await _categoriesRepo.getCategories();
     final selectedIds = catalog.productIds.toSet();
-    
+
     final filteredProducts = products
         .where((p) => selectedIds.contains(p.id) && p.isActive)
         .toList();
@@ -118,7 +117,8 @@ class PublicCatalogSnapshotService {
         cacheControl: 'public, max-age=60',
         customMetadata: {
           'shareCode': catalog.shareCode.toLowerCase(),
-          if ((catalog.tenantId ?? '').isNotEmpty) 'tenantId': catalog.tenantId!,
+          if ((catalog.tenantId ?? '').isNotEmpty)
+            'tenantId': catalog.tenantId!,
         },
       ),
     );
@@ -134,12 +134,12 @@ class PublicCatalogSnapshotService {
 
 final publicCatalogSnapshotServiceProvider =
     Provider<PublicCatalogSnapshotService>((ref) {
-  return PublicCatalogSnapshotService(
-    ref.watch(productsRepositoryProvider),
-    ref.watch(categoriesRepositoryProvider),
-    ref.watch(settingsRepositoryProvider),
-    FirebaseStorage.instanceFor(
-      bucket: 'gs://catalogo-ja-89aae.firebasestorage.app',
-    ),
-  );
-});
+      return PublicCatalogSnapshotService(
+        ref.watch(productsRepositoryProvider),
+        ref.watch(categoriesRepositoryProvider),
+        ref.watch(settingsRepositoryProvider),
+        FirebaseStorage.instanceFor(
+          bucket: 'gs://catalogo-ja-89aae.firebasestorage.app',
+        ),
+      );
+    });

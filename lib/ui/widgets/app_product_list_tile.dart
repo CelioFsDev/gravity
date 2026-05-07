@@ -8,6 +8,7 @@ import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:catalogo_ja/core/utils/uri_utils.dart';
 
 class AppProductListTile extends StatelessWidget {
   final Product product;
@@ -65,15 +66,13 @@ class AppProductListTile extends StatelessWidget {
               color: Colors.black.withOpacity(0.03),
               blurRadius: 10,
               offset: const Offset(0, 4),
-          ),
+            ),
         ],
       ),
       child: Stack(
         children: [
           if (primaryImage?.uri.trim().isNotEmpty == true)
-            Positioned.fill(
-              child: _buildCardWallpaper(primaryImage!.uri),
-            ),
+            Positioned.fill(child: _buildCardWallpaper(primaryImage!.uri)),
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -189,6 +188,7 @@ class AppProductListTile extends StatelessWidget {
 
   Widget _buildCardWallpaper(String originalPath) {
     final path = originalPath.trim();
+    if (!UriUtils.isUsableImagePath(path)) return const SizedBox.shrink();
 
     if (path.startsWith('data:')) {
       final commaIndex = path.indexOf(',');
@@ -205,10 +205,7 @@ class AppProductListTile extends StatelessWidget {
       }
     }
 
-    if (path.startsWith('http://') ||
-        path.startsWith('https://') ||
-        path.startsWith('gs://') ||
-        path.startsWith('blob:')) {
+    if (UriUtils.isNetworkImageUri(path)) {
       return CachedNetworkImage(
         imageUrl: path,
         cacheManager: DefaultCacheManager(),
@@ -222,7 +219,8 @@ class AppProductListTile extends StatelessWidget {
     if (!kIsWeb) {
       try {
         final file = File(path);
-        if (file.existsSync()) {
+        if (file.existsSync() &&
+            file.statSync().type != FileSystemEntityType.directory) {
           return Image.file(
             file,
             fit: BoxFit.cover,
@@ -409,12 +407,16 @@ class AppProductListTile extends StatelessWidget {
     }
 
     final path = originalPath.trim();
+    if (!UriUtils.isUsableImagePath(path)) {
+      return const Icon(
+        Icons.image_not_supported_outlined,
+        size: 24,
+        color: Colors.grey,
+      );
+    }
 
     // 1. Network / Cloud / Blob
-    if (path.startsWith('http://') ||
-        path.startsWith('https://') ||
-        path.startsWith('gs://') ||
-        path.startsWith('blob:')) {
+    if (UriUtils.isNetworkImageUri(path)) {
       return CachedNetworkImage(
         imageUrl: path,
         cacheManager: DefaultCacheManager(),
@@ -459,7 +461,8 @@ class AppProductListTile extends StatelessWidget {
     if (!kIsWeb) {
       try {
         final file = File(path);
-        if (file.existsSync()) {
+        if (file.existsSync() &&
+            file.statSync().type != FileSystemEntityType.directory) {
           return Image.file(
             file,
             fit: BoxFit.contain,

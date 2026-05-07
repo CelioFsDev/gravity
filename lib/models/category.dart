@@ -257,10 +257,29 @@ class Category {
       return DateTime.now();
     }
 
+    int parseInt(dynamic value, int fallback) {
+      if (value is num) return value.toInt();
+      if (value is String) return int.tryParse(value) ?? fallback;
+      return fallback;
+    }
+
+    SyncStatus parseSyncStatus(dynamic value) {
+      if (value is int && value >= 0 && value < SyncStatus.values.length) {
+        return SyncStatus.values[value];
+      }
+      if (value is String) {
+        return SyncStatus.values.firstWhere(
+          (status) => status.name == value,
+          orElse: () => SyncStatus.synced,
+        );
+      }
+      return SyncStatus.synced;
+    }
+
     return Category(
-      id: map['id'] ?? '',
-      name: map['name'],
-      order: map['order'] ?? 0,
+      id: map['id']?.toString() ?? '',
+      name: map['name']?.toString(),
+      order: parseInt(map['order'], 0),
       createdAt: parseDate(map['createdAt']),
       updatedAt: parseDate(map['updatedAt']),
       type: CategoryType.values.firstWhere(
@@ -270,10 +289,10 @@ class Category {
       cover: map['cover'] != null
           ? CollectionCover.fromMap(Map<String, dynamic>.from(map['cover']))
           : null,
-      slug: map['slug'],
+      slug: map['slug']?.toString(),
       isActive: map['isActive'] ?? true,
-      tenantId: map['tenantId'],
-      syncStatus: SyncStatus.values[map['syncStatus'] ?? 0],
+      tenantId: map['tenantId']?.toString(),
+      syncStatus: parseSyncStatus(map['syncStatus']),
     );
   }
 
@@ -299,12 +318,16 @@ class Category {
       cv.coverHeaderImagePath,
       cv.coverMainImagePath,
       cv.coverMiniPath,
-      cv.coverPagePath
+      cv.coverPagePath,
     ];
 
-    return paths.any((p) =>
-        p != null &&
-        p.isNotEmpty &&
-        (!p.startsWith('http') && !p.startsWith('gs://') && !p.startsWith('data:')));
+    return paths.any(
+      (p) =>
+          p != null &&
+          p.isNotEmpty &&
+          (!p.startsWith('http') &&
+              !p.startsWith('gs://') &&
+              !p.startsWith('data:')),
+    );
   }
 }

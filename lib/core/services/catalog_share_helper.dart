@@ -203,10 +203,7 @@ class CatalogShareHelper {
         if (kIsWeb) {
           // No Web, sharing direto via navigator.share é bloqueado após async gaps (PDF generation)
           // Usamos Printing.sharePdf que é o padrão ouro para Web browsers
-          await Printing.sharePdf(
-            bytes: pdfBytes,
-            filename: fileName,
-          );
+          await Printing.sharePdf(bytes: pdfBytes, filename: fileName);
         } else {
           try {
             await WhatsAppShareService.shareFile(
@@ -217,13 +214,12 @@ class CatalogShareHelper {
             );
           } catch (shareError) {
             if (context.mounted) {
-              final shareMessage = UserFriendlyError.message(shareError);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
                     savedPath != null
-                        ? 'PDF gerado e salvo em: $savedPath. $shareMessage'
-                        : 'PDF gerado, mas n\u00e3o foi poss\u00edvel compartilhar agora.',
+                        ? 'PDF gerado e salvo em: $savedPath. Para enviar no WhatsApp, anexe esse arquivo manualmente.'
+                        : 'PDF gerado, mas o compartilhamento n\u00e3o abriu. Tente anexar o arquivo manualmente.',
                   ),
                 ),
               );
@@ -356,9 +352,9 @@ class CatalogShareHelper {
           );
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(UserFriendlyError.message(e))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(UserFriendlyError.message(e))));
       }
     }
   }
@@ -606,15 +602,16 @@ class CatalogShareHelper {
         ? _buildWebShareUrl(
             baseUrl: _normalizeBaseUrl(settings.publicBaseUrl),
             shareCode: catalog.shareCode.trim().toLowerCase(),
-            whatsappNumber: settings.whatsappNumber
+            whatsappNumber:
+                settings.whatsappNumber
                     .replaceAll(RegExp(r'[^0-9]'), '')
                     .isEmpty
                 ? null
                 : settings.whatsappNumber.replaceAll(RegExp(r'[^0-9]'), ''),
           )
         : null;
-    final instagramUrl = (includeContactPage &&
-            settings.instagramUrl.trim().isNotEmpty)
+    final instagramUrl =
+        (includeContactPage && settings.instagramUrl.trim().isNotEmpty)
         ? settings.instagramUrl.trim()
         : null;
     final sellerContact = includeContactPage
@@ -632,10 +629,7 @@ class CatalogShareHelper {
             collectionIdOverride,
             productsState.categories,
           )
-        : _resolveCollectionCover(
-            catalogProducts,
-            productsState.categories,
-          );
+        : _resolveCollectionCover(catalogProducts, productsState.categories);
 
     // Resolve which cover to show based on settings or override
     bool resolvedIncludeCover;
@@ -727,10 +721,7 @@ class CatalogShareHelper {
               collectionIdOverride,
               productsState.categories,
             )
-          : _resolveCollectionCover(
-              fallbackProducts,
-              productsState.categories,
-            );
+          : _resolveCollectionCover(fallbackProducts, productsState.categories);
       final catalogName = catalog.name.isEmpty
           ? 'Meu Cat\u00e1logo'
           : catalog.name;
@@ -812,12 +803,17 @@ class CatalogShareHelper {
     }
 
     try {
-      final data = await ref.read(userRepositoryProvider).getUserStream(email).first;
+      final data = await ref
+          .read(userRepositoryProvider)
+          .getUserStream(email)
+          .first;
       final profileName = data?['displayName']?.toString().trim() ?? '';
       final profileWhatsapp = data?['whatsappNumber']?.toString().trim() ?? '';
       return (
         name: profileName.isNotEmpty ? profileName : fallbackName,
-        whatsapp: profileWhatsapp.isNotEmpty ? profileWhatsapp : fallbackWhatsapp,
+        whatsapp: profileWhatsapp.isNotEmpty
+            ? profileWhatsapp
+            : fallbackWhatsapp,
       );
     } catch (_) {
       return (name: fallbackName, whatsapp: fallbackWhatsapp);
@@ -1020,9 +1016,8 @@ class CatalogShareHelper {
                                         fileFormat ==
                                         CatalogExportFileFormat.pdf,
                                     onTap: () => setState(
-                                      () =>
-                                          fileFormat =
-                                              CatalogExportFileFormat.pdf,
+                                      () => fileFormat =
+                                          CatalogExportFileFormat.pdf,
                                     ),
                                   ),
                                   const SizedBox(width: 8),
@@ -1033,9 +1028,8 @@ class CatalogShareHelper {
                                         fileFormat ==
                                         CatalogExportFileFormat.image,
                                     onTap: () => setState(
-                                      () =>
-                                          fileFormat =
-                                              CatalogExportFileFormat.image,
+                                      () => fileFormat =
+                                          CatalogExportFileFormat.image,
                                     ),
                                   ),
                                 ],
@@ -1079,26 +1073,28 @@ class CatalogShareHelper {
                             const SizedBox(height: 24),
 
                             if (false) ...[
-                            // LAST PAGE SECTION
-                            _buildSubHeader(context, 'Página Final de Contato'),
-                            const SizedBox(height: 12),
-                            SwitchListTile.adaptive(
-                              contentPadding: EdgeInsets.zero,
-                              title: const Text(
-                                'Incluir página de contato',
-                                style: TextStyle(fontWeight: FontWeight.w600),
+                              // LAST PAGE SECTION
+                              _buildSubHeader(
+                                context,
+                                'Página Final de Contato',
                               ),
-                              subtitle: const Text(
-                                'Adiciona última página com links do Instagram e Linktree.',
+                              const SizedBox(height: 12),
+                              SwitchListTile.adaptive(
+                                contentPadding: EdgeInsets.zero,
+                                title: const Text(
+                                  'Incluir página de contato',
+                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                                subtitle: const Text(
+                                  'Adiciona última página com links do Instagram e Linktree.',
+                                ),
+                                value: includeContactPage,
+                                onChanged: (value) =>
+                                    setState(() => includeContactPage = value),
+                                activeThumbColor: AppTokens.accentBlue,
                               ),
-                              value: includeContactPage,
-                              onChanged: (value) =>
-                                  setState(() => includeContactPage = value),
-                              activeThumbColor: AppTokens.accentBlue,
-                            ),
 
-                            const SizedBox(height: 24),
-
+                              const SizedBox(height: 24),
                             ],
                             // COVER SECTION
                             _buildSubHeader(context, 'Capa do Cat\u00e1logo'),
@@ -1396,7 +1392,6 @@ class CatalogShareHelper {
         )
         .toList();
   }
-
 }
 
 class CatalogExportOptions {
@@ -1775,8 +1770,9 @@ _CollectionCoverResult _resolveSpecificCollectionCover(
   String collectionId,
   List<Category> categories,
 ) {
-  final matches = categories
-      .where((c) => c.type == CategoryType.collection && c.id == collectionId);
+  final matches = categories.where(
+    (c) => c.type == CategoryType.collection && c.id == collectionId,
+  );
   if (matches.isEmpty) {
     return const _CollectionCoverResult(null, null, null);
   }

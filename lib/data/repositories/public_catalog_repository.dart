@@ -4,6 +4,7 @@ import 'package:catalogo_ja/core/services/public_catalog_snapshot_service.dart';
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/models/product_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -167,9 +168,15 @@ class FirestorePublicCatalogRepository {
           .get();
 
       for (final doc in byFieldSnapshot.docs) {
-        final product = Product.fromMap(doc.data());
-        if (product.isActive) {
-          productsById[product.id.isNotEmpty ? product.id : doc.id] = product;
+        try {
+          final product = await _resolvePublicProductImages(
+            Product.fromMap(doc.data()),
+          );
+          if (product.isActive) {
+            productsById[product.id.isNotEmpty ? product.id : doc.id] = product;
+          }
+        } catch (_) {
+          continue;
         }
       }
     }
@@ -195,10 +202,14 @@ class FirestorePublicCatalogRepository {
           .get();
 
       for (final doc in byFieldSnapshot.docs) {
-        final category = Category.fromMap(doc.data());
-        if (category.type == CategoryType.productType) {
-          categoriesById[category.id.isNotEmpty ? category.id : doc.id] =
-              category;
+        try {
+          final category = Category.fromMap(doc.data());
+          if (category.type == CategoryType.productType) {
+            categoriesById[category.id.isNotEmpty ? category.id : doc.id] =
+                category;
+          }
+        } catch (_) {
+          continue;
         }
       }
     }
@@ -224,16 +235,31 @@ class FirestorePublicCatalogRepository {
         Map<String, dynamic>.from(json['catalog'] as Map),
       );
       final store = Map<String, dynamic>.from(json['store'] as Map? ?? {});
-      final products = (json['products'] as List? ?? [])
-          .where((item) => item is Map)
-          .map((item) => Product.fromMap(Map<String, dynamic>.from(item as Map)))
-          .where((p) => p.isActive)
-          .toList();
-      final categories = (json['categories'] as List? ?? [])
-          .where((item) => item is Map)
-          .map((item) => Category.fromMap(Map<String, dynamic>.from(item as Map)))
-          .where((c) => c.type == CategoryType.productType)
-          .toList();
+      final products = <Product>[];
+      for (final item in json['products'] as List? ?? []) {
+        if (item is! Map) continue;
+        try {
+          final product = await _resolvePublicProductImages(
+            Product.fromMap(Map<String, dynamic>.from(item)),
+          );
+          if (product.isActive) products.add(product);
+        } catch (_) {
+          continue;
+        }
+      }
+
+      final categories = <Category>[];
+      for (final item in json['categories'] as List? ?? []) {
+        if (item is! Map) continue;
+        try {
+          final category = Category.fromMap(Map<String, dynamic>.from(item));
+          if (category.type == CategoryType.productType) {
+            categories.add(category);
+          }
+        } catch (_) {
+          continue;
+        }
+      }
 
       return PublicCatalogDataResponse(
         catalog: catalog,
@@ -244,6 +270,85 @@ class FirestorePublicCatalogRepository {
     } catch (_) {
       return null;
     }
+  }
+
+  Future<Product> _resolvePublicProductImages(Product product) async {
+    var images = List<ProductImage>.from(product.images);
+
+    if (images.isEmpty && product.remoteImages.isNotEmpty) {
+      images = product.remoteImages
+          .where((url) => url.trim().isNotEmpty)
+          .map((url) => ProductImage.network(url: url.trim()))
+          .toList();
+    }
+
+    final resolvedImages = <ProductImage>[];
+    for (final image in images) {
+      final resolvedUri = await _resolveStorageUri(image.uri);
+      if (!_isRenderablePublicImageUri(resolvedUri)) continue;
+      resolvedImages.add(
+        resolvedUri == image.uri
+            ? image
+            : image.copyWith(
+                uri: resolvedUri,
+                sourceType: ProductImageSource.networkUrl,
+              ),
+      );
+    }
+
+    final resolvedPhotos = <ProductPhoto>[];
+    for (final photo in product.photos) {
+      final resolvedPath = await _resolveStorageUri(photo.path);
+      final resolvedUrl = await _resolveStorageUri(photo.url);
+      resolvedPhotos.add(
+        photo.copyWith(
+          path: _isRenderablePublicImageUri(resolvedPath) ? resolvedPath : '',
+          url: _isRenderablePublicImageUri(resolvedUrl) ? resolvedUrl : '',
+        ),
+      );
+    }
+
+    return product.copyWith(images: resolvedImages, photos: resolvedPhotos);
+  }
+
+  bool _isRenderablePublicImageUri(String uri) {
+    final trimmed = uri.trim();
+    return trimmed.startsWith('http://') ||
+        trimmed.startsWith('https://') ||
+        trimmed.startsWith('data:') ||
+        trimmed.startsWith('blob:');
+  }
+
+  Future<String> _resolveStorageUri(String uri) async {
+    final trimmed = uri.trim();
+    if (trimmed.isEmpty ||
+        trimmed.startsWith('http://') ||
+        trimmed.startsWith('https://') ||
+        trimmed.startsWith('data:') ||
+        trimmed.startsWith('blob:')) {
+      return uri;
+    }
+
+    final storagePath = _storagePathFromUri(trimmed);
+    if (storagePath == null || storagePath.isEmpty) return uri;
+
+    try {
+      return await _storage.ref().child(storagePath).getDownloadURL();
+    } catch (_) {
+      return uri;
+    }
+  }
+
+  String? _storagePathFromUri(String uri) {
+    if (uri.startsWith('gs://')) {
+      return uri.replaceFirst(RegExp(r'gs://[^/]+/'), '');
+    }
+
+    if (uri.startsWith('tenants/') || uri.startsWith('public_catalogs/')) {
+      return uri;
+    }
+
+    return null;
   }
 }
 

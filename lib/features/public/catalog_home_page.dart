@@ -7,7 +7,6 @@ import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/viewmodels/catalog_public_viewmodel.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
-import 'package:catalogo_ja/ui/widgets/app_search_field.dart';
 import 'package:catalogo_ja/ui/widgets/app_product_card.dart';
 import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
 import 'package:catalogo_ja/models/category.dart';
@@ -106,6 +105,9 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
         final whatsappNumber = widget.sellerWhatsapp ?? data.whatsappNumber;
         final filteredProducts = _getFilteredProducts(data.products);
         final cart = ref.watch(cartViewModelProvider);
+        final mediaSize = MediaQuery.sizeOf(context);
+        final isCompactViewport =
+            mediaSize.width < 600 || mediaSize.height < 700;
 
         if (cart.catalogId != data.catalog.id) {
           Future.microtask(
@@ -122,6 +124,9 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
             children: [
               // Main Content
               CustomScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                physics: const BouncingScrollPhysics(),
                 slivers: [
                   SliverToBoxAdapter(
                     child: _buildShowcaseHeader(
@@ -131,7 +136,7 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
                     ),
                   ),
                   SliverPersistentHeader(
-                    pinned: true,
+                    pinned: !isCompactViewport,
                     delegate: _SearchAndCategoriesDelegate(
                       searchController: _searchController,
                       onSearchChanged: (val) =>
@@ -140,6 +145,7 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
                       selectedCategoryId: _selectedCategoryId,
                       onCategorySelected: (id) =>
                           setState(() => _selectedCategoryId = id),
+                      isCompact: isCompactViewport,
                     ),
                   ),
                   if (filteredProducts.isEmpty)
@@ -156,7 +162,12 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
                     )
                   else
                     SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+                      padding: EdgeInsets.fromLTRB(
+                        isCompactViewport ? 12 : 16,
+                        isCompactViewport ? 12 : 16,
+                        isCompactViewport ? 12 : 16,
+                        cart.items.isNotEmpty ? 120 : 32,
+                      ),
                       sliver: SliverGrid(
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: _getCrossAxisCount(
@@ -201,6 +212,7 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
                     cart,
                     data.catalog,
                     whatsappNumber,
+                    data.products,
                   ),
                 ),
             ],
@@ -220,10 +232,11 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
   }
 
   double _getChildAspectRatio(BuildContext context, String layout) {
-    if (layout == 'list') return 2.8;
+    if (layout == 'list') return 2.2;
     final width = MediaQuery.of(context).size.width;
-    if (width > 600) return 0.75;
-    return 0.68;
+    if (width > 900) return 0.58;
+    if (width > 600) return 0.56;
+    return 0.48;
   }
 
   Widget _buildShowcaseHeader(
@@ -231,6 +244,9 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
     int productsCount,
     String? whatsappNumber,
   ) {
+    final mediaSize = MediaQuery.sizeOf(context);
+    final isCompactViewport = mediaSize.width < 600 || mediaSize.height < 700;
+
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(
@@ -256,7 +272,12 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 40, 24, 32),
+            padding: EdgeInsets.fromLTRB(
+              isCompactViewport ? 16 : 24,
+              isCompactViewport ? 24 : 40,
+              isCompactViewport ? 16 : 24,
+              isCompactViewport ? 22 : 32,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -280,9 +301,9 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
                 const SizedBox(height: 20),
                 Text(
                   catalog.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.white,
-                    fontSize: 34,
+                    fontSize: isCompactViewport ? 28 : 34,
                     height: 1.1,
                     fontWeight: FontWeight.w900,
                     letterSpacing: -1,
@@ -293,7 +314,7 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
                   'Explore nossa vitrine e selecione os itens desejados.',
                   style: TextStyle(
                     color: Colors.grey.shade400,
-                    fontSize: 16,
+                    fontSize: isCompactViewport ? 14 : 16,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -443,6 +464,7 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
     CartState cart,
     Catalog catalog,
     String? whatsappNumber,
+    List<Product> products,
   ) {
     final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
 
@@ -471,8 +493,12 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: InkWell(
-                    onTap: () =>
-                        _showCartSheet(context, catalog, whatsappNumber),
+                    onTap: () => _showCartSheet(
+                      context,
+                      catalog,
+                      whatsappNumber,
+                      products,
+                    ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -498,8 +524,12 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
                   ),
                 ),
                 FilledButton(
-                  onPressed: () =>
-                      _showCartSheet(context, catalog, whatsappNumber),
+                  onPressed: () => _showCartSheet(
+                    context,
+                    catalog,
+                    whatsappNumber,
+                    products,
+                  ),
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF38BDF8),
                     foregroundColor: const Color(0xFF0F172A),
@@ -534,6 +564,7 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
     BuildContext context,
     Catalog catalog,
     String? whatsappNumber,
+    List<Product> products,
   ) {
     showModalBottomSheet<void>(
       context: context,
@@ -547,6 +578,7 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
         return _CartSheetContent(
           catalog: catalog,
           whatsappNumber: whatsappNumber,
+          products: products,
         );
       },
     );
@@ -557,10 +589,12 @@ class _CartSheetContent extends ConsumerWidget {
   const _CartSheetContent({
     required this.catalog,
     required this.whatsappNumber,
+    required this.products,
   });
 
   final Catalog catalog;
   final String? whatsappNumber;
+  final List<Product> products;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -656,11 +690,12 @@ class _CartSheetContent extends ConsumerWidget {
                     shrinkWrap: true,
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     itemCount: cart.items.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 16),
+                    separatorBuilder: (_, _) => const SizedBox(height: 16),
                     itemBuilder: (context, index) {
                       return _CartItemTile(
                         item: cart.items[index],
                         index: index,
+                        product: _findProduct(cart.items[index].productId),
                       );
                     },
                   ),
@@ -732,7 +767,7 @@ class _CartSheetContent extends ConsumerWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.chat_bubble_outline_rounded, size: 20),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12),
                         Text(
                           'ENVIAR PEDIDO PELO WHATSAPP',
                           style: TextStyle(
@@ -751,6 +786,13 @@ class _CartSheetContent extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Product? _findProduct(String productId) {
+    for (final product in products) {
+      if (product.id == productId) return product;
+    }
+    return null;
   }
 
   Future<void> _sendToWhatsApp(
@@ -874,6 +916,7 @@ class _SearchAndCategoriesDelegate extends SliverPersistentHeaderDelegate {
   final List<Category> categories;
   final String? selectedCategoryId;
   final ValueChanged<String?> onCategorySelected;
+  final bool isCompact;
 
   _SearchAndCategoriesDelegate({
     required this.searchController,
@@ -881,6 +924,7 @@ class _SearchAndCategoriesDelegate extends SliverPersistentHeaderDelegate {
     required this.categories,
     required this.selectedCategoryId,
     required this.onCategorySelected,
+    required this.isCompact,
   });
 
   @override
@@ -891,7 +935,12 @@ class _SearchAndCategoriesDelegate extends SliverPersistentHeaderDelegate {
   ) {
     return Container(
       color: const Color(0xFFF8FAFC),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      padding: EdgeInsets.fromLTRB(
+        isCompact ? 12 : 16,
+        isCompact ? 8 : 12,
+        isCompact ? 12 : 16,
+        isCompact ? 8 : 12,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -915,20 +964,20 @@ class _SearchAndCategoriesDelegate extends SliverPersistentHeaderDelegate {
                 hintStyle: TextStyle(color: Colors.grey.shade400),
                 prefixIcon: Icon(Icons.search, color: Colors.grey.shade400),
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
+                contentPadding: EdgeInsets.symmetric(
                   horizontal: 16,
-                  vertical: 14,
+                  vertical: isCompact ? 11 : 14,
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: isCompact ? 10 : 12),
           SizedBox(
-            height: 40,
+            height: isCompact ? 36 : 40,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: categories.length + 1,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemBuilder: (context, index) {
                 final isAll = index == 0;
                 final cat = isAll ? null : categories[index - 1];
@@ -972,29 +1021,39 @@ class _SearchAndCategoriesDelegate extends SliverPersistentHeaderDelegate {
   }
 
   @override
-  double get maxExtent => 140;
+  double get maxExtent => isCompact ? 112 : 140;
 
   @override
-  double get minExtent => 140;
+  double get minExtent => isCompact ? 112 : 140;
 
   @override
   bool shouldRebuild(covariant _SearchAndCategoriesDelegate oldDelegate) {
     return oldDelegate.selectedCategoryId != selectedCategoryId ||
         oldDelegate.categories != categories ||
-        oldDelegate.searchController != searchController;
+        oldDelegate.searchController != searchController ||
+        oldDelegate.isCompact != isCompact;
   }
 }
 
 class _CartItemTile extends ConsumerWidget {
-  const _CartItemTile({required this.item, required this.index});
+  const _CartItemTile({
+    required this.item,
+    required this.index,
+    required this.product,
+  });
 
   final OrderItem item;
   final int index;
+  final Product? product;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
     final attrs = item.attributes ?? {};
+    final colors = product == null ? <String>[] : _availableColors(product!);
+    final sizes = product == null ? <String>[] : _availableSizes(product!);
+    final selectedColor = attrs['Cor'];
+    final selectedSize = attrs['Tamanho'];
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1037,6 +1096,43 @@ class _CartItemTile extends ConsumerWidget {
                         .toList(),
                   ),
                 ],
+                if (colors.isNotEmpty || sizes.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      if (colors.isNotEmpty)
+                        _buildOptionDropdown(
+                          context: context,
+                          label: 'Cor',
+                          value: colors.contains(selectedColor)
+                              ? selectedColor
+                              : null,
+                          options: colors,
+                          onChanged: (value) => _updateOptions(
+                            ref,
+                            color: value,
+                            size: selectedSize,
+                          ),
+                        ),
+                      if (sizes.isNotEmpty)
+                        _buildOptionDropdown(
+                          context: context,
+                          label: 'Tamanho',
+                          value: sizes.contains(selectedSize)
+                              ? selectedSize
+                              : null,
+                          options: sizes,
+                          onChanged: (value) => _updateOptions(
+                            ref,
+                            color: selectedColor,
+                            size: value,
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 12),
                 Text(
                   currency.format(item.totalPrice),
@@ -1050,6 +1146,7 @@ class _CartItemTile extends ConsumerWidget {
             ),
           ),
           Container(
+            width: 48,
             decoration: BoxDecoration(
               color: const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(12),
@@ -1102,5 +1199,168 @@ class _CartItemTile extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildOptionDropdown({
+    required BuildContext context,
+    required String label,
+    required String? value,
+    required List<String> options,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return SizedBox(
+      width: 150,
+      child: DropdownButtonFormField<String>(
+        initialValue: value,
+        isExpanded: true,
+        decoration: InputDecoration(
+          labelText: label,
+          isDense: true,
+          filled: true,
+          fillColor: const Color(0xFFF8FAFC),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 10,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade200),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade200),
+          ),
+        ),
+        items: options
+            .map(
+              (option) => DropdownMenuItem(value: option, child: Text(option)),
+            )
+            .toList(),
+        onChanged: onChanged,
+      ),
+    );
+  }
+
+  void _updateOptions(WidgetRef ref, {String? color, String? size}) {
+    final attributes = <String, String>{...?item.attributes};
+    if (color == null || color.trim().isEmpty) {
+      attributes.remove('Cor');
+    } else {
+      attributes['Cor'] = color.trim();
+    }
+    if (size == null || size.trim().isEmpty) {
+      attributes.remove('Tamanho');
+    } else {
+      attributes['Tamanho'] = size.trim();
+    }
+
+    ref
+        .read(cartViewModelProvider.notifier)
+        .updateItem(
+          index,
+          OrderItem(
+            productId: item.productId,
+            productName: item.productName,
+            sku: _variantSkuFor(color: color, size: size),
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            attributes: attributes.isEmpty ? null : attributes,
+            notes: item.notes,
+          ),
+        );
+  }
+
+  String? _variantSkuFor({String? color, String? size}) {
+    final currentSku = item.sku;
+    final targetProduct = product;
+    if (targetProduct == null) return currentSku;
+
+    for (final variant in targetProduct.variants) {
+      final variantColor = _variantAttribute(variant.attributes, const [
+        'cor',
+        'color',
+        'colour',
+      ]);
+      final variantSize = _variantAttribute(variant.attributes, const [
+        'tamanho',
+        'tam',
+        'size',
+        'grade',
+      ]);
+      final matchesColor =
+          color == null || variantColor == null || variantColor == color;
+      final matchesSize =
+          size == null || variantSize == null || variantSize == size;
+      if (matchesColor && matchesSize && variant.sku.trim().isNotEmpty) {
+        return variant.sku.trim();
+      }
+    }
+
+    if (targetProduct.sku.trim().isNotEmpty) return targetProduct.sku.trim();
+    return targetProduct.ref.isNotEmpty ? targetProduct.ref : currentSku;
+  }
+
+  List<String> _availableColors(Product product) {
+    final values = <String>{};
+    for (final color in product.colors) {
+      final trimmed = color.trim();
+      if (trimmed.isNotEmpty) values.add(trimmed);
+    }
+    for (final variant in product.variants) {
+      final color = _variantAttribute(variant.attributes, const [
+        'cor',
+        'color',
+        'colour',
+      ]);
+      if (color != null && color.trim().isNotEmpty) values.add(color.trim());
+    }
+    return values.toList();
+  }
+
+  List<String> _availableSizes(Product product) {
+    final values = <String>{};
+    for (final size in product.sizes) {
+      final trimmed = size.trim();
+      if (trimmed.isNotEmpty) values.add(trimmed);
+    }
+    for (final variant in product.variants) {
+      final size = _variantAttribute(variant.attributes, const [
+        'tamanho',
+        'tam',
+        'size',
+        'grade',
+      ]);
+      if (size != null && size.trim().isNotEmpty) values.add(size.trim());
+    }
+    return values.toList();
+  }
+
+  String? _variantAttribute(
+    Map<String, String> attributes,
+    List<String> aliases,
+  ) {
+    for (final entry in attributes.entries) {
+      final key = _normalizeAttributeKey(entry.key);
+      if (aliases.contains(key)) return entry.value;
+    }
+    return null;
+  }
+
+  String _normalizeAttributeKey(String value) {
+    return value
+        .trim()
+        .toLowerCase()
+        .replaceAll('ç', 'c')
+        .replaceAll('ã', 'a')
+        .replaceAll('á', 'a')
+        .replaceAll('à', 'a')
+        .replaceAll('â', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('ê', 'e')
+        .replaceAll('í', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('ô', 'o')
+        .replaceAll('õ', 'o')
+        .replaceAll('ú', 'u');
   }
 }

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:catalogo_ja/core/utils/uri_utils.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:catalogo_ja/data/repositories/user_repository.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
@@ -189,10 +190,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       CircleAvatar(
                         radius: 60,
                         backgroundColor: AppTokens.accentBlue.withOpacity(0.1),
-                        backgroundImage: _photoUrlController.text.isNotEmpty
+                        backgroundImage: UriUtils.isNetworkImageUri(_photoUrlController.text)
                             ? NetworkImage(_photoUrlController.text)
                             : null,
-                        child: _photoUrlController.text.isEmpty
+                        child: !UriUtils.isNetworkImageUri(_photoUrlController.text)
                             ? Text(
                                 (_nameController.text.isNotEmpty
                                         ? _nameController.text

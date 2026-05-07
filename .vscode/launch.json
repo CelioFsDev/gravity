@@ -9,19 +9,31 @@
         {
             "name": "gravity",
             "request": "launch",
-            "type": "dart"
+            "type": "dart",
+            "env": {
+                "DEBUG": "",
+                "JAVA_HOME": "C:\\Program Files\\Android\\Android Studio\\jbr"
+            }
         },
         {
             "name": "gravity (profile mode)",
             "request": "launch",
             "type": "dart",
-            "flutterMode": "profile"
+            "flutterMode": "profile",
+            "env": {
+                "DEBUG": "",
+                "JAVA_HOME": "C:\\Program Files\\Android\\Android Studio\\jbr"
+            }
         },
         {
             "name": "gravity (release mode)",
             "request": "launch",
             "type": "dart",
-            "flutterMode": "release"
+            "flutterMode": "release",
+            "env": {
+                "DEBUG": "",
+                "JAVA_HOME": "C:\\Program Files\\Android\\Android Studio\\jbr"
+            }
         }
     ]
 }

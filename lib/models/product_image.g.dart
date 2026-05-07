@@ -70,6 +70,8 @@ class ProductImageSourceAdapter extends TypeAdapter<ProductImageSource> {
         return ProductImageSource.memory;
       case 3:
         return ProductImageSource.unknown;
+      case 4:
+        return ProductImageSource.storage;
       default:
         return ProductImageSource.localPath;
     }
@@ -89,6 +91,9 @@ class ProductImageSourceAdapter extends TypeAdapter<ProductImageSource> {
         break;
       case ProductImageSource.unknown:
         writer.writeByte(3);
+        break;
+      case ProductImageSource.storage:
+        writer.writeByte(4);
         break;
     }
   }

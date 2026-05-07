@@ -41,10 +41,11 @@ class CartViewModel extends StateNotifier<CartState> {
 
   void addItem(OrderItem item) {
     // Procura se já existe um item idêntico no carrinho (mesma grade/cor/sku)
-    final existingIndex = state.items.indexWhere((i) => 
-      i.productId == item.productId && 
-      i.sku == item.sku && 
-      _compareAttributes(i.attributes, item.attributes)
+    final existingIndex = state.items.indexWhere(
+      (i) =>
+          i.productId == item.productId &&
+          i.sku == item.sku &&
+          _compareAttributes(i.attributes, item.attributes),
     );
 
     if (existingIndex >= 0) {
@@ -58,7 +59,7 @@ class CartViewModel extends StateNotifier<CartState> {
         attributes: existing.attributes,
         notes: existing.notes,
       );
-      
+
       final newItems = List<OrderItem>.from(state.items);
       newItems[existingIndex] = updatedItem;
       state = state.copyWith(items: newItems);
@@ -78,7 +79,7 @@ class CartViewModel extends StateNotifier<CartState> {
       removeItem(index);
       return;
     }
-    
+
     final existing = state.items[index];
     final updatedItem = OrderItem(
       productId: existing.productId,
@@ -92,6 +93,18 @@ class CartViewModel extends StateNotifier<CartState> {
 
     final newItems = List<OrderItem>.from(state.items);
     newItems[index] = updatedItem;
+    state = state.copyWith(items: newItems);
+  }
+
+  void updateItem(int index, OrderItem item) {
+    if (index < 0 || index >= state.items.length) return;
+    if (item.quantity <= 0) {
+      removeItem(index);
+      return;
+    }
+
+    final newItems = List<OrderItem>.from(state.items);
+    newItems[index] = item;
     state = state.copyWith(items: newItems);
   }
 
@@ -133,6 +146,8 @@ class CartViewModel extends StateNotifier<CartState> {
   }
 }
 
-final cartViewModelProvider = StateNotifierProvider<CartViewModel, CartState>((ref) {
+final cartViewModelProvider = StateNotifierProvider<CartViewModel, CartState>((
+  ref,
+) {
   return CartViewModel();
 });

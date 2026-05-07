@@ -319,16 +319,42 @@ class Product {
       return DateTime.now();
     }
 
+    double parseDouble(dynamic value) {
+      if (value is num) return value.toDouble();
+      if (value is String) {
+        return double.tryParse(value.replaceAll(',', '.')) ?? 0.0;
+      }
+      return 0.0;
+    }
+
+    int parseInt(dynamic value, int fallback) {
+      if (value is num) return value.toInt();
+      if (value is String) return int.tryParse(value) ?? fallback;
+      return fallback;
+    }
+
+    SyncStatus parseSyncStatus(dynamic value) {
+      if (value is int && value >= 0 && value < SyncStatus.values.length) {
+        return SyncStatus.values[value];
+      }
+      if (value is String) {
+        return SyncStatus.values.firstWhere(
+          (status) => status.name == value,
+          orElse: () => SyncStatus.synced,
+        );
+      }
+      return SyncStatus.synced;
+    }
+
     return Product(
-      id: map['id'] ?? '',
-      name: map['name'] ?? '',
+      id: map['id']?.toString() ?? '',
+      name: map['name']?.toString() ?? '',
       ref: (map['ref'] ?? map['reference'] ?? '').toString(),
-      sku: map['sku'] ?? '',
+      sku: map['sku']?.toString() ?? '',
       categoryIds: List<String>.from(map['categoryIds'] ?? []),
-      priceRetail: (map['priceRetail'] ?? map['priceVarejo'] ?? 0.0).toDouble(),
-      priceWholesale: (map['priceWholesale'] ?? map['priceAtacado'] ?? 0.0)
-          .toDouble(),
-      minWholesaleQty: map['minWholesaleQty'] ?? 1,
+      priceRetail: parseDouble(map['priceRetail'] ?? map['priceVarejo']),
+      priceWholesale: parseDouble(map['priceWholesale'] ?? map['priceAtacado']),
+      minWholesaleQty: parseInt(map['minWholesaleQty'], 1),
       sizes: List<String>.from(map['sizes'] ?? []),
       colors: List<String>.from(map['colors'] ?? []),
       images: (map['images'] as List? ?? []).map((i) {
@@ -341,14 +367,15 @@ class Product {
         }
         return ProductImage.unknown(); // Use an empty placeholder
       }).toList(),
-      mainImageIndex: map['mainImageIndex'] ?? 0,
+      mainImageIndex: parseInt(map['mainImageIndex'], 0),
       isActive: map['isActive'] ?? true,
       isOutOfStock: map['isOutOfStock'] ?? false,
       promoEnabled: map['promoEnabled'] ?? map['isOnSale'] ?? false,
-      promoPercent: (map['promoPercent'] ?? map['saleDiscountPercent'] ?? 0.0)
-          .toDouble(),
-      slug: map['slug'] ?? '',
-      description: map['description'],
+      promoPercent: parseDouble(
+        map['promoPercent'] ?? map['saleDiscountPercent'],
+      ),
+      slug: map['slug']?.toString() ?? '',
+      description: map['description']?.toString(),
       tags: List<String>.from(map['tags'] ?? []),
       remoteImages: List<String>.from(map['remoteImages'] ?? []),
       variants: (map['variants'] as List? ?? [])
@@ -374,16 +401,14 @@ class Product {
             );
           })
           .toList(),
-      tenantId: map['tenantId'],
+      tenantId: map['tenantId']?.toString(),
       storeOverrides:
           (map['storeOverrides'] as Map?)?.map(
             (k, v) =>
                 MapEntry(k.toString(), Map<String, dynamic>.from(v as Map)),
           ) ??
           {},
-      syncStatus: map['syncStatus'] != null
-          ? SyncStatus.values[map['syncStatus'] as int]
-          : SyncStatus.synced,
+      syncStatus: parseSyncStatus(map['syncStatus']),
     );
   }
 
@@ -410,6 +435,16 @@ class Product {
       final mainP = photos.where((p) => p.isPrimary).toList();
       if (mainP.isNotEmpty) return mainP.first.toProductImage();
       return photos.first.toProductImage();
+    }
+
+    if (remoteImages.isNotEmpty) {
+      final remoteUrl = remoteImages.firstWhere(
+        (url) => url.trim().isNotEmpty,
+        orElse: () => '',
+      );
+      if (remoteUrl.isNotEmpty) {
+        return ProductImage.network(url: remoteUrl.trim());
+      }
     }
 
     return null;
