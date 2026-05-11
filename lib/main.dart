@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/firebase_options.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -67,6 +68,9 @@ final currentUserStatusProvider = StreamProvider<bool>((ref) {
 void main() async {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+  if (kIsWeb) {
+    usePathUrlStrategy();
+  }
 
   await initializeDateFormatting('pt_BR', null);
 
@@ -219,12 +223,16 @@ class _MyAppState extends ConsumerState<MyApp> {
     super.initState();
     _routerRefreshNotifier = _RouterRefreshNotifier(ref);
     _router = GoRouter(
-      initialLocation: '/splash',
       refreshListenable: _routerRefreshNotifier,
       redirect: (context, state) async {
         final authState = ref.read(authViewModelProvider);
         final user = authState.valueOrNull;
         final locationPath = state.uri.path;
+
+        final legacyHashRoute = state.uri.fragment;
+        if (locationPath == '/' && legacyHashRoute.startsWith('/')) {
+          return legacyHashRoute;
+        }
 
         // Forced status check (manual provider call to avoid generator lag)
         final isDisabled =
@@ -241,7 +249,6 @@ class _MyAppState extends ConsumerState<MyApp> {
         final isSplash = locationPath == '/splash';
 
         final isPublicArea =
-            locationPath == '/' ||
             locationPath == '/register' ||
             locationPath.startsWith('/c/') ||
             locationPath.startsWith('/p/');
@@ -272,6 +279,11 @@ class _MyAppState extends ConsumerState<MyApp> {
           final needsOnboarding =
               ref.read(requiresTenantOnboardingProvider).valueOrNull ?? false;
           return needsOnboarding ? '/onboarding' : '/picker';
+        }
+
+        if (locationPath == '/') {
+          final role = await _effectiveRoleForRedirect(user.email);
+          return _defaultAdminLocationFor(role);
         }
 
         if (locationPath.startsWith('/admin')) {
@@ -629,7 +641,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     if (role.canViewDashboard) return '/admin/dashboard';
     if (role.canViewCatalogs) return '/admin/catalogs';
     if (role.canShare) return '/admin/share';
-    return '/';
+    return '/picker';
   }
 
   Future<UserRole> _effectiveRoleForRedirect(String? rawEmail) async {
@@ -824,15 +836,30 @@ class _RouterRefreshNotifier extends ChangeNotifier {
       currentRoleProvider,
       (_, _) => notifyListeners(),
     );
+
+    _tenantSubscription = ref.listenManual(
+      currentTenantProvider,
+      (_, _) => notifyListeners(),
+    );
+
+    _tenantOnboardingSubscription = ref.listenManual(
+      requiresTenantOnboardingProvider,
+      (_, _) => notifyListeners(),
+    );
   }
 
   late final ProviderSubscription<AsyncValue<dynamic>> _authSubscription;
   late final ProviderSubscription<UserRole> _roleSubscription;
+  late final ProviderSubscription<AsyncValue<dynamic>> _tenantSubscription;
+  late final ProviderSubscription<AsyncValue<dynamic>>
+      _tenantOnboardingSubscription;
 
   @override
   void dispose() {
     _authSubscription.close();
     _roleSubscription.close();
+    _tenantSubscription.close();
+    _tenantOnboardingSubscription.close();
     super.dispose();
   }
 }

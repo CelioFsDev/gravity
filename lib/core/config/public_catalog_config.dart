@@ -10,7 +10,10 @@ class PublicCatalogConfig {
         lower == 'catalogoja.app' ||
         lower == 'https://catalogo-ja.app' ||
         lower == 'http://catalogo-ja.app' ||
-        lower == 'catalogo-ja.app') {
+        lower == 'catalogo-ja.app' ||
+        lower == 'https://catalogo-ja-89aae.web' ||
+        lower == 'http://catalogo-ja-89aae.web' ||
+        lower == 'catalogo-ja-89aae.web') {
       return defaultBaseUrl;
     }
 
@@ -46,6 +49,6 @@ class PublicCatalogConfig {
       queryParameters: query.isEmpty ? null : query,
     ).toString();
 
-    return '$normalized/#$route';
+    return '$normalized$route';
   }
 }

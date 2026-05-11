@@ -598,10 +598,19 @@ class CatalogShareHelper {
     final productsState = await ref.read(productsViewModelProvider.future);
     final allProducts = productsState.allProducts;
     final settings = ref.read(settingsRepositoryProvider).getSettings();
-    final catalogUrl = includeContactPage && catalog.shareCode.trim().isNotEmpty
+    var linkCatalog = catalog;
+    if (includeContactPage &&
+        (!linkCatalog.isPublic || linkCatalog.shareCode.trim().isEmpty)) {
+      linkCatalog = await ref
+          .read(catalogsViewModelProvider.notifier)
+          .prepareCatalogForSharing(linkCatalog);
+    }
+
+    final catalogUrl = includeContactPage &&
+            linkCatalog.shareCode.trim().isNotEmpty
         ? _buildWebShareUrl(
-            baseUrl: _normalizeBaseUrl(settings.publicBaseUrl),
-            shareCode: catalog.shareCode.trim().toLowerCase(),
+            baseUrl: PublicCatalogConfig.defaultBaseUrl,
+            shareCode: linkCatalog.shareCode.trim().toLowerCase(),
             whatsappNumber:
                 settings.whatsappNumber
                     .replaceAll(RegExp(r'[^0-9]'), '')

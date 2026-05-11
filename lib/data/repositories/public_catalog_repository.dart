@@ -7,6 +7,7 @@ import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/product_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class PublicCatalogDataResponse {
@@ -26,7 +27,7 @@ class PublicCatalogDataResponse {
 class FirestorePublicCatalogRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instanceFor(
-    bucket: 'gs://catalogo-ja-89aae.firebasestorage.app',
+    bucket: 'catalogo-ja-89aae.firebasestorage.app',
   );
 
   Future<PublicCatalogDataResponse?> getPublicCatalogData(
@@ -175,7 +176,8 @@ class FirestorePublicCatalogRepository {
           if (product.isActive) {
             productsById[product.id.isNotEmpty ? product.id : doc.id] = product;
           }
-        } catch (_) {
+        } catch (e) {
+          debugPrint('⚠️ Error parsing product in public catalog: $e');
           continue;
         }
       }
@@ -208,7 +210,8 @@ class FirestorePublicCatalogRepository {
             categoriesById[category.id.isNotEmpty ? category.id : doc.id] =
                 category;
           }
-        } catch (_) {
+        } catch (e) {
+          debugPrint('⚠️ Error parsing category in public catalog: $e');
           continue;
         }
       }
@@ -230,9 +233,17 @@ class FirestorePublicCatalogRepository {
       final bytes = await ref.getData(20 * 1024 * 1024);
       if (bytes == null || bytes.isEmpty) return null;
 
-      final json = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
+      final jsonStr = utf8.decode(bytes);
+      final json = jsonDecode(jsonStr) as Map<String, dynamic>;
+      
+      final catalogMap = json['catalog'];
+      if (catalogMap == null) {
+        debugPrint('❌ Error: "catalog" field is missing in snapshot');
+        return null;
+      }
+
       final catalog = Catalog.fromMap(
-        Map<String, dynamic>.from(json['catalog'] as Map),
+        Map<String, dynamic>.from(catalogMap as Map),
       );
       final store = Map<String, dynamic>.from(json['store'] as Map? ?? {});
       final products = <Product>[];
@@ -267,7 +278,9 @@ class FirestorePublicCatalogRepository {
         categories: categories,
         whatsappNumber: store['whatsappNumber']?.toString(),
       );
-    } catch (_) {
+    } catch (e, s) {
+      debugPrint('⚠️ Error loading public catalog snapshot for $shareCode: $e');
+      debugPrint(s.toString());
       return null;
     }
   }
@@ -334,7 +347,8 @@ class FirestorePublicCatalogRepository {
 
     try {
       return await _storage.ref().child(storagePath).getDownloadURL();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('⚠️ Error resolving storage URI for $uri: $e');
       return uri;
     }
   }

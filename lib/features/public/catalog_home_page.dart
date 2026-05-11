@@ -141,7 +141,7 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
                       searchController: _searchController,
                       onSearchChanged: (val) =>
                           setState(() => _searchQuery = val.toLowerCase()),
-                      categories: data.categories,
+                      categories: data.categories as List<Category>,
                       selectedCategoryId: _selectedCategoryId,
                       onCategorySelected: (id) =>
                           setState(() => _selectedCategoryId = id),

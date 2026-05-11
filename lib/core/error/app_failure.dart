@@ -30,10 +30,15 @@ class AppFailure {
       );
     }
 
+    final detailsStr = 'Ação: $action | Entidade: $entity | Erro original: $error';
+    
+    // Log the unknown error for debugging
+    print('❌ AppFailure (UNKNOWN_ERROR): $detailsStr');
+
     return AppFailure(
       code: 'UNKNOWN_ERROR',
-      message: 'Ocorreu um erro inesperado.',
-      details: 'Ação: $action | Entidade: $entity | Erro original: $error',
+      message: 'Ocorreu um erro inesperado: $error',
+      details: detailsStr,
       originalError: error,
     );
   }
