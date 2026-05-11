@@ -41,7 +41,9 @@ class CatalogPdfService {
     bool showPrice = true,
     bool useLoosePhotos = false,
     CatalogPdfStyle style = CatalogPdfStyle.classic,
-    String? linktreeUrl,
+    String? catalogUrl,
+    String? sellerName,
+    String? sellerWhatsapp,
     String? instagramUrl,
   }) async {
     // Parameters kept for API compatibility.
@@ -196,14 +198,18 @@ class CatalogPdfService {
       }
     }
 
-    final hasLinktree = linktreeUrl != null && linktreeUrl.trim().isNotEmpty;
+    final hasCatalogUrl = catalogUrl != null && catalogUrl.trim().isNotEmpty;
+    final hasSeller = (sellerName != null && sellerName.trim().isNotEmpty) ||
+        (sellerWhatsapp != null && sellerWhatsapp.trim().isNotEmpty);
     final hasInstagram = instagramUrl != null && instagramUrl.trim().isNotEmpty;
-    if (hasLinktree || hasInstagram) {
+    if (hasCatalogUrl || hasSeller || hasInstagram) {
       _addContactPage(
         pdf,
         pageFormat,
         catalogName: catalogName,
-        linktreeUrl: hasLinktree ? linktreeUrl.trim() : null,
+        catalogUrl: hasCatalogUrl ? catalogUrl.trim() : null,
+        sellerName: sellerName?.trim(),
+        sellerWhatsapp: sellerWhatsapp?.trim(),
         instagramUrl: hasInstagram ? instagramUrl.trim() : null,
       );
     }
@@ -219,7 +225,9 @@ class CatalogPdfService {
     pw.Document pdf,
     PdfPageFormat pageFormat, {
     required String catalogName,
-    String? linktreeUrl,
+    String? catalogUrl,
+    String? sellerName,
+    String? sellerWhatsapp,
     String? instagramUrl,
   }) {
     const bgColor = PdfColor(0.07, 0.07, 0.1);
@@ -227,6 +235,7 @@ class CatalogPdfService {
     const textWhite = PdfColors.white;
     const textMuted = PdfColor(0.65, 0.65, 0.7);
     const pillColor = PdfColor(0.14, 0.14, 0.18);
+    final hasCatalogUrl = (catalogUrl ?? '').trim().isNotEmpty;
 
     pdf.addPage(
       pw.Page(
@@ -300,7 +309,9 @@ class CatalogPdfService {
                         ),
 
                         pw.Text(
-                          'Siga-nos e fique por dentro\ndas novidades!',
+                          hasCatalogUrl
+                              ? 'Acesse o catalogo online e fale com a vendedora para fechar seu pedido.'
+                              : 'Este arquivo foi enviado em modo rapido, sem link de vitrine digital.',
                           style: const pw.TextStyle(
                             color: textMuted,
                             fontSize: 11,
@@ -312,7 +323,9 @@ class CatalogPdfService {
 
                         // Link buttons
                         ..._buildSocialLinkButtons(
-                          linktreeUrl: linktreeUrl,
+                          catalogUrl: catalogUrl,
+                          sellerName: sellerName,
+                          sellerWhatsapp: sellerWhatsapp,
                           instagramUrl: instagramUrl,
                           pillColor: pillColor,
                           accentColor: accentColor,
@@ -323,7 +336,9 @@ class CatalogPdfService {
 
                         // Footer note
                         pw.Text(
-                          'Toque nos links acima para visitar nossas redes sociais',
+                          hasCatalogUrl
+                              ? 'Toque nos links acima para abrir o catalogo ou contato'
+                              : 'Para gerar link da vitrine, use Novo Catalogo e Compartilhar Link',
                           style: const pw.TextStyle(
                             color: textMuted,
                             fontSize: 8,
@@ -344,7 +359,9 @@ class CatalogPdfService {
   }
 
   static List<pw.Widget> _buildSocialLinkButtons({
-    String? linktreeUrl,
+    String? catalogUrl,
+    String? sellerName,
+    String? sellerWhatsapp,
     String? instagramUrl,
     required PdfColor pillColor,
     required PdfColor accentColor,
@@ -352,10 +369,10 @@ class CatalogPdfService {
   }) {
     final widgets = <pw.Widget>[];
 
-    if (linktreeUrl != null && linktreeUrl.isNotEmpty) {
+    if (catalogUrl != null && catalogUrl.isNotEmpty) {
       widgets.add(
         pw.UrlLink(
-          destination: linktreeUrl,
+          destination: catalogUrl,
           child: pw.Container(
             width: pageWidth,
             padding: const pw.EdgeInsets.symmetric(vertical: 16, horizontal: 20),
@@ -368,7 +385,7 @@ class CatalogPdfService {
               crossAxisAlignment: pw.CrossAxisAlignment.center,
               children: [
                 pw.Text(
-                  'Clique aqui para falar com as vendedoras',
+                  'Abrir catalogo online',
                   style: pw.TextStyle(
                     color: PdfColors.white,
                     fontSize: 13,
@@ -378,7 +395,7 @@ class CatalogPdfService {
                 ),
                 pw.SizedBox(height: 4),
                 pw.Text(
-                  'Acesse nosso Linktree →',
+                  catalogUrl,
                   style: const pw.TextStyle(
                     color: PdfColor(0.6, 0.85, 0.65),
                     fontSize: 10,
@@ -389,6 +406,66 @@ class CatalogPdfService {
             ),
           ),
         ),
+      );
+      widgets.add(pw.SizedBox(height: 14));
+    }
+
+    final cleanWhatsapp =
+        sellerWhatsapp?.replaceAll(RegExp(r'[^0-9]'), '') ?? '';
+    if ((sellerName != null && sellerName.isNotEmpty) ||
+        cleanWhatsapp.isNotEmpty) {
+      final whatsappUrl = cleanWhatsapp.isNotEmpty
+          ? 'https://wa.me/$cleanWhatsapp'
+          : null;
+      final card = pw.Container(
+        width: pageWidth,
+        padding: const pw.EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+        decoration: pw.BoxDecoration(
+          color: pillColor,
+          borderRadius: pw.BorderRadius.circular(12),
+          border: pw.Border.all(color: accentColor, width: 1.5),
+        ),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            pw.Text(
+              'Vendedora',
+              style: pw.TextStyle(
+                color: PdfColors.white,
+                fontSize: 13,
+                fontWeight: pw.FontWeight.bold,
+              ),
+              textAlign: pw.TextAlign.center,
+            ),
+            if (sellerName != null && sellerName.isNotEmpty) ...[
+              pw.SizedBox(height: 4),
+              pw.Text(
+                sellerName,
+                style: const pw.TextStyle(
+                  color: PdfColor(0.65, 0.65, 0.7),
+                  fontSize: 10,
+                ),
+                textAlign: pw.TextAlign.center,
+              ),
+            ],
+            if (cleanWhatsapp.isNotEmpty) ...[
+              pw.SizedBox(height: 4),
+              pw.Text(
+                cleanWhatsapp,
+                style: const pw.TextStyle(
+                  color: PdfColor(0.6, 0.85, 0.65),
+                  fontSize: 10,
+                ),
+                textAlign: pw.TextAlign.center,
+              ),
+            ],
+          ],
+        ),
+      );
+      widgets.add(
+        whatsappUrl == null
+            ? card
+            : pw.UrlLink(destination: whatsappUrl, child: card),
       );
       widgets.add(pw.SizedBox(height: 14));
     }

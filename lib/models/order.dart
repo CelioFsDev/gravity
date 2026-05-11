@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
 enum OrderStatus {
@@ -144,6 +145,13 @@ class Order {
   }
 
   factory Order.fromMap(Map<String, dynamic> map) {
+    DateTime? parseDate(dynamic value) {
+      if (value == null) return null;
+      if (value is Timestamp) return value.toDate();
+      if (value is String) return DateTime.tryParse(value);
+      return null;
+    }
+
     return Order(
       id: map['id'] ?? '',
       tenantId: map['tenantId'] ?? '',
@@ -152,7 +160,7 @@ class Order {
       customerName: map['customerName'] ?? '',
       customerPhone: map['customerPhone'] ?? '',
       items: List<OrderItem>.from(
-        map['items']?.map((x) => OrderItem.fromMap(x)) ?? [],
+        (map['items'] as List? ?? []).map((x) => OrderItem.fromMap(x)),
       ),
       status: OrderStatus.values.firstWhere(
         (e) => e.name == map['status'],
@@ -160,12 +168,8 @@ class Order {
       ),
       discount: (map['discount'] as num?)?.toDouble() ?? 0.0,
       shippingCost: (map['shippingCost'] as num?)?.toDouble() ?? 0.0,
-      createdAt: map['createdAt'] != null
-          ? DateTime.parse(map['createdAt'])
-          : null,
-      updatedAt: map['updatedAt'] != null
-          ? DateTime.parse(map['updatedAt'])
-          : null,
+      createdAt: parseDate(map['createdAt']),
+      updatedAt: parseDate(map['updatedAt']),
       sellerId: map['sellerId'],
     );
   }

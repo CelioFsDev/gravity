@@ -12,7 +12,6 @@ import 'package:catalogo_ja/data/repositories/firestore_catalogs_repository.dart
 import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/catalog.dart';
-import 'package:catalogo_ja/models/sync_status.dart';
 import 'package:catalogo_ja/core/utils/encoding_utils.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:path_provider/path_provider.dart';
@@ -184,7 +183,8 @@ class ExportImportService {
 
       // 🛡️ SCHEMA & VERSIONING MIGRATION LOGIC
       final incomingSchemaVersion = map['schemaVersion'] as int? ?? 1;
-      final currentAppSchemaVersion = 1; // ⚠️ Aumente aqui quando o Hive/Modelos mudarem de forma destrutiva
+      final currentAppSchemaVersion =
+          1; // ⚠️ Aumente aqui quando o Hive/Modelos mudarem de forma destrutiva
 
       if (incomingSchemaVersion > currentAppSchemaVersion) {
         throw Exception(
@@ -282,7 +282,9 @@ class ExportImportService {
           } else {
             // Update existing
             await _categoriesRepo.updateCategory(
-              dto.toModel(tenantId: tenantId).copyWith(id: existing.id), // Keep local ID
+              dto
+                  .toModel(tenantId: tenantId)
+                  .copyWith(id: existing.id), // Keep local ID
             );
             categoryIdMap[dto.id] = existing.id;
           }
@@ -326,11 +328,13 @@ class ExportImportService {
 
             // Merge logic: Update fields, keep local ID, preserve local images if remote are empty?
             // P0: Overwrite with imported data (except ID).
-            final productToSave = pDTO.toModel(tenantId: tenantId).copyWith(
-              id: existing.id, // KEEP LOCAL ID
-              categoryIds: newCategoryIds,
-              syncStatus: SyncStatus.synced,
-            );
+            final productToSave = pDTO
+                .toModel(tenantId: tenantId)
+                .copyWith(
+                  id: existing.id, // KEEP LOCAL ID
+                  categoryIds: newCategoryIds,
+                  syncStatus: SyncStatus.synced,
+                );
 
             await _productsRepo.saveImportedProduct(
               productToSave,
@@ -344,10 +348,12 @@ class ExportImportService {
               pDTO.categoryIds?.map((id) => categoryIdMap[id] ?? id).toList() ??
               [];
 
-          final productToSave = pDTO.toModel(tenantId: tenantId).copyWith(
-            categoryIds: newCategoryIds,
-            syncStatus: SyncStatus.pendingUpdate,
-          );
+          final productToSave = pDTO
+              .toModel(tenantId: tenantId)
+              .copyWith(
+                categoryIds: newCategoryIds,
+                syncStatus: SyncStatus.pendingUpdate,
+              );
 
           await _productsRepo.saveImportedProduct(
             productToSave,

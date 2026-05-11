@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:catalogo_ja/core/services/public_catalog_snapshot_service.dart';
 import 'package:catalogo_ja/data/repositories/firestore_catalogs_repository.dart';
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/models/sync_status.dart';
@@ -152,8 +153,10 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
 
   void setIsPublic(bool value) {
     var catalog = state.catalog;
-    if (value && catalog.shareCode.isEmpty) {
+    if (value && catalog.shareCode.trim().isEmpty) {
       catalog = catalog.copyWith(shareCode: _generateShareCode());
+    } else if (catalog.shareCode.trim().isNotEmpty) {
+      catalog = catalog.copyWith(shareCode: catalog.shareCode.trim().toLowerCase());
     }
     state = state.copyWith(catalog: catalog.copyWith(isPublic: value));
   }
@@ -203,15 +206,27 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
       }
 
       var toSave = state.catalog;
-      if (toSave.shareCode.isEmpty) {
-        toSave = toSave.copyWith(shareCode: _generateShareCode());
-      }
+      final normalizedShareCode = toSave.shareCode.trim().isEmpty
+          ? _generateShareCode()
+          : toSave.shareCode.trim().toLowerCase();
       toSave = toSave.copyWith(
+        shareCode: normalizedShareCode,
         updatedAt: DateTime.now(),
         syncStatus: SyncStatus.pendingUpdate,
       );
 
       await repository.addCatalog(toSave);
+
+      if (toSave.isPublic) {
+        try {
+          await ref.read(publicCatalogSnapshotServiceProvider).publish(toSave);
+        } catch (e) {
+          // O link publico ainda funciona via fallback do Firestore.
+          // A publicacao do snapshot nao deve impedir salvar/compartilhar.
+          // ignore: avoid_print
+          print('Erro ao publicar snapshot do catalogo: $e');
+        }
+      }
 
       ref.invalidate(catalogsViewModelProvider);
       if (toSave.shareCode.isNotEmpty) {
@@ -228,5 +243,5 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
     }
   }
 
-  String _generateShareCode() => StringUtils.generateBase62(10);
+  String _generateShareCode() => StringUtils.generateBase62(10).toLowerCase();
 }

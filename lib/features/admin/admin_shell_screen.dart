@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:catalogo_ja/core/utils/uri_utils.dart';
 import 'package:catalogo_ja/features/admin/admin_shell_scope.dart';
 import 'package:catalogo_ja/features/theme/theme_providers.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
@@ -302,10 +303,10 @@ class _Sidebar extends ConsumerWidget {
                         height: 40,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(10),
-                          gradient: logoUrl == null
+                          gradient: !UriUtils.isNetworkImageUri(logoUrl ?? '')
                               ? AppTokens.primaryGradient
                               : null,
-                          image: logoUrl != null
+                          image: UriUtils.isNetworkImageUri(logoUrl ?? '')
                               ? DecorationImage(
                                   image: NetworkImage(logoUrl!),
                                   fit: BoxFit.cover,

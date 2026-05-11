@@ -44,10 +44,7 @@ class _SplashScreenState extends State<SplashScreen>
       if (mounted) _badgeController.forward();
     });
 
-    // Navegar após 2.8s
-    Future.delayed(const Duration(milliseconds: 2800), () {
-      if (mounted) context.go('/admin/products');
-    });
+
   }
 
   @override

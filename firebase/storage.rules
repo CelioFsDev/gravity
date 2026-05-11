@@ -21,5 +21,12 @@ service firebase.storage {
       // Upload/Modificação/Deleção: EXCLUSIVO do dono do tenant
       allow write: if hasTenantAccess(tenantId);
     }
+
+    // Snapshots pÃºblicos de catÃ¡logo usados pelo site/vitrine.
+    // Leitura aberta para reduzir leituras no Firestore; escrita autenticada para teste.
+    match /public_catalogs/{shareCode}/catalog.json {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
   }
 }

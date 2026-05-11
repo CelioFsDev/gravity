@@ -348,6 +348,8 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
                 img.label?.toLowerCase() == 'principal',
             photoType: img.label,
             colorKey: img.colorTag,
+            id: null,
+            url: '',
           ),
         )
         .toList();

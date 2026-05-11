@@ -141,6 +141,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           colorKey: img.colorTag,
           isPrimary: entry.key == safeIndex || img.label == 'principal',
           photoType: img.label,
+          id: null,
+          url: '',
         );
       }).toList();
     }
@@ -381,6 +383,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           path: resolved,
           photoType: 'P',
           isPrimary: true,
+          id: null,
+          url: '',
         );
 
         final existingIdx = nextPhotos.indexWhere((p) => p.photoType == 'P');
@@ -457,6 +461,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
             colorKey: colorKey,
             photoType: photoType,
             isPrimary: isPrimary,
+            id: null,
+            url: '',
           );
 
           if (photoType != null && photoType.startsWith('C')) {
@@ -529,6 +535,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
             path: resolved,
             photoType: nextType,
             isPrimary: false,
+            id: null,
+            url: '',
           );
           final existingIdx = nextPhotos.indexWhere(
             (p) => p.photoType == nextType,
@@ -611,6 +619,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           colorKey: colorKey,
           photoType: photoType,
           isPrimary: false,
+          id: null,
+          url: '',
         );
         return ref
             .read(photoClassificationServiceProvider.notifier)
@@ -2132,9 +2142,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     final selectedChipBorderColor = isDark
         ? AppTokens.vibrantCyan.withOpacity(0.55)
         : AppTokens.electricBlue.withOpacity(0.35);
-    final selectedChipTextColor = isDark
-        ? Colors.white
-        : AppTokens.textPrimary;
+    final selectedChipTextColor = isDark ? Colors.white : AppTokens.textPrimary;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2228,13 +2236,12 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
               ),
               selected: isSelected,
               showCheckmark: false,
-              backgroundColor:
-                  isDark ? Colors.white.withOpacity(0.04) : Colors.white,
+              backgroundColor: isDark
+                  ? Colors.white.withOpacity(0.04)
+                  : Colors.white,
               selectedColor: selectedChipColor,
               side: BorderSide(
-                color: isSelected
-                    ? selectedChipBorderColor
-                    : chipBorderColor,
+                color: isSelected ? selectedChipBorderColor : chipBorderColor,
               ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),

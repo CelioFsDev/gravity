@@ -94,11 +94,29 @@ class CatalogsScreen extends ConsumerWidget {
                   onCreate: role.canEditCatalog
                       ? () => _showCreateOptions(context)
                       : null,
-                  onShare: (catalog) => CatalogShareHelper.showShareOptions(
-                    context: context,
-                    ref: ref,
-                    catalog: catalog,
-                  ),
+                  onShare: (catalog) async {
+                    Catalog catalogToShare;
+                    try {
+                      catalogToShare = await notifier
+                          .prepareCatalogForSharing(catalog);
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            e.toString().replaceFirst('Exception: ', ''),
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+                    if (!context.mounted) return;
+                    await CatalogShareHelper.showShareOptions(
+                      context: context,
+                      ref: ref,
+                      catalog: catalogToShare,
+                    );
+                  },
                   onEdit: (catalog) => _openEdit(context, catalog),
                   onDelete: (catalog) => notifier.deleteCatalog(catalog.id),
                 ),

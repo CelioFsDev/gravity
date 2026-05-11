@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 import 'package:flutter/material.dart';
+import 'package:catalogo_ja/core/config/public_catalog_config.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/core/services/catalog_pdf_service.dart';
@@ -11,9 +12,12 @@ import 'package:catalogo_ja/viewmodels/settings_viewmodel.dart';
 import 'package:catalogo_ja/core/services/whatsapp_share_service.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/data/repositories/settings_repository.dart';
+import 'package:catalogo_ja/data/repositories/user_repository.dart';
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
@@ -28,6 +32,7 @@ class CatalogShareHelper {
     required BuildContext context,
     required WidgetRef ref,
     required Catalog catalog,
+    bool allowLinkShare = true,
   }) async {
     showModalBottomSheet(
       context: context,
@@ -43,15 +48,16 @@ class CatalogShareHelper {
               await generateAndSharePdf(context, ref, catalog);
             },
           ),
-          ListTile(
-            leading: const Icon(Icons.link),
-            title: const Text('Compartilhar Link'),
-            subtitle: const Text('Envia o link do cat\u00e1logo online'),
-            onTap: () async {
-              Navigator.pop(sheetContext);
-              await shareCatalogLink(context, ref, catalog);
-            },
-          ),
+          if (allowLinkShare)
+            ListTile(
+              leading: const Icon(Icons.link),
+              title: const Text('Compartilhar Link'),
+              subtitle: const Text('Envia o link do cat\u00e1logo online'),
+              onTap: () async {
+                Navigator.pop(sheetContext);
+                await shareCatalogLink(context, ref, catalog);
+              },
+            ),
           ListTile(
             leading: const Icon(Icons.download),
             title: const Text('Salvar PDF no dispositivo'),
@@ -147,7 +153,7 @@ class CatalogShareHelper {
                   ),
                 )
                 .toList(),
-            text: 'Confira nosso catálogo ${catalog.name}!',
+            text: _buildCatalogShareText(ref, catalog),
           );
         } catch (shareError) {
           if (context.mounted) {
@@ -197,27 +203,23 @@ class CatalogShareHelper {
         if (kIsWeb) {
           // No Web, sharing direto via navigator.share é bloqueado após async gaps (PDF generation)
           // Usamos Printing.sharePdf que é o padrão ouro para Web browsers
-          await Printing.sharePdf(
-            bytes: pdfBytes,
-            filename: fileName,
-          );
+          await Printing.sharePdf(bytes: pdfBytes, filename: fileName);
         } else {
           try {
             await WhatsAppShareService.shareFile(
               bytes: pdfBytes,
               fileName: fileName,
-              text: 'Confira nosso catálogo ${catalog.name}!',
+              text: _buildCatalogShareText(ref, catalog),
               mimeType: 'application/pdf',
             );
           } catch (shareError) {
             if (context.mounted) {
-              final shareMessage = UserFriendlyError.message(shareError);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
                     savedPath != null
-                        ? 'PDF gerado e salvo em: $savedPath. $shareMessage'
-                        : 'PDF gerado, mas n\u00e3o foi poss\u00edvel compartilhar agora.',
+                        ? 'PDF gerado e salvo em: $savedPath. Para enviar no WhatsApp, anexe esse arquivo manualmente.'
+                        : 'PDF gerado, mas o compartilhamento n\u00e3o abriu. Tente anexar o arquivo manualmente.',
                   ),
                 ),
               );
@@ -314,7 +316,14 @@ class CatalogShareHelper {
     Catalog catalog,
   ) async {
     try {
-      if (catalog.shareCode.trim().isEmpty) {
+      var catalogToShare = catalog;
+      if (!catalogToShare.isPublic || catalogToShare.shareCode.trim().isEmpty) {
+        catalogToShare = await ref
+            .read(catalogsViewModelProvider.notifier)
+            .prepareCatalogForSharing(catalogToShare);
+      }
+
+      if (catalogToShare.shareCode.trim().isEmpty) {
         throw Exception(
           'Este catálogo ainda não possui um código público para compartilhamento.',
         );
@@ -322,81 +331,66 @@ class CatalogShareHelper {
 
       final settings = ref.read(settingsViewModelProvider);
       final baseUrl = _normalizeBaseUrl(settings.publicBaseUrl);
-      final previewImageUrl = await _resolveSharePreviewImageUrl(
-        ref,
-        catalog,
-      );
+      final phone = settings.whatsappNumber.replaceAll(RegExp(r'[^0-9]'), '');
       final shareUrl = _buildWebShareUrl(
         baseUrl: baseUrl,
-        shareCode: catalog.shareCode.trim().toLowerCase(),
-        catalogName: catalog.name,
-        announcementText: catalog.announcementEnabled
-            ? catalog.announcementText
-            : null,
-        imageUrl: previewImageUrl,
+        shareCode: catalogToShare.shareCode.trim().toLowerCase(),
+        whatsappNumber: phone.isEmpty ? null : phone,
       );
 
       await WhatsAppShareService.shareCatalog(
-        catalogName: catalog.name,
+        catalogName: catalogToShare.name,
         catalogUrl: shareUrl,
-        mode: catalog.mode,
+        mode: catalogToShare.mode,
       );
 
       ref
           .read(appLoggerProvider.notifier)
           .log(
             AppEvent.catalogShared,
-            parameters: {'catalogId': catalog.id, 'type': 'link'},
+            parameters: {'catalogId': catalogToShare.id, 'type': 'link'},
           );
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(UserFriendlyError.message(e))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(UserFriendlyError.message(e))));
       }
     }
   }
 
   static String _normalizeBaseUrl(String baseUrl) {
-    final trimmed = baseUrl.trim();
-    if (trimmed.isEmpty) {
-      return 'https://CatalogoJa.app';
+    return PublicCatalogConfig.normalizeBaseUrl(baseUrl);
+  }
+
+  static String _buildCatalogShareText(WidgetRef ref, Catalog catalog) {
+    final baseText = 'Confira nosso catalogo ${catalog.name}!';
+    if (catalog.shareCode.trim().isEmpty) {
+      return baseText;
     }
 
-    var normalized = trimmed;
-    if (!normalized.startsWith('http://') &&
-        !normalized.startsWith('https://')) {
-      normalized = 'https://$normalized';
-    }
-    if (normalized.startsWith('http://')) {
-      normalized = normalized.replaceFirst('http://', 'https://');
-    }
-    if (normalized.endsWith('/')) {
-      normalized = normalized.substring(0, normalized.length - 1);
-    }
-    return normalized;
+    final settings = ref.read(settingsViewModelProvider);
+    final baseUrl = _normalizeBaseUrl(settings.publicBaseUrl);
+    final phone = settings.whatsappNumber.replaceAll(RegExp(r'[^0-9]'), '');
+    final shareUrl = _buildWebShareUrl(
+      baseUrl: baseUrl,
+      shareCode: catalog.shareCode.trim().toLowerCase(),
+      whatsappNumber: phone.isEmpty ? null : phone,
+    );
+
+    return '$baseText\n\nLink do catalogo: $shareUrl';
   }
 
   static String _buildWebShareUrl({
     required String baseUrl,
     required String shareCode,
-    required String catalogName,
-    String? announcementText,
-    String? imageUrl,
+    String? whatsappNumber,
   }) {
-    final uri = Uri.parse(baseUrl);
-    return uri
-        .replace(
-          path: '/s/$shareCode',
-          queryParameters: <String, String>{
-            'title': catalogName,
-            if (announcementText != null && announcementText.trim().isNotEmpty)
-              'description': announcementText.trim(),
-            if (imageUrl != null && imageUrl.trim().isNotEmpty)
-              'image': imageUrl.trim(),
-          },
-        )
-        .toString();
+    return PublicCatalogConfig.buildCatalogUrl(
+      baseUrl,
+      shareCode,
+      whatsappNumber: whatsappNumber,
+    );
   }
 
   static Future<String?> _resolveSharePreviewImageUrl(
@@ -604,12 +598,34 @@ class CatalogShareHelper {
     final productsState = await ref.read(productsViewModelProvider.future);
     final allProducts = productsState.allProducts;
     final settings = ref.read(settingsRepositoryProvider).getSettings();
-    final linktreeUrl = (includeContactPage && settings.linktreeUrl.trim().isNotEmpty)
-        ? settings.linktreeUrl.trim()
+    var linkCatalog = catalog;
+    if (includeContactPage &&
+        (!linkCatalog.isPublic || linkCatalog.shareCode.trim().isEmpty)) {
+      linkCatalog = await ref
+          .read(catalogsViewModelProvider.notifier)
+          .prepareCatalogForSharing(linkCatalog);
+    }
+
+    final catalogUrl = includeContactPage &&
+            linkCatalog.shareCode.trim().isNotEmpty
+        ? _buildWebShareUrl(
+            baseUrl: PublicCatalogConfig.defaultBaseUrl,
+            shareCode: linkCatalog.shareCode.trim().toLowerCase(),
+            whatsappNumber:
+                settings.whatsappNumber
+                    .replaceAll(RegExp(r'[^0-9]'), '')
+                    .isEmpty
+                ? null
+                : settings.whatsappNumber.replaceAll(RegExp(r'[^0-9]'), ''),
+          )
         : null;
-    final instagramUrl = (includeContactPage && settings.instagramUrl.trim().isNotEmpty)
+    final instagramUrl =
+        (includeContactPage && settings.instagramUrl.trim().isNotEmpty)
         ? settings.instagramUrl.trim()
         : null;
+    final sellerContact = includeContactPage
+        ? await _resolveSellerContact(ref)
+        : (name: null, whatsapp: null);
 
     final catalogProducts = allProducts
         .where((p) => catalog.productIds.contains(p.id))
@@ -622,10 +638,7 @@ class CatalogShareHelper {
             collectionIdOverride,
             productsState.categories,
           )
-        : _resolveCollectionCover(
-            catalogProducts,
-            productsState.categories,
-          );
+        : _resolveCollectionCover(catalogProducts, productsState.categories);
 
     // Resolve which cover to show based on settings or override
     bool resolvedIncludeCover;
@@ -717,10 +730,7 @@ class CatalogShareHelper {
               collectionIdOverride,
               productsState.categories,
             )
-          : _resolveCollectionCover(
-              fallbackProducts,
-              productsState.categories,
-            );
+          : _resolveCollectionCover(fallbackProducts, productsState.categories);
       final catalogName = catalog.name.isEmpty
           ? 'Meu Cat\u00e1logo'
           : catalog.name;
@@ -755,7 +765,9 @@ class CatalogShareHelper {
         includeCover: resolvedIncludeCover,
         collectionsMap: collectionsMap,
         mainCoverCollectionId: fbId,
-        linktreeUrl: linktreeUrl,
+        catalogUrl: catalogUrl,
+        sellerName: sellerContact.name,
+        sellerWhatsapp: sellerContact.whatsapp,
         instagramUrl: instagramUrl,
       );
     }
@@ -777,9 +789,44 @@ class CatalogShareHelper {
       includeCover: resolvedIncludeCover,
       collectionsMap: collectionsMap,
       mainCoverCollectionId: mainCoverCollectionId,
-      linktreeUrl: linktreeUrl,
+      catalogUrl: catalogUrl,
+      sellerName: sellerContact.name,
+      sellerWhatsapp: sellerContact.whatsapp,
       instagramUrl: instagramUrl,
     );
+  }
+
+  static Future<({String? name, String? whatsapp})> _resolveSellerContact(
+    WidgetRef ref,
+  ) async {
+    final settings = ref.read(settingsRepositoryProvider).getSettings();
+    final user = ref.read(authViewModelProvider).valueOrNull;
+    final fallbackName = (user?.displayName?.trim().isNotEmpty ?? false)
+        ? user!.displayName!.trim()
+        : settings.storeName.trim();
+    final fallbackWhatsapp = settings.whatsappNumber.trim();
+
+    final email = user?.email?.trim();
+    if (email == null || email.isEmpty) {
+      return (name: fallbackName, whatsapp: fallbackWhatsapp);
+    }
+
+    try {
+      final data = await ref
+          .read(userRepositoryProvider)
+          .getUserStream(email)
+          .first;
+      final profileName = data?['displayName']?.toString().trim() ?? '';
+      final profileWhatsapp = data?['whatsappNumber']?.toString().trim() ?? '';
+      return (
+        name: profileName.isNotEmpty ? profileName : fallbackName,
+        whatsapp: profileWhatsapp.isNotEmpty
+            ? profileWhatsapp
+            : fallbackWhatsapp,
+      );
+    } catch (_) {
+      return (name: fallbackName, whatsapp: fallbackWhatsapp);
+    }
   }
 
   static Future<T> _runWithLoadingDialog<T>(
@@ -978,9 +1025,8 @@ class CatalogShareHelper {
                                         fileFormat ==
                                         CatalogExportFileFormat.pdf,
                                     onTap: () => setState(
-                                      () =>
-                                          fileFormat =
-                                              CatalogExportFileFormat.pdf,
+                                      () => fileFormat =
+                                          CatalogExportFileFormat.pdf,
                                     ),
                                   ),
                                   const SizedBox(width: 8),
@@ -991,9 +1037,8 @@ class CatalogShareHelper {
                                         fileFormat ==
                                         CatalogExportFileFormat.image,
                                     onTap: () => setState(
-                                      () =>
-                                          fileFormat =
-                                              CatalogExportFileFormat.image,
+                                      () => fileFormat =
+                                          CatalogExportFileFormat.image,
                                     ),
                                   ),
                                 ],
@@ -1036,26 +1081,30 @@ class CatalogShareHelper {
                               ),
                             const SizedBox(height: 24),
 
-                            // CONTACT PAGE SECTION
-                            _buildSubHeader(context, 'Página Final de Contato'),
-                            const SizedBox(height: 12),
-                            SwitchListTile.adaptive(
-                              contentPadding: EdgeInsets.zero,
-                              title: const Text(
-                                'Incluir página de contato',
-                                style: TextStyle(fontWeight: FontWeight.w600),
+                            if (false) ...[
+                              // LAST PAGE SECTION
+                              _buildSubHeader(
+                                context,
+                                'Página Final de Contato',
                               ),
-                              subtitle: const Text(
-                                'Adiciona última página com links do Instagram e Linktree.',
+                              const SizedBox(height: 12),
+                              SwitchListTile.adaptive(
+                                contentPadding: EdgeInsets.zero,
+                                title: const Text(
+                                  'Incluir página de contato',
+                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                                subtitle: const Text(
+                                  'Adiciona última página com links do Instagram e Linktree.',
+                                ),
+                                value: includeContactPage,
+                                onChanged: (value) =>
+                                    setState(() => includeContactPage = value),
+                                activeThumbColor: AppTokens.accentBlue,
                               ),
-                              value: includeContactPage,
-                              onChanged: (value) =>
-                                  setState(() => includeContactPage = value),
-                              activeThumbColor: AppTokens.accentBlue,
-                            ),
 
-                            const SizedBox(height: 24),
-
+                              const SizedBox(height: 24),
+                            ],
                             // COVER SECTION
                             _buildSubHeader(context, 'Capa do Cat\u00e1logo'),
                             const SizedBox(height: 12),
@@ -1126,6 +1175,22 @@ class CatalogShareHelper {
                               icon: Icons.block,
                               onTap: () =>
                                   setState(() => selectedCoverType = 'none'),
+                            ),
+                            CheckboxListTile(
+                              contentPadding: EdgeInsets.zero,
+                              controlAffinity: ListTileControlAffinity.leading,
+                              title: const Text(
+                                'Incluir ultima pagina com link do catalogo',
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                              subtitle: const Text(
+                                'Mostra link das pecas, vendedora, WhatsApp e Instagram da loja.',
+                              ),
+                              value: includeContactPage,
+                              onChanged: (value) => setState(
+                                () => includeContactPage = value ?? false,
+                              ),
+                              activeColor: AppTokens.accentBlue,
                             ),
 
                             const SizedBox(height: 16),
@@ -1336,7 +1401,6 @@ class CatalogShareHelper {
         )
         .toList();
   }
-
 }
 
 class CatalogExportOptions {
@@ -1715,8 +1779,9 @@ _CollectionCoverResult _resolveSpecificCollectionCover(
   String collectionId,
   List<Category> categories,
 ) {
-  final matches = categories
-      .where((c) => c.type == CategoryType.collection && c.id == collectionId);
+  final matches = categories.where(
+    (c) => c.type == CategoryType.collection && c.id == collectionId,
+  );
   if (matches.isEmpty) {
     return const _CollectionCoverResult(null, null, null);
   }

@@ -27,13 +27,12 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions _ios = FirebaseOptions(
-    apiKey:
-        'REPLACE_WITH_FIREBASE_API_KEY', // Get this from `flutterfire configure` or Firebase console
-    appId:
-        'REPLACE_WITH_FIREBASE_APP_ID', // Get this from `flutterfire configure` or Firebase console
-    messagingSenderId: '666583578619',
-    projectId: 'catalogo-fc9b5',
-    iosBundleId: 'REPLACE_WITH_BUNDLE_ID',
+    apiKey: 'AIzaSyB1ul-7ZilqnG0Ck0Apk_3D6Z9nFr45cds',
+    appId: '1:866110171338:ios:a71004a3d73b26e7b22c33',
+    messagingSenderId: '866110171338',
+    projectId: 'catalogo-ja-89aae',
+    storageBucket: 'catalogo-ja-89aae.firebasestorage.app',
+    iosBundleId: 'com.catalogoja.app',
   );
 
   static const FirebaseOptions _web = FirebaseOptions(

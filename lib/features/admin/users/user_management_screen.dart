@@ -1,4 +1,5 @@
 import 'package:catalogo_ja/core/auth/user_role.dart';
+import 'package:catalogo_ja/core/utils/uri_utils.dart';
 import 'package:catalogo_ja/data/repositories/admin_user_account_repository.dart';
 import 'package:catalogo_ja/data/repositories/user_repository.dart';
 import 'package:catalogo_ja/data/repositories/user_sync_repository.dart';
@@ -325,10 +326,10 @@ class _UserRow extends ConsumerWidget {
               backgroundColor: Theme.of(
                 context,
               ).colorScheme.primary.withAlpha(30),
-              backgroundImage: photoURL.isNotEmpty
+              backgroundImage: UriUtils.isNetworkImageUri(photoURL)
                   ? NetworkImage(photoURL)
                   : null,
-              child: photoURL.isEmpty
+              child: !UriUtils.isNetworkImageUri(photoURL)
                   ? Text(
                       (displayName.isNotEmpty ? displayName : email)[0]
                           .toUpperCase(),

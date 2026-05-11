@@ -15,6 +15,7 @@ import 'package:go_router/go_router.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:catalogo_ja/data/repositories/tenant_repository.dart';
 import 'package:catalogo_ja/ui/widgets/app_primary_button.dart';
+import 'package:catalogo_ja/core/config/public_catalog_config.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -103,16 +104,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       // No public catalog found, using fake
     }
 
-    // Clean base URL for testing
-    var finalBaseUrl = baseUrl.trim();
-    if (finalBaseUrl.endsWith('/')) {
-      finalBaseUrl = finalBaseUrl.substring(0, finalBaseUrl.length - 1);
-    }
-    if (!finalBaseUrl.startsWith('http')) {
-      finalBaseUrl = 'https://$finalBaseUrl';
-    }
-
-    final fullUrl = '$finalBaseUrl/c/$shareCode';
+    final fullUrl = PublicCatalogConfig.buildCatalogUrl(baseUrl, shareCode);
     final uri = Uri.parse(fullUrl);
 
     try {

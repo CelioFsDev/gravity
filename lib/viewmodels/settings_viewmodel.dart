@@ -1,3 +1,4 @@
+import 'package:catalogo_ja/core/config/public_catalog_config.dart';
 import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 import 'package:catalogo_ja/models/settings.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,16 +27,7 @@ class SettingsViewModel extends Notifier<AppSettings> {
 
     String? cleanedBaseUrl = publicBaseUrl;
     if (cleanedBaseUrl != null) {
-      cleanedBaseUrl = cleanedBaseUrl.trim();
-      if (cleanedBaseUrl.endsWith('/')) {
-        cleanedBaseUrl = cleanedBaseUrl.substring(0, cleanedBaseUrl.length - 1);
-      }
-      // Ensure it starts with https://
-      if (!cleanedBaseUrl.startsWith('http')) {
-        cleanedBaseUrl = 'https://$cleanedBaseUrl';
-      } else if (cleanedBaseUrl.startsWith('http://')) {
-        cleanedBaseUrl = cleanedBaseUrl.replaceFirst('http://', 'https://');
-      }
+      cleanedBaseUrl = PublicCatalogConfig.normalizeBaseUrl(cleanedBaseUrl);
     }
 
     final updated = current.copyWith(

@@ -799,8 +799,18 @@ class ProductsViewModel extends _$ProductsViewModel {
         colorKey: image.colorTag,
         isPrimary: isPrimary,
         photoType: image.label,
+        id: image.id,
+        url: _isRemoteImageUri(image.uri) ? image.uri : '',
       );
     }).toList();
+  }
+
+  bool _isRemoteImageUri(String uri) {
+    return uri.startsWith('http://') ||
+        uri.startsWith('https://') ||
+        uri.startsWith('gs://') ||
+        uri.startsWith('data:') ||
+        uri.startsWith('blob:');
   }
 
   ProductPhoto? _normalizePhotoForProduct(Product product, ProductPhoto photo) {

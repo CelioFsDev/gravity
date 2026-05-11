@@ -16,7 +16,7 @@ class WhatsAppShareService {
         ? '\ud83d\udce6 *ATACADO*'
         : '\ud83c\udff7\ufe0f *VAREJO*';
     final text =
-        'Ol\u00e1! \ud83d\udc4b\n\nConfira nosso cat\u00e1logo digital: *${catalogName.toUpperCase()}*\n\n$label\n\ud83d\udcf1 Clique para ver os produtos: $catalogUrl\n\nAguardamos seu pedido! \ud83d\ude42';
+        'Ol\u00e1! \ud83d\udc4b\n\nConfira nosso cat\u00e1logo digital: *${catalogName.toUpperCase()}*\n\n$label\n\ud83d\udcf1 Clique para ver os produtos: $catalogUrl\n\nVoc\u00ea pode escolher os produtos, montar o pedido e enviar por aqui no WhatsApp.\n\nAguardamos seu pedido! \ud83d\ude42';
     await _launchWhatsApp(text: text);
   }
 
@@ -158,14 +158,29 @@ class WhatsAppShareService {
     required String text,
   }) async {
     final cleanPhone = phone?.replaceAll(RegExp(r'[^0-9]'), '') ?? '';
-    final url = Uri.parse(
-      'https://wa.me/$cleanPhone?text=${Uri.encodeComponent(text)}',
-    );
+    final encodedText = Uri.encodeComponent(text);
+    final urls = cleanPhone.isEmpty
+        ? [
+            Uri.parse('whatsapp://send?text=$encodedText'),
+            Uri.parse('https://api.whatsapp.com/send?text=$encodedText'),
+          ]
+        : [
+            Uri.parse('https://wa.me/$cleanPhone?text=$encodedText'),
+            Uri.parse(
+              'https://api.whatsapp.com/send?phone=$cleanPhone&text=$encodedText',
+            ),
+          ];
 
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    } else {
-      await launchUrl(url);
+    for (final url in urls) {
+      if (await canLaunchUrl(url)) {
+        final launched = await launchUrl(
+          url,
+          mode: LaunchMode.externalApplication,
+        );
+        if (launched) return;
+      }
     }
+
+    throw Exception('Nao foi possivel abrir o WhatsApp para compartilhar.');
   }
 }

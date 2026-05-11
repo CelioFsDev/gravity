@@ -13,7 +13,7 @@ class CatalogoJaExportPayload {
   final String exportedAt;
   final StoreInfoDTO? store;
   final List<CategoryDTO> categories;
-  final List<CategoryDTO> collections; 
+  final List<CategoryDTO> collections;
   final List<ProductDTO> products;
   final List<CatalogDTO> catalogs;
 
@@ -51,25 +51,35 @@ class CatalogoJaExportPayload {
     return CatalogoJaExportPayload(
       app: json['app'] as String? ?? 'CatalogoJa',
       version: json['version'] as int? ?? 1,
-      backupVersion: json['backupVersion'] as int? ?? json['version'] as int? ?? 1,
+      backupVersion:
+          json['backupVersion'] as int? ?? json['version'] as int? ?? 1,
       schemaVersion: json['schemaVersion'] as int? ?? 1,
       migrationStrategy: json['migrationStrategy'] as String? ?? 'none',
-      exportedAt: json['exportedAt'] as String? ?? DateTime.now().toIso8601String(),
+      exportedAt:
+          json['exportedAt'] as String? ?? DateTime.now().toIso8601String(),
       store: json['store'] != null
           ? StoreInfoDTO.fromJson(json['store'])
           : null,
-      categories: (json['categories'] as List<dynamic>?)
+      categories:
+          (json['categories'] as List<dynamic>?)
               ?.map((e) => CategoryDTO.fromJson(e))
-              .toList() ?? [],
-      collections: (json['collections'] as List<dynamic>?)
+              .toList() ??
+          [],
+      collections:
+          (json['collections'] as List<dynamic>?)
               ?.map((e) => CategoryDTO.fromJson(e))
-              .toList() ?? [],
-      products: (json['products'] as List<dynamic>?)
+              .toList() ??
+          [],
+      products:
+          (json['products'] as List<dynamic>?)
               ?.map((e) => ProductDTO.fromJson(e))
-              .toList() ?? [],
-      catalogs: (json['catalogs'] as List<dynamic>?)
+              .toList() ??
+          [],
+      catalogs:
+          (json['catalogs'] as List<dynamic>?)
               ?.map((e) => CatalogDTO.fromJson(e))
-              .toList() ?? [],
+              .toList() ??
+          [],
     );
   }
 }
@@ -287,11 +297,7 @@ class ProductVariantDTO {
   }
 
   ProductVariant toModel() {
-    return ProductVariant(
-      sku: sku,
-      stock: stock,
-      attributes: attributes,
-    );
+    return ProductVariant(sku: sku, stock: stock, attributes: attributes);
   }
 
   Map<String, dynamic> toJson() => {
@@ -337,6 +343,8 @@ class ProductPhotoDTO {
       colorKey: colorKey,
       isPrimary: isPrimary,
       photoType: photoType,
+      id: null,
+      url: '',
     );
   }
 
@@ -501,7 +509,9 @@ class ProductDTO {
       categoryIds: product.categoryIds,
       sizes: product.sizes,
       colors: product.colors,
-      variants: product.variants.map((v) => ProductVariantDTO.fromModel(v)).toList(),
+      variants: product.variants
+          .map((v) => ProductVariantDTO.fromModel(v))
+          .toList(),
       createdAt: product.createdAt.toIso8601String(),
       updatedAt: product.updatedAt.toIso8601String(),
     );
@@ -710,7 +720,9 @@ class CatalogDTO {
       photoLayout: catalog.photoLayout,
       announcementEnabled: catalog.announcementEnabled,
       announcementText: catalog.announcementText,
-      banners: catalog.banners.map((b) => CatalogBannerDTO.fromModel(b)).toList(),
+      banners: catalog.banners
+          .map((b) => CatalogBannerDTO.fromModel(b))
+          .toList(),
       mode: catalog.mode.name,
       isPublic: catalog.isPublic,
       shareCode: catalog.shareCode,

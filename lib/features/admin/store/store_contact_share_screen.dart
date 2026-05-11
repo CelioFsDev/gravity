@@ -7,6 +7,7 @@ import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/ui/widgets/section_card.dart';
 import 'package:catalogo_ja/ui/widgets/app_primary_button.dart';
 import 'package:catalogo_ja/viewmodels/settings_viewmodel.dart';
+import 'package:catalogo_ja/core/config/public_catalog_config.dart';
 import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
 import 'package:catalogo_ja/data/repositories/user_repository.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
@@ -95,7 +96,10 @@ class _StoreContactShareScreenState
 
     final catalogUrl =
         defaultCatalog != null && defaultCatalog.shareCode.isNotEmpty
-            ? '${settings.publicBaseUrl}/c/${defaultCatalog.shareCode}'
+            ? PublicCatalogConfig.buildCatalogUrl(
+                settings.publicBaseUrl,
+                defaultCatalog.shareCode,
+              )
             : null;
 
     final currentTenantId =

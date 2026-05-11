@@ -20,18 +20,21 @@ class ProductVariant {
   });
 
   Map<String, dynamic> toMap() {
-    return {
-      'sku': sku,
-      'stock': stock,
-      'attributes': attributes,
-    };
+    return {'sku': sku, 'stock': stock, 'attributes': attributes};
   }
 
   factory ProductVariant.fromMap(Map<String, dynamic> map) {
+    final rawAttributes = map['attributes'];
+    final attributes = rawAttributes is Map
+        ? rawAttributes.map(
+            (key, value) => MapEntry(key.toString(), value.toString()),
+          )
+        : <String, String>{};
+
     return ProductVariant(
-      sku: map['sku'] ?? '',
-      stock: map['stock'] ?? 0,
-      attributes: Map<String, String>.from(map['attributes'] ?? {}),
+      sku: map['sku']?.toString() ?? '',
+      stock: (map['stock'] as num?)?.toInt() ?? 0,
+      attributes: attributes,
     );
   }
 }
