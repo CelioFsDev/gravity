@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:catalogo_ja/data/repositories/contracts/categories_repository_contract.dart';
 import 'package:catalogo_ja/data/repositories/contracts/products_repository_contract.dart';
 import 'package:catalogo_ja/data/repositories/categories_repository.dart';
-import 'package:catalogo_ja/data/repositories/products_repository.dart';
+import 'package:catalogo_ja/data/repositories/firestore_products_repository.dart';
 import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/models/category.dart';
@@ -29,54 +29,136 @@ class PublicCatalogSnapshotService {
   );
 
   Future<Product> _resolveProductImages(Product product) async {
-    // 1. Resolve ProductImage list
+    final candidateImages = <ProductImage>[];
+    final seenUris = <String>{};
+
+    void addCandidate(ProductImage image) {
+      final uri = image.uri.trim();
+      if (uri.isEmpty || seenUris.contains(uri)) return;
+      seenUris.add(uri);
+      candidateImages.add(image.copyWith(uri: uri));
+    }
+
+    for (final image in product.images) {
+      addCandidate(image);
+    }
+    for (final photo in product.photos) {
+      addCandidate(photo.toProductImage());
+    }
+    for (final remoteImage in product.remoteImages) {
+      final uri = remoteImage.trim();
+      if (uri.isNotEmpty) addCandidate(ProductImage.network(url: uri));
+    }
+
     final newImages = <ProductImage>[];
-    for (final img in product.images) {
-      if (img.uri.startsWith('gs://')) {
-        try {
-          final relativePath = img.uri.replaceFirst(RegExp(r'gs://[^/]+/'), '');
-          final url = await _storage.ref().child(relativePath).getDownloadURL();
-          newImages.add(img.copyWith(uri: url));
-        } catch (e) {
-          debugPrint('Error resolving ProductImage ${img.uri}: $e');
-          newImages.add(img);
-        }
-      } else {
-        newImages.add(img);
+    for (final image in candidateImages) {
+      final resolvedUri = await _resolvePublicImageUri(image.uri);
+      if (_isRenderablePublicImageUri(resolvedUri)) {
+        newImages.add(
+          image.copyWith(
+            uri: resolvedUri,
+            sourceType: ProductImageSource.networkUrl,
+          ),
+        );
+      } else if (image.uri.startsWith('gs://')) {
+        // Keep gs:// as a last resort; the public UI can still resolve it.
+        newImages.add(image);
       }
     }
 
-    // 2. Resolve ProductPhoto list (Legacy)
     final newPhotos = <ProductPhoto>[];
     for (final photo in product.photos) {
-      if (photo.path.startsWith('gs://')) {
-        try {
-          final relativePath = photo.path.replaceFirst(
-            RegExp(r'gs://[^/]+/'),
-            '',
-          );
-          final url = await _storage.ref().child(relativePath).getDownloadURL();
-          newPhotos.add(photo.copyWith(path: url));
-        } catch (e) {
-          debugPrint('Error resolving ProductPhoto ${photo.path}: $e');
-          newPhotos.add(photo);
-        }
-      } else {
-        newPhotos.add(photo);
-      }
+      final path = await _resolvePublicImageUri(photo.path);
+      final url = await _resolvePublicImageUri(photo.url);
+      newPhotos.add(
+        photo.copyWith(
+          path: _isRenderablePublicImageUri(path)
+              ? path
+              : (photo.path.startsWith('gs://') ? photo.path : ''),
+          url: _isRenderablePublicImageUri(url)
+              ? url
+              : (photo.url.startsWith('gs://') ? photo.url : ''),
+        ),
+      );
     }
 
     return product.copyWith(images: newImages, photos: newPhotos);
   }
 
+  Future<void> _syncProductsBeforeSnapshot(List<Product> products) async {
+    final productsToSync = products
+        .where(
+          (product) =>
+              product.syncStatus == SyncStatus.pendingUpdate ||
+              product.hasLocalOnlyPhotos,
+        )
+        .toList();
+
+    for (final product in productsToSync) {
+      try {
+        await _productsRepo.syncProductToCloud(product);
+      } catch (e) {
+        debugPrint(
+          'Error syncing product ${product.id} before public snapshot: $e',
+        );
+      }
+    }
+  }
+
+  Future<String> _resolvePublicImageUri(String uri) async {
+    final trimmed = uri.trim();
+    if (trimmed.isEmpty ||
+        trimmed.startsWith('http://') ||
+        trimmed.startsWith('https://') ||
+        trimmed.startsWith('data:') ||
+        trimmed.startsWith('blob:')) {
+      return trimmed;
+    }
+
+    final storagePath = _storagePathFromUri(trimmed);
+    if (storagePath == null || storagePath.isEmpty) return trimmed;
+
+    try {
+      return await _storage.ref().child(storagePath).getDownloadURL();
+    } catch (e) {
+      debugPrint('Error resolving public image URI $uri: $e');
+      return trimmed;
+    }
+  }
+
+  bool _isRenderablePublicImageUri(String uri) {
+    final trimmed = uri.trim();
+    return trimmed.startsWith('http://') ||
+        trimmed.startsWith('https://') ||
+        trimmed.startsWith('gs://') ||
+        trimmed.startsWith('data:') ||
+        trimmed.startsWith('blob:');
+  }
+
+  String? _storagePathFromUri(String uri) {
+    if (uri.startsWith('gs://')) {
+      return uri.replaceFirst(RegExp(r'gs://[^/]+/'), '');
+    }
+    if (uri.startsWith('tenants/') || uri.startsWith('public_catalogs/')) {
+      return uri;
+    }
+    return null;
+  }
+
   Future<String?> publish(Catalog catalog) async {
     if (!catalog.isPublic || catalog.shareCode.trim().isEmpty) return null;
 
-    final products = await _productsRepo.getProducts();
+    var products = await _productsRepo.getProducts();
     final categories = await _categoriesRepo.getCategories();
     final selectedIds = catalog.productIds.toSet();
 
-    final filteredProducts = products
+    var filteredProducts = products
+        .where((p) => selectedIds.contains(p.id) && p.isActive)
+        .toList();
+
+    await _syncProductsBeforeSnapshot(filteredProducts);
+    products = await _productsRepo.getProducts();
+    filteredProducts = products
         .where((p) => selectedIds.contains(p.id) && p.isActive)
         .toList();
 
@@ -135,7 +217,7 @@ class PublicCatalogSnapshotService {
 final publicCatalogSnapshotServiceProvider =
     Provider<PublicCatalogSnapshotService>((ref) {
       return PublicCatalogSnapshotService(
-        ref.watch(productsRepositoryProvider),
+        ref.watch(syncProductsRepositoryProvider),
         ref.watch(categoriesRepositoryProvider),
         ref.watch(settingsRepositoryProvider),
         FirebaseStorage.instanceFor(

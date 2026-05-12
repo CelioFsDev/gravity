@@ -18,11 +18,14 @@ class AuthViewModel extends StreamNotifier<User?> {
   late UserRepository _userRepository;
 
   @override
-  Stream<User?> build() {
+  Stream<User?> build() async* {
     _repository = ref.watch(authRepositoryProvider);
     _logger = ref.watch(appLoggerProvider.notifier);
     _userRepository = ref.watch(userRepositoryProvider);
-    return _repository.authStateChanges.asyncMap((user) async {
+
+    yield _repository.currentUser;
+
+    yield* _repository.authStateChanges.asyncMap((user) async {
       if (user?.email != null) {
         try {
           await _syncUserProfile(user!);
@@ -150,7 +153,15 @@ class AuthViewModel extends StreamNotifier<User?> {
       final user = credential.user;
 
       if (user != null) {
-        await _syncUserProfile(user);
+        try {
+          await _syncUserProfile(user);
+        } catch (e, stack) {
+          _logger.logError(
+            'Login realizado, mas a sincronizacao inicial falhou',
+            error: e,
+            stackTrace: stack,
+          );
+        }
         _logger.log(
           AppEvent.login,
           parameters: {

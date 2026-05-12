@@ -1,5 +1,8 @@
 {
   "dependencies": {
     "firebase": "^12.10.0"
+  },
+  "devDependencies": {
+    "@google-cloud/storage": "^7.19.0"
   }
 }

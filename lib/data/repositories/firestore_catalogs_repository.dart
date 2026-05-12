@@ -171,7 +171,14 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
       syncStatus: SyncStatus.synced,
     );
 
-    await _collection.doc(catalog.id).set(catalogWithCloudImages.toMap());
+    final catalogMap = catalogWithCloudImages.toMap();
+    await _collection.doc(catalog.id).set(catalogMap);
+    if (catalogWithCloudImages.isPublic &&
+        catalogWithCloudImages.shareCode.trim().isNotEmpty) {
+      await _firestore.collection('catalogs').doc(catalog.id).set(catalogMap);
+    } else {
+      await _firestore.collection('catalogs').doc(catalog.id).delete();
+    }
     await _localRepo.addCatalog(catalogWithCloudImages);
     invalidateCache();
   }
@@ -208,6 +215,7 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
   @override
   Future<void> deleteCatalog(String id) async {
     await _collection.doc(id).delete();
+    await _firestore.collection('catalogs').doc(id).delete();
     await _localRepo.deleteCatalog(id);
     invalidateCache();
   }

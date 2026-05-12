@@ -126,23 +126,37 @@ class CollectionCover {
   }
 
   factory CollectionCover.fromMap(Map<String, dynamic> map) {
+    int? parseInt(dynamic value) {
+      if (value is num) return value.toInt();
+      if (value is String) return int.tryParse(value);
+      return null;
+    }
+
+    double? parseDouble(dynamic value) {
+      if (value is num) return value.toDouble();
+      if (value is String) return double.tryParse(value.replaceAll(',', '.'));
+      return null;
+    }
+
     return CollectionCover(
       mode: CollectionCoverMode.values.firstWhere(
-        (e) => e.name == map['mode'],
+        (e) =>
+            e.name == map['mode'] ||
+            e.index.toString() == map['mode']?.toString(),
         orElse: () => CollectionCoverMode.template,
       ),
-      coverImagePath: map['coverImagePath'],
-      title: map['title'],
-      brand: map['brand'],
-      subtitle: map['subtitle'],
-      backgroundColor: map['backgroundColor'],
-      overlayOpacity: map['overlayOpacity'],
-      bannerImagePath: map['bannerImagePath'],
-      heroImagePath: map['heroImagePath'],
-      coverHeaderImagePath: map['coverHeaderImagePath'],
-      coverMainImagePath: map['coverMainImagePath'],
-      coverMiniPath: map['coverMiniPath'],
-      coverPagePath: map['coverPagePath'],
+      coverImagePath: map['coverImagePath']?.toString(),
+      title: map['title']?.toString(),
+      brand: map['brand']?.toString(),
+      subtitle: map['subtitle']?.toString(),
+      backgroundColor: parseInt(map['backgroundColor']),
+      overlayOpacity: parseDouble(map['overlayOpacity']),
+      bannerImagePath: map['bannerImagePath']?.toString(),
+      heroImagePath: map['heroImagePath']?.toString(),
+      coverHeaderImagePath: map['coverHeaderImagePath']?.toString(),
+      coverMainImagePath: map['coverMainImagePath']?.toString(),
+      coverMiniPath: map['coverMiniPath']?.toString(),
+      coverPagePath: map['coverPagePath']?.toString(),
     );
   }
 }
@@ -252,7 +266,15 @@ class Category {
   factory Category.fromMap(Map<String, dynamic> map) {
     DateTime parseDate(dynamic value) {
       if (value == null) return DateTime.now();
+      if (value is DateTime) return value;
       if (value is Timestamp) return value.toDate();
+      try {
+        if (value.runtimeType.toString().contains('Timestamp')) {
+          final dynamic timestamp = value;
+          final converted = timestamp.toDate();
+          if (converted is DateTime) return converted;
+        }
+      } catch (_) {}
       if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
       return DateTime.now();
     }
@@ -260,6 +282,17 @@ class Category {
     int parseInt(dynamic value, int fallback) {
       if (value is num) return value.toInt();
       if (value is String) return int.tryParse(value) ?? fallback;
+      return fallback;
+    }
+
+    bool parseBool(dynamic value, bool fallback) {
+      if (value is bool) return value;
+      if (value is num) return value != 0;
+      if (value is String) {
+        final normalized = value.trim().toLowerCase();
+        if (normalized == 'true' || normalized == '1') return true;
+        if (normalized == 'false' || normalized == '0') return false;
+      }
       return fallback;
     }
 
@@ -276,6 +309,13 @@ class Category {
       return SyncStatus.synced;
     }
 
+    CollectionCover? parseCover(dynamic value) {
+      if (value is! Map) return null;
+      return CollectionCover.fromMap(
+        value.map((key, item) => MapEntry(key.toString(), item)),
+      );
+    }
+
     return Category(
       id: map['id']?.toString() ?? '',
       name: map['name']?.toString(),
@@ -283,14 +323,14 @@ class Category {
       createdAt: parseDate(map['createdAt']),
       updatedAt: parseDate(map['updatedAt']),
       type: CategoryType.values.firstWhere(
-        (e) => e.name == map['type'],
+        (e) =>
+            e.name == map['type'] ||
+            e.index.toString() == map['type']?.toString(),
         orElse: () => CategoryType.productType,
       ),
-      cover: map['cover'] != null
-          ? CollectionCover.fromMap(Map<String, dynamic>.from(map['cover']))
-          : null,
+      cover: parseCover(map['cover']),
       slug: map['slug']?.toString(),
-      isActive: map['isActive'] ?? true,
+      isActive: parseBool(map['isActive'], true),
       tenantId: map['tenantId']?.toString(),
       syncStatus: parseSyncStatus(map['syncStatus']),
     );

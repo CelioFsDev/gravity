@@ -4,6 +4,8 @@
 *.log
 *.pyc
 *.swp
+service-account-*.json
+node_modules/
 .buildlog/
 .history
 

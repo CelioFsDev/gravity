@@ -10,6 +10,15 @@ class MediaUploadResolver {
 
   MediaUploadResolver(this._storageService);
 
+  bool _isCloudResolvableImageUri(String uri) {
+    final trimmed = uri.trim();
+    return trimmed.startsWith('http://') ||
+        trimmed.startsWith('https://') ||
+        trimmed.startsWith('gs://') ||
+        trimmed.startsWith('tenants/') ||
+        trimmed.startsWith('public_catalogs/');
+  }
+
   /// Recebe um caminho local/base64, sobe no Storage e retorna a URL remota definitiva.
   /// Se já for uma URL remota válida (http/gs://), retorna imediatamente.
   Future<String> resolveImageUri({
@@ -19,12 +28,12 @@ class MediaUploadResolver {
     String? label,
   }) async {
     final isLocal =
-          (!localUri.startsWith('http') &&
-           !localUri.startsWith('gs://')) ||
-           localUri.startsWith('data:');
+        localUri.startsWith('data:') ||
+        localUri.startsWith('blob:') ||
+        !_isCloudResolvableImageUri(localUri);
 
     if (!isLocal) {
-      return localUri; 
+      return localUri;
     }
 
     Uint8List? webBytes;

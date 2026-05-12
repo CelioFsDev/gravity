@@ -116,6 +116,12 @@ class ProductImage {
   }
 
   factory ProductImage.fromMap(Map<String, dynamic> map) {
+    int parseInt(dynamic value, int fallback) {
+      if (value is num) return value.toInt();
+      if (value is String) return int.tryParse(value) ?? fallback;
+      return fallback;
+    }
+
     ProductImageSource parseSource(dynamic value) {
       if (value == null) return ProductImageSource.unknown;
       if (value is int) {
@@ -125,6 +131,12 @@ class ProductImage {
         return ProductImageSource.unknown;
       }
       if (value is String) {
+        final index = int.tryParse(value);
+        if (index != null &&
+            index >= 0 &&
+            index < ProductImageSource.values.length) {
+          return ProductImageSource.values[index];
+        }
         return ProductImageSource.values.firstWhere(
           (e) => e.name == value,
           orElse: () => ProductImageSource.unknown,
@@ -134,12 +146,12 @@ class ProductImage {
     }
 
     return ProductImage(
-      id: map['id'] ?? const Uuid().v4().substring(0, 8),
+      id: map['id']?.toString() ?? const Uuid().v4().substring(0, 8),
       sourceType: parseSource(map['sourceType']),
-      uri: map['uri'] ?? '',
-      label: map['label'],
-      order: map['order'] ?? 0,
-      colorTag: map['colorTag'],
+      uri: map['uri']?.toString() ?? '',
+      label: map['label']?.toString(),
+      order: parseInt(map['order'], 0),
+      colorTag: map['colorTag']?.toString(),
     );
   }
 }

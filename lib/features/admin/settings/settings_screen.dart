@@ -767,9 +767,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               .collection('users')
               .doc(userEmail)
               .update({
-            'currentStoreId': result,
-            'rolesByStore.$tenantId.$result': 'admin',
-          });
+                'currentStoreId': result,
+                'rolesByStore.$tenantId.$result': 'admin',
+              });
         }
         ref.invalidate(currentTenantProvider);
         ref.invalidate(userTenantsProvider);

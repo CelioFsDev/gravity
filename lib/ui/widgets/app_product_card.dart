@@ -248,12 +248,24 @@ class _AppProductCardState extends ConsumerState<AppProductCard> {
     return DropdownButtonFormField<String>(
       initialValue: value,
       isExpanded: true,
+      dropdownColor: Colors.white,
+      iconEnabledColor: const Color(0xFF475569),
+      style: const TextStyle(
+        color: Color(0xFF0F172A),
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+      ),
       decoration: InputDecoration(
         hintText: hint,
+        hintStyle: const TextStyle(
+          color: Color(0xFF64748B),
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
         isDense: true,
         filled: true,
         fillColor: const Color(0xFFF8FAFC),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -263,6 +275,23 @@ class _AppProductCardState extends ConsumerState<AppProductCard> {
           borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
         ),
       ),
+      selectedItemBuilder: (context) => options
+          .map(
+            (option) => Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                option,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF0F172A),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          )
+          .toList(),
       items: options
           .map(
             (option) => DropdownMenuItem(
@@ -270,7 +299,11 @@ class _AppProductCardState extends ConsumerState<AppProductCard> {
               child: Text(
                 option,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12),
+                style: const TextStyle(
+                  color: Color(0xFF0F172A),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           )

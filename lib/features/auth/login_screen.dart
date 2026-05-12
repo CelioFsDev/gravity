@@ -27,16 +27,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
-  void _handleEmailPasswordLogin() {
+  Future<void> _handleEmailPasswordLogin() async {
     final form = _formKey.currentState;
     if (form == null || !form.validate()) return;
 
-    ref
-        .read(authViewModelProvider.notifier)
-        .signInWithEmailAndPassword(
-          _emailController.text.trim().toLowerCase(),
-          _passwordController.text,
-        );
+    try {
+      await ref
+          .read(authViewModelProvider.notifier)
+          .signInWithEmailAndPassword(
+            _emailController.text.trim().toLowerCase(),
+            _passwordController.text,
+          );
+    } catch (_) {
+      // The view model stores the error in authState, which renders below.
+    }
   }
 
   String _authErrorMessage(Object error) {
@@ -86,6 +90,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 setState(() => _obscurePassword = !_obscurePassword),
             onSubmit: _handleEmailPasswordLogin,
             onRegister: () => context.push('/register'),
+            onOpenCatalog: () => context.push('/catalogo'),
           );
 
           if (isWide) {
@@ -198,6 +203,7 @@ class _LoginPanel extends StatelessWidget {
     required this.onTogglePassword,
     required this.onSubmit,
     required this.onRegister,
+    required this.onOpenCatalog,
     this.errorMessage,
   });
 
@@ -210,6 +216,7 @@ class _LoginPanel extends StatelessWidget {
   final VoidCallback onTogglePassword;
   final VoidCallback onSubmit;
   final VoidCallback onRegister;
+  final VoidCallback onOpenCatalog;
   final String? errorMessage;
 
   @override
@@ -305,6 +312,30 @@ class _LoginPanel extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 24),
+            OutlinedButton.icon(
+              onPressed: onOpenCatalog,
+              icon: const Icon(Icons.storefront_outlined, size: 18),
+              label: const Text('ACESSAR CATALOGO'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: isDark
+                    ? AppTokens.vibrantCyan
+                    : AppTokens.electricBlue,
+                side: BorderSide(
+                  color: isDark
+                      ? Colors.white.withOpacity(0.18)
+                      : const Color(0xFFE1E8F0),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                textStyle: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             Wrap(
               alignment: WrapAlignment.center,
               crossAxisAlignment: WrapCrossAlignment.center,

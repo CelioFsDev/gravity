@@ -50,6 +50,15 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
   CollectionReference<Map<String, dynamic>> get _collection =>
       _firestore.collection('tenants').doc(_tenantId).collection('products');
 
+  bool _isCloudResolvableImageUri(String uri) {
+    final trimmed = uri.trim();
+    return trimmed.startsWith('http://') ||
+        trimmed.startsWith('https://') ||
+        trimmed.startsWith('gs://') ||
+        trimmed.startsWith('tenants/') ||
+        trimmed.startsWith('public_catalogs/');
+  }
+
   @override
   Future<Product?> getProduct(String id) async =>
       await _localRepo.getProduct(id);
@@ -261,15 +270,16 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
       }
 
       final isLocal =
-          (!image.uri.startsWith('http') &&
-              !image.uri.startsWith('gs://') &&
-              image.sourceType != ProductImageSource.networkUrl) ||
-          image.uri.startsWith('data:');
+          image.uri.startsWith('data:') ||
+          image.uri.startsWith('blob:') ||
+          (!_isCloudResolvableImageUri(image.uri) &&
+              image.sourceType != ProductImageSource.networkUrl &&
+              image.sourceType != ProductImageSource.storage);
 
       if (!isLocal) {
         // Corrige inconsistências de importação onde a URI é http mas o tipo ficou como local
         if (image.sourceType != ProductImageSource.networkUrl &&
-            (image.uri.startsWith('http') || image.uri.startsWith('gs://'))) {
+            _isCloudResolvableImageUri(image.uri)) {
           updatedImages.add(
             image.copyWith(sourceType: ProductImageSource.networkUrl),
           );

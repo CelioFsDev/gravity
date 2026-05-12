@@ -3,6 +3,7 @@ import 'package:catalogo_ja/features/auth/register_screen.dart';
 import 'package:catalogo_ja/features/admin/profile/profile_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
@@ -128,6 +129,9 @@ void main() async {
           options: DefaultFirebaseOptions.currentPlatform,
         );
       }
+      if (kIsWeb) {
+        await _configureFirebaseForWeb();
+      }
     } catch (e) {
       debugPrint('Firebase initialization warning: $e');
     }
@@ -173,6 +177,24 @@ void main() async {
   } finally {
     // Garante que a splash saia da tela mesmo se tudo der errado
     FlutterNativeSplash.remove();
+  }
+}
+
+Future<void> _configureFirebaseForWeb() async {
+  try {
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: false,
+      webExperimentalAutoDetectLongPolling: true,
+    );
+  } catch (e) {
+    debugPrint('Firestore web settings warning: $e');
+  }
+
+  try {
+    await FirebaseAuth.instance.setPersistence(Persistence.SESSION);
+  } catch (e) {
+    debugPrint('Firebase Auth session persistence warning: $e');
+    await FirebaseAuth.instance.setPersistence(Persistence.NONE);
   }
 }
 
@@ -249,6 +271,7 @@ class _MyAppState extends ConsumerState<MyApp> {
         final isSplash = locationPath == '/splash';
 
         final isPublicArea =
+            locationPath == '/catalogo' ||
             locationPath == '/register' ||
             locationPath.startsWith('/c/') ||
             locationPath.startsWith('/p/');
@@ -323,6 +346,16 @@ class _MyAppState extends ConsumerState<MyApp> {
         ),
         GoRoute(
           path: '/',
+          redirect: (context, state) async {
+            final user = ref.read(authViewModelProvider).valueOrNull;
+            if (user == null) return '/login';
+
+            final role = await _effectiveRoleForRedirect(user.email);
+            return _defaultAdminLocationFor(role);
+          },
+        ),
+        GoRoute(
+          path: '/catalogo',
           pageBuilder: (context, state) =>
               _buildPage(state, const PublicHomeScreen()),
         ),
@@ -374,7 +407,9 @@ class _MyAppState extends ConsumerState<MyApp> {
               state,
               Consumer(
                 builder: (context, ref, _) {
-                  final catalogAsync = ref.watch(catalogPublicProvider(shareCode));
+                  final catalogAsync = ref.watch(
+                    catalogPublicProvider(shareCode),
+                  );
 
                   return catalogAsync.when(
                     loading: () => const Scaffold(
@@ -812,7 +847,7 @@ class _PublicHomeScreenState extends ConsumerState<PublicHomeScreen> {
                         foregroundColor: Theme.of(context).colorScheme.primary,
                       ),
                       icon: const Icon(Icons.admin_panel_settings_outlined),
-                      label: const Text('ACESSO ADMINISTRATIVO'),
+                      label: const Text('VOLTAR AO LOGIN'),
                     ),
                   ],
                 ),
@@ -852,7 +887,7 @@ class _RouterRefreshNotifier extends ChangeNotifier {
   late final ProviderSubscription<UserRole> _roleSubscription;
   late final ProviderSubscription<AsyncValue<dynamic>> _tenantSubscription;
   late final ProviderSubscription<AsyncValue<dynamic>>
-      _tenantOnboardingSubscription;
+  _tenantOnboardingSubscription;
 
   @override
   void dispose() {

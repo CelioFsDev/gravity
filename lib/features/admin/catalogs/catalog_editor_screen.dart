@@ -109,16 +109,16 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
       final latestState = ref.read(
         catalogEditorViewModelProvider(widget.catalog?.id),
       );
-      final msg =
-          latestState.slugError?.trim().isNotEmpty == true
-              ? latestState.slugError!
-              : 'Nao foi possivel salvar o catalogo para compartilhar.';
+      final msg = latestState.slugError?.trim().isNotEmpty == true
+          ? latestState.slugError!
+          : 'Nao foi possivel salvar o catalogo para compartilhar.';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
       return null;
     }
 
-    final savedCatalog =
-        ref.read(catalogEditorViewModelProvider(widget.catalog?.id)).catalog;
+    final savedCatalog = ref
+        .read(catalogEditorViewModelProvider(widget.catalog?.id))
+        .catalog;
     try {
       return await ref
           .read(catalogsViewModelProvider.notifier)
@@ -187,8 +187,10 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                 await _shareQuickOnly(state);
                 return;
               }
-              final catalogToShare =
-                  await _savePublicCatalogForSharing(state, notifier);
+              final catalogToShare = await _savePublicCatalogForSharing(
+                state,
+                notifier,
+              );
               if (catalogToShare == null || !context.mounted) return;
               await CatalogShareHelper.showShareOptions(
                 context: context,

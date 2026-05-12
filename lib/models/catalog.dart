@@ -27,9 +27,9 @@ class CatalogBanner {
 
   factory CatalogBanner.fromMap(Map<String, dynamic> map) {
     return CatalogBanner(
-      id: map['id'] ?? '',
-      imagePath: map['imagePath'] ?? '',
-      title: map['title'],
+      id: map['id']?.toString() ?? '',
+      imagePath: map['imagePath']?.toString() ?? '',
+      title: map['title']?.toString(),
     );
   }
 
@@ -218,40 +218,93 @@ class Catalog {
   factory Catalog.fromMap(Map<String, dynamic> map) {
     DateTime parseDate(dynamic value) {
       if (value == null) return DateTime.now();
+      if (value is DateTime) return value;
       if (value is Timestamp) return value.toDate();
+      try {
+        if (value.runtimeType.toString().contains('Timestamp')) {
+          final dynamic timestamp = value;
+          final converted = timestamp.toDate();
+          if (converted is DateTime) return converted;
+        }
+      } catch (_) {}
       if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
       return DateTime.now();
     }
 
+    List<String> parseStringList(dynamic value) {
+      if (value is String && value.trim().isNotEmpty) return [value.trim()];
+      if (value is! List) return const [];
+      return value
+          .where((item) => item != null)
+          .map((item) => item.toString())
+          .where((item) => item.isNotEmpty)
+          .toList();
+    }
+
+    bool parseBool(dynamic value, bool fallback) {
+      if (value is bool) return value;
+      if (value is num) return value != 0;
+      if (value is String) return value.toLowerCase() == 'true';
+      return fallback;
+    }
+
+    SyncStatus parseSyncStatus(dynamic value) {
+      if (value is int && value >= 0 && value < SyncStatus.values.length) {
+        return SyncStatus.values[value];
+      }
+      if (value is String) {
+        return SyncStatus.values.firstWhere(
+          (status) => status.name == value,
+          orElse: () => SyncStatus.synced,
+        );
+      }
+      return SyncStatus.synced;
+    }
+
+    CatalogMode parseMode(dynamic value) {
+      if (value is String) {
+        return CatalogMode.values.firstWhere(
+          (e) => e.name == value,
+          orElse: () => CatalogMode.varejo,
+        );
+      }
+      if (value is int && value >= 0 && value < CatalogMode.values.length) {
+        return CatalogMode.values[value];
+      }
+      return CatalogMode.varejo;
+    }
+
+    List<Map<String, dynamic>> parseMapList(dynamic value) {
+      if (value is! List) return const [];
+      return value
+          .whereType<Map>()
+          .map((item) => item.map((key, val) => MapEntry(key.toString(), val)))
+          .toList();
+    }
+
     return Catalog(
-      id: map['id'] ?? '',
-      name: map['name'] ?? '',
-      slug: map['slug'] ?? '',
-      active: map['active'] ?? true,
-      productIds: List<String>.from(map['productIds'] ?? []),
-      requireCustomerData: map['requireCustomerData'] ?? false,
-      photoLayout: map['photoLayout'] ?? 'grid',
-      announcementEnabled: map['announcementEnabled'] ?? false,
-      announcementText: map['announcementText'],
-      banners: (map['banners'] as List? ?? [])
-          .map((b) => CatalogBanner.fromMap(Map<String, dynamic>.from(b)))
+      id: map['id']?.toString() ?? '',
+      name: map['name']?.toString() ?? '',
+      slug: map['slug']?.toString() ?? '',
+      active: parseBool(map['active'], true),
+      productIds: parseStringList(map['productIds']),
+      requireCustomerData: parseBool(map['requireCustomerData'], false),
+      photoLayout: map['photoLayout']?.toString() ?? 'grid',
+      announcementEnabled: parseBool(map['announcementEnabled'], false),
+      announcementText: map['announcementText']?.toString(),
+      banners: parseMapList(map['banners'])
+          .map<CatalogBanner>((b) => CatalogBanner.fromMap(b))
           .toList(),
       createdAt: parseDate(map['createdAt']),
       updatedAt: parseDate(map['updatedAt']),
-      mode: CatalogMode.values.firstWhere(
-        (e) => e.name == map['mode'],
-        orElse: () => CatalogMode.varejo,
-      ),
-      isPublic: map['isPublic'] ?? false,
-      shareCode: map['shareCode'] ?? '',
-      ownerUid: map['ownerUid'] ?? '',
-      includeCover: map['includeCover'] ?? true,
-      coverType: map['coverType'],
-      tenantId: map['tenantId'],
-      syncStatus: SyncStatus.values.firstWhere(
-        (e) => e.name == map['syncStatus'],
-        orElse: () => SyncStatus.synced,
-      ),
+      mode: parseMode(map['mode']),
+      isPublic: parseBool(map['isPublic'], false),
+      shareCode: map['shareCode']?.toString() ?? '',
+      ownerUid: map['ownerUid']?.toString() ?? '',
+      includeCover: parseBool(map['includeCover'], true),
+      coverType: map['coverType']?.toString(),
+      tenantId: map['tenantId']?.toString(),
+      syncStatus: parseSyncStatus(map['syncStatus']),
     );
   }
 }

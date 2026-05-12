@@ -24,16 +24,25 @@ class ProductVariant {
   }
 
   factory ProductVariant.fromMap(Map<String, dynamic> map) {
+    int parseInt(dynamic value) {
+      if (value is num) return value.toInt();
+      if (value is String) return int.tryParse(value) ?? 0;
+      return 0;
+    }
+
     final rawAttributes = map['attributes'];
-    final attributes = rawAttributes is Map
-        ? rawAttributes.map(
-            (key, value) => MapEntry(key.toString(), value.toString()),
-          )
-        : <String, String>{};
+    final attributes = <String, String>{};
+    if (rawAttributes is Map) {
+      rawAttributes.forEach((key, value) {
+        if (key != null && value != null) {
+          attributes[key.toString()] = value.toString();
+        }
+      });
+    }
 
     return ProductVariant(
       sku: map['sku']?.toString() ?? '',
-      stock: (map['stock'] as num?)?.toInt() ?? 0,
+      stock: parseInt(map['stock']),
       attributes: attributes,
     );
   }

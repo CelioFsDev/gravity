@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:catalogo_ja/core/services/public_catalog_snapshot_service.dart';
-import 'package:catalogo_ja/core/utils/string_utils.dart';
+import 'package:catalogo_ja/data/repositories/contracts/catalogs_repository_contract.dart';
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/models/sync_status.dart';
 import 'package:catalogo_ja/data/repositories/catalogs_repository.dart';
@@ -78,9 +78,19 @@ class CatalogsViewModel extends _$CatalogsViewModel {
   /// Sincroniza todos os catálogos locais para a nuvem
   Future<Catalog> prepareCatalogForSharing(Catalog catalog) async {
     final repository = ref.read(syncCatalogsRepositoryProvider);
-    final normalizedShareCode = catalog.shareCode.trim().isEmpty
-        ? StringUtils.generateBase62(10).toLowerCase()
-        : catalog.shareCode.trim().toLowerCase();
+    final currentShareCode = _normalizeShareCode(catalog.shareCode);
+    final shouldGenerateFromCatalog =
+        currentShareCode.isEmpty ||
+        _looksGeneratedShareCode(currentShareCode) ||
+        (currentShareCode == 'vitrine' &&
+            _normalizeShareCode(catalog.name).isNotEmpty);
+    final normalizedShareCode = shouldGenerateFromCatalog
+        ? await _generateAvailableShareCode(catalog, repository)
+        : await _ensureAvailableShareCode(
+            currentShareCode,
+            catalog,
+            repository,
+          );
     final needsUpdate =
         !catalog.isPublic ||
         catalog.shareCode.trim() != normalizedShareCode ||
@@ -123,6 +133,67 @@ class CatalogsViewModel extends _$CatalogsViewModel {
     }
 
     return toShare;
+  }
+
+  String _generateShareCode(Catalog catalog) {
+    final normalizedName = _normalizeShareCode(catalog.name);
+    if (normalizedName.isNotEmpty) return normalizedName;
+
+    final normalizedSlug = _normalizeShareCode(catalog.slug);
+    if (normalizedSlug.isNotEmpty) return normalizedSlug;
+
+    return 'vitrine';
+  }
+
+  String _normalizeShareCode(String value) {
+    final normalized = value
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp('[\\u00e1\\u00e0\\u00e3\\u00e2\\u00e4]'), 'a')
+        .replaceAll(RegExp('[\\u00e9\\u00e8\\u00ea\\u00eb]'), 'e')
+        .replaceAll(RegExp('[\\u00ed\\u00ec\\u00ee\\u00ef]'), 'i')
+        .replaceAll(RegExp('[\\u00f3\\u00f2\\u00f5\\u00f4\\u00f6]'), 'o')
+        .replaceAll(RegExp('[\\u00fa\\u00f9\\u00fb\\u00fc]'), 'u')
+        .replaceAll('\u00e7', 'c')
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'-+'), '-')
+        .replaceAll(RegExp(r'^-|-$'), '');
+
+    if (normalized.length <= 24) return normalized;
+    return normalized.substring(0, 24).replaceAll(RegExp(r'-$'), '');
+  }
+
+  bool _looksGeneratedShareCode(String value) {
+    return RegExp(r'^[a-z0-9]{10}$').hasMatch(value);
+  }
+
+  Future<String> _generateAvailableShareCode(
+    Catalog catalog,
+    CatalogsRepositoryContract repository,
+  ) {
+    return _ensureAvailableShareCode(
+      _generateShareCode(catalog),
+      catalog,
+      repository,
+    );
+  }
+
+  Future<String> _ensureAvailableShareCode(
+    String baseCode,
+    Catalog catalog,
+    CatalogsRepositoryContract repository,
+  ) async {
+    final base = baseCode.trim().isEmpty ? 'vitrine' : baseCode;
+
+    for (var index = 0; index < 50; index++) {
+      final candidate = index == 0 ? base : '$base-${index + 1}';
+      final existing = await repository.getByShareCode(candidate);
+      if (existing == null || existing.id == catalog.id) {
+        return candidate;
+      }
+    }
+
+    return '$base-${DateTime.now().millisecondsSinceEpoch % 10000}';
   }
 
   Future<int> syncAllToCloud() async {

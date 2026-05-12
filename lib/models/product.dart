@@ -10,6 +10,24 @@ import 'package:catalogo_ja/models/product_image.dart';
 
 part 'product.g.dart';
 
+bool _isRemoteOrStorageImageUri(String uri) {
+  final trimmed = uri.trim();
+  return trimmed.startsWith('http://') ||
+      trimmed.startsWith('https://') ||
+      trimmed.startsWith('gs://') ||
+      trimmed.startsWith('tenants/') ||
+      trimmed.startsWith('public_catalogs/') ||
+      trimmed.startsWith('data:') ||
+      trimmed.startsWith('blob:');
+}
+
+bool _isLocalOnlyImageUri(String uri) {
+  final trimmed = uri.trim();
+  if (trimmed.isEmpty) return false;
+  if (trimmed.startsWith('data:') || trimmed.startsWith('blob:')) return true;
+  return !_isRemoteOrStorageImageUri(trimmed);
+}
+
 // KEEP ProductPhoto for backward compatibility during migration, but mark it?
 // The user wants ProductImage instead. I'll keep it as a legacy holder if needed.
 @HiveType(typeId: 11)
@@ -61,12 +79,7 @@ class ProductPhoto {
 
   ProductImage toProductImage() {
     final imageUri = url.isNotEmpty ? url : path;
-    final isRemote =
-        imageUri.startsWith('http://') ||
-        imageUri.startsWith('https://') ||
-        imageUri.startsWith('gs://') ||
-        imageUri.startsWith('data:') ||
-        imageUri.startsWith('blob:');
+    final isRemote = _isRemoteOrStorageImageUri(imageUri);
     return ProductImage(
       id: id ?? 'legacy_${imageUri.hashCode}',
       sourceType: isRemote
@@ -259,12 +272,12 @@ class Product {
       'name': name,
       'ref': ref,
       'sku': sku,
-      'categoryIds': List<String>.from(categoryIds),
+      'categoryIds': categoryIds.toList(),
       'priceRetail': priceRetail,
       'priceWholesale': priceWholesale,
       'minWholesaleQty': minWholesaleQty,
-      'sizes': List<String>.from(sizes),
-      'colors': List<String>.from(colors),
+      'sizes': sizes.toList(),
+      'colors': colors.toList(),
       'images': images
           .map(
             (img) => {
@@ -285,8 +298,8 @@ class Product {
       'promoPercent': promoPercent,
       'slug': slug,
       'description': description,
-      'tags': List<String>.from(tags),
-      'remoteImages': List<String>.from(remoteImages),
+      'tags': tags.toList(),
+      'remoteImages': remoteImages.toList(),
       'variants': variants
           .map(
             (v) => {'sku': v.sku, 'stock': v.stock, 'attributes': v.attributes},
@@ -314,7 +327,15 @@ class Product {
   factory Product.fromMap(Map<String, dynamic> map) {
     DateTime parseDate(dynamic value) {
       if (value == null) return DateTime.now();
+      if (value is DateTime) return value;
       if (value is Timestamp) return value.toDate();
+      try {
+        if (value.runtimeType.toString().contains('Timestamp')) {
+          final dynamic timestamp = value;
+          final converted = timestamp.toDate();
+          if (converted is DateTime) return converted;
+        }
+      } catch (_) {}
       if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
       return DateTime.now();
     }
@@ -322,7 +343,13 @@ class Product {
     double parseDouble(dynamic value) {
       if (value is num) return value.toDouble();
       if (value is String) {
-        return double.tryParse(value.replaceAll(',', '.')) ?? 0.0;
+        var normalized = value.trim().replaceAll(RegExp(r'[^0-9,.-]'), '');
+        if (normalized.contains(',') && normalized.contains('.')) {
+          normalized = normalized.replaceAll('.', '').replaceAll(',', '.');
+        } else {
+          normalized = normalized.replaceAll(',', '.');
+        }
+        return double.tryParse(normalized) ?? 0.0;
       }
       return 0.0;
     }
@@ -331,6 +358,56 @@ class Product {
       if (value is num) return value.toInt();
       if (value is String) return int.tryParse(value) ?? fallback;
       return fallback;
+    }
+
+    bool parseBool(dynamic value, bool fallback) {
+      if (value is bool) return value;
+      if (value is num) return value != 0;
+      if (value is String) {
+        final normalized = value.trim().toLowerCase();
+        if (normalized == 'true' || normalized == '1') return true;
+        if (normalized == 'false' || normalized == '0') return false;
+      }
+      return fallback;
+    }
+
+    List<String> parseStringList(dynamic value) {
+      if (value is String && value.trim().isNotEmpty) return [value.trim()];
+      if (value is! List) return const [];
+      return value
+          .where((item) => item != null)
+          .map((item) => item.toString())
+          .where((item) => item.isNotEmpty)
+          .toList();
+    }
+
+    List<ProductVariant> parseVariants(dynamic value) {
+      if (value is! List) return const [];
+      return value.whereType<Map>().map<ProductVariant>((item) {
+        final map = item.map((key, val) => MapEntry(key.toString(), val));
+        return ProductVariant.fromMap(map);
+      }).toList();
+    }
+
+    Map<String, Map<String, dynamic>> parseStoreOverrides(dynamic value) {
+      if (value is! Map) return const {};
+      final result = <String, Map<String, dynamic>>{};
+      value.forEach((key, item) {
+        if (item is Map) {
+          result[key.toString()] = item.map(
+            (nestedKey, nestedValue) =>
+                MapEntry(nestedKey.toString(), nestedValue),
+          );
+        }
+      });
+      return result;
+    }
+
+    List<dynamic> parseDynamicList(dynamic value) {
+      if (value == null) return const [];
+      if (value is List) return value;
+      if (value is String && value.trim().isNotEmpty) return [value.trim()];
+      return const [];
     }
 
     SyncStatus parseSyncStatus(dynamic value) {
@@ -351,50 +428,61 @@ class Product {
       name: map['name']?.toString() ?? '',
       ref: (map['ref'] ?? map['reference'] ?? '').toString(),
       sku: map['sku']?.toString() ?? '',
-      categoryIds: List<String>.from(map['categoryIds'] ?? []),
+      categoryIds: parseStringList(map['categoryIds']),
       priceRetail: parseDouble(map['priceRetail'] ?? map['priceVarejo']),
       priceWholesale: parseDouble(map['priceWholesale'] ?? map['priceAtacado']),
       minWholesaleQty: parseInt(map['minWholesaleQty'], 1),
-      sizes: List<String>.from(map['sizes'] ?? []),
-      colors: List<String>.from(map['colors'] ?? []),
-      images: (map['images'] as List? ?? []).map((i) {
-        if (i is Map) {
-          return ProductImage.fromMap(Map<String, dynamic>.from(i));
+      sizes: parseStringList(map['sizes']),
+      colors: parseStringList(map['colors']),
+      images: parseDynamicList(map['images']).map<ProductImage>((item) {
+        if (item is Map) {
+          final imageMap = item.map(
+            (key, value) => MapEntry(key.toString(), value),
+          );
+          return ProductImage.fromMap(imageMap);
         }
-        // Legacy support: if it's a string, it's a direct URL
-        if (i is String) {
-          return ProductImage.network(url: i);
+        if (item is String) {
+          return ProductImage.network(url: item);
         }
-        return ProductImage.unknown(); // Use an empty placeholder
+        return ProductImage.unknown();
       }).toList(),
       mainImageIndex: parseInt(map['mainImageIndex'], 0),
-      isActive: map['isActive'] ?? true,
-      isOutOfStock: map['isOutOfStock'] ?? false,
-      promoEnabled: map['promoEnabled'] ?? map['isOnSale'] ?? false,
+      isActive: parseBool(map['isActive'], true),
+      isOutOfStock: parseBool(map['isOutOfStock'], false),
+      promoEnabled: parseBool(map['promoEnabled'] ?? map['isOnSale'], false),
       promoPercent: parseDouble(
         map['promoPercent'] ?? map['saleDiscountPercent'],
       ),
       slug: map['slug']?.toString() ?? '',
       description: map['description']?.toString(),
-      tags: List<String>.from(map['tags'] ?? []),
-      remoteImages: List<String>.from(map['remoteImages'] ?? []),
-      variants: (map['variants'] as List? ?? [])
-          .map((v) => ProductVariant.fromMap(Map<String, dynamic>.from(v)))
-          .toList(),
+      tags: parseStringList(map['tags']),
+      remoteImages: parseStringList(
+        map['remoteImages'] ??
+            map['imageUrls'] ??
+            map['imageUrl'] ??
+            map['image'] ??
+            map['photo'],
+      ),
+      variants: parseVariants(map['variants']),
       createdAt: parseDate(map['createdAt']),
       updatedAt: parseDate(map['updatedAt']),
-      photos: (map['photos'] as List? ?? [])
+      photos: parseDynamicList(map['photos'])
           .where((p) => p is Map || p is String)
-          .map((p) {
+          .map<ProductPhoto>((p) {
             if (p is String) {
               return ProductPhoto(path: p);
             }
+            if (p is! Map) {
+              return const ProductPhoto(path: '');
+            }
 
-            final photoMap = Map<String, dynamic>.from(p as Map);
+            final photoMap = p.map(
+              (key, value) => MapEntry(key.toString(), value),
+            );
             return ProductPhoto(
               path: (photoMap['path'] ?? photoMap['url'] ?? '').toString(),
               colorKey: photoMap['colorKey']?.toString(),
-              isPrimary: photoMap['isPrimary'] as bool? ?? false,
+              isPrimary: parseBool(photoMap['isPrimary'], false),
               photoType: photoMap['photoType']?.toString(),
               id: photoMap['id']?.toString(),
               url: photoMap['url']?.toString() ?? '',
@@ -402,12 +490,7 @@ class Product {
           })
           .toList(),
       tenantId: map['tenantId']?.toString(),
-      storeOverrides:
-          (map['storeOverrides'] as Map?)?.map(
-            (k, v) =>
-                MapEntry(k.toString(), Map<String, dynamic>.from(v as Map)),
-          ) ??
-          {},
+      storeOverrides: parseStoreOverrides(map['storeOverrides']),
       syncStatus: parseSyncStatus(map['syncStatus']),
     );
   }
@@ -532,29 +615,54 @@ class Product {
   Map<String, dynamic>? _getOverride(String? storeId) =>
       storeId != null ? storeOverrides[storeId] : null;
 
+  double _overrideDouble(String? storeId, String key, double fallback) {
+    final value = _getOverride(storeId)?[key];
+    if (value is num) return value.toDouble();
+    if (value is String) {
+      return double.tryParse(value.replaceAll(',', '.')) ?? fallback;
+    }
+    return fallback;
+  }
+
+  bool _overrideBool(String? storeId, String key, bool fallback) {
+    final value = _getOverride(storeId)?[key];
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      if (normalized == 'true' || normalized == '1') return true;
+      if (normalized == 'false' || normalized == '0') return false;
+    }
+    return fallback;
+  }
+
+  List<String> _overrideStringList(String? storeId, String key) {
+    final value = _getOverride(storeId)?[key];
+    if (value is! List) return const [];
+    return value
+        .where((item) => item != null)
+        .map((item) => item.toString())
+        .where((item) => item.isNotEmpty)
+        .toList();
+  }
+
   double getRetailPrice(String? storeId) =>
-      (_getOverride(storeId)?['priceRetail'] as num?)?.toDouble() ??
-      priceRetail;
+      _overrideDouble(storeId, 'priceRetail', priceRetail);
 
   double getWholesalePrice(String? storeId) =>
-      (_getOverride(storeId)?['priceWholesale'] as num?)?.toDouble() ??
-      priceWholesale;
+      _overrideDouble(storeId, 'priceWholesale', priceWholesale);
 
   bool getIsActive(String? storeId) =>
-      _getOverride(storeId)?['isActive'] as bool? ?? isActive;
+      _overrideBool(storeId, 'isActive', isActive);
 
   List<String> getAvailableSizes(String? storeId) {
-    final unavailable = List<String>.from(
-      _getOverride(storeId)?['unavailableSizes'] ?? [],
-    );
+    final unavailable = _overrideStringList(storeId, 'unavailableSizes');
     if (unavailable.isEmpty) return sizes;
     return sizes.where((s) => !unavailable.contains(s)).toList();
   }
 
   List<String> getAvailableColors(String? storeId) {
-    final unavailable = List<String>.from(
-      _getOverride(storeId)?['unavailableColors'] ?? [],
-    );
+    final unavailable = _overrideStringList(storeId, 'unavailableColors');
     if (unavailable.isEmpty) return colors;
     return colors.where((c) => !unavailable.contains(c)).toList();
   }
@@ -565,22 +673,15 @@ class Product {
   /// 🔄 Verifica se o produto tem fotos locais pendentes de sincronização
   bool get hasLocalOnlyPhotos {
     // Verifica na lista moderna de images
-    final hasLocalImages = images.any(
-      (i) =>
-          i.sourceType == ProductImageSource.localPath ||
-          i.uri.startsWith('data:') ||
-          i.uri.startsWith('blob:') ||
-          (!i.uri.startsWith('http') && !i.uri.startsWith('gs://')),
-    );
+    final hasLocalImages = images.any((i) => _isLocalOnlyImageUri(i.uri));
 
     if (hasLocalImages) return true;
 
     // Verifica na lista legado de photos
     return photos.any(
       (p) =>
-          (!p.path.startsWith('http') && !p.path.startsWith('gs://')) ||
-          p.path.startsWith('data:') ||
-          p.path.startsWith('blob:'),
+          _isLocalOnlyImageUri(p.path) ||
+          (p.url.trim().isNotEmpty && _isLocalOnlyImageUri(p.url)),
     );
   }
 

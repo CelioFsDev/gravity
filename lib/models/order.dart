@@ -46,15 +46,15 @@ class OrderItem {
 
   factory OrderItem.fromMap(Map<String, dynamic> map) {
     return OrderItem(
-      productId: map['productId'] ?? '',
-      productName: map['productName'] ?? '',
-      sku: map['sku'],
-      quantity: map['quantity'] ?? 1,
+      productId: map['productId']?.toString() ?? '',
+      productName: map['productName']?.toString() ?? '',
+      sku: map['sku']?.toString(),
+      quantity: (map['quantity'] as num?)?.toInt() ?? 1,
       unitPrice: (map['unitPrice'] as num?)?.toDouble() ?? 0.0,
-      attributes: map['attributes'] != null
-          ? Map<String, String>.from(map['attributes'])
+      attributes: map['attributes'] is Map
+          ? (map['attributes'] as Map).map((k, v) => MapEntry(k.toString(), v.toString())).cast<String, String>()
           : null,
-      notes: map['notes'],
+      notes: map['notes']?.toString(),
     );
   }
 }
@@ -145,32 +145,39 @@ class Order {
   }
 
   factory Order.fromMap(Map<String, dynamic> map) {
-    DateTime? parseDate(dynamic value) {
-      if (value == null) return null;
+    DateTime parseDate(dynamic value) {
+      if (value == null) return DateTime.now();
+      if (value is DateTime) return value;
       if (value is Timestamp) return value.toDate();
-      if (value is String) return DateTime.tryParse(value);
-      return null;
+      try {
+        if (value.runtimeType.toString().contains('Timestamp')) {
+          return (value as dynamic).toDate();
+        }
+      } catch (_) {}
+      if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
+      return DateTime.now();
     }
 
     return Order(
-      id: map['id'] ?? '',
-      tenantId: map['tenantId'] ?? '',
-      catalogId: map['catalogId'] ?? '',
-      customerId: map['customerId'],
-      customerName: map['customerName'] ?? '',
-      customerPhone: map['customerPhone'] ?? '',
-      items: List<OrderItem>.from(
-        (map['items'] as List? ?? []).map((x) => OrderItem.fromMap(x)),
-      ),
+      id: map['id']?.toString() ?? '',
+      tenantId: map['tenantId']?.toString() ?? '',
+      catalogId: map['catalogId']?.toString() ?? '',
+      customerId: map['customerId']?.toString(),
+      customerName: map['customerName']?.toString() ?? '',
+      customerPhone: map['customerPhone']?.toString() ?? '',
+      items: (map['items'] as List? ?? [])
+          .whereType<Map>()
+          .map((x) => OrderItem.fromMap(Map<String, dynamic>.from(x)))
+          .toList(),
       status: OrderStatus.values.firstWhere(
-        (e) => e.name == map['status'],
+        (e) => e.name == map['status'] || e.index.toString() == map['status']?.toString(),
         orElse: () => OrderStatus.pending,
       ),
       discount: (map['discount'] as num?)?.toDouble() ?? 0.0,
       shippingCost: (map['shippingCost'] as num?)?.toDouble() ?? 0.0,
       createdAt: parseDate(map['createdAt']),
       updatedAt: parseDate(map['updatedAt']),
-      sellerId: map['sellerId'],
+      sellerId: map['sellerId']?.toString(),
     );
   }
 }
