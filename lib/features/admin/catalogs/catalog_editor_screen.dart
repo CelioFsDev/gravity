@@ -66,8 +66,11 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
 
   Future<void> _shareQuickOnly(CatalogEditorState currentState) async {
     try {
-      final quickCatalog = await _prepareQuickCatalogForSharing(
-        currentState.catalog,
+      final quickCatalog = await CatalogShareHelper.runWithLoadingDialog(
+        context,
+        () => _prepareQuickCatalogForSharing(currentState.catalog),
+        title: 'Preparando compartilhamento...',
+        message: 'Publicando a vitrine e atualizando imagens.',
       );
       if (!context.mounted) return;
       await CatalogShareHelper.showShareOptions(
@@ -187,10 +190,13 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                 await _shareQuickOnly(state);
                 return;
               }
-              final catalogToShare = await _savePublicCatalogForSharing(
-                state,
-                notifier,
-              );
+              final catalogToShare =
+                  await CatalogShareHelper.runWithLoadingDialog(
+                    context,
+                    () => _savePublicCatalogForSharing(state, notifier),
+                    title: 'Preparando compartilhamento...',
+                    message: 'Salvando o catálogo e atualizando imagens.',
+                  );
               if (catalogToShare == null || !context.mounted) return;
               await CatalogShareHelper.showShareOptions(
                 context: context,

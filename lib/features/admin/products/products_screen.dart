@@ -8,6 +8,7 @@ import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
 import 'package:catalogo_ja/features/admin/products/product_form_screen.dart';
 import 'package:catalogo_ja/features/admin/products/product_detail_screen.dart';
 import 'package:catalogo_ja/core/services/product_transfer_service.dart';
+import 'package:catalogo_ja/core/services/catalog_share_helper.dart';
 import 'package:catalogo_ja/features/admin/import/catalogo_ja_import_screen.dart';
 import 'package:catalogo_ja/features/admin/import/nuvemshop_import_screen.dart';
 import 'package:catalogo_ja/viewmodels/product_export_viewmodel.dart';
@@ -695,6 +696,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   }
 
   void _openImport(BuildContext context) {
+    final screenContext = context;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -739,15 +741,32 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   'Baixa fotos automaticamente usando a URL Base configurada em Ajustes.',
                 ),
                 onTap: () async {
-                  final messenger = ScaffoldMessenger.of(context);
+                  final messenger = ScaffoldMessenger.of(screenContext);
 
                   Navigator.pop(context);
 
-                  ref.read(productImportViewModelProvider.notifier).reset();
-
-                  await ref
-                      .read(productImportViewModelProvider.notifier)
-                      .syncRemoteImagesFromUrl();
+                  try {
+                    await CatalogShareHelper.runWithLoadingDialog(
+                      screenContext,
+                      () async {
+                        ref
+                            .read(productImportViewModelProvider.notifier)
+                            .reset();
+                        await ref
+                            .read(productImportViewModelProvider.notifier)
+                            .syncRemoteImagesFromUrl();
+                      },
+                      title: 'Sincronizando fotos...',
+                      message:
+                          'Buscando imagens na nuvem e vinculando produtos.',
+                    );
+                  } catch (e) {
+                    if (!screenContext.mounted) return;
+                    messenger.showSnackBar(
+                      SnackBar(content: Text('Erro ao sincronizar fotos: $e')),
+                    );
+                    return;
+                  }
 
                   if (!mounted) return;
 
@@ -781,13 +800,20 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     Navigator.pop(context);
 
                     try {
-                      final updatedCount = await ref
-                          .read(productsViewModelProvider.notifier)
-                          .reorganizePhotosPriority();
+                      final updatedCount =
+                          await CatalogShareHelper.runWithLoadingDialog(
+                            screenContext,
+                            () => ref
+                                .read(productsViewModelProvider.notifier)
+                                .reorganizePhotosPriority(),
+                            title: 'Reorganizando fotos...',
+                            message:
+                                'Ajustando fotos principais, detalhes e cores.',
+                          );
 
-                      if (!context.mounted) return;
+                      if (!screenContext.mounted) return;
 
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      ScaffoldMessenger.of(screenContext).showSnackBar(
                         SnackBar(
                           content: Text(
                             updatedCount > 0
@@ -797,9 +823,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                         ),
                       );
                     } catch (e) {
-                      if (!context.mounted) return;
+                      if (!screenContext.mounted) return;
 
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      ScaffoldMessenger.of(screenContext).showSnackBar(
                         SnackBar(
                           content: Text('Erro ao reorganizar fotos: $e'),
                         ),

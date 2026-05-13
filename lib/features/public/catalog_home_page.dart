@@ -14,6 +14,7 @@ import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/order.dart';
 import 'package:catalogo_ja/viewmodels/cart_viewmodel.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class CatalogHomePage extends ConsumerStatefulWidget {
@@ -813,14 +814,7 @@ class _CartSheetContent extends ConsumerWidget {
     String? whatsapp,
     List<Product> products,
   ) async {
-    final cleanPhone = whatsapp?.replaceAll(RegExp(r'[^0-9]'), '') ?? '';
-    if (cleanPhone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('WhatsApp do vendedor não configurado')),
-      );
-      return;
-    }
-
+    final cleanPhone = _normalizeWhatsAppPhone(whatsapp);
     final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
     var message = '*NOVO PEDIDO - CATALOGO JA*\n';
     message += '*Vitrine:* ${catalog.name}\n\n';
@@ -848,56 +842,110 @@ class _CartSheetContent extends ConsumerWidget {
 
     message += '\n*TOTAL: ${currency.format(cart.subtotal)}*';
 
+    if (cleanPhone.isEmpty) {
+      await _shareOrderMessage(context, message);
+      return;
+    }
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Abrindo WhatsApp...')));
+    }
+
     final launched = await _launchWhatsAppOrder(
       phone: cleanPhone,
       message: message,
     );
-    if (!launched && context.mounted) {
-      await Clipboard.setData(ClipboardData(text: message));
-      if (!context.mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('Pedido copiado'),
-          content: const Text(
-            'Nao foi possivel abrir o WhatsApp automaticamente. A mensagem do pedido foi copiada para voce colar no WhatsApp.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('OK'),
-            ),
-          ],
+    if (!launched) {
+      await _shareOrderMessage(context, message);
+    }
+  }
+
+  Future<void> _shareOrderMessage(BuildContext context, String message) async {
+    try {
+      final result = await SharePlus.instance.share(
+        ShareParams(
+          text: message,
+          subject: 'Pedido da vitrine',
+          downloadFallbackEnabled: false,
+          mailToFallbackEnabled: false,
         ),
       );
+      if (result.status != ShareResultStatus.unavailable) return;
+    } catch (_) {
+      // Falls back to copying below.
     }
+
+    await _copyOrderMessageFallback(context, message);
+  }
+
+  Future<void> _copyOrderMessageFallback(
+    BuildContext context,
+    String message,
+  ) async {
+    if (!context.mounted) return;
+    await Clipboard.setData(ClipboardData(text: message));
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Pedido copiado'),
+        content: const Text(
+          'Nao foi possivel abrir o WhatsApp automaticamente. A mensagem do pedido foi copiada para voce colar no WhatsApp.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _normalizeWhatsAppPhone(String? whatsapp) {
+    var phone = whatsapp?.replaceAll(RegExp(r'[^0-9]'), '') ?? '';
+    phone = phone.replaceFirst(RegExp(r'^0+'), '');
+
+    final looksLikeBrazilLocalNumber =
+        (phone.length == 10 || phone.length == 11) && !phone.startsWith('55');
+    if (looksLikeBrazilLocalNumber) {
+      phone = '55$phone';
+    }
+
+    return phone;
   }
 
   Future<bool> _launchWhatsAppOrder({
     required String phone,
     required String message,
   }) async {
-    final encodedMessage = Uri.encodeComponent(message);
+    Uri whatsappWebUri(String host) =>
+        Uri.https(host, '/send', {'phone': phone, 'text': message});
+
     final urls = kIsWeb
         ? [
-            Uri.parse(
-              'https://api.whatsapp.com/send?phone=$phone&text=$encodedMessage',
-            ),
-            Uri.parse('https://wa.me/$phone?text=$encodedMessage'),
+            whatsappWebUri('api.whatsapp.com'),
+            Uri.https('wa.me', '/$phone', {'text': message}),
           ]
         : [
-            Uri.parse('whatsapp://send?phone=$phone&text=$encodedMessage'),
-            Uri.parse('https://wa.me/$phone?text=$encodedMessage'),
-            Uri.parse(
-              'https://api.whatsapp.com/send?phone=$phone&text=$encodedMessage',
+            Uri(
+              scheme: 'whatsapp',
+              host: 'send',
+              queryParameters: {'phone': phone, 'text': message},
             ),
+            Uri.https('wa.me', '/$phone', {'text': message}),
+            whatsappWebUri('api.whatsapp.com'),
           ];
 
     for (final uri in urls) {
       try {
         final launched = await launchUrl(
           uri,
-          mode: LaunchMode.externalApplication,
+          mode: kIsWeb
+              ? LaunchMode.platformDefault
+              : LaunchMode.externalApplication,
           webOnlyWindowName: '_blank',
         );
         if (launched) return true;

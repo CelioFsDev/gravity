@@ -50,37 +50,36 @@ class PublicCatalogSnapshotService {
       if (uri.isNotEmpty) addCandidate(ProductImage.network(url: uri));
     }
 
-    final newImages = <ProductImage>[];
-    for (final image in candidateImages) {
+    final newImages = await Future.wait(candidateImages.map((image) async {
       final resolvedUri = await _resolvePublicImageUri(image.uri);
       if (_isRenderablePublicImageUri(resolvedUri)) {
-        newImages.add(
-          image.copyWith(
-            uri: resolvedUri,
-            sourceType: ProductImageSource.networkUrl,
-          ),
+        return image.copyWith(
+          uri: resolvedUri,
+          sourceType: ProductImageSource.networkUrl,
         );
       } else if (image.uri.startsWith('gs://')) {
         // Keep gs:// as a last resort; the public UI can still resolve it.
-        newImages.add(image);
+        return image;
       }
-    }
+      return null;
+    })).then((images) => images.whereType<ProductImage>().toList());
 
-    final newPhotos = <ProductPhoto>[];
-    for (final photo in product.photos) {
-      final path = await _resolvePublicImageUri(photo.path);
-      final url = await _resolvePublicImageUri(photo.url);
-      newPhotos.add(
-        photo.copyWith(
-          path: _isRenderablePublicImageUri(path)
-              ? path
-              : (photo.path.startsWith('gs://') ? photo.path : ''),
-          url: _isRenderablePublicImageUri(url)
-              ? url
-              : (photo.url.startsWith('gs://') ? photo.url : ''),
-        ),
+    final newPhotos = await Future.wait(product.photos.map((photo) async {
+      final resolved = await Future.wait([
+        _resolvePublicImageUri(photo.path),
+        _resolvePublicImageUri(photo.url),
+      ]);
+      final path = resolved[0];
+      final url = resolved[1];
+      return photo.copyWith(
+        path: _isRenderablePublicImageUri(path)
+            ? path
+            : (photo.path.startsWith('gs://') ? photo.path : ''),
+        url: _isRenderablePublicImageUri(url)
+            ? url
+            : (photo.url.startsWith('gs://') ? photo.url : ''),
       );
-    }
+    }));
 
     return product.copyWith(images: newImages, photos: newPhotos);
   }
@@ -162,11 +161,10 @@ class PublicCatalogSnapshotService {
         .where((p) => selectedIds.contains(p.id) && p.isActive)
         .toList();
 
-    // Resolvendo as URLs de todas as imagens antes de salvar o snapshot
-    final publicProducts = <Product>[];
-    for (final p in filteredProducts) {
-      publicProducts.add(await _resolveProductImages(p));
-    }
+    // Resolve URLs in parallel so sharing does not wait one image at a time.
+    final publicProducts = await Future.wait(
+      filteredProducts.map(_resolveProductImages),
+    );
 
     final usedCategoryIds = publicProducts.expand((p) => p.categoryIds).toSet();
     final publicCategories = categories

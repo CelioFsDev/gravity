@@ -97,8 +97,14 @@ class CatalogsScreen extends ConsumerWidget {
                   onShare: (catalog) async {
                     Catalog catalogToShare;
                     try {
-                      catalogToShare = await notifier
-                          .prepareCatalogForSharing(catalog);
+                      catalogToShare =
+                          await CatalogShareHelper.runWithLoadingDialog(
+                            context,
+                            () => notifier.prepareCatalogForSharing(catalog),
+                            title: 'Preparando compartilhamento...',
+                            message:
+                                'Publicando a vitrine e atualizando imagens.',
+                          );
                     } catch (e) {
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(

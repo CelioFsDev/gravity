@@ -83,6 +83,20 @@ class CatalogShareHelper {
     );
   }
 
+  static Future<T> runWithLoadingDialog<T>(
+    BuildContext context,
+    Future<T> Function() action, {
+    String title = 'Gerando catálogo...',
+    String message = 'Aguarde. Isso pode levar alguns minutos.',
+  }) {
+    return _runWithLoadingDialog(
+      context,
+      action,
+      title: title,
+      message: message,
+    );
+  }
+
   static Future<void> generateAndSharePdf(
     BuildContext context,
     WidgetRef ref,
@@ -611,8 +625,8 @@ class CatalogShareHelper {
           .prepareCatalogForSharing(linkCatalog);
     }
 
-    final catalogUrl = includeContactPage &&
-            linkCatalog.shareCode.trim().isNotEmpty
+    final catalogUrl =
+        includeContactPage && linkCatalog.shareCode.trim().isNotEmpty
         ? _buildWebShareUrl(
             baseUrl: PublicCatalogConfig.defaultBaseUrl,
             shareCode: linkCatalog.shareCode.trim().toLowerCase(),
@@ -838,8 +852,10 @@ class CatalogShareHelper {
 
   static Future<T> _runWithLoadingDialog<T>(
     BuildContext context,
-    Future<T> Function() action,
-  ) async {
+    Future<T> Function() action, {
+    String title = 'Gerando catálogo...',
+    String message = 'Aguarde. Isso pode levar alguns minutos.',
+  }) async {
     BuildContext? dialogContext;
 
     showDialog(
@@ -847,24 +863,21 @@ class CatalogShareHelper {
       barrierDismissible: false,
       builder: (ctx) {
         dialogContext = ctx;
-        return const Center(
+        return Center(
           child: Card(
             child: Padding(
-              padding: EdgeInsets.all(24),
+              padding: const EdgeInsets.all(24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 16),
                   Text(
-                    'Gerando cat\u00e1logo...',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  SizedBox(height: 6),
-                  Text(
-                    'Aguarde. Isso pode levar alguns minutos.',
-                    textAlign: TextAlign.center,
-                  ),
+                  const SizedBox(height: 6),
+                  Text(message, textAlign: TextAlign.center),
                 ],
               ),
             ),
@@ -872,6 +885,8 @@ class CatalogShareHelper {
         );
       },
     );
+
+    await Future<void>.delayed(Duration.zero);
 
     try {
       return await action();
@@ -1070,8 +1085,7 @@ class CatalogShareHelper {
                                   context,
                                   style: style,
                                   isSelected: isSelected,
-                                  onTap: () =>
-                                      setState(() {
+                                  onTap: () => setState(() {
                                     selectedPdfStyle = style;
                                     if (style != CatalogPdfStyle.classic) {
                                       editablePrice = false;
@@ -1200,9 +1214,11 @@ class CatalogShareHelper {
                                 'Permite que o cliente altere os pre\u00e7os no PDF. (Dispon\u00edvel no estilo Cl\u00e1ssico)',
                               ),
                               value: editablePrice,
-                              onChanged: selectedPdfStyle == CatalogPdfStyle.classic
-                                  ? (value) =>
-                                      setState(() => editablePrice = value ?? false)
+                              onChanged:
+                                  selectedPdfStyle == CatalogPdfStyle.classic
+                                  ? (value) => setState(
+                                      () => editablePrice = value ?? false,
+                                    )
                                   : null,
                               activeColor: AppTokens.accentBlue,
                             ),

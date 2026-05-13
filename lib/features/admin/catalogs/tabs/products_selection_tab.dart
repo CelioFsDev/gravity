@@ -48,6 +48,7 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
 
   @override
   Widget build(BuildContext context) {
+    final selectedIdSet = widget.selectedIds.toSet();
     final collections = widget.categories
         .where((category) => category.type == CategoryType.collection)
         .toList();
@@ -56,7 +57,7 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
         .toList();
 
     final filtered = widget.allProducts.where((product) {
-      if (_onlySelected && !widget.selectedIds.contains(product.id)) {
+      if (_onlySelected && !selectedIdSet.contains(product.id)) {
         return false;
       }
       if (_onlyWithPhoto && product.photos.isEmpty && product.images.isEmpty) {
@@ -191,7 +192,7 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
                     final product = filtered[index];
                     return _ProductSelectTile(
                       product: product,
-                      isSelected: widget.selectedIds.contains(product.id),
+                      isSelected: selectedIdSet.contains(product.id),
                       onToggle: () => widget.onToggle(product.id),
                     );
                   },
