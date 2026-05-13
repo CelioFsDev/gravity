@@ -39,6 +39,7 @@ class CatalogPdfService {
     Map<String, Category>? collectionsMap,
     String? mainCoverCollectionId,
     bool showPrice = true,
+    bool editablePrice = false,
     bool useLoosePhotos = false,
     CatalogPdfStyle style = CatalogPdfStyle.classic,
     String? catalogUrl,
@@ -149,6 +150,7 @@ class CatalogPdfService {
                     collectionName: collectionName,
                     defaultSubtitle: defaultSubtitle,
                     showPrice: showPrice,
+                    editablePrice: editablePrice,
                     useLoosePhotos: true,
                     forcedHeroPath: photo?.uri,
                     style: style,
@@ -185,6 +187,7 @@ class CatalogPdfService {
                         collectionName: collectionName,
                         defaultSubtitle: defaultSubtitle,
                         showPrice: showPrice,
+                        editablePrice: editablePrice,
                         useLoosePhotos: false,
                         style: style,
                       ),
@@ -688,6 +691,7 @@ class CatalogPdfService {
     String? collectionName,
     String defaultSubtitle = 'SELEÇÃO DE PRODUTOS',
     bool showPrice = true,
+    bool editablePrice = false,
     bool useLoosePhotos = false,
     String? forcedHeroPath,
     CatalogPdfStyle style = CatalogPdfStyle.classic,
@@ -857,6 +861,7 @@ class CatalogPdfService {
           availableWidth,
           availableHeight,
           currencyFormat,
+          editablePrice: editablePrice,
         );
     }
   }
@@ -1389,9 +1394,18 @@ class CatalogPdfService {
     NumberFormat currencyFormat, {
     bool isClean = false,
     bool showDetails = true,
+    bool editablePrice = false,
   }) {
     final mainPhotoHeight = availableHeight - 35 - 175 - 15;
     final radius = isClean ? 14.0 : 0.0;
+    final formattedPrice = _formatCurrencyForPdfField(
+      currencyFormat,
+      displayPrice,
+    );
+    final editablePriceValue = _formatCurrencyAmountForPdfField(
+      currencyFormat,
+      displayPrice,
+    );
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(horizontal: 18),
       child: pw.Column(
@@ -1497,14 +1511,63 @@ class CatalogPdfService {
                       ),
                       if (showPrice) ...[
                         pw.SizedBox(height: 15),
-                        pw.Text(
-                          currencyFormat.format(displayPrice),
-                          style: pw.TextStyle(
-                            fontSize: isClean ? 24 : 22,
-                            fontWeight: pw.FontWeight.bold,
-                            color: isClean ? PdfColors.black : _colorPriceGreen,
-                          ),
-                        ),
+                        editablePrice
+                            ? pw.Container(
+                                padding: const pw.EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                  vertical: 5,
+                                ),
+                                decoration: pw.BoxDecoration(
+                                  color: PdfColors.grey100,
+                                  borderRadius: pw.BorderRadius.circular(4),
+                                  border: pw.Border.all(
+                                    color: PdfColors.grey300,
+                                    width: 0.5,
+                                  ),
+                                ),
+                                child: pw.Row(
+                                  mainAxisSize: pw.MainAxisSize.min,
+                                  crossAxisAlignment:
+                                      pw.CrossAxisAlignment.center,
+                                  children: [
+                                    pw.Text(
+                                      r'R$',
+                                      style: pw.TextStyle(
+                                        fontSize: isClean ? 20 : 18,
+                                        fontWeight: pw.FontWeight.bold,
+                                        color: isClean
+                                            ? PdfColors.black
+                                            : _colorPriceGreen,
+                                      ),
+                                    ),
+                                    pw.SizedBox(width: 4),
+                                    pw.TextField(
+                                      name: 'price_${product.id}',
+                                      width: isClean ? 102 : 94,
+                                      height: isClean ? 28 : 26,
+                                      value: editablePriceValue,
+                                      defaultValue: editablePriceValue,
+                                      textStyle: pw.TextStyle(
+                                        fontSize: isClean ? 20 : 18,
+                                        fontWeight: pw.FontWeight.bold,
+                                        color: isClean
+                                            ? PdfColors.black
+                                            : _colorPriceGreen,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : pw.Text(
+                                formattedPrice,
+                                style: pw.TextStyle(
+                                  fontSize: isClean ? 24 : 22,
+                                  fontWeight: pw.FontWeight.bold,
+                                  color: isClean
+                                      ? PdfColors.black
+                                      : _colorPriceGreen,
+                                ),
+                              ),
                       ],
                     ],
                   ),
@@ -2123,6 +2186,28 @@ class CatalogPdfService {
         ),
       ),
     );
+  }
+
+  static String _formatCurrencyForPdfField(
+    NumberFormat currencyFormat,
+    double value,
+  ) {
+    final formatted = currencyFormat.format(value);
+
+    return formatted
+        .replaceAll('\u00A0', ' ')
+        .replaceAll('\u202F', ' ')
+        .replaceFirst(RegExp(r'^R\$\s*'), r'R$ ');
+  }
+
+  static String _formatCurrencyAmountForPdfField(
+    NumberFormat currencyFormat,
+    double value,
+  ) {
+    return _formatCurrencyForPdfField(
+      currencyFormat,
+      value,
+    ).replaceFirst(RegExp(r'^R\$\s*'), '');
   }
 
   static PdfColor? _pdfColorFromInt(int? colorValue) {

@@ -20,7 +20,6 @@ import 'package:catalogo_ja/ui/widgets/app_search_field.dart';
 import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
 import 'package:catalogo_ja/ui/widgets/app_product_list_tile.dart';
 import 'package:uuid/uuid.dart';
-import 'package:catalogo_ja/ui/motion/app_motion.dart' hide AppMotion;
 import 'package:catalogo_ja/core/auth/user_role.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/settings_viewmodel.dart';

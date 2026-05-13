@@ -120,6 +120,7 @@ class CatalogShareHelper {
             mode: options.mode,
             showPrice: options.showPrice,
             pdfStyle: options.pdfStyle,
+            editablePrice: options.editablePrice,
           ),
         );
         if (pdfFiles.isEmpty) {
@@ -184,6 +185,7 @@ class CatalogShareHelper {
             coverTypeOverride: options.coverType,
             collectionIdOverride: options.collectionId,
             includeContactPage: options.includeContactPage,
+            editablePrice: options.editablePrice,
           ),
         );
 
@@ -492,6 +494,7 @@ class CatalogShareHelper {
             mode: options.mode,
             showPrice: options.showPrice,
             pdfStyle: options.pdfStyle,
+            editablePrice: options.editablePrice,
           ),
         );
         if (pdfFiles.isEmpty) {
@@ -541,6 +544,7 @@ class CatalogShareHelper {
             coverTypeOverride: options.coverType,
             collectionIdOverride: options.collectionId,
             includeContactPage: options.includeContactPage,
+            editablePrice: options.editablePrice,
           ),
         );
         final settings = ref.read(settingsRepositoryProvider).getSettings();
@@ -593,6 +597,7 @@ class CatalogShareHelper {
     String? coverTypeOverride,
     String? collectionIdOverride,
     bool includeContactPage = true,
+    bool editablePrice = false,
   }) async {
     // Wait for products to load if they haven't yet
     final productsState = await ref.read(productsViewModelProvider.future);
@@ -757,6 +762,7 @@ class CatalogShareHelper {
         columnsCount: columnsCount,
         mode: mode,
         showPrice: showPrice,
+        editablePrice: editablePrice,
         useLoosePhotos: useLoosePhotos,
         style: pdfStyle,
         bannerImagePath: bannerImagePath,
@@ -781,6 +787,7 @@ class CatalogShareHelper {
       columnsCount: columnsCount,
       mode: mode,
       showPrice: showPrice,
+      editablePrice: editablePrice,
       useLoosePhotos: useLoosePhotos,
       style: pdfStyle,
       bannerImagePath: bannerImagePath,
@@ -882,6 +889,7 @@ class CatalogShareHelper {
   ) async {
     CatalogMode selectedMode = CatalogMode.varejo;
     bool showPrice = true;
+    bool editablePrice = false;
     bool useLoosePhotos = false;
     bool includeContactPage = true;
     CatalogExportFileFormat fileFormat = CatalogExportFileFormat.pdf;
@@ -1063,7 +1071,12 @@ class CatalogShareHelper {
                                   style: style,
                                   isSelected: isSelected,
                                   onTap: () =>
-                                      setState(() => selectedPdfStyle = style),
+                                      setState(() {
+                                    selectedPdfStyle = style;
+                                    if (style != CatalogPdfStyle.classic) {
+                                      editablePrice = false;
+                                    }
+                                  }),
                                 );
                               }).toList(),
                             ),
@@ -1180,6 +1193,23 @@ class CatalogShareHelper {
                               contentPadding: EdgeInsets.zero,
                               controlAffinity: ListTileControlAffinity.leading,
                               title: const Text(
+                                'PDF Edit\u00e1vel',
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                              subtitle: const Text(
+                                'Permite que o cliente altere os pre\u00e7os no PDF. (Dispon\u00edvel no estilo Cl\u00e1ssico)',
+                              ),
+                              value: editablePrice,
+                              onChanged: selectedPdfStyle == CatalogPdfStyle.classic
+                                  ? (value) =>
+                                      setState(() => editablePrice = value ?? false)
+                                  : null,
+                              activeColor: AppTokens.accentBlue,
+                            ),
+                            CheckboxListTile(
+                              contentPadding: EdgeInsets.zero,
+                              controlAffinity: ListTileControlAffinity.leading,
+                              title: const Text(
                                 'Incluir ultima pagina com link do catalogo',
                                 style: TextStyle(fontWeight: FontWeight.w600),
                               ),
@@ -1232,6 +1262,7 @@ class CatalogShareHelper {
                                 fileFormat,
                                 selectedPdfStyle,
                                 includeContactPage: includeContactPage,
+                                editablePrice: editablePrice,
                               ),
                             ),
                             child: const Text(
@@ -1408,6 +1439,7 @@ class CatalogExportOptions {
   final String coverType;
   final String? collectionId;
   final bool showPrice;
+  final bool editablePrice;
   final bool useLoosePhotos;
   final CatalogExportFileFormat fileFormat;
   final CatalogPdfStyle pdfStyle;
@@ -1421,6 +1453,7 @@ class CatalogExportOptions {
     this.fileFormat,
     this.pdfStyle, {
     this.includeContactPage = true,
+    this.editablePrice = false,
   });
 }
 
@@ -1451,6 +1484,7 @@ Future<List<_GeneratedPdfFile>> _generatePerProductPdfFiles(
   required CatalogMode mode,
   required bool showPrice,
   required CatalogPdfStyle pdfStyle,
+  bool editablePrice = false,
 }) async {
   final productsState = await ref.read(productsViewModelProvider.future);
   final catalogProducts = productsState.allProducts
@@ -1466,6 +1500,7 @@ Future<List<_GeneratedPdfFile>> _generatePerProductPdfFiles(
       products: [product],
       mode: mode,
       showPrice: showPrice,
+      editablePrice: editablePrice,
       includeCover: false,
       collectionsMap: null,
       useLoosePhotos: false,
