@@ -1,5 +1,5 @@
 import 'package:hive/hive.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:catalogo_ja/core/utils/safe_parse.dart';
 import 'package:catalogo_ja/models/sync_status.dart';
 
 part 'catalog.g.dart';
@@ -18,26 +18,18 @@ class CatalogBanner {
   CatalogBanner({required this.id, required this.imagePath, this.title});
 
   Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'imagePath': imagePath,
-      'title': title,
-    };
+    return {'id': id, 'imagePath': imagePath, 'title': title};
   }
 
   factory CatalogBanner.fromMap(Map<String, dynamic> map) {
     return CatalogBanner(
-      id: map['id']?.toString() ?? '',
-      imagePath: map['imagePath']?.toString() ?? '',
-      title: map['title']?.toString(),
+      id: safeString(map['id']),
+      imagePath: safeString(map['imagePath']),
+      title: safeNullableString(map['title']),
     );
   }
 
-  CatalogBanner copyWith({
-    String? id,
-    String? imagePath,
-    String? title,
-  }) {
+  CatalogBanner copyWith({String? id, String? imagePath, String? title}) {
     return CatalogBanner(
       id: id ?? this.id,
       imagePath: imagePath ?? this.imagePath,
@@ -55,8 +47,9 @@ enum CatalogMode {
 }
 
 extension CatalogModeExtension on CatalogMode {
-  String get label =>
-      this == CatalogMode.atacado ? 'CAT\u00c1LOGO ATACADO' : 'CAT\u00c1LOGO VAREJO';
+  String get label => this == CatalogMode.atacado
+      ? 'CAT\u00c1LOGO ATACADO'
+      : 'CAT\u00c1LOGO VAREJO';
 }
 
 @HiveType(typeId: 6)
@@ -216,45 +209,16 @@ class Catalog {
   }
 
   factory Catalog.fromMap(Map<String, dynamic> map) {
-    DateTime parseDate(dynamic value) {
-      if (value == null) return DateTime.now();
-      if (value is DateTime) return value;
-      if (value is Timestamp) return value.toDate();
-      try {
-        if (value.runtimeType.toString().contains('Timestamp')) {
-          final dynamic timestamp = value;
-          final converted = timestamp.toDate();
-          if (converted is DateTime) return converted;
-        }
-      } catch (_) {}
-      if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
-      return DateTime.now();
-    }
-
-    List<String> parseStringList(dynamic value) {
-      if (value is String && value.trim().isNotEmpty) return [value.trim()];
-      if (value is! List) return const [];
-      return value
-          .where((item) => item != null)
-          .map((item) => item.toString())
-          .where((item) => item.isNotEmpty)
-          .toList();
-    }
-
-    bool parseBool(dynamic value, bool fallback) {
-      if (value is bool) return value;
-      if (value is num) return value != 0;
-      if (value is String) return value.toLowerCase() == 'true';
-      return fallback;
-    }
-
     SyncStatus parseSyncStatus(dynamic value) {
-      if (value is int && value >= 0 && value < SyncStatus.values.length) {
-        return SyncStatus.values[value];
+      if (value is SyncStatus) return value;
+      final index = value is int ? value : int.tryParse(safeString(value));
+      if (index != null && index >= 0 && index < SyncStatus.values.length) {
+        return SyncStatus.values[index];
       }
-      if (value is String) {
+      final name = safeString(value).trim();
+      if (name.isNotEmpty) {
         return SyncStatus.values.firstWhere(
-          (status) => status.name == value,
+          (status) => status.name == name,
           orElse: () => SyncStatus.synced,
         );
       }
@@ -262,48 +226,59 @@ class Catalog {
     }
 
     CatalogMode parseMode(dynamic value) {
-      if (value is String) {
+      if (value is CatalogMode) return value;
+      final index = value is int ? value : int.tryParse(safeString(value));
+      if (index != null && index >= 0 && index < CatalogMode.values.length) {
+        return CatalogMode.values[index];
+      }
+      final name = safeString(value).trim();
+      if (name.isNotEmpty) {
         return CatalogMode.values.firstWhere(
-          (e) => e.name == value,
+          (e) => e.name == name,
           orElse: () => CatalogMode.varejo,
         );
-      }
-      if (value is int && value >= 0 && value < CatalogMode.values.length) {
-        return CatalogMode.values[value];
       }
       return CatalogMode.varejo;
     }
 
     List<Map<String, dynamic>> parseMapList(dynamic value) {
       if (value is! List) return const [];
-      return value
-          .whereType<Map>()
-          .map((item) => item.map((key, val) => MapEntry(key.toString(), val)))
-          .toList();
+      return value.where((item) => item is CatalogBanner || item is Map).map((
+        item,
+      ) {
+        if (item is CatalogBanner) return item.toMap();
+        return safeMap(item);
+      }).toList();
     }
 
     return Catalog(
-      id: map['id']?.toString() ?? '',
-      name: map['name']?.toString() ?? '',
-      slug: map['slug']?.toString() ?? '',
-      active: parseBool(map['active'], true),
-      productIds: parseStringList(map['productIds']),
-      requireCustomerData: parseBool(map['requireCustomerData'], false),
-      photoLayout: map['photoLayout']?.toString() ?? 'grid',
-      announcementEnabled: parseBool(map['announcementEnabled'], false),
-      announcementText: map['announcementText']?.toString(),
-      banners: parseMapList(map['banners'])
-          .map<CatalogBanner>((b) => CatalogBanner.fromMap(b))
-          .toList(),
-      createdAt: parseDate(map['createdAt']),
-      updatedAt: parseDate(map['updatedAt']),
+      id: safeString(map['id']),
+      name: safeString(map['name']),
+      slug: safeString(map['slug']),
+      active: safeBool(map['active'], fallback: true),
+      productIds: safeStringList(map['productIds']),
+      requireCustomerData: safeBool(
+        map['requireCustomerData'],
+        fallback: false,
+      ),
+      photoLayout: safeString(map['photoLayout'], fallback: 'grid'),
+      announcementEnabled: safeBool(
+        map['announcementEnabled'],
+        fallback: false,
+      ),
+      announcementText: safeNullableString(map['announcementText']),
+      banners: parseMapList(
+        map['banners'],
+      ).map<CatalogBanner>((b) => CatalogBanner.fromMap(b)).toList(),
+      createdAt: safeDateTime(map['createdAt']),
+      updatedAt: safeDateTime(map['updatedAt']),
       mode: parseMode(map['mode']),
-      isPublic: parseBool(map['isPublic'], false),
-      shareCode: map['shareCode']?.toString() ?? '',
-      ownerUid: map['ownerUid']?.toString() ?? '',
-      includeCover: parseBool(map['includeCover'], true),
-      coverType: map['coverType']?.toString(),
-      tenantId: map['tenantId']?.toString(),
+      isPublic: safeBool(map['isPublic'], fallback: false),
+      shareCode: safeString(map['shareCode']),
+      ownerUid: safeString(map['ownerUid']),
+      includeCover: safeBool(map['includeCover'], fallback: true),
+      coverType: safeNullableString(map['coverType']),
+      tenantId: safeNullableString(map['tenantId']),
       syncStatus: parseSyncStatus(map['syncStatus']),
     );
   }

@@ -19,6 +19,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  Object? _loginError;
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -29,7 +31,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _handleEmailPasswordLogin() async {
     final form = _formKey.currentState;
-    if (form == null || !form.validate()) return;
+    if (_isSubmitting || form == null || !form.validate()) return;
+
+    setState(() {
+      _loginError = null;
+      _isSubmitting = true;
+    });
 
     try {
       await ref
@@ -38,8 +45,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             _emailController.text.trim().toLowerCase(),
             _passwordController.text,
           );
-    } catch (_) {
-      // The view model stores the error in authState, which renders below.
+    } catch (error) {
+      // Keep login errors local so stale auth/provider errors do not render
+      // when the login page opens.
+      if (mounted) {
+        setState(() => _loginError = error);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
     }
   }
 
@@ -68,7 +83,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authViewModelProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -77,15 +91,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         builder: (context, constraints) {
           final isWide = constraints.maxWidth >= 820;
           final panel = _LoginPanel(
-            authState: authState,
             formKey: _formKey,
             emailController: _emailController,
             passwordController: _passwordController,
             obscurePassword: _obscurePassword,
             isDark: isDark,
-            errorMessage: authState.hasError
-                ? _authErrorMessage(authState.error!)
-                : null,
+            isSubmitting: _isSubmitting,
+            errorMessage: _loginError == null
+                ? null
+                : _authErrorMessage(_loginError!),
             onTogglePassword: () =>
                 setState(() => _obscurePassword = !_obscurePassword),
             onSubmit: _handleEmailPasswordLogin,
@@ -194,12 +208,12 @@ class _LoginBrandPane extends StatelessWidget {
 
 class _LoginPanel extends StatelessWidget {
   const _LoginPanel({
-    required this.authState,
     required this.formKey,
     required this.emailController,
     required this.passwordController,
     required this.obscurePassword,
     required this.isDark,
+    required this.isSubmitting,
     required this.onTogglePassword,
     required this.onSubmit,
     required this.onRegister,
@@ -207,12 +221,12 @@ class _LoginPanel extends StatelessWidget {
     this.errorMessage,
   });
 
-  final AsyncValue<User?> authState;
   final GlobalKey<FormState> formKey;
   final TextEditingController emailController;
   final TextEditingController passwordController;
   final bool obscurePassword;
   final bool isDark;
+  final bool isSubmitting;
   final VoidCallback onTogglePassword;
   final VoidCallback onSubmit;
   final VoidCallback onRegister;
@@ -288,17 +302,16 @@ class _LoginPanel extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 30),
-            authState.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _EmailPasswordForm(
-                    formKey: formKey,
-                    emailController: emailController,
-                    passwordController: passwordController,
-                    obscurePassword: obscurePassword,
-                    isDark: isDark,
-                    onTogglePassword: onTogglePassword,
-                    onSubmit: onSubmit,
-                  ),
+            _EmailPasswordForm(
+              formKey: formKey,
+              emailController: emailController,
+              passwordController: passwordController,
+              obscurePassword: obscurePassword,
+              isDark: isDark,
+              isSubmitting: isSubmitting,
+              onTogglePassword: onTogglePassword,
+              onSubmit: onSubmit,
+            ),
             if (errorMessage != null) ...[
               const SizedBox(height: 16),
               Text(
@@ -376,6 +389,7 @@ class _EmailPasswordForm extends StatelessWidget {
     required this.passwordController,
     required this.obscurePassword,
     required this.isDark,
+    required this.isSubmitting,
     required this.onTogglePassword,
     required this.onSubmit,
   });
@@ -385,6 +399,7 @@ class _EmailPasswordForm extends StatelessWidget {
   final TextEditingController passwordController;
   final bool obscurePassword;
   final bool isDark;
+  final bool isSubmitting;
   final VoidCallback onTogglePassword;
   final VoidCallback onSubmit;
 
@@ -426,9 +441,9 @@ class _EmailPasswordForm extends StatelessWidget {
           ),
           const SizedBox(height: 28),
           AppPrimaryButton(
-            label: 'ENTRAR',
+            label: isSubmitting ? 'ENTRANDO...' : 'ENTRAR',
             icon: Icons.login_rounded,
-            onPressed: onSubmit,
+            onPressed: isSubmitting ? null : onSubmit,
           ),
         ],
       ),

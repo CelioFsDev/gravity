@@ -17,12 +17,12 @@ class ProductPhotoAdapter extends TypeAdapter<ProductPhoto> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return ProductPhoto(
-      path: fields[0] as String? ?? '',
-      colorKey: fields[1] as String?,
-      isPrimary: fields[2] as bool? ?? false,
-      photoType: fields[3] as String?,
-      id: fields[4] as String?,
-      url: fields[5] as String? ?? '',
+      path: fields[0]?.toString() ?? '',
+      colorKey: fields[1]?.toString(),
+      isPrimary: fields[2] is bool ? fields[2] as bool : false,
+      photoType: fields[3]?.toString(),
+      id: fields[4]?.toString(),
+      url: fields[5]?.toString() ?? '',
     );
   }
 
@@ -66,41 +66,88 @@ class ProductAdapter extends TypeAdapter<Product> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return Product(
-      id: fields[0] as String? ?? '',
-      name: fields[1] as String? ?? '',
-      ref: fields[2] as String? ?? '',
-      sku: fields[3] as String? ?? '',
-      categoryIds: (fields[17] as List?)?.cast<String>() ?? <String>[],
-      priceRetail: (fields[5] as num?)?.toDouble() ?? 0,
-      priceWholesale: (fields[6] as num?)?.toDouble() ?? 0,
-      minWholesaleQty: fields[7] as int? ?? 1,
-      sizes: (fields[8] as List?)?.cast<String>() ?? <String>[],
-      colors: (fields[9] as List?)?.cast<String>() ?? <String>[],
-      images: (fields[10] as List?)?.cast<ProductImage>() ?? <ProductImage>[],
-      mainImageIndex: fields[11] as int? ?? 0,
-      isActive: fields[12] as bool? ?? true,
-      isOutOfStock: fields[13] as bool? ?? false,
-      promoEnabled: fields[14] as bool? ?? false,
-      createdAt: fields[15] as DateTime? ?? DateTime.now(),
-      photos: (fields[24] as List?)?.cast<ProductPhoto>() ?? <ProductPhoto>[],
-      promoPercent: (fields[16] as num?)?.toDouble() ?? 0,
-      slug: fields[18] as String? ?? '',
-      description: fields[19] as String?,
-      tags: (fields[20] as List?)?.cast<String>() ?? <String>[],
-      remoteImages: (fields[21] as List?)?.cast<String>() ?? <String>[],
+      id: fields[0]?.toString() ?? '',
+      name: fields[1]?.toString() ?? '',
+      ref: fields[2]?.toString() ?? '',
+      sku: fields[3]?.toString() ?? '',
+      categoryIds:
+          (fields[17] as List?)?.map((e) => e.toString()).toList() ??
+          <String>[],
+      priceRetail: fields[5] is num ? (fields[5] as num).toDouble() : 0,
+      priceWholesale: fields[6] is num ? (fields[6] as num).toDouble() : 0,
+      minWholesaleQty: fields[7] is num ? (fields[7] as num).toInt() : 1,
+      sizes:
+          (fields[8] as List?)?.map((e) => e.toString()).toList() ?? <String>[],
+      colors:
+          (fields[9] as List?)?.map((e) => e.toString()).toList() ?? <String>[],
+      images:
+          (fields[10] as List?)
+              ?.where((e) => e is ProductImage || e is Map || e is String)
+              .map<ProductImage>((e) {
+                if (e is ProductImage) return e;
+                if (e is Map) return ProductImage.fromMap(Map<String, dynamic>.from(e));
+                return ProductImage.network(url: e.toString());
+              })
+              .toList() ??
+          <ProductImage>[],
+      mainImageIndex: fields[11] is num ? (fields[11] as num).toInt() : 0,
+      isActive: fields[12] is bool ? fields[12] as bool : true,
+      isOutOfStock: fields[13] is bool ? fields[13] as bool : false,
+      promoEnabled: fields[14] is bool ? fields[14] as bool : false,
+      createdAt: fields[15] is DateTime ? fields[15] as DateTime : DateTime.now(),
+      photos:
+          (fields[24] as List?)
+              ?.where((e) => e is ProductPhoto || e is Map || e is String)
+              .map<ProductPhoto>((e) {
+                if (e is ProductPhoto) return e;
+                if (e is Map) {
+                  final map = Map<String, dynamic>.from(e);
+                  return ProductPhoto(
+                    path: (map['path'] ?? map['url'] ?? '').toString(),
+                    colorKey: map['colorKey']?.toString(),
+                    isPrimary: map['isPrimary'] is bool
+                        ? map['isPrimary'] as bool
+                        : false,
+                    photoType: map['photoType']?.toString(),
+                    id: map['id']?.toString(),
+                    url: map['url']?.toString() ?? '',
+                  );
+                }
+                return ProductPhoto(path: e.toString());
+              })
+              .toList() ??
+          <ProductPhoto>[],
+      promoPercent: fields[16] is num ? (fields[16] as num).toDouble() : 0,
+      slug: fields[18]?.toString() ?? '',
+      description: fields[19]?.toString(),
+      tags:
+          (fields[20] as List?)?.map((e) => e.toString()).toList() ??
+          <String>[],
+      remoteImages:
+          (fields[21] as List?)?.map((e) => e.toString()).toList() ??
+          <String>[],
       variants:
-          (fields[22] as List?)?.cast<ProductVariant>() ?? <ProductVariant>[],
-      tenantId: fields[25] as String?,
+          (fields[22] as List?)
+              ?.where((e) => e is ProductVariant || e is Map)
+              .map<ProductVariant>((e) {
+                if (e is ProductVariant) return e;
+                return ProductVariant.fromMap(Map<String, dynamic>.from(e as Map));
+              })
+              .toList() ??
+          <ProductVariant>[],
+      tenantId: fields[25]?.toString(),
       storeOverrides: (fields[26] as Map?)
               ?.map(
                 (dynamic k, dynamic v) => MapEntry(
                   k.toString(),
-                  v is Map ? v.cast<String, dynamic>() : <String, dynamic>{},
+                  v is Map ? Map<String, dynamic>.from(v) : <String, dynamic>{},
                 ),
               ) ??
           <String, Map<String, dynamic>>{},
-      syncStatus: fields[27] as SyncStatus? ?? SyncStatus.synced,
-      updatedAt: fields[23] as DateTime?,
+      syncStatus: fields[27] is SyncStatus
+          ? fields[27] as SyncStatus
+          : SyncStatus.synced,
+      updatedAt: fields[23] is DateTime ? fields[23] as DateTime : null,
     );
   }
 

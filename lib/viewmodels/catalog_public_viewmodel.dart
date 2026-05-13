@@ -13,6 +13,19 @@ Future<PublicCatalogData?> catalogPublic(
   String shareCode,
 ) async {
   final repo = ref.watch(publicCatalogRepositoryProvider);
-  final data = await repo.getPublicCatalogData(shareCode.trim().toLowerCase());
-  return data;
+  final normalizedShareCode = shareCode.trim().toLowerCase();
+  debugPrint('catalogPublicProvider load: shareCode="$normalizedShareCode"');
+  try {
+    final data = await repo.getPublicCatalogData(normalizedShareCode);
+    debugPrint(
+      'catalogPublicProvider loaded: shareCode="$normalizedShareCode", '
+      'hasData=${data != null}',
+    );
+    return data;
+  } catch (e, s) {
+    debugPrint('catalogPublicProvider error for $normalizedShareCode: $e');
+    debugPrint(e.toString());
+    debugPrint(s.toString());
+    rethrow;
+  }
 }

@@ -67,76 +67,225 @@ final currentUserStatusProvider = StreamProvider<bool>((ref) {
 });
 
 void main() async {
-  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
-  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
-  if (kIsWeb) {
-    usePathUrlStrategy();
+  String? bootMode;
+  try {
+    if (kIsWeb) {
+      bootMode = Uri.base.queryParameters['boot'];
+    }
+  } catch (_) {}
+
+  void showBootError(int step, Object error, StackTrace stackTrace) {
+    String platform = kIsWeb ? 'Web' : defaultTargetPlatform.name;
+    String url = '';
+    try {
+      if (kIsWeb) url = Uri.base.toString();
+    } catch (_) {}
+    runApp(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('ERRO FATAL DE BOOT', style: TextStyle(color: Colors.red, fontSize: 24, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                Text('Etapa: $step', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text('Plataforma: $platform'),
+                Text('URL: $url'),
+                const SizedBox(height: 16),
+                const Text('Erro:', style: TextStyle(fontWeight: FontWeight.bold)),
+                Text(error.toString(), style: const TextStyle(color: Colors.red)),
+                const SizedBox(height: 16),
+                const Text('Stack Trace:', style: TextStyle(fontWeight: FontWeight.bold)),
+                Text(stackTrace.toString(), style: const TextStyle(fontFamily: 'monospace', fontSize: 10)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    FlutterNativeSplash.remove();
   }
-
-  await initializeDateFormatting('pt_BR', null);
-
-  // Initialize Hive
-  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
-    final dir = await getApplicationSupportDirectory();
-    final hivePath = p.join(dir.path, 'catalogo_ja', 'db_v2');
-    await Hive.initFlutter(hivePath);
-  } else {
-    await Hive.initFlutter();
-  }
-
-  // Register Adapters
-  Hive.registerAdapter(SyncStatusAdapter());
-  Hive.registerAdapter(CategoryTypeAdapter());
-  Hive.registerAdapter(CollectionCoverModeAdapter());
-  Hive.registerAdapter(CollectionCoverAdapter());
-  Hive.registerAdapter(CategoryAdapter());
-  Hive.registerAdapter(ProductVariantAdapter());
-  Hive.registerAdapter(ProductPhotoAdapter());
-  Hive.registerAdapter(ProductImageSourceAdapter());
-  Hive.registerAdapter(ProductImageAdapter());
-  Hive.registerAdapter(SyncQueueItemAdapter());
-  Hive.registerAdapter(AppSettingsAdapter());
-  Hive.registerAdapter(ProductAdapter());
-  Hive.registerAdapter(CatalogBannerAdapter());
-  Hive.registerAdapter(CatalogModeAdapter());
-  Hive.registerAdapter(CatalogAdapter());
 
   try {
-    // Open Boxes with individual safe guards
-    Future<void> safeOpenBox<T>(String name) async {
-      try {
-        await Hive.openBox<T>(name);
-      } catch (e) {
-        debugPrint('Error opening "$name" box: $e. Recreating...');
-        try {
-          await Hive.deleteBoxFromDisk(name);
-          await Hive.openBox<T>(name);
-        } catch (innerE) {
-          debugPrint('Failed to recreate "$name": $innerE');
-        }
+    debugPrint('[BOOT_IOS] ETAPA 1 - WidgetsFlutterBinding.ensureInitialized()');
+    WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+    FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+  } catch (e, st) {
+    debugPrint('[BOOT_IOS][ERRO ETAPA 1]');
+    debugPrint(e.toString());
+    debugPrint(st.toString());
+    showBootError(1, e, st);
+    return;
+  }
+
+  if (bootMode == 'minimal') {
+    runApp(const MaterialApp(
+      home: Scaffold(
+        body: Center(child: Text('IOS BOOT MINIMAL OK')),
+      ),
+    ));
+    FlutterNativeSplash.remove();
+    return;
+  }
+
+  try {
+    debugPrint('[BOOT_IOS] ETAPA 2 - usePathUrlStrategy()');
+    if (kIsWeb) {
+      usePathUrlStrategy();
+    }
+    await initializeDateFormatting('pt_BR', null);
+  } catch (e, st) {
+    debugPrint('[BOOT_IOS][ERRO ETAPA 2]');
+    debugPrint(e.toString());
+    debugPrint(st.toString());
+    showBootError(2, e, st);
+    return;
+  }
+
+  if (bootMode != 'no-hive') {
+    try {
+      debugPrint('[BOOT_IOS] ETAPA 3 - inicialização Hive');
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+        final dir = await getApplicationSupportDirectory();
+        final hivePath = p.join(dir.path, 'catalogo_ja', 'db_v2');
+        await Hive.initFlutter(hivePath);
+      } else {
+        await Hive.initFlutter();
       }
+
+      Hive.registerAdapter(SyncStatusAdapter());
+      Hive.registerAdapter(CategoryTypeAdapter());
+      Hive.registerAdapter(CollectionCoverModeAdapter());
+      Hive.registerAdapter(CollectionCoverAdapter());
+      Hive.registerAdapter(CategoryAdapter());
+      Hive.registerAdapter(ProductVariantAdapter());
+      Hive.registerAdapter(ProductPhotoAdapter());
+      Hive.registerAdapter(ProductImageSourceAdapter());
+      Hive.registerAdapter(ProductImageAdapter());
+      Hive.registerAdapter(SyncQueueItemAdapter());
+      Hive.registerAdapter(AppSettingsAdapter());
+      Hive.registerAdapter(ProductAdapter());
+      Hive.registerAdapter(CatalogBannerAdapter());
+      Hive.registerAdapter(CatalogModeAdapter());
+      Hive.registerAdapter(CatalogAdapter());
+    } catch (e, st) {
+      debugPrint('[BOOT_IOS][ERRO ETAPA 3]');
+      debugPrint(e.toString());
+      debugPrint(st.toString());
+      showBootError(3, e, st);
+      return;
     }
 
-    await safeOpenBox<Category>('categories');
-    await safeOpenBox<Product>('products');
-    await safeOpenBox<Catalog>('catalogs');
-    await safeOpenBox<SyncQueueItem>(SyncQueueRepository.boxName);
-    await safeOpenBox<AppSettings>('settings');
-
     try {
-      if (Firebase.apps.isEmpty) {
+      debugPrint('[BOOT_IOS] ETAPA 4 - abertura das boxes Hive');
+      Future<void> safeOpenBox<T>(String name) async {
+        try {
+          await Hive.openBox<T>(name);
+        } catch (e) {
+          debugPrint('Error opening "$name" box: $e. Recreating...');
+          try {
+            await Hive.deleteBoxFromDisk(name);
+            await Hive.openBox<T>(name);
+          } catch (innerE) {
+            debugPrint('Failed to recreate "$name": $innerE');
+          }
+        }
+      }
+
+      await safeOpenBox<Category>('categories');
+      await safeOpenBox<Product>('products');
+      await safeOpenBox<Catalog>('catalogs');
+      await safeOpenBox<SyncQueueItem>(SyncQueueRepository.boxName);
+      await safeOpenBox<AppSettings>('settings');
+    } catch (e, st) {
+      debugPrint('[BOOT_IOS][ERRO ETAPA 4]');
+      debugPrint(e.toString());
+      debugPrint(st.toString());
+      showBootError(4, e, st);
+      return;
+    }
+  }
+
+  if (bootMode != 'no-firebase') {
+    try {
+      debugPrint('[BOOT_IOS] ETAPA 5 - Firebase.initializeApp()');
+      try {
         await Firebase.initializeApp(
           options: DefaultFirebaseOptions.currentPlatform,
         );
+      } catch (e) {
+        if (!e.toString().contains('duplicate-app')) {
+          rethrow;
+        }
       }
-      if (kIsWeb) {
-        await _configureFirebaseForWeb();
-      }
-    } catch (e) {
-      debugPrint('Firebase initialization warning: $e');
+    } catch (e, st) {
+      debugPrint('[BOOT_IOS][ERRO ETAPA 5]');
+      debugPrint(e.toString());
+      debugPrint(st.toString());
+      showBootError(5, e, st);
+      return;
     }
 
-    // Configuração do Crashlytics
+    try {
+      debugPrint('[BOOT_IOS] ETAPA 6 - configuração Firebase Auth persistence');
+      if (kIsWeb && bootMode != 'no-auth-persistence') {
+        try {
+          await FirebaseAuth.instance.setPersistence(Persistence.SESSION);
+        } catch (e) {
+          debugPrint('Firebase Auth session persistence warning: $e');
+          await FirebaseAuth.instance.setPersistence(Persistence.NONE);
+        }
+      }
+    } catch (e, st) {
+      debugPrint('[BOOT_IOS][ERRO ETAPA 6]');
+      debugPrint(e.toString());
+      debugPrint(st.toString());
+      showBootError(6, e, st);
+      return;
+    }
+
+    try {
+      debugPrint('[BOOT_IOS] ETAPA 7 - configuração Firestore');
+      if (kIsWeb) {
+        FirebaseFirestore.instance.settings = const Settings(
+          persistenceEnabled: false,
+          webExperimentalAutoDetectLongPolling: true,
+        );
+      }
+    } catch (e, st) {
+      debugPrint('[BOOT_IOS][ERRO ETAPA 7]');
+      debugPrint(e.toString());
+      debugPrint(st.toString());
+      showBootError(7, e, st);
+      return;
+    }
+  }
+
+  if (bootMode == 'no-hive') {
+    runApp(const MaterialApp(
+      home: Scaffold(
+        body: Center(child: Text('IOS BOOT NO HIVE OK')),
+      ),
+    ));
+    FlutterNativeSplash.remove();
+    return;
+  }
+
+  if (bootMode == 'no-firebase') {
+    runApp(const MaterialApp(
+      home: Scaffold(
+        body: Center(child: Text('IOS BOOT NO FIREBASE OK')),
+      ),
+    ));
+    FlutterNativeSplash.remove();
+    return;
+  }
+
+  try {
+    debugPrint('[BOOT_IOS] ETAPA 8 - runApp ProviderScope(MyApp)');
+    
     final isMobile =
         !kIsWeb &&
         (defaultTargetPlatform == TargetPlatform.android ||
@@ -148,7 +297,6 @@ void main() async {
         FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
       };
 
-      // Pass ALL errors to Crashlytics
       PlatformDispatcher.instance.onError = (error, stack) {
         FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
         return true;
@@ -156,45 +304,14 @@ void main() async {
     }
 
     runApp(const ProviderScope(child: MyApp()));
-  } catch (e, stack) {
-    debugPrint('🔥 Fatal initialization error: $e\n$stack');
-    runApp(
-      MaterialApp(
-        home: Scaffold(
-          body: Padding(
-            padding: const EdgeInsets.all(32.0),
-            child: Center(
-              child: Text(
-                'Ops! Ocorreu um erro crítico ao iniciar o aplicativo.\n\nDetalhes:\n$e',
-                style: const TextStyle(color: Colors.red, fontSize: 16),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+  } catch (e, st) {
+    debugPrint('[BOOT_IOS][ERRO ETAPA 8]');
+    debugPrint(e.toString());
+    debugPrint(st.toString());
+    showBootError(8, e, st);
+    return;
   } finally {
-    // Garante que a splash saia da tela mesmo se tudo der errado
     FlutterNativeSplash.remove();
-  }
-}
-
-Future<void> _configureFirebaseForWeb() async {
-  try {
-    FirebaseFirestore.instance.settings = const Settings(
-      persistenceEnabled: false,
-      webExperimentalAutoDetectLongPolling: true,
-    );
-  } catch (e) {
-    debugPrint('Firestore web settings warning: $e');
-  }
-
-  try {
-    await FirebaseAuth.instance.setPersistence(Persistence.SESSION);
-  } catch (e) {
-    debugPrint('Firebase Auth session persistence warning: $e');
-    await FirebaseAuth.instance.setPersistence(Persistence.NONE);
   }
 }
 
@@ -363,15 +480,18 @@ class _MyAppState extends ConsumerState<MyApp> {
           path: '/p/:productId',
           pageBuilder: (context, state) {
             final productId = state.pathParameters['productId']!;
-            final extra = state.extra as Map<String, dynamic>?;
+            final extra = state.extra;
+            final product = extra is Map ? extra['product'] : null;
+            final mode = extra is Map ? extra['mode'] : null;
+            final extraShareCode = extra is Map ? extra['shareCode'] : null;
 
-            if (extra != null && extra.containsKey('product')) {
+            if (product is Product && mode is CatalogMode) {
               return _buildPage(
                 state,
                 PublicProductDetailScreen(
-                  product: extra['product'] as Product,
-                  mode: extra['mode'] as CatalogMode,
-                  shareCode: extra['shareCode'] as String?,
+                  product: product,
+                  mode: mode,
+                  shareCode: extraShareCode is String ? extraShareCode : null,
                 ),
               );
             }
@@ -390,14 +510,16 @@ class _MyAppState extends ConsumerState<MyApp> {
           pageBuilder: (context, state) {
             final productId = state.pathParameters['productId']!;
             final shareCode = state.pathParameters['shareCode']!;
-            final extra = state.extra as Map<String, dynamic>?;
+            final extra = state.extra;
+            final productFromExtra = extra is Map ? extra['product'] : null;
+            final modeFromExtra = extra is Map ? extra['mode'] : null;
 
-            if (extra != null && extra.containsKey('product')) {
+            if (productFromExtra is Product && modeFromExtra is CatalogMode) {
               return _buildPage(
                 state,
                 PublicProductDetailScreen(
-                  product: extra['product'] as Product,
-                  mode: extra['mode'] as CatalogMode,
+                  product: productFromExtra,
+                  mode: modeFromExtra,
                   shareCode: shareCode,
                 ),
               );
@@ -416,18 +538,30 @@ class _MyAppState extends ConsumerState<MyApp> {
                       backgroundColor: Color(0xFFF8FAFC),
                       body: Center(child: CircularProgressIndicator()),
                     ),
-                    error: (error, _) => Scaffold(
-                      backgroundColor: const Color(0xFFF8FAFC),
-                      body: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(
-                            'Nao foi possivel carregar este produto.\n$error',
-                            textAlign: TextAlign.center,
+                    error: (error, stackTrace) {
+                      debugPrint(
+                        'Public product route error for $shareCode/$productId: '
+                        '$error',
+                      );
+                      debugPrint(error.toString());
+                      debugPrint(stackTrace.toString());
+                      final showTechnicalError = kDebugMode || kProfileMode;
+
+                      return Scaffold(
+                        backgroundColor: const Color(0xFFF8FAFC),
+                        body: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Text(
+                              showTechnicalError
+                                  ? 'Nao foi possivel carregar este produto.\n$error'
+                                  : 'Nao foi possivel carregar este produto.',
+                              textAlign: TextAlign.center,
+                            ),
                           ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                     data: (data) {
                       Product? product;
                       if (data != null) {
@@ -470,6 +604,7 @@ class _MyAppState extends ConsumerState<MyApp> {
               CatalogHomePage(
                 shareCode: state.pathParameters['shareCode']!,
                 sellerWhatsapp: query['w'] ?? query['whatsapp'],
+                debugErrors: query['debug'] == '1' || query['debug'] == 'true',
               ),
             );
           },

@@ -17,9 +17,9 @@ class CatalogBannerAdapter extends TypeAdapter<CatalogBanner> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return CatalogBanner(
-      id: fields[0] as String,
-      imagePath: fields[1] as String,
-      title: fields[2] as String?,
+      id: fields[0]?.toString() ?? '',
+      imagePath: fields[1]?.toString() ?? '',
+      title: fields[2]?.toString(),
     );
   }
 
@@ -57,27 +57,38 @@ class CatalogAdapter extends TypeAdapter<Catalog> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return Catalog(
-      id: fields[0] as String,
-      name: fields[1] as String,
-      slug: fields[2] as String,
-      active: fields[3] as bool,
-      productIds: (fields[4] as List).cast<String>(),
-      requireCustomerData: fields[5] as bool,
-      photoLayout: fields[6] as String,
-      announcementEnabled: fields[7] as bool,
-      announcementText: fields[8] as String?,
-      banners: (fields[9] as List).cast<CatalogBanner>(),
-      createdAt: fields[10] as DateTime,
-      updatedAt: fields[11] as DateTime,
-      mode: fields[12] as CatalogMode,
-      isPublic: fields[13] as bool,
-      shareCode: fields[14] as String,
-      ownerUid: fields[15] as String,
-      includeCover: fields[16] as bool,
-      coverType: fields[17] as String?,
-      tenantId: fields[18] as String?,
-      syncStatus:
-          fields[19] == null ? SyncStatus.synced : fields[19] as SyncStatus,
+      id: fields[0]?.toString() ?? '',
+      name: fields[1]?.toString() ?? '',
+      slug: fields[2]?.toString() ?? '',
+      active: fields[3] is bool ? fields[3] as bool : true,
+      productIds:
+          (fields[4] as List?)?.map((e) => e.toString()).toList() ??
+          <String>[],
+      requireCustomerData: fields[5] is bool ? fields[5] as bool : false,
+      photoLayout: fields[6]?.toString() ?? 'grid',
+      announcementEnabled: fields[7] is bool ? fields[7] as bool : false,
+      announcementText: fields[8]?.toString(),
+      banners:
+          (fields[9] as List?)
+              ?.where((e) => e is CatalogBanner || e is Map)
+              .map<CatalogBanner>((e) {
+                if (e is CatalogBanner) return e;
+                return CatalogBanner.fromMap(Map<String, dynamic>.from(e as Map));
+              })
+              .toList() ??
+          <CatalogBanner>[],
+      createdAt: fields[10] is DateTime ? fields[10] as DateTime : DateTime.now(),
+      updatedAt: fields[11] is DateTime ? fields[11] as DateTime : DateTime.now(),
+      mode: fields[12] is CatalogMode ? fields[12] as CatalogMode : CatalogMode.varejo,
+      isPublic: fields[13] is bool ? fields[13] as bool : false,
+      shareCode: fields[14]?.toString() ?? '',
+      ownerUid: fields[15]?.toString() ?? '',
+      includeCover: fields[16] is bool ? fields[16] as bool : true,
+      coverType: fields[17]?.toString(),
+      tenantId: fields[18]?.toString(),
+      syncStatus: fields[19] is SyncStatus
+          ? fields[19] as SyncStatus
+          : SyncStatus.synced,
     );
   }
 

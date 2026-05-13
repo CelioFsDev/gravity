@@ -17,19 +17,21 @@ class CollectionCoverAdapter extends TypeAdapter<CollectionCover> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return CollectionCover(
-      mode: fields[0] as CollectionCoverMode,
-      coverImagePath: fields[1] as String?,
-      title: fields[2] as String?,
-      brand: fields[3] as String?,
-      subtitle: fields[4] as String?,
-      backgroundColor: fields[5] as int?,
-      overlayOpacity: fields[6] as double?,
-      bannerImagePath: fields[7] as String?,
-      heroImagePath: fields[8] as String?,
-      coverHeaderImagePath: fields[9] as String?,
-      coverMainImagePath: fields[10] as String?,
-      coverMiniPath: fields[11] as String?,
-      coverPagePath: fields[12] as String?,
+      mode: fields[0] is CollectionCoverMode
+          ? fields[0] as CollectionCoverMode
+          : CollectionCoverMode.template,
+      coverImagePath: fields[1]?.toString(),
+      title: fields[2]?.toString(),
+      brand: fields[3]?.toString(),
+      subtitle: fields[4]?.toString(),
+      backgroundColor: fields[5] is num ? (fields[5] as num).toInt() : null,
+      overlayOpacity: fields[6] is num ? (fields[6] as num).toDouble() : null,
+      bannerImagePath: fields[7]?.toString(),
+      heroImagePath: fields[8]?.toString(),
+      coverHeaderImagePath: fields[9]?.toString(),
+      coverMainImagePath: fields[10]?.toString(),
+      coverMiniPath: fields[11]?.toString(),
+      coverPagePath: fields[12]?.toString(),
     );
   }
 
@@ -87,17 +89,21 @@ class CategoryAdapter extends TypeAdapter<Category> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return Category(
-      id: fields[0] as String,
-      order: fields[2] as int,
-      createdAt: fields[3] as DateTime,
-      updatedAt: fields[4] as DateTime,
-      type: fields[5] as CategoryType,
-      cover: fields[6] as CollectionCover?,
-      isActive: fields[8] as bool,
-      tenantId: fields[9] as String?,
-      syncStatus: fields[10] as SyncStatus,
-      name: fields[1] as String?,
-      slug: fields[7] as String?,
+      id: fields[0]?.toString() ?? '',
+      order: fields[2] is num ? (fields[2] as num).toInt() : 0,
+      createdAt: fields[3] is DateTime ? fields[3] as DateTime : DateTime.now(),
+      updatedAt: fields[4] is DateTime ? fields[4] as DateTime : DateTime.now(),
+      type: fields[5] is CategoryType
+          ? fields[5] as CategoryType
+          : CategoryType.productType,
+      cover: fields[6] is CollectionCover ? fields[6] as CollectionCover : null,
+      isActive: fields[8] is bool ? fields[8] as bool : true,
+      tenantId: fields[9]?.toString(),
+      syncStatus: fields[10] is SyncStatus
+          ? fields[10] as SyncStatus
+          : SyncStatus.synced,
+      name: fields[1]?.toString(),
+      slug: fields[7]?.toString(),
     );
   }
 

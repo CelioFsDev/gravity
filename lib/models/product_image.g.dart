@@ -17,12 +17,14 @@ class ProductImageAdapter extends TypeAdapter<ProductImage> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return ProductImage(
-      id: fields[0] as String,
-      sourceType: fields[1] as ProductImageSource,
-      uri: fields[2] as String,
-      label: fields[3] as String?,
-      order: fields[4] as int,
-      colorTag: fields[5] as String?,
+      id: fields[0]?.toString() ?? '',
+      sourceType: fields[1] is ProductImageSource
+          ? fields[1] as ProductImageSource
+          : ProductImageSource.unknown,
+      uri: fields[2]?.toString() ?? '',
+      label: fields[3]?.toString(),
+      order: fields[4] is num ? (fields[4] as num).toInt() : 0,
+      colorTag: fields[5]?.toString(),
     );
   }
 

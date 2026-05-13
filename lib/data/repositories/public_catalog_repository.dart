@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:catalogo_ja/core/services/public_catalog_snapshot_service.dart';
+import 'package:catalogo_ja/core/utils/safe_parse.dart';
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/product.dart';
@@ -47,13 +48,22 @@ class FirestorePublicCatalogRepository {
   Future<PublicCatalogDataResponse?> getPublicCatalogData(
     String shareCode,
   ) async {
+    Catalog? catalogForDiagnostics;
+    List<Product> productsForDiagnostics = const [];
     try {
+      _logPublicCatalogLoadStart(shareCode);
       final rawShareCode = shareCode.trim();
       if (rawShareCode.isEmpty) return null;
       final normalizedShareCode = rawShareCode.toLowerCase();
 
       final snapshotData = await _getPublicCatalogSnapshot(normalizedShareCode);
       if (snapshotData != null) {
+        _logPublicCatalogLoaded(
+          source: 'snapshot',
+          shareCode: normalizedShareCode,
+          catalog: snapshotData.catalog,
+          products: snapshotData.products,
+        );
         debugPrint(
           '✅ Public catalog loaded from snapshot ($normalizedShareCode)',
         );
@@ -66,8 +76,15 @@ class FirestorePublicCatalogRepository {
               ? null
               : await _findPublicCatalogByShareCode(rawShareCode));
       if (catalog == null) return null;
+      catalogForDiagnostics = catalog;
 
       if (!catalog.active) {
+        _logPublicCatalogLoaded(
+          source: 'firestore-inactive',
+          shareCode: normalizedShareCode,
+          catalog: catalog,
+          products: const [],
+        );
         return PublicCatalogDataResponse(
           catalog: catalog,
           products: [],
@@ -82,22 +99,31 @@ class FirestorePublicCatalogRepository {
       if (productIds.isNotEmpty) {
         final tenantId = (catalog.tenantId ?? '').trim();
         if (tenantId.isNotEmpty) {
-          products = await _fetchProductsFromCollection(
-            _firestore
-                .collection('tenants')
-                .doc(tenantId)
-                .collection('products'),
-            productIds,
-          );
+          try {
+            products = await _fetchProductsFromCollection(
+              _firestore
+                  .collection('tenants')
+                  .doc(tenantId)
+                  .collection('products'),
+              productIds,
+            );
+          } catch (e, s) {
+            _logPublicCatalogFetchError('tenant products for $tenantId', e, s);
+          }
         }
 
         if (products.isEmpty) {
-          products = await _fetchProductsFromCollection(
-            _firestore.collection('products'),
-            productIds,
-          );
+          try {
+            products = await _fetchProductsFromCollection(
+              _firestore.collection('products'),
+              productIds,
+            );
+          } catch (e, s) {
+            _logPublicCatalogFetchError('root products', e, s);
+          }
         }
       }
+      productsForDiagnostics = products;
 
       final usedCategoryIds = products
           .expand((p) => p.categoryIds)
@@ -108,23 +134,41 @@ class FirestorePublicCatalogRepository {
       if (usedCategoryIds.isNotEmpty) {
         final tenantId = (catalog.tenantId ?? '').trim();
         if (tenantId.isNotEmpty) {
-          categories = await _fetchCategoriesFromCollection(
-            _firestore
-                .collection('tenants')
-                .doc(tenantId)
-                .collection('categories'),
-            usedCategoryIds,
-          );
+          try {
+            categories = await _fetchCategoriesFromCollection(
+              _firestore
+                  .collection('tenants')
+                  .doc(tenantId)
+                  .collection('categories'),
+              usedCategoryIds,
+            );
+          } catch (e, s) {
+            _logPublicCatalogFetchError(
+              'tenant categories for $tenantId',
+              e,
+              s,
+            );
+          }
         }
 
         if (categories.isEmpty) {
-          categories = await _fetchCategoriesFromCollection(
-            _firestore.collection('categories'),
-            usedCategoryIds,
-          );
+          try {
+            categories = await _fetchCategoriesFromCollection(
+              _firestore.collection('categories'),
+              usedCategoryIds,
+            );
+          } catch (e, s) {
+            _logPublicCatalogFetchError('root categories', e, s);
+          }
         }
       }
 
+      _logPublicCatalogLoaded(
+        source: 'firestore',
+        shareCode: normalizedShareCode,
+        catalog: catalog,
+        products: products,
+      );
       return PublicCatalogDataResponse(
         catalog: catalog,
         products: products,
@@ -133,6 +177,12 @@ class FirestorePublicCatalogRepository {
       );
     } catch (e, s) {
       debugPrint('Error loading public catalog data for $shareCode: $e');
+      debugPrint(
+        'Public catalog diagnostics on error: '
+        'catalogId=${catalogForDiagnostics?.id ?? '<none>'}, '
+        'products=${productsForDiagnostics.length}',
+      );
+      debugPrint(e.toString());
       debugPrint(s.toString());
       rethrow;
     }
@@ -152,7 +202,13 @@ class FirestorePublicCatalogRepository {
           .get();
 
       if (catalogsSnapshot.docs.isNotEmpty) {
-        return Catalog.fromMap(catalogsSnapshot.docs.first.data());
+        final doc = catalogsSnapshot.docs.first;
+        final data = _mapFromDynamic(
+          doc.data(),
+          'collectionGroup.catalogs/${doc.id}',
+        );
+        if (data == null) return null;
+        return _parseCatalog(data, 'collectionGroup.catalogs/${doc.id}');
       }
     } catch (e) {
       debugPrint('Public catalog collectionGroup lookup failed: $e');
@@ -167,7 +223,10 @@ class FirestorePublicCatalogRepository {
           .get();
 
       if (rootExactSnapshot.docs.isNotEmpty) {
-        return Catalog.fromMap(rootExactSnapshot.docs.first.data());
+        final doc = rootExactSnapshot.docs.first;
+        final data = _mapFromDynamic(doc.data(), 'catalogs/${doc.id}');
+        if (data == null) return null;
+        return _parseCatalog(data, 'catalogs/${doc.id}');
       }
     } catch (e) {
       debugPrint('Public catalog root exact lookup failed: $e');
@@ -181,13 +240,11 @@ class FirestorePublicCatalogRepository {
           .get();
 
       for (final doc in rootPublicSnapshot.docs) {
-        final data = doc.data();
-        final docCode = (data['shareCode'] ?? '')
-            .toString()
-            .trim()
-            .toLowerCase();
+        final data = _mapFromDynamic(doc.data(), 'catalogs/${doc.id}');
+        if (data == null) continue;
+        final docCode = safeString(data['shareCode']).trim().toLowerCase();
         if (docCode == normalizedCode) {
-          return Catalog.fromMap(data);
+          return _parseCatalog(data, 'catalogs/${doc.id}');
         }
       }
     } catch (e) {
@@ -212,15 +269,20 @@ class FirestorePublicCatalogRepository {
           .get();
 
       for (final doc in byFieldSnapshot.docs) {
+        final fieldPath = '${collection.path}/${doc.id}';
+        final data = _mapFromDynamic(doc.data(), fieldPath);
+        if (data == null) continue;
         try {
+          _logRawPublicProduct(data, fieldPath);
           final product = await _resolvePublicProductImages(
-            _parseProduct(doc.data(), '${collection.path}/${doc.id}'),
+            _parseProduct(data, fieldPath),
           );
           if (product.isActive) {
             productsById[product.id.isNotEmpty ? product.id : doc.id] = product;
           }
-        } catch (e) {
-          debugPrint('⚠️ Error parsing product in public catalog: $e');
+        } catch (e, s) {
+          debugPrint('Skipping invalid public product at $fieldPath: $e');
+          debugPrint(s.toString());
           continue;
         }
       }
@@ -249,17 +311,18 @@ class FirestorePublicCatalogRepository {
           .get();
 
       for (final doc in byFieldSnapshot.docs) {
+        final fieldPath = '${collection.path}/${doc.id}';
+        final data = _mapFromDynamic(doc.data(), fieldPath);
+        if (data == null) continue;
         try {
-          final category = _parseCategory(
-            doc.data(),
-            '${collection.path}/${doc.id}',
-          );
+          final category = _parseCategory(data, fieldPath);
           if (category.type == CategoryType.productType) {
             categoriesById[category.id.isNotEmpty ? category.id : doc.id] =
                 category;
           }
-        } catch (e) {
-          debugPrint('⚠️ Error parsing category in public catalog: $e');
+        } catch (e, s) {
+          debugPrint('Error parsing category in public catalog: $e');
+          debugPrint(s.toString());
           continue;
         }
       }
@@ -289,7 +352,12 @@ class FirestorePublicCatalogRepository {
       if (bytes.isEmpty) return null;
 
       final jsonStr = utf8.decode(bytes);
-      final json = _mapFromDynamic(jsonDecode(jsonStr), 'snapshot');
+      final decodedSnapshot = jsonDecode(jsonStr);
+      debugPrint(
+        'Public catalog snapshot received for $shareCode: '
+        '${_describeValue(decodedSnapshot)}',
+      );
+      final json = _mapFromDynamic(decodedSnapshot, 'snapshot');
       if (json == null) return null;
 
       final catalogMap = _mapFromDynamic(json['catalog'], 'snapshot.catalog');
@@ -312,14 +380,16 @@ class FirestorePublicCatalogRepository {
         final productMap = _mapFromDynamic(item, 'snapshot.products[$index]');
         if (productMap == null) continue;
         try {
+          _logRawPublicProduct(productMap, 'snapshot.products[$index]');
           final product = await _resolvePublicProductImages(
             _parseProduct(productMap, 'snapshot.products[$index]'),
           );
           if (product.isActive) products.add(product);
-        } catch (e) {
+        } catch (e, s) {
           debugPrint(
             'Skipping invalid product at snapshot.products[$index]: $e',
           );
+          debugPrint(s.toString());
           continue;
         }
       }
@@ -344,22 +414,29 @@ class FirestorePublicCatalogRepository {
           if (category.type == CategoryType.productType) {
             categories.add(category);
           }
-        } catch (e) {
+        } catch (e, s) {
           debugPrint(
             'Skipping invalid category at snapshot.categories[$index]: $e',
           );
+          debugPrint(s.toString());
           continue;
         }
       }
 
+      _logPublicCatalogLoaded(
+        source: 'snapshot',
+        shareCode: shareCode,
+        catalog: catalog,
+        products: products,
+      );
       return PublicCatalogDataResponse(
         catalog: catalog,
         products: products,
         categories: categories,
-        whatsappNumber: store['whatsappNumber']?.toString(),
+        whatsappNumber: safeNullableString(store['whatsappNumber']),
       );
     } catch (e, s) {
-      debugPrint('⚠️ Error loading public catalog snapshot for $shareCode: $e');
+      debugPrint('Error loading public catalog snapshot for $shareCode: $e');
       debugPrint(s.toString());
       return null;
     }
@@ -387,18 +464,19 @@ class FirestorePublicCatalogRepository {
 
   Map<String, dynamic>? _mapFromDynamic(dynamic value, String fieldPath) {
     if (value == null) return null;
+    debugPrint(
+      'Public catalog raw document received at $fieldPath: '
+      '${_compactForLog(value)}',
+    );
     if (value is! Map) {
       debugPrint(
-        'Public catalog field $fieldPath expected Map, got ${value.runtimeType}',
+        'Public catalog field $fieldPath expected Map, got '
+        '${_describeValue(value)}',
       );
       return null;
     }
 
-    final result = <String, dynamic>{};
-    value.forEach((key, item) {
-      result[key.toString()] = item;
-    });
-    return result;
+    return safeMap(value);
   }
 
   List<dynamic> _listFromDynamic(dynamic value, String fieldPath) {
@@ -407,37 +485,127 @@ class FirestorePublicCatalogRepository {
     if (value is String && value.trim().isNotEmpty) return [value];
 
     debugPrint(
-      'Public catalog field $fieldPath expected List, got ${value.runtimeType}',
+      'Public catalog field $fieldPath expected List, got '
+      '${_describeValue(value)}',
     );
     return const [];
   }
 
   Catalog _parseCatalog(Map<String, dynamic> map, String fieldPath) {
     try {
-      return Catalog.fromMap(map);
-    } catch (e) {
+      debugPrint(
+        'Public catalog parse Catalog start at $fieldPath: '
+        'keys=${map.keys.join(',')}',
+      );
+      final catalog = Catalog.fromMap(map);
+      debugPrint(
+        'Public catalog parse Catalog done at $fieldPath: '
+        'id=${catalog.id}, productIds=${catalog.productIds.length}',
+      );
+      return catalog;
+    } catch (e, s) {
+      debugPrint('Public catalog parse Catalog error at $fieldPath: $e');
+      debugPrint(s.toString());
       throw PublicCatalogParseException(fieldPath, e);
     }
   }
 
   Product _parseProduct(Map<String, dynamic> map, String fieldPath) {
     try {
-      return Product.fromMap(map);
-    } catch (e) {
+      debugPrint(
+        'Public catalog parse Product start at $fieldPath: '
+        'keys=${map.keys.join(',')}',
+      );
+      final product = Product.fromMap(map);
+      debugPrint(
+        'Public catalog parse Product done at $fieldPath: '
+        'id=${product.id}, images=${product.images.length}, '
+        'photos=${product.photos.length}, variants=${product.variants.length}',
+      );
+      return product;
+    } catch (e, s) {
+      debugPrint('Public catalog parse Product error at $fieldPath: $e');
+      debugPrint(s.toString());
       throw PublicCatalogParseException(fieldPath, e);
     }
   }
 
   Category _parseCategory(Map<String, dynamic> map, String fieldPath) {
     try {
-      return Category.fromMap(map);
-    } catch (e) {
+      debugPrint(
+        'Public catalog parse Category start at $fieldPath: '
+        'keys=${map.keys.join(',')}',
+      );
+      final category = Category.fromMap(map);
+      debugPrint(
+        'Public catalog parse Category done at $fieldPath: '
+        'id=${category.id}, name=${category.safeName}',
+      );
+      return category;
+    } catch (e, s) {
+      debugPrint('Public catalog parse Category error at $fieldPath: $e');
+      debugPrint(s.toString());
       throw PublicCatalogParseException(fieldPath, e);
     }
   }
 
+  void _logPublicCatalogLoadStart(String shareCode) {
+    debugPrint('Public catalog load start: shareCode="$shareCode"');
+  }
+
+  void _logPublicCatalogLoaded({
+    required String source,
+    required String shareCode,
+    required Catalog catalog,
+    required List<Product> products,
+  }) {
+    debugPrint(
+      'Public catalog loaded diagnostics: source=$source, '
+      'shareCode="$shareCode", catalogId=${catalog.id}, '
+      'productIds=${catalog.productIds.length}, products=${products.length}',
+    );
+    if (products.isEmpty) return;
+    final first = products.first;
+    debugPrint(
+      'Public catalog first product diagnostics: '
+      'id=${first.id}, images=${first.images.length}, '
+      'photos=${first.photos.length}, colors=${first.colors.length}, '
+      'sizes=${first.sizes.length}, variants=${first.variants.length}',
+    );
+  }
+
+  void _logRawPublicProduct(dynamic raw, String fieldPath) {
+    debugPrint(
+      'Public catalog raw product diagnostics at $fieldPath: '
+      '${_describeValue(raw)}',
+    );
+    if (raw is! Map) return;
+    debugPrint(
+      'Public catalog raw product fields at $fieldPath: '
+      'images=${_describeValue(raw['images'])}, '
+      'photos=${_describeValue(raw['photos'])}, '
+      'colors=${_describeValue(raw['colors'])}, '
+      'sizes=${_describeValue(raw['sizes'])}, '
+      'variants=${_describeValue(raw['variants'])}, '
+      'priceRetail=${_describeValue(raw['priceRetail'])}, '
+      'priceWholesale=${_describeValue(raw['priceWholesale'])}',
+    );
+  }
+
+  void _logPublicCatalogFetchError(
+    String source,
+    Object error,
+    StackTrace stackTrace,
+  ) {
+    debugPrint('Public catalog fetch failed for $source: $error');
+    debugPrint(error.toString());
+    debugPrint(stackTrace.toString());
+  }
+
   Future<Product> _resolvePublicProductImages(Product product) async {
-    var images = List<ProductImage>.from(product.images);
+    var images = product.images
+        .where((image) => image.uri.trim().isNotEmpty)
+        .toList();
 
     // Fallback 1: build from legacy photos list
     if (images.isEmpty && product.photos.isNotEmpty) {
@@ -490,8 +658,9 @@ class FirestorePublicCatalogRepository {
     // Resolve legacy photos independently (used by mainImage fallback)
     final resolvedPhotos = <ProductPhoto>[];
     for (final photo in product.photos) {
-      final rawUri =
-          photo.url.trim().isNotEmpty ? photo.url.trim() : photo.path.trim();
+      final rawUri = photo.url.trim().isNotEmpty
+          ? photo.url.trim()
+          : photo.path.trim();
       if (rawUri.isEmpty) continue;
 
       final resolvedPath = await _resolveStorageUri(photo.path);
@@ -552,6 +721,24 @@ class FirestorePublicCatalogRepository {
     }
 
     return null;
+  }
+
+  String _describeValue(dynamic value) {
+    if (value == null) return 'null';
+    if (value is Map) return 'Map(keys=${value.keys.length})';
+    if (value is List) return 'List(length=${value.length})';
+    if (value is String) return 'String(length=${value.length})';
+    if (value is bool) return 'bool';
+    if (value is num) return 'num';
+    if (value is DateTime) return 'DateTime';
+    if (value is Timestamp) return 'Timestamp';
+    return 'object';
+  }
+
+  String _compactForLog(dynamic value) {
+    final text = value.toString();
+    if (text.length <= 3000) return text;
+    return '${text.substring(0, 3000)}... <truncated ${text.length} chars>';
   }
 }
 

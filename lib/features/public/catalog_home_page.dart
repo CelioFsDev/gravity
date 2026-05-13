@@ -20,11 +20,13 @@ import 'package:url_launcher/url_launcher.dart';
 class CatalogHomePage extends ConsumerStatefulWidget {
   final String shareCode;
   final String? sellerWhatsapp;
+  final bool debugErrors;
 
   const CatalogHomePage({
     super.key,
     required this.shareCode,
     this.sellerWhatsapp,
+    this.debugErrors = false,
   });
 
   @override
@@ -69,45 +71,56 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
           ),
         ),
       ),
-      error: (e, s) => Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.error_outline, size: 48, color: Colors.red.shade300),
-                const SizedBox(height: 16),
-                Text(
-                  'Não foi possível carregar esta vitrine.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.grey.shade900,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
+      error: (e, s) {
+        debugPrint('Public catalog screen error for ${widget.shareCode}: $e');
+        debugPrint(e.toString());
+        debugPrint(s.toString());
+        return Scaffold(
+          backgroundColor: const Color(0xFFF8FAFC),
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 48,
+                    color: Colors.red.shade300,
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Detalhe técnico: $e',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.grey.shade600,
-                    fontSize: 12,
-                    fontFamily: 'monospace',
+                  const SizedBox(height: 16),
+                  Text(
+                    'Nao foi possivel carregar esta vitrine.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.grey.shade900,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () => context.go('/'),
-                  child: const Text('Voltar ao Início'),
-                ),
-              ],
+                  if (kDebugMode || kProfileMode || widget.debugErrors) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Detalhe tecnico: $e',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 12,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () => context.go('/'),
+                    child: const Text('Voltar ao Inicio'),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
       data: (data) {
         try {
           if (data == null) {
@@ -243,8 +256,9 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
               ],
             ),
           );
-        } catch (e) {
+        } catch (e, s) {
           debugPrint('Error building public catalog UI: $e');
+          debugPrint(s.toString());
           return const Scaffold(
             backgroundColor: Color(0xFFF8FAFC),
             body: Center(

@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:hive/hive.dart';
+import 'package:catalogo_ja/core/utils/safe_parse.dart';
 import 'package:catalogo_ja/models/sync_status.dart';
 
 export 'sync_status.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:catalogo_ja/core/utils/price_calculator.dart';
 import 'package:catalogo_ja/models/product_variant.dart';
 import 'package:catalogo_ja/models/product_image.dart';
@@ -325,80 +325,24 @@ class Product {
   }
 
   factory Product.fromMap(Map<String, dynamic> map) {
-    DateTime parseDate(dynamic value) {
-      if (value == null) return DateTime.now();
-      if (value is DateTime) return value;
-      if (value is Timestamp) return value.toDate();
-      try {
-        if (value.runtimeType.toString().contains('Timestamp')) {
-          final dynamic timestamp = value;
-          final converted = timestamp.toDate();
-          if (converted is DateTime) return converted;
-        }
-      } catch (_) {}
-      if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
-      return DateTime.now();
-    }
-
-    double parseDouble(dynamic value) {
-      if (value is num) return value.toDouble();
-      if (value is String) {
-        var normalized = value.trim().replaceAll(RegExp(r'[^0-9,.-]'), '');
-        if (normalized.contains(',') && normalized.contains('.')) {
-          normalized = normalized.replaceAll('.', '').replaceAll(',', '.');
-        } else {
-          normalized = normalized.replaceAll(',', '.');
-        }
-        return double.tryParse(normalized) ?? 0.0;
-      }
-      return 0.0;
-    }
-
-    int parseInt(dynamic value, int fallback) {
-      if (value is num) return value.toInt();
-      if (value is String) return int.tryParse(value) ?? fallback;
-      return fallback;
-    }
-
-    bool parseBool(dynamic value, bool fallback) {
-      if (value is bool) return value;
-      if (value is num) return value != 0;
-      if (value is String) {
-        final normalized = value.trim().toLowerCase();
-        if (normalized == 'true' || normalized == '1') return true;
-        if (normalized == 'false' || normalized == '0') return false;
-      }
-      return fallback;
-    }
-
-    List<String> parseStringList(dynamic value) {
-      if (value is String && value.trim().isNotEmpty) return [value.trim()];
+    List<ProductVariant> parseVariants(dynamic value) {
       if (value is! List) return const [];
       return value
-          .where((item) => item != null)
-          .map((item) => item.toString())
-          .where((item) => item.isNotEmpty)
+          .where((item) => item is ProductVariant || item is Map)
+          .map<ProductVariant>((item) {
+            if (item is ProductVariant) return item;
+            return ProductVariant.fromMap(safeMap(item));
+          })
           .toList();
     }
 
-    List<ProductVariant> parseVariants(dynamic value) {
-      if (value is! List) return const [];
-      return value.whereType<Map>().map<ProductVariant>((item) {
-        final map = item.map((key, val) => MapEntry(key.toString(), val));
-        return ProductVariant.fromMap(map);
-      }).toList();
-    }
-
     Map<String, Map<String, dynamic>> parseStoreOverrides(dynamic value) {
-      if (value is! Map) return const {};
+      final overrides = safeMap(value);
+      if (overrides.isEmpty) return const {};
       final result = <String, Map<String, dynamic>>{};
-      value.forEach((key, item) {
-        if (item is Map) {
-          result[key.toString()] = item.map(
-            (nestedKey, nestedValue) =>
-                MapEntry(nestedKey.toString(), nestedValue),
-          );
-        }
+      overrides.forEach((key, item) {
+        final nested = safeMap(item);
+        if (nested.isNotEmpty) result[key] = nested;
       });
       return result;
     }
@@ -411,12 +355,15 @@ class Product {
     }
 
     SyncStatus parseSyncStatus(dynamic value) {
-      if (value is int && value >= 0 && value < SyncStatus.values.length) {
-        return SyncStatus.values[value];
+      if (value is SyncStatus) return value;
+      final index = value is int ? value : int.tryParse(safeString(value));
+      if (index != null && index >= 0 && index < SyncStatus.values.length) {
+        return SyncStatus.values[index];
       }
-      if (value is String) {
+      final name = safeString(value).trim();
+      if (name.isNotEmpty) {
         return SyncStatus.values.firstWhere(
-          (status) => status.name == value,
+          (status) => status.name == name,
           orElse: () => SyncStatus.synced,
         );
       }
@@ -424,39 +371,40 @@ class Product {
     }
 
     return Product(
-      id: map['id']?.toString() ?? '',
-      name: map['name']?.toString() ?? '',
-      ref: (map['ref'] ?? map['reference'] ?? '').toString(),
-      sku: map['sku']?.toString() ?? '',
-      categoryIds: parseStringList(map['categoryIds']),
-      priceRetail: parseDouble(map['priceRetail'] ?? map['priceVarejo']),
-      priceWholesale: parseDouble(map['priceWholesale'] ?? map['priceAtacado']),
-      minWholesaleQty: parseInt(map['minWholesaleQty'], 1),
-      sizes: parseStringList(map['sizes']),
-      colors: parseStringList(map['colors']),
+      id: safeString(map['id']),
+      name: safeString(map['name']),
+      ref: safeString(map['ref'] ?? map['reference']),
+      sku: safeString(map['sku']),
+      categoryIds: safeStringList(map['categoryIds']),
+      priceRetail: safeDouble(map['priceRetail'] ?? map['priceVarejo']),
+      priceWholesale: safeDouble(map['priceWholesale'] ?? map['priceAtacado']),
+      minWholesaleQty: safeInt(map['minWholesaleQty'], fallback: 1),
+      sizes: safeStringList(map['sizes']),
+      colors: safeStringList(map['colors']),
       images: parseDynamicList(map['images']).map<ProductImage>((item) {
+        if (item is ProductImage) return item;
         if (item is Map) {
-          final imageMap = item.map(
-            (key, value) => MapEntry(key.toString(), value),
-          );
-          return ProductImage.fromMap(imageMap);
+          return ProductImage.fromMap(safeMap(item));
         }
         if (item is String) {
           return ProductImage.network(url: item);
         }
         return ProductImage.unknown();
       }).toList(),
-      mainImageIndex: parseInt(map['mainImageIndex'], 0),
-      isActive: parseBool(map['isActive'], true),
-      isOutOfStock: parseBool(map['isOutOfStock'], false),
-      promoEnabled: parseBool(map['promoEnabled'] ?? map['isOnSale'], false),
-      promoPercent: parseDouble(
+      mainImageIndex: safeInt(map['mainImageIndex']),
+      isActive: safeBool(map['isActive'], fallback: true),
+      isOutOfStock: safeBool(map['isOutOfStock'], fallback: false),
+      promoEnabled: safeBool(
+        map['promoEnabled'] ?? map['isOnSale'],
+        fallback: false,
+      ),
+      promoPercent: safeDouble(
         map['promoPercent'] ?? map['saleDiscountPercent'],
       ),
-      slug: map['slug']?.toString() ?? '',
-      description: map['description']?.toString(),
-      tags: parseStringList(map['tags']),
-      remoteImages: parseStringList(
+      slug: safeString(map['slug']),
+      description: safeNullableString(map['description']),
+      tags: safeStringList(map['tags']),
+      remoteImages: safeStringList(
         map['remoteImages'] ??
             map['imageUrls'] ??
             map['imageUrl'] ??
@@ -464,11 +412,12 @@ class Product {
             map['photo'],
       ),
       variants: parseVariants(map['variants']),
-      createdAt: parseDate(map['createdAt']),
-      updatedAt: parseDate(map['updatedAt']),
+      createdAt: safeDateTime(map['createdAt']),
+      updatedAt: safeDateTime(map['updatedAt']),
       photos: parseDynamicList(map['photos'])
-          .where((p) => p is Map || p is String)
+          .where((p) => p is ProductPhoto || p is Map || p is String)
           .map<ProductPhoto>((p) {
+            if (p is ProductPhoto) return p;
             if (p is String) {
               return ProductPhoto(path: p);
             }
@@ -476,20 +425,18 @@ class Product {
               return const ProductPhoto(path: '');
             }
 
-            final photoMap = p.map(
-              (key, value) => MapEntry(key.toString(), value),
-            );
+            final photoMap = safeMap(p);
             return ProductPhoto(
-              path: (photoMap['path'] ?? photoMap['url'] ?? '').toString(),
-              colorKey: photoMap['colorKey']?.toString(),
-              isPrimary: parseBool(photoMap['isPrimary'], false),
-              photoType: photoMap['photoType']?.toString(),
-              id: photoMap['id']?.toString(),
-              url: photoMap['url']?.toString() ?? '',
+              path: safeString(photoMap['path'] ?? photoMap['url']),
+              colorKey: safeNullableString(photoMap['colorKey']),
+              isPrimary: safeBool(photoMap['isPrimary'], fallback: false),
+              photoType: safeNullableString(photoMap['photoType']),
+              id: safeNullableString(photoMap['id']),
+              url: safeString(photoMap['url']),
             );
           })
           .toList(),
-      tenantId: map['tenantId']?.toString(),
+      tenantId: safeNullableString(map['tenantId']),
       storeOverrides: parseStoreOverrides(map['storeOverrides']),
       syncStatus: parseSyncStatus(map['syncStatus']),
     );
@@ -508,7 +455,7 @@ class Product {
       if (main.isNotEmpty) return main.first;
 
       // Fallback: highest-priority order
-      final sorted = List<ProductImage>.from(images)
+      final sorted = images.toList()
         ..sort((a, b) => a.order.compareTo(b.order));
       return sorted.first;
     }

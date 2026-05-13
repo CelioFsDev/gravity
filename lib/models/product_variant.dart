@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+import 'package:catalogo_ja/core/utils/safe_parse.dart';
 
 part 'product_variant.g.dart';
 
@@ -24,25 +25,16 @@ class ProductVariant {
   }
 
   factory ProductVariant.fromMap(Map<String, dynamic> map) {
-    int parseInt(dynamic value) {
-      if (value is num) return value.toInt();
-      if (value is String) return int.tryParse(value) ?? 0;
-      return 0;
-    }
-
-    final rawAttributes = map['attributes'];
+    final rawAttributes = safeMap(map['attributes']);
     final attributes = <String, String>{};
-    if (rawAttributes is Map) {
-      rawAttributes.forEach((key, value) {
-        if (key != null && value != null) {
-          attributes[key.toString()] = value.toString();
-        }
-      });
-    }
+    rawAttributes.forEach((key, value) {
+      final parsed = safeNullableString(value);
+      if (parsed != null) attributes[key] = parsed;
+    });
 
     return ProductVariant(
-      sku: map['sku']?.toString() ?? '',
-      stock: parseInt(map['stock']),
+      sku: safeString(map['sku']),
+      stock: safeInt(map['stock']),
       attributes: attributes,
     );
   }

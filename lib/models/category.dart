@@ -1,5 +1,5 @@
 import 'package:hive/hive.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:catalogo_ja/core/utils/safe_parse.dart';
 import 'package:catalogo_ja/models/category_type.dart';
 import 'package:catalogo_ja/models/sync_status.dart';
 
@@ -126,37 +126,39 @@ class CollectionCover {
   }
 
   factory CollectionCover.fromMap(Map<String, dynamic> map) {
-    int? parseInt(dynamic value) {
-      if (value is num) return value.toInt();
-      if (value is String) return int.tryParse(value);
-      return null;
-    }
-
-    double? parseDouble(dynamic value) {
-      if (value is num) return value.toDouble();
-      if (value is String) return double.tryParse(value.replaceAll(',', '.'));
-      return null;
+    CollectionCoverMode parseMode(dynamic value) {
+      if (value is CollectionCoverMode) return value;
+      final index = value is int ? value : int.tryParse(safeString(value));
+      if (index != null &&
+          index >= 0 &&
+          index < CollectionCoverMode.values.length) {
+        return CollectionCoverMode.values[index];
+      }
+      final name = safeString(value).trim();
+      return CollectionCoverMode.values.firstWhere(
+        (e) => e.name == name,
+        orElse: () => CollectionCoverMode.template,
+      );
     }
 
     return CollectionCover(
-      mode: CollectionCoverMode.values.firstWhere(
-        (e) =>
-            e.name == map['mode'] ||
-            e.index.toString() == map['mode']?.toString(),
-        orElse: () => CollectionCoverMode.template,
-      ),
-      coverImagePath: map['coverImagePath']?.toString(),
-      title: map['title']?.toString(),
-      brand: map['brand']?.toString(),
-      subtitle: map['subtitle']?.toString(),
-      backgroundColor: parseInt(map['backgroundColor']),
-      overlayOpacity: parseDouble(map['overlayOpacity']),
-      bannerImagePath: map['bannerImagePath']?.toString(),
-      heroImagePath: map['heroImagePath']?.toString(),
-      coverHeaderImagePath: map['coverHeaderImagePath']?.toString(),
-      coverMainImagePath: map['coverMainImagePath']?.toString(),
-      coverMiniPath: map['coverMiniPath']?.toString(),
-      coverPagePath: map['coverPagePath']?.toString(),
+      mode: parseMode(map['mode']),
+      coverImagePath: safeNullableString(map['coverImagePath']),
+      title: safeNullableString(map['title']),
+      brand: safeNullableString(map['brand']),
+      subtitle: safeNullableString(map['subtitle']),
+      backgroundColor: map['backgroundColor'] == null
+          ? null
+          : safeInt(map['backgroundColor']),
+      overlayOpacity: map['overlayOpacity'] == null
+          ? null
+          : safeDouble(map['overlayOpacity']),
+      bannerImagePath: safeNullableString(map['bannerImagePath']),
+      heroImagePath: safeNullableString(map['heroImagePath']),
+      coverHeaderImagePath: safeNullableString(map['coverHeaderImagePath']),
+      coverMainImagePath: safeNullableString(map['coverMainImagePath']),
+      coverMiniPath: safeNullableString(map['coverMiniPath']),
+      coverPagePath: safeNullableString(map['coverPagePath']),
     );
   }
 }
@@ -264,45 +266,16 @@ class Category {
   }
 
   factory Category.fromMap(Map<String, dynamic> map) {
-    DateTime parseDate(dynamic value) {
-      if (value == null) return DateTime.now();
-      if (value is DateTime) return value;
-      if (value is Timestamp) return value.toDate();
-      try {
-        if (value.runtimeType.toString().contains('Timestamp')) {
-          final dynamic timestamp = value;
-          final converted = timestamp.toDate();
-          if (converted is DateTime) return converted;
-        }
-      } catch (_) {}
-      if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
-      return DateTime.now();
-    }
-
-    int parseInt(dynamic value, int fallback) {
-      if (value is num) return value.toInt();
-      if (value is String) return int.tryParse(value) ?? fallback;
-      return fallback;
-    }
-
-    bool parseBool(dynamic value, bool fallback) {
-      if (value is bool) return value;
-      if (value is num) return value != 0;
-      if (value is String) {
-        final normalized = value.trim().toLowerCase();
-        if (normalized == 'true' || normalized == '1') return true;
-        if (normalized == 'false' || normalized == '0') return false;
-      }
-      return fallback;
-    }
-
     SyncStatus parseSyncStatus(dynamic value) {
-      if (value is int && value >= 0 && value < SyncStatus.values.length) {
-        return SyncStatus.values[value];
+      if (value is SyncStatus) return value;
+      final index = value is int ? value : int.tryParse(safeString(value));
+      if (index != null && index >= 0 && index < SyncStatus.values.length) {
+        return SyncStatus.values[index];
       }
-      if (value is String) {
+      final name = safeString(value).trim();
+      if (name.isNotEmpty) {
         return SyncStatus.values.firstWhere(
-          (status) => status.name == value,
+          (status) => status.name == name,
           orElse: () => SyncStatus.synced,
         );
       }
@@ -310,28 +283,36 @@ class Category {
     }
 
     CollectionCover? parseCover(dynamic value) {
-      if (value is! Map) return null;
-      return CollectionCover.fromMap(
-        value.map((key, item) => MapEntry(key.toString(), item)),
+      if (value is CollectionCover) return value;
+      final map = safeMap(value);
+      if (map.isEmpty) return null;
+      return CollectionCover.fromMap(map);
+    }
+
+    CategoryType parseCategoryType(dynamic value) {
+      if (value is CategoryType) return value;
+      final index = value is int ? value : int.tryParse(safeString(value));
+      if (index != null && index >= 0 && index < CategoryType.values.length) {
+        return CategoryType.values[index];
+      }
+      final name = safeString(value).trim();
+      return CategoryType.values.firstWhere(
+        (e) => e.name == name,
+        orElse: () => CategoryType.productType,
       );
     }
 
     return Category(
-      id: map['id']?.toString() ?? '',
-      name: map['name']?.toString(),
-      order: parseInt(map['order'], 0),
-      createdAt: parseDate(map['createdAt']),
-      updatedAt: parseDate(map['updatedAt']),
-      type: CategoryType.values.firstWhere(
-        (e) =>
-            e.name == map['type'] ||
-            e.index.toString() == map['type']?.toString(),
-        orElse: () => CategoryType.productType,
-      ),
+      id: safeString(map['id']),
+      name: safeNullableString(map['name']),
+      order: safeInt(map['order']),
+      createdAt: safeDateTime(map['createdAt']),
+      updatedAt: safeDateTime(map['updatedAt']),
+      type: parseCategoryType(map['type']),
       cover: parseCover(map['cover']),
-      slug: map['slug']?.toString(),
-      isActive: parseBool(map['isActive'], true),
-      tenantId: map['tenantId']?.toString(),
+      slug: safeNullableString(map['slug']),
+      isActive: safeBool(map['isActive'], fallback: true),
+      tenantId: safeNullableString(map['tenantId']),
       syncStatus: parseSyncStatus(map['syncStatus']),
     );
   }
