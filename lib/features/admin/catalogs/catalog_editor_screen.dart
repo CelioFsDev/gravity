@@ -48,7 +48,10 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
       updatedAt: DateTime.now(),
     );
 
-    await ref.read(publicCatalogSnapshotServiceProvider).publish(quickCatalog);
+    await ref
+        .read(publicCatalogSnapshotServiceProvider)
+        .publish(quickCatalog)
+        .timeout(const Duration(seconds: 45));
     return quickCatalog;
   }
 

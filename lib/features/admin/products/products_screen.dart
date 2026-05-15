@@ -1676,17 +1676,17 @@ class _ProductsListSection extends StatefulWidget {
   final ValueChanged<String> onToggleSelection;
   final bool isInitialSyncCompleted;
 
-  const _ProductsListSection({
+  const _ProductsListSection(
+    this.onEditProduct,
+    this.onDeleteProduct,
+    this.onDuplicateProduct,
+    this.onTogglePromo, {
     required this.state,
     required this.onNewProduct,
     required this.onViewProduct,
     required this.selectedIds,
     required this.onToggleSelection,
     required this.isInitialSyncCompleted,
-    this.onEditProduct,
-    this.onDeleteProduct,
-    this.onDuplicateProduct,
-    this.onTogglePromo,
   });
 
   @override

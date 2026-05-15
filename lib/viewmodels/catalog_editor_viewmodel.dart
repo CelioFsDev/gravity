@@ -239,14 +239,7 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
       await repository.addCatalog(toSave);
 
       if (toSave.isPublic) {
-        try {
-          await ref.read(publicCatalogSnapshotServiceProvider).publish(toSave);
-        } catch (e) {
-          // O link publico ainda funciona via fallback do Firestore.
-          // A publicacao do snapshot nao deve impedir salvar/compartilhar.
-          // ignore: avoid_print
-          print('Erro ao publicar snapshot do catalogo: $e');
-        }
+        unawaited(_publishSnapshotInBackground(toSave));
       }
 
       ref.invalidate(catalogsViewModelProvider);
@@ -261,6 +254,20 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
       print('Error saving catalog: $e\n$s');
       state = state.copyWith(isSaving: false, slugError: 'Erro ao salvar: $e');
       return false;
+    }
+  }
+
+  Future<void> _publishSnapshotInBackground(Catalog catalog) async {
+    try {
+      await ref
+          .read(publicCatalogSnapshotServiceProvider)
+          .publish(catalog)
+          .timeout(const Duration(seconds: 45));
+    } catch (e) {
+      // O link publico ainda funciona via fallback do Firestore.
+      // A publicacao do snapshot nao deve impedir salvar/compartilhar.
+      // ignore: avoid_print
+      print('Erro ao publicar snapshot do catalogo: $e');
     }
   }
 
