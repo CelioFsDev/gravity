@@ -32,6 +32,7 @@ import 'package:catalogo_ja/features/admin/import/import_menu_screen.dart';
 import 'package:catalogo_ja/features/admin/import/nuvemshop_import_screen.dart';
 import 'package:catalogo_ja/features/admin/import/stock_update_screen.dart';
 import 'package:catalogo_ja/features/admin/import/catalogo_ja_import_screen.dart';
+import 'package:catalogo_ja/features/admin/order_import/presentation/order_pdf_import_page.dart';
 import 'package:catalogo_ja/features/admin/settings/settings_screen.dart';
 import 'package:catalogo_ja/features/admin/users/user_management_screen.dart';
 import 'package:catalogo_ja/features/admin/store/store_contact_share_screen.dart';
@@ -285,7 +286,7 @@ void main() async {
 
   try {
     debugPrint('[BOOT_IOS] ETAPA 8 - runApp ProviderScope(MyApp)');
-    
+
     final isMobile =
         !kIsWeb &&
         (defaultTargetPlatform == TargetPlatform.android ||
@@ -699,6 +700,11 @@ class _MyAppState extends ConsumerState<MyApp> {
                     ),
                   ],
                 ),
+                GoRoute(
+                  path: '/admin/import-order-pdf',
+                  pageBuilder: (context, state) =>
+                      _buildPage(state, const OrderPdfImportPage()),
+                ),
               ],
             ),
             StatefulShellBranch(
@@ -800,6 +806,9 @@ class _MyAppState extends ConsumerState<MyApp> {
     if (location.startsWith('/admin/categories')) return role.canViewCategories;
     if (location.startsWith('/admin/catalogs')) return role.canViewCatalogs;
     if (location.startsWith('/admin/imports')) return role.canViewImports;
+    if (location.startsWith('/admin/import-order-pdf')) {
+      return role.canViewImports;
+    }
     if (location.startsWith('/admin/profile')) return role.canViewProfile;
     if (location.startsWith('/admin/share')) return role.canShare;
     if (location.startsWith('/admin/settings')) return role.canViewSettings;

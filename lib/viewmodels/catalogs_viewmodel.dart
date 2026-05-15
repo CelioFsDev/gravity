@@ -112,9 +112,13 @@ class CatalogsViewModel extends _$CatalogsViewModel {
 
     if (repository is FirestoreCatalogsRepository) {
       try {
-        await repository.syncCatalogToCloud(toShare);
+        await repository
+            .syncCatalogToCloud(toShare)
+            .timeout(const Duration(seconds: 30));
         toShare = toShare.copyWith(syncStatus: SyncStatus.synced);
       } catch (e) {
+        // ignore: avoid_print
+        print('Erro ao publicar catalogo para compartilhamento: $e');
         throw Exception(
           'Nao foi possivel publicar este catalogo na nuvem. '
           'Verifique conexao/sincronizacao e tente novamente.',
@@ -123,16 +127,23 @@ class CatalogsViewModel extends _$CatalogsViewModel {
     }
 
     if (toShare.isPublic) {
-      try {
-        await ref.read(publicCatalogSnapshotServiceProvider).publish(toShare);
-      } catch (e) {
-        // O link continua funcionando pelo fallback do Firestore.
-        // ignore: avoid_print
-        print('Erro ao publicar snapshot do catalogo: $e');
-      }
+      unawaited(_publishSnapshotInBackground(toShare));
     }
 
     return toShare;
+  }
+
+  Future<void> _publishSnapshotInBackground(Catalog catalog) async {
+    try {
+      await ref
+          .read(publicCatalogSnapshotServiceProvider)
+          .publish(catalog)
+          .timeout(const Duration(seconds: 45));
+    } catch (e) {
+      // O link continua funcionando pelo fallback do Firestore.
+      // ignore: avoid_print
+      print('Erro ao publicar snapshot do catalogo: $e');
+    }
   }
 
   String _generateShareCode(Catalog catalog) {

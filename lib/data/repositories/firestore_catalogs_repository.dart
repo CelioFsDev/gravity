@@ -145,11 +145,13 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
       if (banner.imagePath.isNotEmpty && !banner.imagePath.startsWith('http')) {
         try {
           print('🚀 Subindo banner do catálogo: ${banner.imagePath}');
-          final cloudUrl = await _storageService.uploadCatalogImage(
-            localPath: banner.imagePath,
-            catalogId: catalog.id,
-            tenantId: _tenantId,
-          );
+          final cloudUrl = await _storageService
+              .uploadCatalogImage(
+                localPath: banner.imagePath,
+                catalogId: catalog.id,
+                tenantId: _tenantId,
+              )
+              .timeout(const Duration(seconds: 30));
           if (cloudUrl != null) {
             updatedBanners.add(banner.copyWith(imagePath: cloudUrl));
             print('✅ Banner upado: $cloudUrl');
@@ -172,12 +174,23 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
     );
 
     final catalogMap = catalogWithCloudImages.toMap();
-    await _collection.doc(catalog.id).set(catalogMap);
+    await _collection
+        .doc(catalog.id)
+        .set(catalogMap)
+        .timeout(const Duration(seconds: 30));
     if (catalogWithCloudImages.isPublic &&
         catalogWithCloudImages.shareCode.trim().isNotEmpty) {
-      await _firestore.collection('catalogs').doc(catalog.id).set(catalogMap);
+      await _firestore
+          .collection('catalogs')
+          .doc(catalog.id)
+          .set(catalogMap)
+          .timeout(const Duration(seconds: 30));
     } else {
-      await _firestore.collection('catalogs').doc(catalog.id).delete();
+      await _firestore
+          .collection('catalogs')
+          .doc(catalog.id)
+          .delete()
+          .timeout(const Duration(seconds: 30));
     }
     await _localRepo.addCatalog(catalogWithCloudImages);
     invalidateCache();
@@ -225,7 +238,8 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
     try {
       final snapshot = await _collection
           .where('slug', isEqualTo: slug)
-          .get();
+          .get()
+          .timeout(const Duration(seconds: 10));
 
       if (snapshot.docs.isEmpty) return false;
       if (excludeId != null &&
@@ -250,7 +264,8 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
       final snapshot = await _collection
           .where('slug', isEqualTo: slug)
           .limit(1)
-          .get();
+          .get()
+          .timeout(const Duration(seconds: 10));
       if (snapshot.docs.isNotEmpty) {
         return Catalog.fromMap(snapshot.docs.first.data());
       }
@@ -265,13 +280,21 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
     final localDoc = await _localRepo.getByShareCode(shareCode);
     if (localDoc != null) return localDoc;
 
-    final snapshot = await _collection
-        .where('shareCode', isEqualTo: shareCode)
-        .where('isPublic', isEqualTo: true)
-        .limit(1)
-        .get();
-    if (snapshot.docs.isNotEmpty) {
-      return Catalog.fromMap(snapshot.docs.first.data());
+    try {
+      final snapshot = await _collection
+          .where('shareCode', isEqualTo: shareCode)
+          .where('isPublic', isEqualTo: true)
+          .limit(1)
+          .get()
+          .timeout(const Duration(seconds: 10));
+      if (snapshot.docs.isNotEmpty) {
+        return Catalog.fromMap(snapshot.docs.first.data());
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print(
+        'Erro ao buscar catalogo por shareCode na nuvem (usando local): $e',
+      );
     }
     return null;
   }

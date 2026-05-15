@@ -91,6 +91,22 @@ class ImportMenuScreen extends ConsumerWidget {
 
           _buildSection(
             context,
+            title: 'Criar catálogo por pedido',
+            description:
+                'Importe um PDF de pedido gerado por CRM para montar um catálogo somente com as referências encontradas.',
+            child: _buildItem(
+              context,
+              icon: Icons.picture_as_pdf_outlined,
+              title: 'Importar pedido PDF',
+              subtitle:
+                  'Extrai referências do PDF e cria um catálogo com os produtos cadastrados.',
+              route: '/admin/import-order-pdf',
+            ),
+          ),
+          const SizedBox(height: AppTokens.space24),
+
+          _buildSection(
+            context,
             title: 'Importar produtos',
             description:
                 'Traga produtos cadastrados em outras plataformas para dentro do aplicativo. A importação da Nuvemshop usa uma planilha CSV exportada da sua loja.',
