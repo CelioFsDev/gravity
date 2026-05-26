@@ -1,8 +1,7 @@
 import 'package:catalogo_ja/data/repositories/contracts/catalogs_repository_contract.dart';
 import 'package:catalogo_ja/data/repositories/contracts/products_repository_contract.dart';
 import 'package:catalogo_ja/models/catalog.dart';
-import 'package:catalogo_ja/models/product.dart' hide SyncStatus;
-import 'package:catalogo_ja/models/sync_status.dart';
+import 'package:catalogo_ja/models/product.dart';
 import 'package:diacritic/diacritic.dart';
 import 'package:uuid/uuid.dart';
 

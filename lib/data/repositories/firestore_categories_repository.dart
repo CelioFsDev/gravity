@@ -129,6 +129,7 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
   /// 🔄 Sincroniza uma única categoria para a nuvem (com upload de fotos)
   Future<void> syncCategoryToCloud(Category category) async {
     Category updatedCategory = category.copyWith(tenantId: _tenantId);
+    var hasPendingUploads = false;
 
     // ✨ Upload de Fotos da Capa/Coleção
     if (updatedCategory.cover != null) {
@@ -140,12 +141,18 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
             !path.startsWith('http') &&
             !path.startsWith('gs://')) {
           try {
-            return await _storageService.uploadCategoryImage(
+            final uploadedPath = await _storageService.uploadCategoryImage(
               localPath: path,
               categoryId: updatedCategory.id,
               tenantId: _tenantId,
             );
+            if (uploadedPath == null || uploadedPath.isEmpty) {
+              hasPendingUploads = true;
+              return path;
+            }
+            return uploadedPath;
           } catch (e) {
+            hasPendingUploads = true;
             print('❌ Erro no upload da imagem de coleção: $e');
           }
         }
@@ -167,6 +174,12 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
         updatedAt: DateTime.now(),
       );
     }
+
+    updatedCategory = updatedCategory.copyWith(
+      syncStatus: hasPendingUploads
+          ? SyncStatus.pendingUpdate
+          : SyncStatus.synced,
+    );
 
     await _collection.doc(updatedCategory.id).set(updatedCategory.toMap());
     await _localRepo.addCategory(updatedCategory);
