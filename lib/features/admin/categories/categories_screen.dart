@@ -138,16 +138,34 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                             fontSize: 12,
                           ),
                         ),
-                        trailing: IconButton(
+                        trailing: PopupMenuButton<String>(
                           icon: Icon(
-                            Icons.edit_note_rounded,
+                            Icons.more_vert_rounded,
                             color: isDark ? Colors.white38 : Colors.black26,
                           ),
-                          onPressed: () => _showCategoryDialog(
-                            context,
-                            notifier,
-                            category: category,
-                          ),
+                          onSelected: (value) {
+                            if (value == 'edit') {
+                              _showCategoryDialog(
+                                context,
+                                notifier,
+                                category: category,
+                              );
+                            } else if (value == 'delete') {
+                              _confirmDelete(
+                                context,
+                                notifier,
+                                category,
+                                count,
+                              );
+                            }
+                          },
+                          itemBuilder: (context) => const [
+                            PopupMenuItem(value: 'edit', child: Text('Editar')),
+                            PopupMenuItem(
+                              value: 'delete',
+                              child: Text('Excluir'),
+                            ),
+                          ],
                         ),
                       ),
                     );
@@ -360,31 +378,55 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     );
   }
 
-  Future<void> _handleDelete(
+  Future<void> _confirmDelete(
     BuildContext context,
     CategoriesViewModel notifier,
     Category category,
+    int productCount,
   ) async {
-    final result = await notifier.checkDelete(category.id);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Excluir Categoria?'),
+        content: Text(
+          productCount == 0
+              ? 'Esta ação não pode ser desfeita.'
+              : 'Esta categoria está vinculada a $productCount '
+                    '${productCount == 1 ? 'produto' : 'produtos'}. '
+                    'Ao excluir, os produtos ficarão sem esta categoria.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(foregroundColor: AppTokens.accentRed),
+            child: const Text('Excluir'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    final success = await notifier.deleteAndUncategorize(category.id);
     if (!context.mounted) return;
 
-    if (result.success) {
+    if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Categoria excluída com sucesso.')),
       );
       return;
     }
 
-    if (result.hasProducts) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            result.message ?? 'Não é possível excluir esta categoria.',
-          ),
-          backgroundColor: AppTokens.accentRed,
-        ),
-      );
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Não foi possível excluir esta categoria.'),
+        backgroundColor: AppTokens.accentRed,
+      ),
+    );
   }
 
   void _startCloudSync(

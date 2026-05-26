@@ -123,7 +123,11 @@ class HiveCategoriesRepository implements CategoriesRepositoryContract {
       }
       await _productsBox.put(
         product.id,
-        product.copyWith(categoryIds: updatedCategories),
+        product.copyWith(
+          categoryIds: updatedCategories,
+          syncStatus: SyncStatus.pendingUpdate,
+          updatedAt: DateTime.now(),
+        ),
       );
     }
   }

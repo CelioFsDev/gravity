@@ -34,18 +34,6 @@ class CategoriesState {
   });
 }
 
-class CategoryDeleteResult {
-  final bool success;
-  final bool hasProducts;
-  final String? message;
-
-  CategoryDeleteResult({
-    required this.success,
-    required this.hasProducts,
-    this.message,
-  });
-}
-
 @riverpod
 class CategoriesViewModel extends _$CategoriesViewModel {
   @override
@@ -446,30 +434,6 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     }
   }
 
-  Future<CategoryDeleteResult> checkDelete(String id) async {
-    try {
-      // 🔑 Usa repositório LOCAL para verificar produtos — sem leitura Firestore
-      final productRepository = ref.read(productsRepositoryProvider);
-      final categoriesRepo = ref.read(syncCategoriesRepositoryProvider);
-      final products = await productRepository.getProductsByCategory(id);
-
-      if (products.isEmpty) {
-        await categoriesRepo.deleteCategory(id);
-        await _refresh();
-        ref.invalidate(productsViewModelProvider);
-        return CategoryDeleteResult(success: true, hasProducts: false);
-      } else {
-        return CategoryDeleteResult(
-          success: false,
-          hasProducts: true,
-          message: 'Existem ${products.length} produtos nesta categoria.',
-        );
-      }
-    } catch (e) {
-      throw e.toAppFailure(action: 'checkDelete', entity: 'Category');
-    }
-  }
-
   Future<void> deleteWithMove(String id, String targetCategoryId) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
@@ -477,6 +441,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         final categoriesRepo = ref.read(syncCategoriesRepositoryProvider);
         await categoriesRepo.reassignCategory(id, targetCategoryId);
         await categoriesRepo.deleteCategory(id);
+        ref.invalidate(productsViewModelProvider);
         return await _fetchData();
       } catch (e) {
         throw e.toAppFailure(action: 'deleteWithMove', entity: 'Category');
@@ -484,13 +449,14 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     });
   }
 
-  Future<void> deleteAndUncategorize(String id) async {
+  Future<bool> deleteAndUncategorize(String id) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       try {
         final categoriesRepo = ref.read(syncCategoriesRepositoryProvider);
         await categoriesRepo.reassignCategory(id, '');
         await categoriesRepo.deleteCategory(id);
+        ref.invalidate(productsViewModelProvider);
         return await _fetchData();
       } catch (e) {
         throw e.toAppFailure(
@@ -499,6 +465,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         );
       }
     });
+    return !state.hasError;
   }
 
   /// Sincroniza todas as categorias/coleções locais para a nuvem
