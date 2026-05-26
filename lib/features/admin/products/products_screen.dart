@@ -9,6 +9,7 @@ import 'package:catalogo_ja/features/admin/products/product_form_screen.dart';
 import 'package:catalogo_ja/features/admin/products/product_detail_screen.dart';
 import 'package:catalogo_ja/core/services/product_transfer_service.dart';
 import 'package:catalogo_ja/core/services/catalog_share_helper.dart';
+import 'package:catalogo_ja/core/services/product_ai_assistant_service.dart';
 import 'package:catalogo_ja/features/admin/import/catalogo_ja_import_screen.dart';
 import 'package:catalogo_ja/features/admin/import/nuvemshop_import_screen.dart';
 import 'package:catalogo_ja/viewmodels/product_export_viewmodel.dart';
@@ -34,6 +35,9 @@ class ProductsScreen extends ConsumerStatefulWidget {
 
 class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   late final TextEditingController _searchController;
+  late final TextEditingController _assistantController;
+  bool _isRunningAssistant = false;
+  String? _assistantFeedback;
 
   bool get _showSupportTools {
     final email = ref
@@ -50,11 +54,13 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   void initState() {
     super.initState();
     _searchController = TextEditingController();
+    _assistantController = TextEditingController();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _assistantController.dispose();
     super.dispose();
   }
 
@@ -72,6 +78,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
             context,
             Theme.of(context).brightness == Brightness.dark,
           ),
+          _buildAiAssistantCard(context),
           _buildBulkActionsBar(context),
           _buildSyncReminderBanner(context),
           Expanded(
@@ -263,6 +270,152 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildAiAssistantCard(BuildContext context) {
+    final state = ref.watch(productsViewModelProvider).valueOrNull;
+    final summary = state?.assistantResultSummary;
+    final hasResult = state?.assistantResultIds != null;
+    final resultCount = state?.assistantResultIds?.length ?? 0;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+        border: Border.all(color: AppTokens.vibrantCyan.withOpacity(0.25)),
+      ),
+      child: ExpansionTile(
+        leading: const Icon(
+          Icons.auto_awesome_outlined,
+          color: AppTokens.vibrantCyan,
+        ),
+        title: const Text(
+          'Assistente IA',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+        subtitle: Text(
+          hasResult
+              ? '$resultCount produto(s) no resultado'
+              : 'Peça para localizar ou selecionar produtos',
+        ),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        children: [
+          TextField(
+            controller: _assistantController,
+            enabled: !_isRunningAssistant,
+            textInputAction: TextInputAction.send,
+            onSubmitted: (_) => _runAssistantCommand(),
+            decoration: InputDecoration(
+              hintText: 'Ex.: separe todas as blusas que tem estoque',
+              suffixIcon: _isRunningAssistant
+                  ? const Padding(
+                      padding: EdgeInsets.all(13),
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  : IconButton(
+                      tooltip: 'Executar pedido',
+                      onPressed: _runAssistantCommand,
+                      icon: const Icon(Icons.send_rounded),
+                    ),
+            ),
+          ),
+          if (_assistantFeedback != null || summary != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    _assistantFeedback ?? summary!,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+                if (hasResult)
+                  TextButton(
+                    onPressed: _clearAssistantResult,
+                    child: const Text('Limpar'),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _runAssistantCommand() async {
+    final command = _assistantController.text.trim();
+    final state = ref.read(productsViewModelProvider).valueOrNull;
+    if (command.length < 3 || state == null || _isRunningAssistant) return;
+
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _isRunningAssistant = true;
+      _assistantFeedback = null;
+    });
+
+    try {
+      final service = ref.read(productAiAssistantServiceProvider);
+      final plan = await service.interpret(command);
+      if (!mounted) return;
+      if (!plan.isSupported) {
+        setState(() => _assistantFeedback = plan.message);
+        return;
+      }
+
+      final matches = service.findMatches(
+        plan: plan,
+        products: state.allProducts,
+        categories: state.categories,
+      );
+      final suffix = plan.usedAi
+          ? ''
+          : ' Interpretacao local usada enquanto a IA online nao esta disponivel.';
+      final feedback =
+          '${plan.message} ${matches.length} produto(s) encontrado(s).$suffix';
+
+      ref
+          .read(productsViewModelProvider.notifier)
+          .applyAssistantResult(
+            productIds: matches.map((product) => product.id),
+            summary: feedback,
+            selectProducts: plan.shouldSelect,
+            sortOption: _assistantSortOption(plan.sort),
+          );
+      setState(() => _assistantFeedback = feedback);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _assistantFeedback = 'Nao foi possivel executar o pedido: $error';
+      });
+    } finally {
+      if (mounted) setState(() => _isRunningAssistant = false);
+    }
+  }
+
+  ProductSort? _assistantSortOption(String sort) {
+    switch (sort) {
+      case 'price_asc':
+        return ProductSort.priceAsc;
+      case 'price_desc':
+        return ProductSort.priceDesc;
+      case 'name_asc':
+        return ProductSort.aToZ;
+      case 'recent':
+        return ProductSort.recent;
+      default:
+        return null;
+    }
+  }
+
+  void _clearAssistantResult() {
+    ref.read(productsViewModelProvider.notifier).clearAssistantResult();
+    setState(() => _assistantFeedback = null);
   }
 
   Widget _buildBulkActionsBar(BuildContext context) {
@@ -677,6 +830,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   void _clearFilters(ProductsState state) {
     final notifier = ref.read(productsViewModelProvider.notifier);
 
+    notifier.clearAssistantResult();
     notifier.setSearchQuery('');
     notifier.setCategoryFilter(null);
     notifier.setStatusFilter(ProductStatusFilter.all);

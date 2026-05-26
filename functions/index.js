@@ -1,11 +1,20 @@
 const admin = require('firebase-admin');
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
-const { auth: authFunctions, logger } = require('firebase-functions');
+const { auth: authFunctions } = require('firebase-functions/v1');
+const { logger } = require('firebase-functions');
+const { defineSecret } = require('firebase-functions/params');
+const { genkit, z } = require('genkit');
+const { googleAI } = require('@genkit-ai/google-genai');
 
 admin.initializeApp();
 
 const db = admin.firestore();
 const auth = admin.auth();
+const geminiApiKey = defineSecret('GEMINI_API_KEY');
+const ai = genkit({
+  plugins: [googleAI()],
+  model: googleAI.model('gemini-2.5-flash'),
+});
 const SUPER_ADMIN_EMAILS = new Set([
   'ti.vitoriana@gmail.com',
   'celiofs.dev@gmail.com',
@@ -17,6 +26,110 @@ const VALID_ROLES = new Set(['admin', 'operator', 'seller', 'viewer']);
 function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
 }
+
+function ensureAuthenticated(request) {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Login obrigatorio.');
+  }
+
+  const requesterEmail = normalizeEmail(request.auth.token.email);
+  if (!requesterEmail) {
+    throw new HttpsError('unauthenticated', 'Email do usuario nao encontrado no token.');
+  }
+
+  return requesterEmail;
+}
+
+const productAssistantPlanSchema = z.object({
+  action: z.enum(['filter', 'select', 'unsupported']),
+  searchTerms: z.array(z.string()).max(5),
+  stock: z.enum(['any', 'in_stock', 'out_of_stock']),
+  status: z.enum(['any', 'active', 'inactive']),
+  promotion: z.enum(['any', 'on_sale', 'not_on_sale']),
+  photos: z.enum(['any', 'with_photos', 'without_photos']),
+  minPrice: z.number().nullable(),
+  maxPrice: z.number().nullable(),
+  sort: z.enum(['none', 'price_asc', 'price_desc', 'name_asc', 'recent']),
+  message: z.string(),
+});
+
+const interpretProductCommandFlow = ai.defineFlow(
+  {
+    name: 'interpretProductCommand',
+    inputSchema: z.string(),
+    outputSchema: productAssistantPlanSchema,
+  },
+  async (command) => {
+    const response = await ai.generate({
+      model: googleAI.model('gemini-2.5-flash'),
+      output: { schema: productAssistantPlanSchema },
+      prompt: `
+Voce interpreta pedidos de uma tela administrativa de produtos de uma loja.
+Converta o comando do usuario em um plano seguro de consulta local.
+
+Capacidades disponiveis:
+- localizar produtos por nome, categoria, cor, tag, SKU ou referencia;
+- filtrar itens com ou sem estoque, ativos/inativos, em promocao, com/sem foto e preco;
+- ordenar o resultado;
+- selecionar o resultado quando o usuario disser selecionar, marcar, separar ou escolher.
+
+Regras:
+- Nunca proponha excluir, alterar estoque, alterar preco ou publicar. Se o usuario
+  pedir algo fora das capacidades, use action "unsupported" e explique brevemente.
+- Para "separe todas as blusas que tem estoque", use action "select",
+  searchTerms ["blusa"] e stock "in_stock".
+- Em searchTerms, prefira termos curtos no singular, sem palavras de comando.
+- Use action "filter" quando o usuario quiser apenas mostrar, buscar ou listar.
+- message deve estar em portugues e resumir o que sera feito.
+
+Comando: ${JSON.stringify(command)}
+`,
+    });
+
+    if (!response.output) {
+      throw new Error('O modelo nao retornou um plano valido.');
+    }
+
+    return response.output;
+  },
+);
+
+exports.productAssistantCommand = onCall(
+  {
+    cors: true,
+    maxInstances: 10,
+    secrets: [geminiApiKey],
+  },
+  async (request) => {
+    const requesterEmail = ensureAuthenticated(request);
+    const command = String(request.data?.command || '').trim();
+
+    if (command.length < 3 || command.length > 500) {
+      throw new HttpsError(
+        'invalid-argument',
+        'Digite um pedido entre 3 e 500 caracteres.',
+      );
+    }
+
+    try {
+      const plan = await interpretProductCommandFlow(command);
+      logger.info('Comando de produtos interpretado pela IA', {
+        action: plan.action,
+        requesterEmail,
+      });
+      return plan;
+    } catch (error) {
+      logger.error('Falha ao interpretar comando de produtos com IA', {
+        error,
+        requesterEmail,
+      });
+      throw new HttpsError(
+        'internal',
+        'Nao foi possivel interpretar o pedido agora.',
+      );
+    }
+  },
+);
 
 function escapeHtml(value) {
   return String(value || '')

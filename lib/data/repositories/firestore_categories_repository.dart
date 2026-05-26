@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:developer' as developer;
+
 import 'package:catalogo_ja/core/sync/providers/sync_providers.dart';
 import 'package:catalogo_ja/core/sync/repositories/sync_queue_repository.dart';
 import 'package:catalogo_ja/core/sync/models/sync_queue_item.dart';
@@ -17,6 +20,8 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
   final SaaSPhotoStorageService _storageService;
   final String _tenantId;
   final SyncQueueRepository _syncQueue;
+  final Set<String> _autoSyncInFlight = <String>{};
+  final Map<String, Category> _autoSyncPending = <String, Category>{};
 
   FirestoreCategoriesRepository(
     this._localRepo,
@@ -64,7 +69,7 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
         final since = mostRecentLocal.subtract(const Duration(seconds: 10));
         query = query.where(
           'updatedAt',
-          isGreaterThan: Timestamp.fromDate(since),
+          isGreaterThan: since.toIso8601String(),
         );
       }
 
@@ -104,9 +109,9 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
     if (since != null) {
       query = query.where(
         'updatedAt',
-        isGreaterThan: Timestamp.fromDate(
-          since.subtract(const Duration(seconds: 10)),
-        ),
+        isGreaterThan: since
+            .subtract(const Duration(seconds: 10))
+            .toIso8601String(),
       );
     }
     final snapshot = await query.get().timeout(const Duration(seconds: 15));
@@ -116,17 +121,67 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
   @override
   Future<void> addCategory(Category category) async {
     // 🏠 Local-First: Salva no Hive instantaneamente
-    await _localRepo.addCategory(category);
+    final categoryToSave = category.copyWith(
+      tenantId: _tenantId,
+      syncStatus: SyncStatus.pendingUpdate,
+    );
+    await _localRepo.addCategory(categoryToSave);
     invalidateCache();
+    _scheduleAutoSync(categoryToSave);
   }
 
   @override
   Future<void> updateCategory(Category category) async {
-    await _localRepo.updateCategory(category);
+    final categoryToSave = category.copyWith(
+      tenantId: _tenantId,
+      syncStatus: SyncStatus.pendingUpdate,
+    );
+    await _localRepo.updateCategory(categoryToSave);
     invalidateCache();
+    _scheduleAutoSync(categoryToSave);
   }
 
-  /// 🔄 Sincroniza uma única categoria para a nuvem (com upload de fotos)
+  // Mantem somente o envio mais recente quando ha alteracoes consecutivas.
+  void _scheduleAutoSync(Category category) {
+    _autoSyncPending[category.id] = category;
+    if (!_autoSyncInFlight.add(category.id)) return;
+
+    unawaited(
+      Future<void>(() async {
+        try {
+          while (_autoSyncPending.containsKey(category.id)) {
+            final pendingCategory = _autoSyncPending.remove(category.id)!;
+            try {
+              await syncCategoryToCloud(pendingCategory);
+            } catch (e) {
+              developer.log(
+                'Erro no upload automatico da categoria '
+                '${pendingCategory.id}: $e',
+                name: 'FirestoreCategoriesRepository',
+                error: e,
+              );
+              await _syncQueue.enqueue(
+                SyncQueueItem(
+                  tenantId: _tenantId,
+                  entityType: 'category',
+                  entityId: pendingCategory.id,
+                  operation: SyncOperation.update,
+                  payload: pendingCategory.toMap(),
+                ),
+              );
+            }
+          }
+        } finally {
+          _autoSyncInFlight.remove(category.id);
+          if (_autoSyncPending.containsKey(category.id)) {
+            _scheduleAutoSync(_autoSyncPending[category.id]!);
+          }
+        }
+      }),
+    );
+  }
+
+  /// Sincroniza uma categoria para a nuvem, incluindo fotos de capa.
   Future<void> syncCategoryToCloud(Category category) async {
     Category updatedCategory = category.copyWith(tenantId: _tenantId);
     var hasPendingUploads = false;
@@ -219,16 +274,19 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
 
   @override
   Future<void> updateCategoriesBulk(List<Category> categories) async {
-    final batch = _firestore.batch();
-    for (final cat in categories) {
-      final updatedCat = cat.copyWith(tenantId: _tenantId);
-      batch.set(_collection.doc(updatedCat.id), updatedCat.toMap());
-    }
-    await batch.commit();
-
-    // Atualiza localmente em lote
-    await _localRepo.updateCategoriesBulk(categories);
+    final pendingCategories = categories
+        .map(
+          (category) => category.copyWith(
+            tenantId: _tenantId,
+            syncStatus: SyncStatus.pendingUpdate,
+          ),
+        )
+        .toList();
+    await _localRepo.updateCategoriesBulk(pendingCategories);
     invalidateCache();
+    for (final category in pendingCategories) {
+      _scheduleAutoSync(category);
+    }
   }
 
   @override

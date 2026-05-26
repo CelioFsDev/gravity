@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:catalogo_ja/data/repositories/categories_repository.dart';
 import 'package:catalogo_ja/data/repositories/firestore_categories_repository.dart';
+import 'package:catalogo_ja/data/repositories/firestore_products_repository.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
@@ -52,12 +53,11 @@ class CategoriesViewModel extends _$CategoriesViewModel {
   }
 
   Future<CategoriesState> _fetchData() async {
-    final categoriesRepository = ref.watch(categoriesRepositoryProvider);
-    // 🔑 Usa repositório LOCAL para contar produtos — evita leitura Firestore
-    // desnecessária (os dados locais já estão sincronizados).
-    final localProductRepo = ref.read(productsRepositoryProvider);
+    final categoriesRepository = ref.watch(syncCategoriesRepositoryProvider);
+    // Carrega ambos da nuvem para que um novo navegador veja as relacoes.
+    final productsRepository = ref.watch(syncProductsRepositoryProvider);
     final allCategories = await categoriesRepository.getCategories();
-    final allProducts = await localProductRepo.getProducts();
+    final allProducts = await productsRepository.getProducts();
 
     // Count products
     final counts = <String, int>{};
@@ -227,8 +227,8 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         tenantId: tenantId,
       );
 
-      // 🏠 Local-First: Salva no Hive. Sincronização é manual.
-      await localRepo.addCategory(newCat);
+      // O repositorio sincronizado salva localmente e envia para a nuvem.
+      await ref.read(syncCategoriesRepositoryProvider).addCategory(newCat);
 
       await _refreshAfterLocalMutation();
       ref.invalidate(productsViewModelProvider);
@@ -293,8 +293,10 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         ),
       );
 
-      // 🏠 Local-First: Salva no Hive.
-      await localRepo.addCategory(newCollection);
+      // O repositorio sincronizado salva localmente e envia para a nuvem.
+      await ref
+          .read(syncCategoriesRepositoryProvider)
+          .addCategory(newCollection);
 
       await _refreshAfterLocalMutation();
       ref.invalidate(productsViewModelProvider);
@@ -330,8 +332,8 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         tenantId: tenantId,
       );
 
-      // 🏠 Local-First: Salva no Hive.
-      await localRepo.updateCategory(updated);
+      // O repositorio sincronizado salva localmente e envia para a nuvem.
+      await ref.read(syncCategoriesRepositoryProvider).updateCategory(updated);
 
       await _refreshAfterLocalMutation();
       ref.invalidate(productsViewModelProvider);
@@ -380,8 +382,8 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         ),
       );
 
-      // 🏠 Local-First: Salva no Hive.
-      await localRepo.updateCategory(updated);
+      // O repositorio sincronizado salva localmente e envia para a nuvem.
+      await ref.read(syncCategoriesRepositoryProvider).updateCategory(updated);
 
       await _refreshAfterLocalMutation();
       ref.invalidate(productsViewModelProvider);
@@ -426,9 +428,10 @@ class CategoriesViewModel extends _$CategoriesViewModel {
 
       if (updatedCategories.isEmpty) return;
 
-      // 🏠 Local-First: Salva em Lote no Hive
-      final localRepo = ref.read(categoriesRepositoryProvider);
-      await localRepo.updateCategoriesBulk(updatedCategories);
+      // Mantem a ordem local e sincroniza as mudancas em seguida.
+      await ref
+          .read(syncCategoriesRepositoryProvider)
+          .updateCategoriesBulk(updatedCategories);
     } catch (e) {
       throw e.toAppFailure(action: 'reorder', entity: 'Categories');
     }

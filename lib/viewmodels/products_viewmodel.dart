@@ -2,7 +2,7 @@ import 'package:catalogo_ja/core/sync/providers/sync_providers.dart';
 import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 import 'package:catalogo_ja/data/repositories/tenant_repository.dart';
 import 'package:catalogo_ja/data/repositories/firestore_products_repository.dart';
-import 'package:catalogo_ja/data/repositories/categories_repository.dart';
+import 'package:catalogo_ja/data/repositories/firestore_categories_repository.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
@@ -50,6 +50,8 @@ class ProductsState {
   final ProductStatusFilter statusFilter;
   final ProductSort sortOption;
   final Set<String> selectedProductIds;
+  final Set<String>? assistantResultIds;
+  final String? assistantResultSummary;
 
   // KPIs
   final int totalCount;
@@ -67,6 +69,8 @@ class ProductsState {
     this.statusFilter = ProductStatusFilter.all,
     this.sortOption = ProductSort.recent,
     this.selectedProductIds = const {},
+    this.assistantResultIds,
+    this.assistantResultSummary,
     required this.totalCount,
     required this.activeCount,
     required this.outOfStockCount,
@@ -95,12 +99,15 @@ class ProductsState {
     ProductStatusFilter? statusFilter,
     ProductSort? sortOption,
     Set<String>? selectedProductIds,
+    Set<String>? assistantResultIds,
+    String? assistantResultSummary,
     int? totalCount,
     int? activeCount,
     int? outOfStockCount,
     int? onSaleCount,
     bool forceNullCollection = false,
     bool forceNullProductType = false,
+    bool clearAssistantResult = false,
   }) {
     return ProductsState(
       allProducts: allProducts ?? this.allProducts,
@@ -116,6 +123,12 @@ class ProductsState {
       statusFilter: statusFilter ?? this.statusFilter,
       sortOption: sortOption ?? this.sortOption,
       selectedProductIds: selectedProductIds ?? this.selectedProductIds,
+      assistantResultIds: clearAssistantResult
+          ? null
+          : (assistantResultIds ?? this.assistantResultIds),
+      assistantResultSummary: clearAssistantResult
+          ? null
+          : (assistantResultSummary ?? this.assistantResultSummary),
       totalCount: totalCount ?? this.totalCount,
       activeCount: activeCount ?? this.activeCount,
       outOfStockCount: outOfStockCount ?? this.outOfStockCount,
@@ -218,7 +231,7 @@ class ProductsViewModel extends _$ProductsViewModel {
       }
 
       final productRepository = ref.watch(syncProductsRepositoryProvider);
-      final categoryRepository = ref.watch(categoriesRepositoryProvider);
+      final categoryRepository = ref.watch(syncCategoriesRepositoryProvider);
       final products = await productRepository.getProducts();
       final categories = await categoryRepository.getCategories();
 
@@ -297,6 +310,39 @@ class ProductsViewModel extends _$ProductsViewModel {
   void clearSelection() {
     if (state.value == null) return;
     state = AsyncData(state.value!.copyWith(selectedProductIds: {}));
+  }
+
+  void applyAssistantResult({
+    required Iterable<String> productIds,
+    required String summary,
+    required bool selectProducts,
+    ProductSort? sortOption,
+  }) {
+    if (state.value == null) return;
+    final ids = productIds.toSet();
+    state = AsyncData(
+      _applyFilters(
+        state.value!.copyWith(
+          assistantResultIds: ids,
+          assistantResultSummary: summary,
+          searchQuery: '',
+          statusFilter: ProductStatusFilter.all,
+          sortOption: sortOption ?? ProductSort.recent,
+          forceNullCollection: true,
+          forceNullProductType: true,
+          selectedProductIds: selectProducts
+              ? ids
+              : state.value!.selectedProductIds,
+        ),
+      ),
+    );
+  }
+
+  void clearAssistantResult() {
+    if (state.value == null) return;
+    state = AsyncData(
+      _applyFilters(state.value!.copyWith(clearAssistantResult: true)),
+    );
   }
 
   Future<void> deleteSelected() async {
@@ -978,7 +1024,7 @@ class ProductsViewModel extends _$ProductsViewModel {
     state = await AsyncValue.guard(() async {
       try {
         final repository = ref.read(syncProductsRepositoryProvider);
-        final categoriesRepository = ref.read(categoriesRepositoryProvider);
+        final categoriesRepository = ref.read(syncCategoriesRepositoryProvider);
         final products = await repository.getProducts();
         final categories = await categoriesRepository.getCategories();
         final updated = previous.copyWith(
@@ -995,6 +1041,14 @@ class ProductsViewModel extends _$ProductsViewModel {
   // Internal Logic
   ProductsState _applyFilters(ProductsState currentState) {
     List<Product> filtered = List.of(currentState.allProducts);
+
+    if (currentState.assistantResultIds != null) {
+      filtered = filtered
+          .where(
+            (product) => currentState.assistantResultIds!.contains(product.id),
+          )
+          .toList();
+    }
 
     // 1. Search Query
     if (currentState.searchQuery.isNotEmpty) {

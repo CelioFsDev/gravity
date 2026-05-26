@@ -1,6 +1,8 @@
 {
   "dependencies": {
-    "firebase": "^12.10.0"
+    "@genkit-ai/googleai": "^1.28.0",
+    "firebase": "^12.10.0",
+    "genkit": "^1.35.0"
   },
   "devDependencies": {
     "@google-cloud/storage": "^7.19.0"
