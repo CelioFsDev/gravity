@@ -5,10 +5,94 @@ service firebase.storage {
     function isAuthenticated() {
       return request.auth != null;
     }
-    
-    // Baseado nas Custom Claims do Auth
+
+    function currentUserEmail() {
+      return isAuthenticated() && request.auth.token.keys().hasAny(['email'])
+        ? request.auth.token.email.lower()
+        : '';
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && (
+        currentUserEmail() == 'ti.vitoriana@gmail.com' ||
+        currentUserEmail() == 'celiofs.dev@gmail.com' ||
+        currentUserEmail() == 'celio@gmail.com' ||
+        currentUserEmail() == 'celioferreira.dev@gmail.com'
+      );
+    }
+
+    function userPath() {
+      return /databases/(default)/documents/users/$(currentUserEmail());
+    }
+
+    function hasUserDoc() {
+      return isAuthenticated() &&
+        currentUserEmail() != '' &&
+        firestore.exists(userPath());
+    }
+
+    function userData() {
+      return firestore.get(userPath()).data;
+    }
+
+    function tenantIds() {
+      return hasUserDoc() && userData().keys().hasAny(['tenantIds'])
+        ? userData().tenantIds
+        : [];
+    }
+
+    function belongsToTenant(tenantId) {
+      return hasUserDoc() && (
+        tenantId in tenantIds() ||
+        (
+          userData().keys().hasAny(['tenantId']) &&
+          userData().tenantId == tenantId
+        )
+      );
+    }
+
+    function tenantRole(tenantId) {
+      return !hasUserDoc()
+        ? 'viewer'
+        : (
+            userData().keys().hasAny(['rolesByTenant']) &&
+            tenantId in userData().rolesByTenant
+          )
+          ? userData().rolesByTenant[tenantId]
+          : (
+              belongsToTenant(tenantId) &&
+              userData().keys().hasAny(['role'])
+            )
+            ? userData().role
+            : 'viewer';
+    }
+
+    function storeRole(tenantId) {
+      return !hasUserDoc()
+        ? 'viewer'
+        : (
+            userData().keys().hasAny(['currentStoreId', 'rolesByStore']) &&
+            tenantId in userData().rolesByStore &&
+            userData().currentStoreId in userData().rolesByStore[tenantId]
+          )
+          ? userData().rolesByStore[tenantId][userData().currentStoreId]
+          : tenantRole(tenantId);
+    }
+
+    function canEditTenantData(tenantId) {
+      return isSuperAdmin() ||
+        tenantRole(tenantId) in ['admin', 'operator', 'manager', 'catalogOperator'] ||
+        storeRole(tenantId) in ['admin', 'operator', 'manager', 'catalogOperator'];
+    }
+
     function hasTenantAccess(tenantId) {
-      return isAuthenticated() && request.auth.token.tenantId == tenantId;
+      return isAuthenticated() && (
+        (
+          request.auth.token.keys().hasAny(['tenantId']) &&
+          request.auth.token.tenantId == tenantId
+        ) ||
+        canEditTenantData(tenantId)
+      );
     }
 
     // Estrutura física no bucket DEVE ser separada em pastas por tenant:

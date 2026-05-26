@@ -6,7 +6,9 @@ service cloud.firestore {
     }
 
     function currentUserEmail() {
-      return request.auth.token.email;
+      return isSignedIn() && request.auth.token.keys().hasAny(['email'])
+        ? request.auth.token.email.lower()
+        : '';
     }
 
     function isSuperAdmin() {
@@ -102,8 +104,13 @@ service cloud.firestore {
 
     function canEditTenantData(tenantId) {
       return canManageTenant(tenantId) ||
-        tenantRole(tenantId) == 'operator' ||
-        storeRole(tenantId, activeStoreId()) in ['admin', 'operator'];
+        tenantRole(tenantId) in ['operator', 'manager', 'catalogOperator'] ||
+        storeRole(tenantId, activeStoreId()) in [
+          'admin',
+          'operator',
+          'manager',
+          'catalogOperator'
+        ];
     }
 
     function isTenantOwner(tenantId) {

@@ -6,6 +6,7 @@ import 'package:catalogo_ja/models/category.dart' show CategoryType;
 import 'package:catalogo_ja/viewmodels/catalog_editor_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:catalogo_ja/features/admin/catalogs/tabs/products_selection_tab.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
@@ -32,6 +33,13 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
   late TabController _tabController;
 
   Future<Catalog> _prepareQuickCatalogForSharing(Catalog catalog) async {
+    final tenant = await ref.read(currentTenantProvider.future);
+    if (tenant == null || tenant.id.trim().isEmpty) {
+      throw Exception(
+        'Empresa nao identificada. Entre em uma empresa e tente novamente.',
+      );
+    }
+
     final normalizedName = catalog.name.trim().isEmpty
         ? 'Catalogo rapido'
         : catalog.name.trim();
@@ -45,13 +53,15 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
       slug: normalizedSlug,
       isPublic: true,
       shareCode: normalizedShareCode,
+      tenantId: tenant.id,
       updatedAt: DateTime.now(),
     );
 
+    ref.invalidate(publicCatalogSnapshotServiceProvider);
     await ref
         .read(publicCatalogSnapshotServiceProvider)
         .publish(quickCatalog)
-        .timeout(const Duration(seconds: 45));
+        .timeout(const Duration(minutes: 2));
     return quickCatalog;
   }
 
@@ -81,12 +91,19 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
         ref: ref,
         catalog: quickCatalog,
       );
-    } catch (_) {
+    } catch (e) {
       if (!context.mounted) return;
+      final detail = e
+          .toString()
+          .replaceFirst('Exception: ', '')
+          .replaceFirst('Bad state: ', '')
+          .trim();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Nao foi possivel publicar a vitrine rapida. Tente novamente.',
+            detail.isEmpty
+                ? 'Nao foi possivel publicar a vitrine rapida. Tente novamente.'
+                : detail,
           ),
         ),
       );
@@ -110,7 +127,7 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
     }
 
     notifier.setIsPublic(true);
-    final success = await notifier.save();
+    final success = await notifier.save(publishSnapshot: false);
     if (!success || !mounted) {
       final latestState = ref.read(
         catalogEditorViewModelProvider(widget.catalog?.id),

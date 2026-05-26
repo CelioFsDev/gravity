@@ -87,14 +87,8 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
   }
 
   void updateSlug(String slug) {
-    final normalized = slug
-        .trim()
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9-]'), '-')
-        .replaceAll(RegExp(r'-+'), '-');
-
     state = state.copyWith(
-      catalog: state.catalog.copyWith(slug: normalized),
+      catalog: state.catalog.copyWith(slug: _normalizeSlug(slug)),
       clearSlugError: true,
     );
   }
@@ -188,7 +182,7 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
     );
   }
 
-  Future<bool> save() async {
+  Future<bool> save({bool publishSnapshot = true}) async {
     try {
       state = state.copyWith(isSaving: true, clearSlugError: true);
 
@@ -197,15 +191,27 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
         return false;
       }
 
-      if (state.catalog.slug.isEmpty || state.catalog.slug.length < 3) {
+      final repository = ref.read(syncCatalogsRepositoryProvider);
+      var toSave = state.catalog.copyWith(
+        slug: _normalizeSlug(state.catalog.slug),
+      );
+      if (toSave.slug.length < 3) {
+        toSave = toSave.copyWith(
+          slug: await _generateAvailableSlug(toSave, repository),
+        );
+      }
+      if (toSave.slug != state.catalog.slug) {
+        state = state.copyWith(catalog: toSave, clearSlugError: true);
+      }
+
+      if (toSave.slug.length < 3) {
         state = state.copyWith(isSaving: false, slugError: 'Slug muito curto');
         return false;
       }
 
-      final repository = ref.read(syncCatalogsRepositoryProvider);
       final isTaken = await repository.isSlugTaken(
-        state.catalog.slug,
-        excludeId: state.catalog.id,
+        toSave.slug,
+        excludeId: toSave.id,
       );
 
       if (isTaken) {
@@ -216,7 +222,6 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
         return false;
       }
 
-      var toSave = state.catalog;
       final currentShareCode = _normalizeShareCode(toSave.shareCode);
       final shouldGenerateFromCatalog =
           currentShareCode.isEmpty ||
@@ -238,7 +243,7 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
 
       await repository.addCatalog(toSave);
 
-      if (toSave.isPublic) {
+      if (toSave.isPublic && publishSnapshot) {
         unawaited(_publishSnapshotInBackground(toSave));
       }
 
@@ -279,6 +284,38 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
     if (normalizedSlug.isNotEmpty) return normalizedSlug;
 
     return 'vitrine';
+  }
+
+  String _normalizeSlug(String value) {
+    return value
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp('[\\u00e1\\u00e0\\u00e3\\u00e2\\u00e4]'), 'a')
+        .replaceAll(RegExp('[\\u00e9\\u00e8\\u00ea\\u00eb]'), 'e')
+        .replaceAll(RegExp('[\\u00ed\\u00ec\\u00ee\\u00ef]'), 'i')
+        .replaceAll(RegExp('[\\u00f3\\u00f2\\u00f5\\u00f4\\u00f6]'), 'o')
+        .replaceAll(RegExp('[\\u00fa\\u00f9\\u00fb\\u00fc]'), 'u')
+        .replaceAll('\u00e7', 'c')
+        .replaceAll(RegExp(r'[^a-z0-9-]+'), '-')
+        .replaceAll(RegExp(r'-+'), '-')
+        .replaceAll(RegExp(r'^-+|-+$'), '');
+  }
+
+  Future<String> _generateAvailableSlug(
+    Catalog catalog,
+    CatalogsRepositoryContract repository,
+  ) async {
+    final normalizedName = _normalizeSlug(catalog.name);
+    final base = normalizedName.length >= 3 ? normalizedName : 'catalogo';
+
+    for (var index = 0; index < 50; index++) {
+      final candidate = index == 0 ? base : '$base-${index + 1}';
+      if (!await repository.isSlugTaken(candidate, excludeId: catalog.id)) {
+        return candidate;
+      }
+    }
+
+    return '$base-${DateTime.now().millisecondsSinceEpoch % 10000}';
   }
 
   String _normalizeShareCode(String value) {

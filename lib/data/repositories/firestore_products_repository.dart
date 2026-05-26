@@ -259,6 +259,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
 
     final totalImages = imagesToSync.length;
     final updatedImages = <ProductImage>[];
+    Object? imageUploadError;
 
     for (var i = 0; i < totalImages; i++) {
       final image = imagesToSync[i];
@@ -338,6 +339,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
           );
           // Não adiciona _image_ ao updatedImages, efetivamente quebrando o loop.
         } else {
+          imageUploadError ??= e;
           updatedImages.add(
             image,
           ); // Outro erro (Rede, etc), mantemos para tentar depois.
@@ -371,6 +373,15 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
       updatedAt: DateTime.now(),
       syncStatus: SyncStatus.synced,
     );
+
+    if (imageUploadError != null) {
+      final pendingProduct = productWithSaaS.copyWith(
+        syncStatus: SyncStatus.pendingUpdate,
+      );
+      await _localRepo.addProduct(pendingProduct);
+      invalidateCache();
+      throw Exception('Erro ao enviar foto: $imageUploadError');
+    }
 
     await _collection.doc(product.id).set(productWithSaaS.toMap());
     await _localRepo.addProduct(productWithSaaS);

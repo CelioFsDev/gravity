@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:catalogo_ja/core/services/public_catalog_snapshot_service.dart';
 import 'package:catalogo_ja/data/repositories/contracts/catalogs_repository_contract.dart';
 import 'package:catalogo_ja/models/catalog.dart';
@@ -77,6 +76,16 @@ class CatalogsViewModel extends _$CatalogsViewModel {
 
   /// Sincroniza todos os catálogos locais para a nuvem
   Future<Catalog> prepareCatalogForSharing(Catalog catalog) async {
+    final tenant = await ref.read(currentTenantProvider.future);
+    if (tenant == null || tenant.id.trim().isEmpty) {
+      throw Exception(
+        'Empresa nao identificada. Entre em uma empresa e tente novamente.',
+      );
+    }
+
+    catalog = (catalog.tenantId ?? '').trim().isEmpty
+        ? catalog.copyWith(tenantId: tenant.id)
+        : catalog;
     final repository = ref.read(syncCatalogsRepositoryProvider);
     final currentShareCode = _normalizeShareCode(catalog.shareCode);
     final shouldGenerateFromCatalog =
@@ -127,22 +136,28 @@ class CatalogsViewModel extends _$CatalogsViewModel {
     }
 
     if (toShare.isPublic) {
-      unawaited(_publishSnapshotInBackground(toShare));
+      await _publishSnapshotForSharing(toShare);
     }
 
     return toShare;
   }
 
-  Future<void> _publishSnapshotInBackground(Catalog catalog) async {
+  Future<void> _publishSnapshotForSharing(Catalog catalog) async {
     try {
+      ref.invalidate(publicCatalogSnapshotServiceProvider);
       await ref
           .read(publicCatalogSnapshotServiceProvider)
           .publish(catalog)
-          .timeout(const Duration(seconds: 45));
+          .timeout(const Duration(minutes: 2));
     } catch (e) {
-      // O link continua funcionando pelo fallback do Firestore.
       // ignore: avoid_print
       print('Erro ao publicar snapshot do catalogo: $e');
+      throw Exception(
+        e.toString().replaceFirst('Bad state: ', '').replaceFirst(
+          'Exception: ',
+          '',
+        ),
+      );
     }
   }
 

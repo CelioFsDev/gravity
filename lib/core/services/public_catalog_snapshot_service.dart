@@ -100,6 +100,7 @@ class PublicCatalogSnapshotService {
         debugPrint(
           'Error syncing product ${product.id} before public snapshot: $e',
         );
+        throw StateError('Falha ao enviar "${product.name}": $e');
       }
     }
   }
@@ -160,6 +161,17 @@ class PublicCatalogSnapshotService {
     filteredProducts = products
         .where((p) => selectedIds.contains(p.id) && p.isActive)
         .toList();
+
+    final unresolvedImageProducts = filteredProducts
+        .where((product) => product.hasLocalOnlyPhotos)
+        .map((product) => product.name)
+        .toList();
+    if (unresolvedImageProducts.isNotEmpty) {
+      throw StateError(
+        'As fotos de ${unresolvedImageProducts.join(', ')} ainda estao '
+        'somente neste aparelho. Tente sincronizar os produtos novamente.',
+      );
+    }
 
     // Resolve URLs in parallel so sharing does not wait one image at a time.
     final publicProducts = await Future.wait(
