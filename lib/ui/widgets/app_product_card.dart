@@ -73,7 +73,7 @@ class _AppProductCardState extends ConsumerState<AppProductCard> {
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -98,7 +98,7 @@ class _AppProductCardState extends ConsumerState<AppProductCard> {
                     ),
                   if (widget.product.isOutOfStock)
                     Container(
-                      color: Colors.black.withOpacity(0.5),
+                      color: Colors.black.withValues(alpha: 0.5),
                       alignment: Alignment.center,
                       child: _buildTag('ESGOTADO', Colors.white, isLarge: true),
                     ),
@@ -470,7 +470,7 @@ class _AppProductCardState extends ConsumerState<AppProductCard> {
         borderRadius: BorderRadius.circular(8),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),

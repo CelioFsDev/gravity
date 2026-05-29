@@ -97,14 +97,14 @@ class _CategoryCreateModalState extends ConsumerState<CategoryCreateModal> {
               hintText: 'Ex: Camisetas, Calças...',
               hintStyle: TextStyle(color: isDark ? Colors.white24 : Colors.black26),
               filled: true,
-              fillColor: (isDark ? Colors.white : Colors.black).withOpacity(0.04),
+              fillColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.04),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
                 borderSide: BorderSide.none,
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: (isDark ? Colors.white : Colors.black).withOpacity(0.05)),
+                borderSide: BorderSide(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),

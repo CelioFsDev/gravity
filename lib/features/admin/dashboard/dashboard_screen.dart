@@ -547,11 +547,11 @@ class _SetupBanner extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         border: Border.all(
-          color: AppTokens.vibrantCyan.withOpacity(0.3),
+          color: AppTokens.vibrantCyan.withValues(alpha: 0.3),
         ),
         boxShadow: [
           BoxShadow(
-            color: AppTokens.electricBlue.withOpacity(0.15),
+            color: AppTokens.electricBlue.withValues(alpha: 0.15),
             blurRadius: 20,
             offset: const Offset(0, 6),
           ),
@@ -566,7 +566,7 @@ class _SetupBanner extends StatelessWidget {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(10),
-                  color: AppTokens.vibrantCyan.withOpacity(0.15),
+                  color: AppTokens.vibrantCyan.withValues(alpha: 0.15),
                 ),
                 child: const Icon(
                   Icons.rocket_launch_rounded,
@@ -669,8 +669,8 @@ class _SetupActionButton extends StatelessWidget {
             gradient: primary ? AppTokens.primaryGradient : null,
             border: primary
                 ? null
-                : Border.all(color: Colors.white.withOpacity(0.2)),
-            color: muted ? Colors.white.withOpacity(0.04) : null,
+                : Border.all(color: Colors.white.withValues(alpha: 0.2)),
+            color: muted ? Colors.white.withValues(alpha: 0.04) : null,
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -758,13 +758,13 @@ class _WelcomeBanner extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: AppTokens.electricBlue.withOpacity(0.2),
+            color: AppTokens.electricBlue.withValues(alpha: 0.2),
             blurRadius: 30,
             offset: const Offset(0, 12),
           ),
         ],
         border: Border.all(
-          color: AppTokens.electricBlue.withOpacity(0.2),
+          color: AppTokens.electricBlue.withValues(alpha: 0.2),
           width: 1,
         ),
       ),
@@ -780,7 +780,7 @@ class _WelcomeBanner extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    AppTokens.vibrantCyan.withOpacity(0.15),
+                    AppTokens.vibrantCyan.withValues(alpha: 0.15),
                     Colors.transparent,
                   ],
                 ),
@@ -797,7 +797,7 @@ class _WelcomeBanner extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(AppTokens.radiusFull),
-                  color: Colors.white.withOpacity(0.08),
+                  color: Colors.white.withValues(alpha: 0.08),
                 ),
                 child: Text(
                   dateStr,
@@ -870,7 +870,7 @@ class _StatCard extends StatelessWidget {
             ? []
             : [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -965,7 +965,7 @@ class _QuickActionCard extends StatelessWidget {
                 ? []
                 : [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.03),
+                      color: Colors.black.withValues(alpha: 0.03),
                       blurRadius: 8,
                       offset: const Offset(0, 3),
                     ),

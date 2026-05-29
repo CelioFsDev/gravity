@@ -242,6 +242,45 @@ class AuthViewModel extends StreamNotifier<User?> {
       _logger.logError('Erro ao deslogar', error: e, stackTrace: stack);
     }
   }
+
+  Future<void> deleteAccount() async {
+    state = const AsyncValue.loading();
+    try {
+      final user = _repository.currentUser;
+      if (user == null) {
+        state = const AsyncValue.data(null);
+        return;
+      }
+
+      final email = user.email;
+
+      // 1. Deletar do Firestore
+      if (email != null && email.isNotEmpty) {
+        await _userRepository.deleteUser(email);
+      }
+
+      // 2. Limpar os caches locais como no signOut
+      UserRepository.resetSession();
+      ref.read(tenantRepositoryProvider).clearTenantCache();
+
+      // 3. Deletar do Firebase Auth
+      await _repository.deleteAccount();
+      
+      // 4. Log event
+      _logger.log(
+        AppEvent.logout, // Usando logout como evento fallback
+        parameters: {'action': 'account_deletion', 'email': email},
+      );
+
+      // Riverpod will automatically update state from authStateChanges stream,
+      // but we force a clean data state here just in case.
+      state = const AsyncValue.data(null);
+    } catch (e, stack) {
+      _logger.logError('Erro ao excluir conta', error: e, stackTrace: stack);
+      state = AsyncValue.error(e, stack);
+      rethrow;
+    }
+  }
 }
 
 final authViewModelProvider = StreamNotifierProvider<AuthViewModel, User?>(() {

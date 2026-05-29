@@ -108,7 +108,7 @@ class _PublicRegisterScreenState extends ConsumerState<PublicRegisterScreen> {
             Positioned(
               top: -50,
               left: -100,
-              child: _buildBlob(300, AppTokens.vibrantCyan.withOpacity(0.1)),
+              child: _buildBlob(300, AppTokens.vibrantCyan.withValues(alpha: 0.1)),
             ),
           ],
 
@@ -132,8 +132,8 @@ class _PublicRegisterScreenState extends ConsumerState<PublicRegisterScreen> {
                               padding: const EdgeInsets.all(20),
                               decoration: BoxDecoration(
                                 color: isDark
-                                    ? Colors.white.withOpacity(0.03)
-                                    : Colors.black.withOpacity(0.02),
+                                    ? Colors.white.withValues(alpha: 0.03)
+                                    : Colors.black.withValues(alpha: 0.02),
                                 shape: BoxShape.circle,
                               ),
                               child: Image.asset(
@@ -318,7 +318,7 @@ class _PublicRegisterScreenState extends ConsumerState<PublicRegisterScreen> {
         ),
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: (isDark ? Colors.white : Colors.black).withOpacity(0.04),
+        fillColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.04),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,
@@ -326,7 +326,7 @@ class _PublicRegisterScreenState extends ConsumerState<PublicRegisterScreen> {
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(
-            color: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
+            color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
           ),
         ),
         focusedBorder: OutlineInputBorder(

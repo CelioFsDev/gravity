@@ -1,5 +1,7 @@
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -9,21 +11,22 @@ class LegalContactConfig {
   LegalContactConfig._();
 
   static const String appName = 'CatalogoJa';
-  static const String legalEntityName = 'SUA EMPRESA LTDA';
-  static const String websiteUrl = 'https://seudominio.com';
-  static const String privacyEmail = 'juridico@seudominio.com';
-  static const String supportEmail = 'suporte@seudominio.com';
-  static const String whatsappNumber = '5511999999999';
-  static const String lastUpdated = '27 de abril de 2026';
+  static const String legalEntityName = 'CATÁLOGO JÁ LTDA';
+  static const String cnpj = '59.960.562/0001-20';
+  static const String websiteUrl = 'https://catalogoja.app';
+  static const String privacyEmail = 'celioferreira.dev@gmail.com';
+  static const String supportEmail = 'celioferreira.dev@gmail.com';
+  static const String whatsappNumber = '5562999061707';
+  static const String lastUpdated = '28 de maio de 2026';
 }
 
-class LegalDocumentsScreen extends StatelessWidget {
+class LegalDocumentsScreen extends ConsumerWidget {
   const LegalDocumentsScreen({required this.type, super.key});
 
   final LegalDocumentType type;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final document = _documentFor(type);
 
@@ -44,8 +47,6 @@ class LegalDocumentsScreen extends StatelessWidget {
                 children: [
                   _LegalHero(document: document),
                   const SizedBox(height: 20),
-                  _LegalWarningCard(isDark: isDark),
-                  const SizedBox(height: 20),
                   _LegalNav(currentType: type),
                   const SizedBox(height: 20),
                   ...document.sections.map(
@@ -54,6 +55,10 @@ class LegalDocumentsScreen extends StatelessWidget {
                       child: _LegalSectionCard(section: section),
                     ),
                   ),
+                  if (type == LegalDocumentType.deletion) ...[
+                    _AccountDeletionActionCard(),
+                    const SizedBox(height: 16),
+                  ],
                   const SizedBox(height: 8),
                   _LegalContactCard(document: document),
                 ],
@@ -118,39 +123,6 @@ class _LegalHero extends StatelessWidget {
                 color: Colors.white,
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LegalWarningCard extends StatelessWidget {
-  const _LegalWarningCard({required this.isDark});
-
-  final bool isDark;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: isDark ? Colors.amber.withOpacity(0.1) : const Color(0xFFFFF7E6),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.amber.withOpacity(0.35)),
-      ),
-      child: const Padding(
-        padding: EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.amber),
-            SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Antes de publicar, substitua os dados de exemplo da sua empresa, dominio, email juridico e WhatsApp de suporte.',
-                style: TextStyle(fontSize: 13, height: 1.5),
               ),
             ),
           ],
@@ -311,7 +283,8 @@ class _LegalContactCard extends StatelessWidget {
               runSpacing: 12,
               children: [
                 FilledButton.icon(
-                  onPressed: () => _launchEmail(LegalContactConfig.privacyEmail),
+                  onPressed: () =>
+                      _launchEmail(LegalContactConfig.privacyEmail),
                   icon: const Icon(Icons.email_outlined),
                   label: const Text('ENVIAR E-MAIL'),
                 ),
@@ -325,8 +298,9 @@ class _LegalContactCard extends StatelessWidget {
             const SizedBox(height: 16),
             SelectableText(
               'Empresa: ${LegalContactConfig.legalEntityName}\n'
+              'CNPJ: ${LegalContactConfig.cnpj}\n'
               'Site: ${LegalContactConfig.websiteUrl}\n'
-              'Email juridico: ${LegalContactConfig.privacyEmail}\n'
+              'Email: ${LegalContactConfig.privacyEmail}\n'
               'Suporte: ${LegalContactConfig.supportEmail}\n'
               'WhatsApp: ${LegalContactConfig.whatsappNumber}',
               style: TextStyle(
@@ -513,7 +487,8 @@ const _deletionDocument = _LegalDocument(
   contactLead:
       'Para excluir sua conta ou pedir eliminacao de dados, envie a solicitacao a partir do email vinculado ao cadastro ou informe dados suficientes para validacao.',
   emailSubject: 'Solicitacao de exclusao de conta e dados',
-  whatsAppMessage: 'Ola! Quero solicitar a exclusao da minha conta e dos meus dados.',
+  whatsAppMessage:
+      'Ola! Quero solicitar a exclusao da minha conta e dos meus dados.',
   sections: [
     _LegalSection(
       title: '1. Como solicitar',
@@ -547,3 +522,171 @@ const _deletionDocument = _LegalDocument(
     ),
   ],
 );
+
+class _AccountDeletionActionCard extends ConsumerStatefulWidget {
+  const _AccountDeletionActionCard();
+
+  @override
+  ConsumerState<_AccountDeletionActionCard> createState() =>
+      __AccountDeletionActionCardState();
+}
+
+class __AccountDeletionActionCardState
+    extends ConsumerState<_AccountDeletionActionCard> {
+  bool _isLoading = false;
+
+  Future<void> _handleDeleteAccount() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTokens.surfaceDark,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
+            SizedBox(width: 8),
+            Text(
+              'Confirmar Exclusão',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Esta ação é permanente e não poderá ser desfeita. Todos os seus produtos, catálogos, pedidos e informações de conta serão apagados definitivamente do nosso sistema.\n\nDeseja mesmo prosseguir?',
+          style: TextStyle(color: Colors.white70, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('CANCELAR', style: TextStyle(color: Colors.grey)),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('EXCLUIR PERMANENTEMENTE', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      await ref.read(authViewModelProvider.notifier).deleteAccount();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sua conta foi excluída com sucesso.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        context.go('/login');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        
+        final errorMsg = e.toString();
+        final requiresRecentLogin = errorMsg.contains('requires-recent-login') || 
+                                   errorMsg.contains('requires_recent_login') ||
+                                   errorMsg.contains('credential-too-old');
+        
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: AppTokens.surfaceDark,
+            title: const Text('Erro ao Excluir Conta', style: TextStyle(color: Colors.white)),
+            content: Text(
+              requiresRecentLogin
+                  ? 'Por razões de segurança, a exclusão da conta exige que você tenha feito login recentemente.\n\nPor favor, faça logout do aplicativo, entre novamente com suas credenciais e repita o processo para confirmar a exclusão com segurança.'
+                  : 'Ocorreu um erro ao processar sua exclusão: $e',
+              style: const TextStyle(color: Colors.white70, height: 1.5),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK', style: TextStyle(color: AppTokens.electricBlue)),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: isDark ? AppTokens.surfaceDark : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: Colors.red.withValues(alpha: 0.2),
+          width: 1.5,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.delete_forever, color: Colors.red, size: 28),
+                const SizedBox(width: 12),
+                Text(
+                  'Ação Requerida: Exclusão Física',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : AppTokens.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'A exclusão apagará de forma irrevogável todas as suas informações comerciais cadastradas. Caso decida continuar, utilize o botão abaixo para concluir o processo de forma automatizada.',
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.6,
+                color: isDark ? Colors.white70 : AppTokens.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 24),
+            _isLoading
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: CircularProgressIndicator(color: Colors.red),
+                    ),
+                  )
+                : FilledButton.icon(
+                    onPressed: _handleDeleteAccount,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    icon: const Icon(Icons.person_off_outlined),
+                    label: const Text(
+                      'CONFIRMAR E EXCLUIR MINHA CONTA',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                  ),
+          ],
+        ),
+      ),
+    );
+  }
+}

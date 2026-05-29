@@ -228,7 +228,7 @@ class CatalogsScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.95),
+        color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.95),
         border: const Border(bottom: BorderSide(color: Colors.black12)),
       ),
       child: Column(
@@ -552,19 +552,19 @@ class _EnhancedCatalogCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: isDark
-            ? AppTokens.cardDark.withOpacity(0.88)
-            : Colors.white.withOpacity(0.92),
+            ? AppTokens.cardDark.withValues(alpha: 0.88)
+            : Colors.white.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(AppTokens.radiusLg),
         border: Border.all(
           color: isDark
-              ? Colors.white.withOpacity(0.08)
-              : AppTokens.electricBlue.withOpacity(0.10),
+              ? Colors.white.withValues(alpha: 0.08)
+              : AppTokens.electricBlue.withValues(alpha: 0.10),
         ),
         boxShadow: [
           BoxShadow(
             color: isDark
-                ? Colors.black.withOpacity(0.24)
-                : AppTokens.electricBlue.withOpacity(0.08),
+                ? Colors.black.withValues(alpha: 0.24)
+                : AppTokens.electricBlue.withValues(alpha: 0.08),
             blurRadius: 18,
             offset: const Offset(0, 10),
           ),
@@ -582,14 +582,14 @@ class _EnhancedCatalogCard extends StatelessWidget {
                   end: Alignment.centerRight,
                   colors: isDark
                       ? [
-                          AppTokens.cardDark.withOpacity(0.96),
-                          AppTokens.cardDark.withOpacity(0.82),
-                          AppTokens.cardDark.withOpacity(0.66),
+                          AppTokens.cardDark.withValues(alpha: 0.96),
+                          AppTokens.cardDark.withValues(alpha: 0.82),
+                          AppTokens.cardDark.withValues(alpha: 0.66),
                         ]
                       : [
-                          Colors.white.withOpacity(0.96),
-                          Colors.white.withOpacity(0.84),
-                          Colors.white.withOpacity(0.68),
+                          Colors.white.withValues(alpha: 0.96),
+                          Colors.white.withValues(alpha: 0.84),
+                          Colors.white.withValues(alpha: 0.68),
                         ],
                 ),
               ),
@@ -743,18 +743,18 @@ class _EnhancedCatalogCard extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: isDark
               ? [
-                  AppTokens.electricBlue.withOpacity(0.38),
-                  AppTokens.vibrantCyan.withOpacity(0.16),
+                  AppTokens.electricBlue.withValues(alpha: 0.38),
+                  AppTokens.vibrantCyan.withValues(alpha: 0.16),
                 ]
               : [
-                  AppTokens.electricBlue.withOpacity(0.14),
-                  AppTokens.accentGreen.withOpacity(0.12),
+                  AppTokens.electricBlue.withValues(alpha: 0.14),
+                  AppTokens.accentGreen.withValues(alpha: 0.12),
                 ],
         ),
         border: Border.all(
           color: isDark
-              ? Colors.white.withOpacity(0.08)
-              : AppTokens.electricBlue.withOpacity(0.14),
+              ? Colors.white.withValues(alpha: 0.08)
+              : AppTokens.electricBlue.withValues(alpha: 0.14),
         ),
       ),
       child: Stack(
@@ -766,7 +766,7 @@ class _EnhancedCatalogCard extends StatelessWidget {
             child: Container(
               height: 4,
               decoration: BoxDecoration(
-                color: AppTokens.electricBlue.withOpacity(isDark ? 0.7 : 0.55),
+                color: AppTokens.electricBlue.withValues(alpha: isDark ? 0.7 : 0.55),
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
@@ -785,7 +785,7 @@ class _EnhancedCatalogCard extends StatelessWidget {
             child: Container(
               height: 4,
               decoration: BoxDecoration(
-                color: AppTokens.accentGreen.withOpacity(isDark ? 0.65 : 0.48),
+                color: AppTokens.accentGreen.withValues(alpha: isDark ? 0.65 : 0.48),
                 borderRadius: BorderRadius.circular(8),
               ),
             ),

@@ -1,5 +1,5 @@
 name: catalogo_ja
-description: "A new Flutter project."
+description: "CatalogoJa - Plataforma completa para vendas digitais. Crie catálogos profissionais, gerencie produtos, pedidos e vendedoras. Integrado com Firebase, suporte multi-idioma e compartilhamento via WhatsApp e PDF."
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -58,6 +58,7 @@ dependencies:
   flutter_native_splash: ^2.4.7
   syncfusion_flutter_pdf: ^33.2.6
 
+  flutter_cache_manager: any
 dev_dependencies:
   flutter_test:
     sdk: flutter

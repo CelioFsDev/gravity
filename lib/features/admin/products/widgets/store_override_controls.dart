@@ -66,7 +66,7 @@ class StoreOverrideControls extends ConsumerWidget {
                   return FilterChip(
                     label: Text(size),
                     selected: !isUnavailable,
-                    selectedColor: AppTokens.accentBlue.withOpacity(0.2),
+                    selectedColor: AppTokens.accentBlue.withValues(alpha: 0.2),
                     checkmarkColor: AppTokens.accentBlue,
                     onSelected: (available) => onToggleSize(size, !available),
                   );
@@ -84,7 +84,7 @@ class StoreOverrideControls extends ConsumerWidget {
                   return FilterChip(
                     label: Text(color),
                     selected: !isUnavailable,
-                    selectedColor: AppTokens.accentBlue.withOpacity(0.2),
+                    selectedColor: AppTokens.accentBlue.withValues(alpha: 0.2),
                     checkmarkColor: AppTokens.accentBlue,
                     onSelected: (available) => onToggleColor(color, !available),
                   );

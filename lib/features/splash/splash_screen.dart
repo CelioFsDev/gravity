@@ -116,9 +116,9 @@ class _SplashScreenState extends State<SplashScreen>
                             AppTokens.radiusFull,
                           ),
                           border: Border.all(
-                            color: AppTokens.accentGold.withOpacity(0.5),
+                            color: AppTokens.accentGold.withValues(alpha: 0.5),
                           ),
-                          color: AppTokens.accentGold.withOpacity(0.08),
+                          color: AppTokens.accentGold.withValues(alpha: 0.08),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -152,7 +152,7 @@ class _SplashScreenState extends State<SplashScreen>
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                         valueColor: AlwaysStoppedAnimation<Color>(
-                          AppTokens.vibrantCyan.withOpacity(0.65),
+                          AppTokens.vibrantCyan.withValues(alpha: 0.65),
                         ),
                       ),
                     ),
@@ -212,13 +212,13 @@ class _FallbackAnimatedBg extends StatelessWidget {
                       end: Alignment.bottomRight,
                     ),
                     border: Border.all(
-                      color: AppTokens.electricBlue.withOpacity(0.4),
+                      color: AppTokens.electricBlue.withValues(alpha: 0.4),
                       width: 1.5,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: AppTokens.electricBlue.withOpacity(
-                          pulse.value * 0.4,
+                        color: AppTokens.electricBlue.withValues(
+                          alpha: pulse.value * 0.4,
                         ),
                         blurRadius: 50,
                         spreadRadius: 8,
@@ -290,7 +290,7 @@ class _GlowOrbPainter extends CustomPainter {
     paint.shader =
         RadialGradient(
           colors: [
-            AppTokens.electricBlue.withOpacity(0.1 * pulse),
+            AppTokens.electricBlue.withValues(alpha: 0.1 * pulse),
             Colors.transparent,
           ],
         ).createShader(
@@ -309,7 +309,7 @@ class _GlowOrbPainter extends CustomPainter {
     paint.shader =
         RadialGradient(
           colors: [
-            AppTokens.vibrantCyan.withOpacity(0.07 * pulse),
+            AppTokens.vibrantCyan.withValues(alpha: 0.07 * pulse),
             Colors.transparent,
           ],
         ).createShader(
@@ -324,7 +324,7 @@ class _GlowOrbPainter extends CustomPainter {
     paint.shader =
         RadialGradient(
           colors: [
-            AppTokens.softPurple.withOpacity(0.05 * pulse),
+            AppTokens.softPurple.withValues(alpha: 0.05 * pulse),
             Colors.transparent,
           ],
         ).createShader(

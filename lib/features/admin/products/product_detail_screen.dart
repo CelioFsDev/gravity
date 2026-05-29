@@ -100,12 +100,12 @@ class ProductDetailScreen extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
                           color: (isDark ? Colors.white : Colors.black)
-                              .withOpacity(0.05),
+                              .withValues(alpha: 0.05),
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(
-                              isDark ? 0.3 : 0.05,
+                            color: Colors.black.withValues(
+                              alpha: isDark ? 0.3 : 0.05,
                             ),
                             blurRadius: 15,
                             offset: const Offset(0, 8),
@@ -337,9 +337,9 @@ class ProductDetailScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -377,7 +377,7 @@ class ProductDetailScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: (isDark ? Colors.white : Colors.black).withOpacity(0.03),
+        color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -437,10 +437,10 @@ class ProductDetailScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
+        color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
+          color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
         ),
       ),
       child: Text(
@@ -526,7 +526,7 @@ class ProductDetailScreen extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 48, color: AppTokens.accentRed.withOpacity(0.5)),
+          Icon(icon, size: 48, color: AppTokens.accentRed.withValues(alpha: 0.5)),
           if (uri != null && kDebugMode)
             Padding(
               padding: const EdgeInsets.all(8.0),

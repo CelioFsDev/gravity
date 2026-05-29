@@ -124,7 +124,7 @@ class _TenantOnboardingPageState extends ConsumerState<TenantOnboardingPage>
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    AppTokens.electricBlue.withOpacity(isDark ? 0.1 : 0.06),
+                    AppTokens.electricBlue.withValues(alpha: isDark ? 0.1 : 0.06),
                     Colors.transparent,
                   ],
                 ),
@@ -204,8 +204,8 @@ class _TenantOnboardingPageState extends ConsumerState<TenantOnboardingPage>
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(10),
-                                      color: AppTokens.electricBlue.withOpacity(
-                                        0.1,
+                                      color: AppTokens.electricBlue.withValues(
+                                        alpha: 0.1,
                                       ),
                                     ),
                                     child: const Icon(
@@ -332,7 +332,7 @@ class _TenantOnboardingPageState extends ConsumerState<TenantOnboardingPage>
         prefixIcon: Icon(icon, size: 18),
         filled: true,
         fillColor: isDark
-            ? Colors.white.withOpacity(0.05)
+            ? Colors.white.withValues(alpha: 0.05)
             : const Color(0xFFF3F7FB),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppTokens.radiusMd),
@@ -414,7 +414,7 @@ class _JoinCompanySheetState extends State<_JoinCompanySheet> {
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
-                      color: AppTokens.softPurple.withOpacity(0.1),
+                      color: AppTokens.softPurple.withValues(alpha: 0.1),
                     ),
                     child: const Icon(
                       Icons.group_add_rounded,
@@ -453,9 +453,9 @@ class _JoinCompanySheetState extends State<_JoinCompanySheet> {
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-                  color: AppTokens.accentGold.withOpacity(0.08),
+                  color: AppTokens.accentGold.withValues(alpha: 0.08),
                   border: Border.all(
-                    color: AppTokens.accentGold.withOpacity(0.3),
+                    color: AppTokens.accentGold.withValues(alpha: 0.3),
                   ),
                 ),
                 child: Row(
@@ -497,7 +497,7 @@ class _JoinCompanySheetState extends State<_JoinCompanySheet> {
                   prefixIcon: const Icon(Icons.tag_rounded, size: 18),
                   filled: true,
                   fillColor: isDark
-                      ? Colors.white.withOpacity(0.05)
+                      ? Colors.white.withValues(alpha: 0.05)
                       : const Color(0xFFF3F7FB),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(AppTokens.radiusMd),
@@ -596,7 +596,7 @@ class _PremiumCard extends StatelessWidget {
         boxShadow: isDark
             ? [
                 BoxShadow(
-                  color: AppTokens.electricBlue.withOpacity(0.06),
+                  color: AppTokens.electricBlue.withValues(alpha: 0.06),
                   blurRadius: 24,
                   offset: const Offset(0, 8),
                 ),

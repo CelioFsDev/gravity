@@ -47,23 +47,23 @@ class AppProductListTile extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: isSelected
-            ? AppTokens.electricBlue.withOpacity(0.1)
+            ? AppTokens.electricBlue.withValues(alpha: 0.1)
             : (isDark
-                  ? Colors.white.withOpacity(0.03)
+                  ? Colors.white.withValues(alpha: 0.03)
                   : Theme.of(context).cardColor),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: isSelected
-              ? AppTokens.vibrantCyan.withOpacity(0.5)
+              ? AppTokens.vibrantCyan.withValues(alpha: 0.5)
               : (isDark
-                    ? Colors.white.withOpacity(0.05)
-                    : Theme.of(context).dividerColor.withOpacity(0.1)),
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : Theme.of(context).dividerColor.withValues(alpha: 0.1)),
           width: isSelected ? 1.5 : 1,
         ),
         boxShadow: [
           if (!isDark && !isSelected)
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Colors.black.withValues(alpha: 0.03),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -81,14 +81,14 @@ class AppProductListTile extends StatelessWidget {
                   end: Alignment.centerRight,
                   colors: isDark
                       ? [
-                          AppTokens.cardDark.withOpacity(0.96),
-                          AppTokens.cardDark.withOpacity(0.84),
-                          AppTokens.cardDark.withOpacity(0.70),
+                          AppTokens.cardDark.withValues(alpha: 0.96),
+                          AppTokens.cardDark.withValues(alpha: 0.84),
+                          AppTokens.cardDark.withValues(alpha: 0.70),
                         ]
                       : [
-                          Colors.white.withOpacity(0.96),
-                          Colors.white.withOpacity(0.88),
-                          Colors.white.withOpacity(0.74),
+                          Colors.white.withValues(alpha: 0.96),
+                          Colors.white.withValues(alpha: 0.88),
+                          Colors.white.withValues(alpha: 0.74),
                         ],
                 ),
               ),
@@ -238,9 +238,9 @@ class AppProductListTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.3), width: 0.5),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 0.5),
       ),
       child: Text(
         label,
@@ -268,7 +268,7 @@ class AppProductListTile extends StatelessWidget {
           style: TextStyle(
             fontSize: 7,
             fontWeight: FontWeight.w900,
-            color: isDark ? Colors.white.withOpacity(0.3) : Colors.black38,
+            color: isDark ? Colors.white.withValues(alpha: 0.3) : Colors.black38,
             letterSpacing: 0.5,
           ),
         ),
@@ -277,7 +277,7 @@ class AppProductListTile extends StatelessWidget {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w800,
-            color: color.withOpacity(0.9),
+            color: color.withValues(alpha: 0.9),
           ),
         ),
       ],
@@ -296,9 +296,9 @@ class AppProductListTile extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: isDark
               ? [
-                  AppTokens.deepNavy.withOpacity(0.95),
-                  AppTokens.electricBlue.withOpacity(0.26),
-                  Colors.white.withOpacity(0.06),
+                  AppTokens.deepNavy.withValues(alpha: 0.95),
+                  AppTokens.electricBlue.withValues(alpha: 0.26),
+                  Colors.white.withValues(alpha: 0.06),
                 ]
               : [
                   const Color(0xFFF1F7FF),
@@ -308,14 +308,14 @@ class AppProductListTile extends StatelessWidget {
         ),
         border: Border.all(
           color: isDark
-              ? Colors.white.withOpacity(0.08)
-              : AppTokens.electricBlue.withOpacity(0.12),
+              ? Colors.white.withValues(alpha: 0.08)
+              : AppTokens.electricBlue.withValues(alpha: 0.12),
         ),
         boxShadow: [
           BoxShadow(
             color: isDark
-                ? Colors.black.withOpacity(0.24)
-                : AppTokens.electricBlue.withOpacity(0.08),
+                ? Colors.black.withValues(alpha: 0.24)
+                : AppTokens.electricBlue.withValues(alpha: 0.08),
             blurRadius: 14,
             offset: const Offset(0, 8),
           ),
@@ -326,8 +326,8 @@ class AppProductListTile extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: isDark
-                ? Colors.black.withOpacity(0.16)
-                : const Color(0xFFEAF3FF).withOpacity(0.58),
+                ? Colors.black.withValues(alpha: 0.16)
+                : const Color(0xFFEAF3FF).withValues(alpha: 0.58),
           ),
           child: _buildImage(imageUri),
         ),

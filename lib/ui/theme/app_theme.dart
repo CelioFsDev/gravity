@@ -50,7 +50,7 @@ class AppTheme {
       brightness: Brightness.light,
       useMaterial3: true,
       splashColor: Colors.transparent,
-      highlightColor: AppTokens.electricBlue.withOpacity(0.03),
+      highlightColor: AppTokens.electricBlue.withValues(alpha: 0.03),
     );
 
     final textTheme = GoogleFonts.interTextTheme(base.textTheme).copyWith(
@@ -310,7 +310,7 @@ class AppTheme {
         ),
         backgroundColor: AppTokens.card,
         elevation: 20,
-        shadowColor: Colors.black.withOpacity(0.15),
+        shadowColor: Colors.black.withValues(alpha: 0.15),
       ),
       bottomSheetTheme: BottomSheetThemeData(
         shape: const RoundedRectangleBorder(
@@ -338,7 +338,7 @@ class AppTheme {
         ),
         trackColor: WidgetStateProperty.resolveWith(
           (s) => s.contains(WidgetState.selected)
-              ? AppTokens.electricBlue.withOpacity(0.5)
+              ? AppTokens.electricBlue.withValues(alpha: 0.5)
               : AppTokens.borderLight,
         ),
       ),
@@ -351,7 +351,7 @@ class AppTheme {
       brightness: Brightness.dark,
       useMaterial3: true,
       splashColor: Colors.transparent,
-      highlightColor: AppTokens.electricBlue.withOpacity(0.04),
+      highlightColor: AppTokens.electricBlue.withValues(alpha: 0.04),
     );
 
     final textTheme = GoogleFonts.interTextTheme(base.textTheme).copyWith(
@@ -607,7 +607,7 @@ class AppTheme {
         ),
         backgroundColor: AppTokens.cardDark,
         elevation: 20,
-        shadowColor: Colors.black.withOpacity(0.4),
+        shadowColor: Colors.black.withValues(alpha: 0.4),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
         shape: RoundedRectangleBorder(
@@ -638,7 +638,7 @@ class AppTheme {
         ),
         trackColor: WidgetStateProperty.resolveWith(
           (s) => s.contains(WidgetState.selected)
-              ? AppTokens.vibrantCyan.withOpacity(0.4)
+              ? AppTokens.vibrantCyan.withValues(alpha: 0.4)
               : AppTokens.borderDark,
         ),
       ),

@@ -138,7 +138,7 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
                     const SizedBox(width: 8),
                     Chip(
                       label: Text('${widget.selectedIds.length} selecionados'),
-                      backgroundColor: AppTokens.accentBlue.withOpacity(0.1),
+                      backgroundColor: AppTokens.accentBlue.withValues(alpha: 0.1),
                       side: BorderSide.none,
                       labelStyle: const TextStyle(
                         color: AppTokens.accentBlue,
@@ -339,7 +339,7 @@ class _ProductSelectTile extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: isSelected
-            ? AppTokens.accentBlue.withOpacity(0.05)
+            ? AppTokens.accentBlue.withValues(alpha: 0.05)
             : Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(AppTokens.radiusMd),
         border: Border.all(
@@ -467,7 +467,7 @@ class _ProductThumb extends StatelessWidget {
     return Center(
       child: Icon(
         Icons.image_outlined,
-        color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5),
+        color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
       ),
     );
   }

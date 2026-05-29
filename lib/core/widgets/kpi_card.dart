@@ -29,7 +29,7 @@ class KpiCard extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: tone.withOpacity(0.12),
+              color: tone.withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: tone),

@@ -36,7 +36,7 @@ class AppPrimaryButton extends StatelessWidget {
                       ? [AppTokens.electricBlue, AppTokens.vibrantCyan]
                       : [
                           AppTokens.electricBlue,
-                          AppTokens.electricBlue.withOpacity(0.8),
+                          AppTokens.electricBlue.withValues(alpha: 0.8),
                         ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -46,12 +46,12 @@ class AppPrimaryButton extends StatelessWidget {
           boxShadow: isEnabled
               ? [
                   BoxShadow(
-                    color: AppTokens.electricBlue.withOpacity(0.4),
+                    color: AppTokens.electricBlue.withValues(alpha: 0.4),
                     blurRadius: 16,
                     offset: const Offset(0, 8),
                   ),
                   BoxShadow(
-                    color: AppTokens.vibrantCyan.withOpacity(0.2),
+                    color: AppTokens.vibrantCyan.withValues(alpha: 0.2),
                     blurRadius: 24,
                     offset: const Offset(0, 4),
                   ),

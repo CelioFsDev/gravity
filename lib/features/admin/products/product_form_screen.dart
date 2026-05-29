@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -404,94 +404,6 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     }
   }
 
-  Future<void> _addSecondaryPhotos() async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        allowMultiple: true,
-        type: FileType.any,
-        withData: kIsWeb,
-      );
-      if (result == null || result.files.isEmpty) return;
-
-      for (var file in result.files) {
-        final classification = ref
-            .read(photoClassificationServiceProvider.notifier)
-            .classifyFileName(file.name);
-
-        final resolved = await _processPickedImage(
-          file,
-          classification: classification,
-        );
-        if (resolved == null || !mounted) continue;
-
-        String? colorKey;
-        bool isPrimary = false;
-        String? photoType;
-
-        if (classification != null) {
-          photoType = classification.photoType;
-          colorKey = classification.colorName;
-          isPrimary = photoType == 'P';
-        } else {
-          final meta = await _showPhotoMetaDialog(context, initialType: 'D1');
-          if (meta == null || !mounted) continue;
-          photoType = meta.photoType;
-          colorKey = meta.colorKey;
-          isPrimary = photoType == 'P';
-
-          if (meta.isNewColor && meta.colorKey != null) {
-            _appendColorOption(meta.colorKey!);
-          }
-
-          if (photoType == 'C') {
-            photoType = _nextAvailableColorSlot();
-          }
-        }
-
-        await _replacePhotosWithCleanup((currentPhotos) {
-          var nextPhotos = List<ProductPhoto>.from(currentPhotos);
-          if (isPrimary) {
-            nextPhotos = nextPhotos
-                .map((p) => p.copyWith(isPrimary: false))
-                .toList();
-          }
-
-          final newPhoto = ProductPhoto(
-            path: resolved,
-            colorKey: colorKey,
-            photoType: photoType,
-            isPrimary: isPrimary,
-            id: null,
-            url: '',
-          );
-
-          if (photoType != null && photoType.startsWith('C')) {
-            nextPhotos = ref
-                .read(photoClassificationServiceProvider.notifier)
-                .organizeColors(nextPhotos, newPhoto);
-          } else if (photoType != null) {
-            final existingIdx = nextPhotos.indexWhere(
-              (p) => p.photoType == photoType,
-            );
-            if (existingIdx != -1) {
-              nextPhotos[existingIdx] = newPhoto;
-            } else {
-              nextPhotos.add(newPhoto);
-            }
-          } else {
-            nextPhotos.add(newPhoto);
-          }
-          return nextPhotos;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Erro ao selecionar fotos: $e')));
-      }
-    }
-  }
 
   /// Adiciona fotos de detalhe (D1 / D2) sem mostrar o diálogo de meta.
   Future<void> _addDetailPhotos() async {
@@ -911,9 +823,6 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     return updated;
   }
 
-  bool _isPrimaryPhoto(ProductPhoto photo) {
-    return photo.photoType == 'P' || photo.isPrimary;
-  }
 
   bool _isDetailPhoto(ProductPhoto photo) {
     return photo.photoType == 'D1' || photo.photoType == 'D2';
@@ -1464,7 +1373,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
   Widget _buildWebPhotoUploadOverlay() {
     return Container(
-      color: Colors.black.withOpacity(0.35),
+      color: Colors.black.withValues(alpha: 0.35),
       child: Center(
         child: SectionCard(
           child: Padding(
@@ -1509,7 +1418,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   Widget _buildSavingOverlay(SyncProgress progress) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      color: Colors.black.withOpacity(0.7),
+      color: Colors.black.withValues(alpha: 0.7),
       child: Center(
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 40),
@@ -1518,7 +1427,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
             color: isDark ? AppTokens.surfaceDark : Colors.white,
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 20),
+              BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 20),
             ],
           ),
           child: Column(
@@ -1548,7 +1457,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                 child: LinearProgressIndicator(
                   value: progress.progress,
                   backgroundColor: (isDark ? Colors.white : Colors.black)
-                      .withOpacity(0.05),
+                      .withValues(alpha: 0.05),
                   valueColor: const AlwaysStoppedAnimation(
                     AppTokens.electricBlue,
                   ),
@@ -1576,15 +1485,15 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
       decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor.withOpacity(0.95),
+        color: Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.95),
         border: Border(
           top: BorderSide(
-            color: (isDark ? Colors.white : Colors.black).withOpacity(0.08),
+            color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.08),
           ),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 20,
             offset: const Offset(0, -5),
           ),
@@ -1758,9 +1667,6 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     );
   }
 
-  Widget _buildAddSecondaryTile() {
-    return _buildAddTile(label: '+ Foto', onTap: _addSecondaryPhotos);
-  }
 
   Widget _buildAddTile({required String label, required VoidCallback onTap}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1775,19 +1681,19 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
             end: Alignment.bottomRight,
             colors: isDark
                 ? [
-                    Colors.white.withOpacity(0.05),
-                    Colors.white.withOpacity(0.02),
+                    Colors.white.withValues(alpha: 0.05),
+                    Colors.white.withValues(alpha: 0.02),
                   ]
                 : [
-                    AppTokens.electricBlue.withOpacity(0.05),
-                    AppTokens.electricBlue.withOpacity(0.01),
+                    AppTokens.electricBlue.withValues(alpha: 0.05),
+                    AppTokens.electricBlue.withValues(alpha: 0.01),
                   ],
           ),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isDark
                 ? Colors.white10
-                : AppTokens.electricBlue.withOpacity(0.1),
+                : AppTokens.electricBlue.withValues(alpha: 0.1),
           ),
         ),
         child: Column(
@@ -1798,8 +1704,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: isDark
-                    ? AppTokens.vibrantCyan.withOpacity(0.1)
-                    : AppTokens.electricBlue.withOpacity(0.1),
+                    ? AppTokens.vibrantCyan.withValues(alpha: 0.1)
+                    : AppTokens.electricBlue.withValues(alpha: 0.1),
               ),
               child: Icon(
                 Icons.add_a_photo_rounded,
@@ -1883,7 +1789,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
               fontSize: 14,
             ),
             filled: true,
-            fillColor: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+            fillColor: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.white,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 16,
@@ -1959,7 +1865,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.6),
+                color: Colors.black.withValues(alpha: 0.6),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
@@ -1980,7 +1886,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
             child: Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: AppTokens.accentRed.withOpacity(0.9),
+                color: AppTokens.accentRed.withValues(alpha: 0.9),
                 shape: BoxShape.circle,
                 boxShadow: [AppTokens.shadowSm],
                 border: Border.all(color: Colors.white, width: 2),
@@ -2003,7 +1909,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor.withOpacity(0.9),
+                    color: Theme.of(context).cardColor.withValues(alpha: 0.9),
                     borderRadius: BorderRadius.circular(AppTokens.radiusFull),
                     boxShadow: const [AppTokens.shadowSm],
                   ),
@@ -2099,9 +2005,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     return Container(
       padding: const EdgeInsets.all(AppTokens.space12),
       decoration: BoxDecoration(
-        color: AppTokens.accentOrange.withOpacity(0.05),
+        color: AppTokens.accentOrange.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        border: Border.all(color: AppTokens.accentOrange.withOpacity(0.2)),
+        border: Border.all(color: AppTokens.accentOrange.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
@@ -2133,15 +2039,15 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   ) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final chipBorderColor = isDark
-        ? Colors.white.withOpacity(0.12)
-        : Colors.black.withOpacity(0.10);
+        ? Colors.white.withValues(alpha: 0.12)
+        : Colors.black.withValues(alpha: 0.10);
     final chipTextColor = isDark ? Colors.white70 : Colors.black87;
     final selectedChipColor = isDark
-        ? AppTokens.electricBlue.withOpacity(0.22)
-        : AppTokens.electricBlue.withOpacity(0.14);
+        ? AppTokens.electricBlue.withValues(alpha: 0.22)
+        : AppTokens.electricBlue.withValues(alpha: 0.14);
     final selectedChipBorderColor = isDark
-        ? AppTokens.vibrantCyan.withOpacity(0.55)
-        : AppTokens.electricBlue.withOpacity(0.35);
+        ? AppTokens.vibrantCyan.withValues(alpha: 0.55)
+        : AppTokens.electricBlue.withValues(alpha: 0.35);
     final selectedChipTextColor = isDark ? Colors.white : AppTokens.textPrimary;
 
     return Column(
@@ -2237,7 +2143,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
               selected: isSelected,
               showCheckmark: false,
               backgroundColor: isDark
-                  ? Colors.white.withOpacity(0.04)
+                  ? Colors.white.withValues(alpha: 0.04)
                   : Colors.white,
               selectedColor: selectedChipColor,
               side: BorderSide(

@@ -1,4 +1,4 @@
-import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
+﻿import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/models/category.dart';
@@ -39,16 +39,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   bool _isRunningAssistant = false;
   String? _assistantFeedback;
 
-  bool get _showSupportTools {
-    final email = ref
-        .read(authViewModelProvider)
-        .valueOrNull
-        ?.email
-        ?.trim()
-        .toLowerCase();
-
-    return UserRole.superAdminEmails.contains(email);
-  }
 
   @override
   void initState() {
@@ -159,8 +149,8 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
       decoration: BoxDecoration(
         color: isDark
-            ? AppTokens.deepNavy.withOpacity(0.3)
-            : Colors.white.withOpacity(0.5),
+            ? AppTokens.deepNavy.withValues(alpha: 0.3)
+            : Colors.white.withValues(alpha: 0.5),
         borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(24),
           bottomRight: Radius.circular(24),
@@ -213,18 +203,18 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       width: 120,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.04) : Colors.white,
+        color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: isDark
-              ? Colors.white.withOpacity(0.08)
-              : Colors.black.withOpacity(0.04),
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.black.withValues(alpha: 0.04),
           width: 1,
         ),
         boxShadow: [
           if (!isDark)
             BoxShadow(
-              color: color.withOpacity(0.05),
+              color: color.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -235,7 +225,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, size: 16, color: color),
@@ -283,7 +273,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        border: Border.all(color: AppTokens.vibrantCyan.withOpacity(0.25)),
+        border: Border.all(color: AppTokens.vibrantCyan.withValues(alpha: 0.25)),
       ),
       child: ExpansionTile(
         leading: const Icon(
@@ -582,51 +572,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     );
   }
 
-  Widget _buildBottomBar(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppTokens.space16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: ref.watch(currentRoleProvider).canManageRegistrations
-            ? Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _openImport(context),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      icon: const Icon(Icons.cloud_download_outlined, size: 18),
-                      label: const Text('Importar'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => _openNewProduct(context),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Novo Produto'),
-                    ),
-                  ),
-                ],
-              )
-            : const SizedBox.shrink(),
-      ),
-    );
-  }
 
   Widget _buildSyncReminderBanner(BuildContext context) {
     final stateValue = ref.watch(productsViewModelProvider);
@@ -657,9 +602,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.blue.withOpacity(0.1),
+          color: Colors.blue.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-          border: Border.all(color: Colors.blue.withOpacity(0.3)),
+          border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
         ),
         child: Row(
           children: [
@@ -710,9 +655,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.orange.withOpacity(0.1),
+        color: Colors.orange.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        border: Border.all(color: Colors.orange.withOpacity(0.3)),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -755,77 +700,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     );
   }
 
-  Widget _buildMoreActions(BuildContext context) {
-    return PopupMenuButton<String>(
-      icon: const Icon(Icons.more_vert_rounded),
-      onSelected: (value) {
-        if (value == 'sync_upload') _startCloudSync(context);
-        if (value == 'sync_download') _startCloudDownload(context);
-
-        if (value == 'bulk_edit') {
-          Navigator.of(
-            context,
-          ).push(AppMotion.pageRoute(child: const ProductBulkEditScreen()));
-        }
-
-        if (value == 'export') _showExportOptions(context);
-      },
-      itemBuilder: (context) => const [
-        PopupMenuItem(
-          value: 'sync_upload',
-          child: Row(
-            children: [
-              Icon(
-                Icons.cloud_upload_outlined,
-                size: 18,
-                color: AppTokens.accentBlue,
-              ),
-              SizedBox(width: 8),
-              Text(
-                'Subir Catálogo (Nuvem)',
-                style: TextStyle(color: AppTokens.accentBlue),
-              ),
-            ],
-          ),
-        ),
-        PopupMenuItem(
-          value: 'sync_download',
-          child: Row(
-            children: [
-              Icon(
-                Icons.cloud_download_outlined,
-                size: 18,
-                color: AppTokens.accentBlue,
-              ),
-              SizedBox(width: 8),
-              Text('Baixar Catálogo (Nuvem)'),
-            ],
-          ),
-        ),
-        PopupMenuDivider(),
-        PopupMenuItem(
-          value: 'bulk_edit',
-          child: Row(
-            children: [
-              Icon(Icons.edit_note_outlined, size: 18),
-              SizedBox(width: 8),
-              Text('Edição Rápida (Preços)'),
-            ],
-          ),
-        ),
-        PopupMenuItem(
-          value: 'export',
-          child: Row(
-            children: [
-              Icon(Icons.share_outlined, size: 18),
-              SizedBox(width: 8),
-              Text('Exportar Catálogo'),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
 
   void _clearFilters(ProductsState state) {
     final notifier = ref.read(productsViewModelProvider.notifier);
@@ -849,249 +723,8 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     await Navigator.of(context).push(_buildCreatedProductRoute(createdProduct));
   }
 
-  void _openImport(BuildContext context) {
-    final screenContext = context;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppTokens.radiusLg),
-        ),
-      ),
-      builder: (context) => SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.cloud_download_outlined),
-                title: const Text('Importar Backup (CatalogoJa)'),
-                subtitle: const Text(
-                  'Restaura produtos, categorias e coleções de um arquivo JSON.',
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.of(context).push(
-                    AppMotion.pageRoute(child: const CatalogoJaImportScreen()),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.add_a_photo_outlined),
-                title: const Text('Adicionar Fotos em Lote'),
-                subtitle: const Text(
-                  'Seleciona várias fotos e associa aos produtos automaticamente.',
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  _startPhotoReferenceLinking();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.cloud_sync_outlined),
-                title: const Text('Sincronizar Fotos da Nuvem'),
-                subtitle: const Text(
-                  'Baixa fotos automaticamente usando a URL Base configurada em Ajustes.',
-                ),
-                onTap: () async {
-                  final messenger = ScaffoldMessenger.of(screenContext);
 
-                  Navigator.pop(context);
 
-                  try {
-                    await CatalogShareHelper.runWithLoadingDialog(
-                      screenContext,
-                      () async {
-                        ref
-                            .read(productImportViewModelProvider.notifier)
-                            .reset();
-                        await ref
-                            .read(productImportViewModelProvider.notifier)
-                            .syncRemoteImagesFromUrl();
-                      },
-                      title: 'Sincronizando fotos...',
-                      message:
-                          'Buscando imagens na nuvem e vinculando produtos.',
-                    );
-                  } catch (e) {
-                    if (!screenContext.mounted) return;
-                    messenger.showSnackBar(
-                      SnackBar(content: Text('Erro ao sincronizar fotos: $e')),
-                    );
-                    return;
-                  }
-
-                  if (!mounted) return;
-
-                  final syncState = ref.read(productImportViewModelProvider);
-
-                  if (syncState.errorMessage != null) {
-                    messenger.showSnackBar(
-                      SnackBar(content: Text(syncState.errorMessage!)),
-                    );
-                    return;
-                  }
-
-                  final matched = syncState.imagesMatchedCount;
-                  final total = syncState.imagesTotalCount;
-
-                  final message = matched > 0
-                      ? 'Sincronização concluída: $matched produto(s) com foto em $total verificados.'
-                      : 'Sincronização concluída sem fotos encontradas. Verifique a URL Base e os nomes (REF.ext).';
-
-                  messenger.showSnackBar(SnackBar(content: Text(message)));
-                },
-              ),
-              if (_showSupportTools)
-                ListTile(
-                  leading: const Icon(Icons.auto_fix_high_outlined),
-                  title: const Text('Reorganizar Fotos'),
-                  subtitle: const Text(
-                    'Religa fotos pelos nomes e limita P, detalhes e cores para evitar erro no PDF.',
-                  ),
-                  onTap: () async {
-                    Navigator.pop(context);
-
-                    try {
-                      final updatedCount =
-                          await CatalogShareHelper.runWithLoadingDialog(
-                            screenContext,
-                            () => ref
-                                .read(productsViewModelProvider.notifier)
-                                .reorganizePhotosPriority(),
-                            title: 'Reorganizando fotos...',
-                            message:
-                                'Ajustando fotos principais, detalhes e cores.',
-                          );
-
-                      if (!screenContext.mounted) return;
-
-                      ScaffoldMessenger.of(screenContext).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            updatedCount > 0
-                                ? 'Reorganização concluída em $updatedCount produto(s).'
-                                : 'Nenhum produto precisou de reorganização.',
-                          ),
-                        ),
-                      );
-                    } catch (e) {
-                      if (!screenContext.mounted) return;
-
-                      ScaffoldMessenger.of(screenContext).showSnackBar(
-                        SnackBar(
-                          content: Text('Erro ao reorganizar fotos: $e'),
-                        ),
-                      );
-                    }
-                  },
-                ),
-              ListTile(
-                leading: const Icon(Icons.shopping_bag_outlined),
-                title: const Text('Importar Nuvemshop'),
-                subtitle: const Text(
-                  'Importa produtos e fotos da sua loja Nuvemshop.',
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.of(context).push(
-                    AppMotion.pageRoute(child: const NuvemshopImportScreen()),
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showExportOptions(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppTokens.radiusLg),
-        ),
-      ),
-      builder: (context) => SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.archive_outlined),
-                title: const Text('Backup Completo do Aplicativo'),
-                subtitle: const Text(
-                  'Gera um arquivo .zip com todos os dados e imagens para migração.',
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-
-                  final viewModel = ref.read(
-                    productExportViewModelProvider.notifier,
-                  );
-
-                  viewModel.exportPackage();
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Gerando backup completo em segundo plano...',
-                      ),
-                      backgroundColor: AppTokens.accentBlue,
-                    ),
-                  );
-                },
-              ),
-              if (_showSupportTools)
-                ListTile(
-                  leading: const Icon(Icons.code),
-                  title: const Text('Backup Simples (Apenas Dados)'),
-                  subtitle: const Text('Arquivo JSON leve sem imagens.'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    ProductTransferService.shareCatalogoJaBackup(context, ref);
-                  },
-                ),
-              if (_showSupportTools) const Divider(),
-              if (_showSupportTools)
-                ListTile(
-                  leading: const Icon(Icons.file_present_outlined),
-                  title: const Text('Planilha para Edição (CSV)'),
-                  subtitle: const Text(
-                    'Exporta produtos e fotos em formato CSV/ZIP.',
-                  ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    ProductTransferService.shareProductsPackage(context, ref);
-                  },
-                ),
-              const SizedBox(height: 12),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _startPhotoReferenceLinking() {
-    ref.read(productImportViewModelProvider.notifier).reset();
-
-    ref
-        .read(productImportViewModelProvider.notifier)
-        .pickAndMatchImagesToExistingProducts();
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Iniciando vinculação de fotos em segundo plano...'),
-        backgroundColor: AppTokens.accentBlue,
-      ),
-    );
-  }
 
   void _openDetails(BuildContext context, Product product) {
     Navigator.of(
@@ -1413,7 +1046,7 @@ class _ProductsContent extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.95),
+        color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.95),
         border: const Border(bottom: BorderSide(color: Colors.black12)),
       ),
       child: Column(
@@ -1460,60 +1093,6 @@ class _ProductsContent extends ConsumerWidget {
   }
 }
 
-class _KpiSection extends StatelessWidget {
-  final ProductsState state;
-
-  const _KpiSection({required this.state});
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: 4,
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: MediaQuery.of(context).size.width < 600 ? 2 : 4,
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
-        mainAxisExtent: 140,
-      ),
-      itemBuilder: (context, index) {
-        switch (index) {
-          case 0:
-            return AppKpiCard(
-              label: 'Total',
-              value: state.totalCount.toString(),
-              color: AppTokens.accentBlue,
-              icon: Icons.inventory_2_outlined,
-            );
-          case 1:
-            return AppKpiCard(
-              label: 'Ativos',
-              value: state.activeCount.toString(),
-              color: AppTokens.accentGreen,
-              icon: Icons.check_circle_outline,
-            );
-          case 2:
-            return AppKpiCard(
-              label: 'Esgotados',
-              value: state.outOfStockCount.toString(),
-              color: AppTokens.accentRed,
-              icon: Icons.error_outline,
-            );
-          case 3:
-            return AppKpiCard(
-              label: 'Promoções',
-              value: state.onSaleCount.toString(),
-              color: AppTokens.accentOrange,
-              icon: Icons.percent_rounded,
-            );
-          default:
-            return const SizedBox.shrink();
-        }
-      },
-    );
-  }
-}
 
 class _SearchAndFiltersSection extends StatelessWidget {
   final ProductsState state;
@@ -1782,7 +1361,7 @@ class _FilterChip extends StatelessWidget {
       selected: isActive,
       onSelected: onPressed != null ? (_) => onPressed!() : null,
       backgroundColor: isDestructive
-          ? AppTokens.accentRed.withOpacity(0.05)
+          ? AppTokens.accentRed.withValues(alpha: 0.05)
           : null,
       selectedColor: AppTokens.accentBlue,
       checkmarkColor: Colors.white,
@@ -1801,7 +1380,7 @@ class _FilterChip extends StatelessWidget {
           color: isActive
               ? AppTokens.accentBlue
               : (isDestructive
-                    ? AppTokens.accentRed.withOpacity(0.2)
+                    ? AppTokens.accentRed.withValues(alpha: 0.2)
                     : Theme.of(context).dividerColor),
           width: 0.8,
         ),

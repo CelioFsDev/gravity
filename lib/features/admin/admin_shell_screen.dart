@@ -314,7 +314,7 @@ class _Sidebar extends ConsumerWidget {
                               : null,
                           boxShadow: [
                             BoxShadow(
-                              color: AppTokens.electricBlue.withOpacity(0.3),
+                              color: AppTokens.electricBlue.withValues(alpha: 0.3),
                               blurRadius: 12,
                               offset: const Offset(0, 4),
                             ),
@@ -401,8 +401,8 @@ class _Sidebar extends ConsumerWidget {
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-                      color: Colors.white.withOpacity(0.04),
-                      border: Border.all(color: Colors.white.withOpacity(0.06)),
+                      color: Colors.white.withValues(alpha: 0.04),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
                     ),
                     child: Row(
                       children: [
@@ -464,7 +464,7 @@ class _Sidebar extends ConsumerWidget {
           ),
 
           const SizedBox(height: 12),
-          Container(height: 1, color: Colors.white.withOpacity(0.06)),
+          Container(height: 1, color: Colors.white.withValues(alpha: 0.06)),
           const SizedBox(height: 8),
 
           // ── Nav items ─────────────────────────────────────────────────
@@ -484,7 +484,7 @@ class _Sidebar extends ConsumerWidget {
           ),
 
           // ── Bottom: Logout ─────────────────────────────────────────────
-          Container(height: 1, color: Colors.white.withOpacity(0.06)),
+          Container(height: 1, color: Colors.white.withValues(alpha: 0.06)),
           Padding(
             padding: const EdgeInsets.all(12),
             child: Material(
@@ -558,10 +558,10 @@ class _SidebarItem extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(AppTokens.radiusMd),
               color: isSelected
-                  ? item.color.withOpacity(0.12)
+                  ? item.color.withValues(alpha: 0.12)
                   : Colors.transparent,
               border: isSelected
-                  ? Border.all(color: item.color.withOpacity(0.2))
+                  ? Border.all(color: item.color.withValues(alpha: 0.2))
                   : null,
             ),
             child: Row(
@@ -601,7 +601,7 @@ class _SidebarItem extends StatelessWidget {
                       color: item.color,
                       boxShadow: [
                         BoxShadow(
-                          color: item.color.withOpacity(0.5),
+                          color: item.color.withValues(alpha: 0.5),
                           blurRadius: 6,
                         ),
                       ],
@@ -640,15 +640,15 @@ class _FloatingBottomNav extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppTokens.radiusFull),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.5 : 0.12),
+            color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.12),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
         ],
         border: Border.all(
           color: isDark
-              ? Colors.white.withOpacity(0.07)
-              : Colors.black.withOpacity(0.04),
+              ? Colors.white.withValues(alpha: 0.07)
+              : Colors.black.withValues(alpha: 0.04),
         ),
       ),
       child: Row(

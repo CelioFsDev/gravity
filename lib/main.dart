@@ -1,6 +1,7 @@
 import 'package:catalogo_ja/features/admin/users/create_email_password_user_screen.dart';
 import 'package:catalogo_ja/features/auth/register_screen.dart';
 import 'package:catalogo_ja/features/admin/profile/profile_screen.dart';
+import 'package:catalogo_ja/features/legal/legal_documents_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -451,6 +452,21 @@ class _MyAppState extends ConsumerState<MyApp> {
           path: '/register',
           pageBuilder: (context, state) =>
               _buildPage(state, const PublicRegisterScreen()),
+        ),
+        GoRoute(
+          path: '/legal/:type',
+          pageBuilder: (context, state) {
+            final typeStr = state.pathParameters['type'];
+            final LegalDocumentType type;
+            if (typeStr == 'terms') {
+              type = LegalDocumentType.terms;
+            } else if (typeStr == 'delete-account') {
+              type = LegalDocumentType.deletion;
+            } else {
+              type = LegalDocumentType.privacy;
+            }
+            return _buildPage(state, LegalDocumentsScreen(type: type));
+          },
         ),
         GoRoute(
           path: '/onboarding',

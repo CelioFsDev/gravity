@@ -66,7 +66,7 @@ class TenantPickerPage extends ConsumerWidget {
                   leading: CircleAvatar(
                     backgroundColor: Theme.of(
                       context,
-                    ).primaryColor.withOpacity(0.1),
+                    ).primaryColor.withValues(alpha: 0.1),
                     child: Text(tenant.name.substring(0, 1).toUpperCase()),
                   ),
                   title: Text(

@@ -25,15 +25,15 @@ class AppKpiCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            color.withOpacity(isDark ? 0.15 : 0.1),
-            color.withOpacity(isDark ? 0.05 : 0.02),
+            color.withValues(alpha: isDark ? 0.15 : 0.1),
+            color.withValues(alpha: isDark ? 0.05 : 0.02),
           ],
         ),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: color.withOpacity(isDark ? 0.2 : 0.1)),
+        border: Border.all(color: color.withValues(alpha: isDark ? 0.2 : 0.1)),
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(isDark ? 0.05 : 0.02),
+            color: color.withValues(alpha: isDark ? 0.05 : 0.02),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -47,7 +47,7 @@ class AppKpiCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -81,7 +81,7 @@ class AppKpiCard extends StatelessWidget {
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w700,
-              color: isDark ? Colors.white.withOpacity(0.5) : Colors.black45,
+              color: isDark ? Colors.white.withValues(alpha: 0.5) : Colors.black45,
               letterSpacing: 1.2,
             ),
           ),

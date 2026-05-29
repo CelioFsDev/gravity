@@ -200,7 +200,7 @@ class _StoreContactShareScreenState
                           contentPadding: EdgeInsets.zero,
                           leading: CircleAvatar(
                             backgroundColor:
-                                AppTokens.accentBlue.withOpacity(0.1),
+                                AppTokens.accentBlue.withValues(alpha: 0.1),
                             child: const Icon(
                               Icons.person,
                               color: AppTokens.accentBlue,
@@ -288,7 +288,7 @@ class _StoreContactShareScreenState
               hintText: 'Edite a mensagem antes de copiar ou compartilhar',
               filled: true,
               fillColor: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white.withOpacity(0.05)
+                  ? Colors.white.withValues(alpha: 0.05)
                   : Colors.grey.shade100,
               contentPadding: const EdgeInsets.all(AppTokens.space16),
               border: OutlineInputBorder(

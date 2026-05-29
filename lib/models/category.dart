@@ -208,10 +208,9 @@ class Category {
     this.isActive = true,
     this.tenantId,
     this.syncStatus = SyncStatus.pendingUpdate,
-    String? name,
-    String? slug,
-  }) : name = name,
-       slug = slug;
+    this.name,
+    this.slug,
+  });
 
   /// Retorna o nome ou um valor padr\u00e3o se for nulo/vazio
   String get safeName =>

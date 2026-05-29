@@ -147,7 +147,7 @@ class _InitialSetupScreenState extends ConsumerState<InitialSetupScreen>
                       ]
                     : [
                         AppTokens.bg,
-                        Colors.blue.shade50.withOpacity(0.5),
+                        Colors.blue.shade50.withValues(alpha: 0.5),
                         AppTokens.bg,
                       ],
               ),
@@ -174,7 +174,7 @@ class _InitialSetupScreenState extends ConsumerState<InitialSetupScreen>
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(24),
                         side: isDark
-                            ? BorderSide(color: Colors.white.withOpacity(0.05))
+                            ? BorderSide(color: Colors.white.withValues(alpha: 0.05))
                             : BorderSide.none,
                       ),
                       color: isDark ? const Color(0xFF1E2330) : Colors.white,
@@ -301,7 +301,7 @@ class _InitialSetupScreenState extends ConsumerState<InitialSetupScreen>
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: primaryColor.withOpacity(0.1),
+            color: primaryColor.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
           child: Center(
@@ -340,7 +340,7 @@ class _InitialSetupScreenState extends ConsumerState<InitialSetupScreen>
             ],
           ),
         ),
-        Icon(icon, color: primaryColor.withOpacity(0.5), size: 28),
+        Icon(icon, color: primaryColor.withValues(alpha: 0.5), size: 28),
       ],
     );
   }

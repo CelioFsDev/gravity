@@ -1,4 +1,4 @@
-import 'package:catalogo_ja/ui/widgets/app_primary_button.dart';
+﻿import 'package:catalogo_ja/ui/widgets/app_primary_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/models/catalog.dart';
@@ -285,7 +285,7 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
           color: Theme.of(context).cardColor,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, -4),
             ),
@@ -313,40 +313,6 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
     );
   }
 
-  Widget _buildEditorIntro() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-      decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        border: Border(
-          bottom: BorderSide(
-            color: Theme.of(context).dividerColor.withOpacity(0.6),
-          ),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            widget.catalog == null ? 'Novo Catálogo' : 'Editar Catálogo',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            'Selecione produtos e personalize o catálogo',
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildSettingsTab(
     CatalogEditorState state,

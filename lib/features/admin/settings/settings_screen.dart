@@ -831,7 +831,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               color: isDark ? AppTokens.vibrantCyan : AppTokens.electricBlue,
             ),
             filled: true,
-            fillColor: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+            fillColor: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.white,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 16,

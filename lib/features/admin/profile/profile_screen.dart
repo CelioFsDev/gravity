@@ -189,7 +189,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     children: [
                       CircleAvatar(
                         radius: 60,
-                        backgroundColor: AppTokens.accentBlue.withOpacity(0.1),
+                        backgroundColor: AppTokens.accentBlue.withValues(alpha: 0.1),
                         backgroundImage: UriUtils.isNetworkImageUri(_photoUrlController.text)
                             ? NetworkImage(_photoUrlController.text)
                             : null,
@@ -326,7 +326,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 color: Theme.of(context).cardColor,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, -4),
                   ),
@@ -349,7 +349,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     return Card(
       elevation: 0,
-      color: AppTokens.accentBlue.withOpacity(0.05),
+      color: AppTokens.accentBlue.withValues(alpha: 0.05),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: const BorderSide(color: AppTokens.accentBlue, width: 0.5),
@@ -472,7 +472,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             hintStyle: TextStyle(color: isDark ? Colors.white24 : Colors.black26, fontSize: 13),
             prefixIcon: Icon(icon, size: 20, color: isDark ? AppTokens.vibrantCyan : AppTokens.electricBlue),
             filled: true,
-            fillColor: isDark ? Colors.white.withOpacity(0.03) : Colors.white,
+            fillColor: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.white,
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),

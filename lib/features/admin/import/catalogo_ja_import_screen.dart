@@ -347,7 +347,7 @@ class _CatalogoJaImportScreenState
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
+                  color: Colors.red.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Column(
@@ -451,8 +451,8 @@ class _CatalogoJaImportScreenState
         borderRadius: BorderRadius.circular(8),
         color: groupValue == mode
             ? (isDestructive
-                  ? Colors.red.withOpacity(0.05)
-                  : Colors.blue.withOpacity(0.05))
+                  ? Colors.red.withValues(alpha: 0.05)
+                  : Colors.blue.withValues(alpha: 0.05))
             : null,
       ),
       child: RadioListTile<ImportMode>(

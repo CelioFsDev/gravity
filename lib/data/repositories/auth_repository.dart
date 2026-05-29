@@ -16,6 +16,7 @@ abstract class AuthRepository {
     String password,
   );
   Future<void> signOut();
+  Future<void> deleteAccount();
 }
 
 class FirebaseAuthRepository implements AuthRepository {
@@ -115,6 +116,14 @@ class FirebaseAuthRepository implements AuthRepository {
   Future<void> signOut() async {
     await _signOutGoogle();
     await _auth.signOut();
+  }
+
+  @override
+  Future<void> deleteAccount() async {
+    final user = _auth.currentUser;
+    if (user != null) {
+      await user.delete();
+    }
   }
 }
 

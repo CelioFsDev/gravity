@@ -140,7 +140,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       colors: [
                         Colors.transparent,
                         (isDark ? AppTokens.deepNavy : Colors.white)
-                            .withOpacity(0.94),
+                            .withValues(alpha: 0.94),
                       ],
                       stops: const [0.18, 0.68],
                     ),
@@ -195,8 +195,8 @@ class _LoginBrandPane extends StatelessWidget {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                AppTokens.deepNavy.withOpacity(compact ? 0.04 : 0.1),
-                AppTokens.deepNavy.withOpacity(compact ? 0.54 : 0.22),
+                AppTokens.deepNavy.withValues(alpha: compact ? 0.04 : 0.1),
+                AppTokens.deepNavy.withValues(alpha: compact ? 0.54 : 0.22),
               ],
             ),
           ),
@@ -245,7 +245,7 @@ class _LoginPanel extends StatelessWidget {
         border: Border.all(color: borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.3 : 0.08),
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
             blurRadius: 28,
             offset: const Offset(0, 18),
           ),
@@ -335,7 +335,7 @@ class _LoginPanel extends StatelessWidget {
                     : AppTokens.electricBlue,
                 side: BorderSide(
                   color: isDark
-                      ? Colors.white.withOpacity(0.18)
+                      ? Colors.white.withValues(alpha: 0.18)
                       : const Color(0xFFE1E8F0),
                 ),
                 padding: const EdgeInsets.symmetric(vertical: 14),
@@ -483,7 +483,7 @@ class _EmailPasswordForm extends StatelessWidget {
         suffixIcon: suffix,
         filled: true,
         fillColor: isDark
-            ? Colors.white.withOpacity(0.06)
+            ? Colors.white.withValues(alpha: 0.06)
             : const Color(0xFFF3F7FB),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),

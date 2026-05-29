@@ -333,7 +333,7 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
           color: Theme.of(context).cardColor,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, -4),
             ),
@@ -463,14 +463,14 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
                   Positioned.fill(
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.0),
+                        color: Colors.black.withValues(alpha: 0.0),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Center(
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.35),
+                            color: Colors.black.withValues(alpha: 0.35),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
@@ -495,7 +495,7 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
               decoration: BoxDecoration(
                 color: Theme.of(
                   context,
-                ).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                 border: Border.all(
                   color: Theme.of(context).dividerColor,
                   style: BorderStyle.solid,
@@ -512,13 +512,13 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
                     Icon(
                       Icons.add_photo_alternate_outlined,
                       size: 32,
-                      color: AppTokens.textMuted.withOpacity(0.5),
+                      color: AppTokens.textMuted.withValues(alpha: 0.5),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'Clique para selecionar',
                       style: TextStyle(
-                        color: AppTokens.textMuted.withOpacity(0.5),
+                        color: AppTokens.textMuted.withValues(alpha: 0.5),
                         fontSize: 12,
                       ),
                     ),

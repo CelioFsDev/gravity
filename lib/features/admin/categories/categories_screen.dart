@@ -86,18 +86,18 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                       margin: const EdgeInsets.only(bottom: 12),
                       decoration: BoxDecoration(
                         color: isDark
-                            ? Colors.white.withOpacity(0.03)
+                            ? Colors.white.withValues(alpha: 0.03)
                             : Theme.of(context).cardColor,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
                           color: isDark
-                              ? Colors.white.withOpacity(0.05)
-                              : Theme.of(context).dividerColor.withOpacity(0.1),
+                              ? Colors.white.withValues(alpha: 0.05)
+                              : Theme.of(context).dividerColor.withValues(alpha: 0.1),
                         ),
                         boxShadow: [
                           if (!isDark)
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.03),
+                              color: Colors.black.withValues(alpha: 0.03),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),
@@ -112,7 +112,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                           width: 48,
                           height: 48,
                           decoration: BoxDecoration(
-                            color: AppTokens.electricBlue.withOpacity(0.1),
+                            color: AppTokens.electricBlue.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Icon(
@@ -212,7 +212,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       decoration: BoxDecoration(
         color: isDark
-            ? AppTokens.deepNavy.withOpacity(0.5)
+            ? AppTokens.deepNavy.withValues(alpha: 0.5)
             : Theme.of(context).cardColor,
         borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(32),
@@ -221,7 +221,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
         boxShadow: [
           if (!isDark)
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -469,7 +469,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.95),
+        color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.95),
         border: const Border(bottom: BorderSide(color: Colors.black12)),
       ),
       child: Column(

@@ -311,8 +311,8 @@ class _CollectionCard extends ConsumerWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppTokens.accentBlue.withOpacity(0.18),
-            AppTokens.vibrantCyan.withOpacity(0.12),
+            AppTokens.accentBlue.withValues(alpha: 0.18),
+            AppTokens.vibrantCyan.withValues(alpha: 0.12),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,

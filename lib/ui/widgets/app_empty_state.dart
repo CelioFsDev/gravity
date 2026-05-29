@@ -39,14 +39,14 @@ class AppEmptyState extends StatelessWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      colorScheme.primary.withOpacity(0.05),
-                      colorScheme.primary.withOpacity(0.15),
+                      colorScheme.primary.withValues(alpha: 0.05),
+                      colorScheme.primary.withValues(alpha: 0.15),
                     ],
                   ),
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: colorScheme.primary.withOpacity(0.05),
+                      color: colorScheme.primary.withValues(alpha: 0.05),
                       blurRadius: 20,
                       spreadRadius: 5,
                     ),
@@ -55,7 +55,7 @@ class AppEmptyState extends StatelessWidget {
                 child: Icon(
                   icon,
                   size: 64,
-                  color: colorScheme.primary.withOpacity(0.6),
+                  color: colorScheme.primary.withValues(alpha: 0.6),
                 ),
               ),
               const SizedBox(height: AppTokens.space32),

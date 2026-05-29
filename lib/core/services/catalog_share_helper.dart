@@ -1,4 +1,4 @@
-import 'dart:io' as io;
+﻿import 'dart:io' as io;
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -409,64 +409,7 @@ class CatalogShareHelper {
     );
   }
 
-  static Future<String?> _resolveSharePreviewImageUrl(
-    WidgetRef ref,
-    Catalog catalog,
-  ) async {
-    final directCatalogImage = _asPublicHttpUrl(
-      catalog.banners.isNotEmpty ? catalog.banners.first.imagePath : null,
-    );
-    if (directCatalogImage != null) {
-      return directCatalogImage;
-    }
 
-    final productsState = await ref.read(productsViewModelProvider.future);
-    final catalogProducts = productsState.allProducts
-        .where((product) => catalog.productIds.contains(product.id))
-        .toList();
-
-    final coverInfo = _resolveCollectionCover(
-      catalogProducts,
-      productsState.categories,
-    );
-    final collectionCover = coverInfo.cover;
-    if (collectionCover != null) {
-      final collectionCoverImage =
-          _asPublicHttpUrl(collectionCover.coverPagePath) ??
-          _asPublicHttpUrl(collectionCover.coverMiniPath) ??
-          _asPublicHttpUrl(collectionCover.coverImagePath);
-      if (collectionCoverImage != null) {
-        return collectionCoverImage;
-      }
-    }
-
-    for (final product in catalogProducts) {
-      final productImage = _asPublicHttpUrl(product.mainImage?.uri);
-      if (productImage != null) {
-        return productImage;
-      }
-    }
-
-    return null;
-  }
-
-  static String? _asPublicHttpUrl(String? value) {
-    final trimmed = value?.trim();
-    if (trimmed == null || trimmed.isEmpty) {
-      return null;
-    }
-
-    final uri = Uri.tryParse(trimmed);
-    if (uri == null || !uri.hasScheme) {
-      return null;
-    }
-
-    if (uri.scheme != 'http' && uri.scheme != 'https') {
-      return null;
-    }
-
-    return trimmed;
-  }
 
   static Future<void> saveCatalogPdf(
     BuildContext context,
@@ -1108,30 +1051,6 @@ class CatalogShareHelper {
                               ),
                             const SizedBox(height: 24),
 
-                            if (false) ...[
-                              // LAST PAGE SECTION
-                              _buildSubHeader(
-                                context,
-                                'Página Final de Contato',
-                              ),
-                              const SizedBox(height: 12),
-                              SwitchListTile.adaptive(
-                                contentPadding: EdgeInsets.zero,
-                                title: const Text(
-                                  'Incluir página de contato',
-                                  style: TextStyle(fontWeight: FontWeight.w600),
-                                ),
-                                subtitle: const Text(
-                                  'Adiciona última página com links do Instagram e Linktree.',
-                                ),
-                                value: includeContactPage,
-                                onChanged: (value) =>
-                                    setState(() => includeContactPage = value),
-                                activeThumbColor: AppTokens.accentBlue,
-                              ),
-
-                              const SizedBox(height: 24),
-                            ],
                             // COVER SECTION
                             _buildSubHeader(context, 'Capa do Cat\u00e1logo'),
                             const SizedBox(height: 12),
@@ -1308,7 +1227,7 @@ class CatalogShareHelper {
       style: Theme.of(context).textTheme.labelLarge?.copyWith(
         letterSpacing: 1.2,
         fontWeight: FontWeight.w800,
-        color: Theme.of(context).colorScheme.primary.withOpacity(0.8),
+        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
       ),
     );
   }
@@ -1374,7 +1293,7 @@ class CatalogShareHelper {
             width: isSelected ? 2 : 1,
           ),
           color: isSelected
-              ? theme.colorScheme.primary.withOpacity(0.05)
+              ? theme.colorScheme.primary.withValues(alpha: 0.05)
               : null,
         ),
         child: Row(
@@ -1568,12 +1487,12 @@ Widget _buildStylePreview(CatalogPdfStyle style, bool isSelected) {
     height: 56,
     padding: const EdgeInsets.all(4),
     decoration: BoxDecoration(
-      color: isSelected ? Colors.white.withOpacity(0.2) : Colors.white,
+      color: isSelected ? Colors.white.withValues(alpha: 0.2) : Colors.white,
       borderRadius: BorderRadius.circular(4),
       border: Border.all(
         color: isSelected
-            ? Colors.white.withOpacity(0.5)
-            : Colors.grey.withOpacity(0.3),
+            ? Colors.white.withValues(alpha: 0.5)
+            : Colors.grey.withValues(alpha: 0.3),
         width: 0.5,
       ),
     ),
@@ -1685,7 +1604,7 @@ Widget _getPreviewLayout(CatalogPdfStyle style, bool isSelected) {
                 Container(
                   height: 3,
                   width: 16,
-                  color: accentColor.withOpacity(0.5),
+                  color: accentColor.withValues(alpha: 0.5),
                 ),
               ],
             ),
@@ -1741,7 +1660,7 @@ Widget _buildStyleOption(
                   style: TextStyle(
                     fontSize: 9,
                     color: isSelected
-                        ? theme.colorScheme.onPrimary.withOpacity(0.8)
+                        ? theme.colorScheme.onPrimary.withValues(alpha: 0.8)
                         : theme.textTheme.bodySmall?.color,
                   ),
                   maxLines: 1,

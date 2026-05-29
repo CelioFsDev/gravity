@@ -116,9 +116,9 @@ class _InfoPanel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppTokens.space16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        border: Border.all(color: color.withOpacity(0.18)),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -200,7 +200,7 @@ class _BackupAction extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
+                  color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(AppTokens.radiusMd),
                 ),
                 child: Icon(icon, color: color, size: 24),

@@ -103,7 +103,7 @@ class AppTokens {
   );
 
   static LinearGradient navyGlowGradient = LinearGradient(
-    colors: [deepNavy, electricBlue.withOpacity(0.12), deepNavy],
+    colors: [deepNavy, electricBlue.withValues(alpha: 0.12), deepNavy],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -128,19 +128,19 @@ class AppTokens {
   );
 
   static BoxShadow glowBlue = BoxShadow(
-    color: electricBlue.withOpacity(0.3),
+    color: electricBlue.withValues(alpha: 0.3),
     blurRadius: 24,
     offset: const Offset(0, 8),
   );
 
   static BoxShadow glowCyan = BoxShadow(
-    color: vibrantCyan.withOpacity(0.25),
+    color: vibrantCyan.withValues(alpha: 0.25),
     blurRadius: 20,
     offset: const Offset(0, 6),
   );
 
   // ─── Icon color by context ───────────────────────────────────────────────
-  static Color iconOnDark = Colors.white.withOpacity(0.85);
+  static Color iconOnDark = Colors.white.withValues(alpha: 0.85);
   static Color iconOnLight = textSecondary;
 }
 

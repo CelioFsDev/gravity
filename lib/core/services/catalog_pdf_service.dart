@@ -1786,24 +1786,6 @@ class CatalogPdfService {
     return product.images;
   }
 
-  static String _resolveColorLabel(ProductImage img) {
-    final explicit = img.colorTag?.trim();
-    if (explicit != null && explicit.isNotEmpty) {
-      return explicit;
-    }
-
-    final fromPath = _extractColorFromPath(img.uri);
-    if (fromPath != null && fromPath.isNotEmpty) {
-      return fromPath;
-    }
-
-    final label = img.label?.trim();
-    if (label != null && label.isNotEmpty) {
-      return label;
-    }
-    return 'COR';
-  }
-
   static String? _extractColorFromPath(String path) {
     final fileName = path.split(RegExp(r'[\\/]')).last;
     if (fileName.isEmpty) return null;
@@ -2116,71 +2098,6 @@ class CatalogPdfService {
                   ],
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  static void _addCollectionOpeningPage(
-    pw.Document pdf,
-    PdfPageFormat pageFormat,
-    Category collection,
-  ) {
-    // Priority: Images
-    final cover = collection.cover;
-    if (cover == null) return;
-
-    final miniPath = cover.coverMiniPath ?? cover.coverImagePath;
-    final pagePath = cover.coverPagePath;
-
-    if (miniPath == null || miniPath.isEmpty) return;
-
-    final availableWidth = pageFormat.width - 36;
-    final miniHeight = availableWidth / (1365 / 420);
-
-    pdf.addPage(
-      pw.Page(
-        pageFormat: pageFormat,
-        margin: pw.EdgeInsets.zero,
-        build: (_) => pw.Container(
-          color: PdfColors.white,
-          padding: const pw.EdgeInsets.all(18),
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-            children: [
-              _buildImageBox(
-                miniPath,
-                height: miniHeight,
-                width: availableWidth,
-                radius: 12,
-              ),
-              if (pagePath != null && pagePath.isNotEmpty) ...[
-                pw.SizedBox(height: 12),
-                pw.Expanded(
-                  child: _buildImageBox(
-                    pagePath,
-                    height: pageFormat.height,
-                    width: availableWidth,
-                    radius: 18,
-                  ),
-                ),
-              ] else ...[
-                // If no editorial image, maybe show collection name centered?
-                pw.Spacer(),
-                pw.Center(
-                  child: pw.Text(
-                    collection.safeName.toUpperCase(),
-                    style: pw.TextStyle(
-                      fontSize: 24,
-                      color: _colorMuted,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                ),
-                pw.Spacer(),
-              ],
             ],
           ),
         ),

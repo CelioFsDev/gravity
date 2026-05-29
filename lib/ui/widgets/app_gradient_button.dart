@@ -36,7 +36,7 @@ class AppGradientButton extends StatelessWidget {
         boxShadow: isEnabled
             ? [
                 BoxShadow(
-                  color: effectiveGradient.colors.last.withOpacity(0.3),
+                  color: effectiveGradient.colors.last.withValues(alpha: 0.3),
                   blurRadius: 12,
                   offset: const Offset(0, 6),
                 ),

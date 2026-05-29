@@ -21,9 +21,9 @@ class AppSearchField extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: baseColor.withOpacity(isDark ? 0.05 : 0.03),
+        color: baseColor.withValues(alpha: isDark ? 0.05 : 0.03),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: baseColor.withOpacity(0.1)),
+        border: Border.all(color: baseColor.withValues(alpha: 0.1)),
       ),
       child: TextField(
         controller: controller,
@@ -31,15 +31,15 @@ class AppSearchField extends StatelessWidget {
         style: TextStyle(fontSize: 15, color: isDark ? Colors.white : Colors.black87),
         decoration: InputDecoration(
           hintText: hintText,
-          hintStyle: TextStyle(color: baseColor.withOpacity(0.3)),
+          hintStyle: TextStyle(color: baseColor.withValues(alpha: 0.3)),
           prefixIcon: Icon(
             Icons.search_rounded,
             size: 20,
-            color: baseColor.withOpacity(0.5),
+            color: baseColor.withValues(alpha: 0.5),
           ),
           suffixIcon: controller.text.isNotEmpty
               ? IconButton(
-                  icon: Icon(Icons.close_rounded, size: 18, color: baseColor.withOpacity(0.5)),
+                  icon: Icon(Icons.close_rounded, size: 18, color: baseColor.withValues(alpha: 0.5)),
                   onPressed: () {
                     controller.clear();
                     onClear?.call();

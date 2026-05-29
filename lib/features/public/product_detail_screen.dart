@@ -260,7 +260,7 @@ class _PublicProductDetailScreenState
         leading: Padding(
           padding: const EdgeInsets.all(8.0),
           child: CircleAvatar(
-            backgroundColor: Colors.white.withOpacity(0.9),
+            backgroundColor: Colors.white.withValues(alpha: 0.9),
             child: IconButton(
               icon: const Icon(
                 Icons.arrow_back_rounded,
@@ -274,7 +274,7 @@ class _PublicProductDetailScreenState
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: CircleAvatar(
-              backgroundColor: Colors.white.withOpacity(0.9),
+              backgroundColor: Colors.white.withValues(alpha: 0.9),
               child: IconButton(
                 icon: const Icon(
                   Icons.share_outlined,
@@ -320,7 +320,7 @@ class _PublicProductDetailScreenState
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF43F5E).withOpacity(0.1),
+                            color: const Color(0xFFF43F5E).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Text(
@@ -445,7 +445,7 @@ class _PublicProductDetailScreenState
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.black.withOpacity(0.2), Colors.transparent],
+                  colors: [Colors.black.withValues(alpha: 0.2), Colors.transparent],
                 ),
               ),
             ),
@@ -463,7 +463,7 @@ class _PublicProductDetailScreenState
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.3),
+                    color: Colors.black.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: ListenableBuilder(
@@ -484,7 +484,7 @@ class _PublicProductDetailScreenState
                               shape: BoxShape.circle,
                               color: i == current
                                   ? Colors.white
-                                  : Colors.white.withOpacity(0.4),
+                                  : Colors.white.withValues(alpha: 0.4),
                             ),
                           ),
                         ),
@@ -534,7 +534,7 @@ class _PublicProductDetailScreenState
               boxShadow: isSelected
                   ? [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 8,
                         offset: const Offset(0, 4),
                       ),
@@ -633,7 +633,7 @@ class _PublicProductDetailScreenState
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4),
+            BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4),
           ],
         ),
         child: Icon(icon, size: 20, color: const Color(0xFF0F172A)),
@@ -651,7 +651,7 @@ class _PublicProductDetailScreenState
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 20,
             offset: const Offset(0, -5),
           ),
