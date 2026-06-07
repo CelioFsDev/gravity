@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -30,10 +34,23 @@ class AppLogger extends _$AppLogger {
 
     if (kDebugMode) {
       debugPrint('🚀 [AppLogger] Event: $eventName $params');
+      return;
     }
 
-    // Future: Plug Crashlytics/Analytics here
-    // FirebaseAnalytics.instance.logEvent(name: eventName, parameters: parameters);
+    final analyticsParameters = <String, Object>{
+      for (final entry in (parameters ?? const <String, dynamic>{}).entries)
+        entry.key:
+            entry.value is num || entry.value is String || entry.value is bool
+            ? entry.value as Object
+            : entry.value.toString(),
+    };
+
+    unawaited(
+      FirebaseAnalytics.instance.logEvent(
+        name: eventName,
+        parameters: analyticsParameters,
+      ),
+    );
   }
 
   void logError(String message, {Object? error, StackTrace? stackTrace}) {
@@ -41,9 +58,16 @@ class AppLogger extends _$AppLogger {
       debugPrint('❌ [AppLogger] Error: $message');
       if (error != null) debugPrint('   Error detail: $error');
       if (stackTrace != null) debugPrint('   StackTrace: $stackTrace');
+      return;
     }
 
-    // Future: Crashlytics
-    // FirebaseCrashlytics.instance.recordError(error, stackTrace, reason: message);
+    unawaited(
+      FirebaseCrashlytics.instance.recordError(
+        error,
+        stackTrace,
+        reason: message,
+        fatal: false,
+      ),
+    );
   }
 }

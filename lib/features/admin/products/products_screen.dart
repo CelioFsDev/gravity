@@ -1,4 +1,4 @@
-﻿import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
+import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/models/category.dart';
@@ -7,23 +7,14 @@ import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
 import 'package:catalogo_ja/features/admin/products/product_form_screen.dart';
 import 'package:catalogo_ja/features/admin/products/product_detail_screen.dart';
-import 'package:catalogo_ja/core/services/product_transfer_service.dart';
-import 'package:catalogo_ja/core/services/catalog_share_helper.dart';
 import 'package:catalogo_ja/core/services/product_ai_assistant_service.dart';
-import 'package:catalogo_ja/features/admin/import/catalogo_ja_import_screen.dart';
-import 'package:catalogo_ja/features/admin/import/nuvemshop_import_screen.dart';
-import 'package:catalogo_ja/viewmodels/product_export_viewmodel.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
-import 'package:catalogo_ja/viewmodels/product_import_viewmodel.dart';
-import 'package:catalogo_ja/features/admin/products/product_bulk_edit_screen.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
-import 'package:catalogo_ja/ui/widgets/app_kpi_card.dart';
 import 'package:catalogo_ja/ui/widgets/app_search_field.dart';
 import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
 import 'package:catalogo_ja/ui/widgets/app_product_list_tile.dart';
 import 'package:uuid/uuid.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
-import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/settings_viewmodel.dart';
 
 class ProductsScreen extends ConsumerStatefulWidget {

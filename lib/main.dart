@@ -46,6 +46,7 @@ import 'package:catalogo_ja/ui/theme/app_theme.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/features/auth/login_screen.dart';
 import 'package:catalogo_ja/features/splash/splash_screen.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:catalogo_ja/pages/tenant/tenant_onboarding_page.dart';
 import 'package:catalogo_ja/pages/tenant/tenant_picker_page.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
@@ -90,17 +91,42 @@ void main() async {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('ERRO FATAL DE BOOT', style: TextStyle(color: Colors.red, fontSize: 24, fontWeight: FontWeight.bold)),
+                const Text(
+                  'ERRO FATAL DE BOOT',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const SizedBox(height: 16),
-                Text('Etapa: $step', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(
+                  'Etapa: $step',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 Text('Plataforma: $platform'),
                 Text('URL: $url'),
                 const SizedBox(height: 16),
-                const Text('Erro:', style: TextStyle(fontWeight: FontWeight.bold)),
-                Text(error.toString(), style: const TextStyle(color: Colors.red)),
+                const Text(
+                  'Erro:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  error.toString(),
+                  style: const TextStyle(color: Colors.red),
+                ),
                 const SizedBox(height: 16),
-                const Text('Stack Trace:', style: TextStyle(fontWeight: FontWeight.bold)),
-                Text(stackTrace.toString(), style: const TextStyle(fontFamily: 'monospace', fontSize: 10)),
+                const Text(
+                  'Stack Trace:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  stackTrace.toString(),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 10),
+                ),
               ],
             ),
           ),
@@ -111,7 +137,9 @@ void main() async {
   }
 
   try {
-    debugPrint('[BOOT_IOS] ETAPA 1 - WidgetsFlutterBinding.ensureInitialized()');
+    debugPrint(
+      '[BOOT_IOS] ETAPA 1 - WidgetsFlutterBinding.ensureInitialized()',
+    );
     WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
     FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
   } catch (e, st) {
@@ -123,11 +151,11 @@ void main() async {
   }
 
   if (bootMode == 'minimal') {
-    runApp(const MaterialApp(
-      home: Scaffold(
-        body: Center(child: Text('IOS BOOT MINIMAL OK')),
+    runApp(
+      const MaterialApp(
+        home: Scaffold(body: Center(child: Text('IOS BOOT MINIMAL OK'))),
       ),
-    ));
+    );
     FlutterNativeSplash.remove();
     return;
   }
@@ -217,6 +245,12 @@ void main() async {
         await Firebase.initializeApp(
           options: DefaultFirebaseOptions.currentPlatform,
         );
+        await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(
+          !kDebugMode,
+        );
+        await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(
+          !kDebugMode,
+        );
       } catch (e) {
         if (!e.toString().contains('duplicate-app')) {
           rethrow;
@@ -266,21 +300,21 @@ void main() async {
   }
 
   if (bootMode == 'no-hive') {
-    runApp(const MaterialApp(
-      home: Scaffold(
-        body: Center(child: Text('IOS BOOT NO HIVE OK')),
+    runApp(
+      const MaterialApp(
+        home: Scaffold(body: Center(child: Text('IOS BOOT NO HIVE OK'))),
       ),
-    ));
+    );
     FlutterNativeSplash.remove();
     return;
   }
 
   if (bootMode == 'no-firebase') {
-    runApp(const MaterialApp(
-      home: Scaffold(
-        body: Center(child: Text('IOS BOOT NO FIREBASE OK')),
+    runApp(
+      const MaterialApp(
+        home: Scaffold(body: Center(child: Text('IOS BOOT NO FIREBASE OK'))),
       ),
-    ));
+    );
     FlutterNativeSplash.remove();
     return;
   }

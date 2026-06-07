@@ -488,7 +488,7 @@ class _UserRow extends ConsumerWidget {
     final tenant = ref.read(currentTenantProvider).valueOrNull;
     final availableStores = tenant?.stores ?? const <String>[];
     String? selectedStoreId = user['currentStoreId'] as String? ?? '';
-    if (selectedStoreId != null && selectedStoreId.isEmpty) {
+    if (selectedStoreId.isEmpty) {
       selectedStoreId = availableStores.isNotEmpty
           ? availableStores.first
           : null;
@@ -555,7 +555,7 @@ class _UserRow extends ConsumerWidget {
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: selectedStoreId,
+                  initialValue: selectedStoreId,
                   decoration: InputDecoration(
                     labelText: 'Unidade vinculada',
                     prefixIcon: const Icon(Icons.storefront_outlined),

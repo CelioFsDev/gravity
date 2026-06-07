@@ -14,6 +14,8 @@ class LegalContactConfig {
   static const String legalEntityName = 'CATÁLOGO JÁ LTDA';
   static const String cnpj = '59.960.562/0001-20';
   static const String websiteUrl = 'https://catalogoja.app';
+  static const String privacyPageUrl = 'https://catalogoja.app/privacy.html';
+  static const String termsPageUrl = 'https://catalogoja.app/terms.html';
   static const String privacyEmail = 'celioferreira.dev@gmail.com';
   static const String supportEmail = 'celioferreira.dev@gmail.com';
   static const String whatsappNumber = '5562999061707';
@@ -289,6 +291,14 @@ class _LegalContactCard extends StatelessWidget {
                   label: const Text('ENVIAR E-MAIL'),
                 ),
                 OutlinedButton.icon(
+                  onPressed: () => launchUrl(
+                    Uri.parse(document.publicUrl),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                  icon: const Icon(Icons.public_outlined),
+                  label: const Text('ABRIR PÁGINA PÚBLICA'),
+                ),
+                OutlinedButton.icon(
                   onPressed: _launchWhatsApp,
                   icon: const Icon(Icons.message_outlined),
                   label: const Text('FALAR NO WHATSAPP'),
@@ -340,6 +350,7 @@ class _LegalDocument {
     required this.contactLead,
     required this.emailSubject,
     required this.whatsAppMessage,
+    required this.publicUrl,
     required this.sections,
   });
 
@@ -348,6 +359,7 @@ class _LegalDocument {
   final String contactLead;
   final String emailSubject;
   final String whatsAppMessage;
+  final String publicUrl;
   final List<_LegalSection> sections;
 }
 
@@ -366,6 +378,7 @@ const _privacyDocument = _LegalDocument(
       'Se voce quiser exercer seus direitos de acesso, correcao, portabilidade, anonimização, oposicao ou exclusao de dados, entre em contato pelos canais abaixo.',
   emailSubject: 'Solicitacao de privacidade e dados pessoais',
   whatsAppMessage: 'Ola! Quero tratar uma solicitacao de privacidade e dados.',
+  publicUrl: LegalContactConfig.privacyPageUrl,
   sections: [
     _LegalSection(
       title: '1. Quem controla os dados',
@@ -426,6 +439,7 @@ const _termsDocument = _LegalDocument(
       'Em caso de duvidas contratuais, suporte comercial, contestacoes ou notificacoes formais, use os canais abaixo.',
   emailSubject: 'Duvida sobre termos de uso',
   whatsAppMessage: 'Ola! Quero tirar uma duvida sobre os termos de uso.',
+  publicUrl: LegalContactConfig.termsPageUrl,
   sections: [
     _LegalSection(
       title: '1. Aceite',
@@ -489,6 +503,7 @@ const _deletionDocument = _LegalDocument(
   emailSubject: 'Solicitacao de exclusao de conta e dados',
   whatsAppMessage:
       'Ola! Quero solicitar a exclusao da minha conta e dos meus dados.',
+  publicUrl: LegalContactConfig.privacyPageUrl,
   sections: [
     _LegalSection(
       title: '1. Como solicitar',
@@ -547,7 +562,10 @@ class __AccountDeletionActionCardState
             SizedBox(width: 8),
             Text(
               'Confirmar Exclusão',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),
@@ -563,10 +581,15 @@ class __AccountDeletionActionCardState
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Colors.red,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('EXCLUIR PERMANENTEMENTE', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'EXCLUIR PERMANENTEMENTE',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -590,17 +613,21 @@ class __AccountDeletionActionCardState
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        
+
         final errorMsg = e.toString();
-        final requiresRecentLogin = errorMsg.contains('requires-recent-login') || 
-                                   errorMsg.contains('requires_recent_login') ||
-                                   errorMsg.contains('credential-too-old');
-        
+        final requiresRecentLogin =
+            errorMsg.contains('requires-recent-login') ||
+            errorMsg.contains('requires_recent_login') ||
+            errorMsg.contains('credential-too-old');
+
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
             backgroundColor: AppTokens.surfaceDark,
-            title: const Text('Erro ao Excluir Conta', style: TextStyle(color: Colors.white)),
+            title: const Text(
+              'Erro ao Excluir Conta',
+              style: TextStyle(color: Colors.white),
+            ),
             content: Text(
               requiresRecentLogin
                   ? 'Por razões de segurança, a exclusão da conta exige que você tenha feito login recentemente.\n\nPor favor, faça logout do aplicativo, entre novamente com suas credenciais e repita o processo para confirmar a exclusão com segurança.'
@@ -610,7 +637,10 @@ class __AccountDeletionActionCardState
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('OK', style: TextStyle(color: AppTokens.electricBlue)),
+                child: const Text(
+                  'OK',
+                  style: TextStyle(color: AppTokens.electricBlue),
+                ),
               ),
             ],
           ),
@@ -681,7 +711,10 @@ class __AccountDeletionActionCardState
                     icon: const Icon(Icons.person_off_outlined),
                     label: const Text(
                       'CONFIRMAR E EXCLUIR MINHA CONTA',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
           ],

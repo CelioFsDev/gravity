@@ -39,6 +39,7 @@ dependencies:
   share_plus: ^12.0.1
   # Backend - Using newer compatible versions
   firebase_core: ^3.11.0
+  firebase_analytics: ^11.3.0
   firebase_auth: ^5.4.4
   cloud_firestore: ^5.6.2
   cloud_functions: ^5.5.0
