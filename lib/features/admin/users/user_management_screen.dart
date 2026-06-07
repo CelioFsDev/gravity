@@ -43,19 +43,21 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
     if (user == null || email.isEmpty) return;
 
     try {
-      await ref.read(userRepositoryProvider).ensureUserProfile(
-        email: email,
-        displayName: user.displayName ?? '',
-        photoURL: user.photoURL ?? '',
-        providerIds: user.providerData
-            .map((provider) => provider.providerId)
-            .whereType<String>()
-            .toList(),
-        authUid: user.uid,
-        preferredRole: UserRole.superAdminEmails.contains(email)
-            ? UserRole.admin
-            : UserRole.viewer,
-      );
+      await ref
+          .read(userRepositoryProvider)
+          .ensureUserProfile(
+            email: email,
+            displayName: user.displayName ?? '',
+            photoURL: user.photoURL ?? '',
+            providerIds: user.providerData
+                .map((provider) => provider.providerId)
+                .whereType<String>()
+                .toList(),
+            authUid: user.uid,
+            preferredRole: UserRole.superAdminEmails.contains(email)
+                ? UserRole.admin
+                : UserRole.viewer,
+          );
     } catch (error) {
       debugPrint('Erro ao garantir documento do usuário: $error');
     }
@@ -280,10 +282,15 @@ class _UserRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final email = user['email'] as String;
     final normalizedEmail = email.trim().toLowerCase();
-    final currentEmail =
-        ref.watch(authViewModelProvider).valueOrNull?.email?.trim().toLowerCase();
-    final currentIsSuperAdmin =
-        UserRole.superAdminEmails.contains(currentEmail);
+    final currentEmail = ref
+        .watch(authViewModelProvider)
+        .valueOrNull
+        ?.email
+        ?.trim()
+        .toLowerCase();
+    final currentIsSuperAdmin = UserRole.superAdminEmails.contains(
+      currentEmail,
+    );
     final displayName = user['displayName'] as String? ?? '';
     final photoURL = user['photoURL'] as String? ?? '';
     final tenantId = ref.watch(currentTenantProvider).valueOrNull?.id ?? '';
@@ -478,6 +485,15 @@ class _UserRow extends ConsumerWidget {
     final nameController = TextEditingController(
       text: user['displayName'] as String? ?? '',
     );
+    final tenant = ref.read(currentTenantProvider).valueOrNull;
+    final availableStores = tenant?.stores ?? const <String>[];
+    String? selectedStoreId = user['currentStoreId'] as String? ?? '';
+    if (selectedStoreId != null && selectedStoreId.isEmpty) {
+      selectedStoreId = availableStores.isNotEmpty
+          ? availableStores.first
+          : null;
+    }
+
     UserRole selectedRole = UserRole.values.firstWhere(
       (item) =>
           item.name ==
@@ -488,8 +504,12 @@ class _UserRow extends ConsumerWidget {
           ),
       orElse: () => UserRole.viewer,
     );
-    final currentEmail =
-        ref.read(authViewModelProvider).valueOrNull?.email?.trim().toLowerCase();
+    final currentEmail = ref
+        .read(authViewModelProvider)
+        .valueOrNull
+        ?.email
+        ?.trim()
+        .toLowerCase();
     final canAssignAdmin = UserRole.superAdminEmails.contains(currentEmail);
     final assignableRoles = UserRole.values
         .where((role) => canAssignAdmin || role != UserRole.admin)
@@ -525,6 +545,38 @@ class _UserRow extends ConsumerWidget {
                 onChanged: (val) => setState(() => isSuspended = val),
               ),
               const Divider(),
+              if (availableStores.isNotEmpty) ...[
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Loja do Usuário',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: selectedStoreId,
+                  decoration: InputDecoration(
+                    labelText: 'Unidade vinculada',
+                    prefixIcon: const Icon(Icons.storefront_outlined),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  items: availableStores
+                      .map(
+                        (store) =>
+                            DropdownMenuItem(value: store, child: Text(store)),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => selectedStoreId = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
               const Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
@@ -543,10 +595,7 @@ class _UserRow extends ConsumerWidget {
                   ),
                 ),
                 items: assignableRoles.map((role) {
-                  return DropdownMenuItem(
-                    value: role,
-                    child: Text(role.label),
-                  );
+                  return DropdownMenuItem(value: role, child: Text(role.label));
                 }).toList(),
                 onChanged: (value) {
                   if (value != null) setState(() => selectedRole = value);
@@ -569,7 +618,7 @@ class _UserRow extends ConsumerWidget {
                       role: selectedRole.name,
                       disabled: isSuspended,
                       tenantId: ref.read(currentTenantProvider).valueOrNull?.id,
-                      storeId: ref.read(currentStoreIdProvider).valueOrNull,
+                      storeId: selectedStoreId,
                     )
                     .then((_) {
                       if (context.mounted) {
@@ -585,11 +634,10 @@ class _UserRow extends ConsumerWidget {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(
-                              _userAdminErrorMessage(error),
-                            ),
-                            backgroundColor:
-                                Theme.of(context).colorScheme.error,
+                            content: Text(_userAdminErrorMessage(error)),
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.error,
                           ),
                         );
                       }
@@ -639,11 +687,8 @@ class _UserRow extends ConsumerWidget {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text(
-                            _userAdminErrorMessage(error),
-                          ),
-                          backgroundColor:
-                              Theme.of(context).colorScheme.error,
+                          content: Text(_userAdminErrorMessage(error)),
+                          backgroundColor: Theme.of(context).colorScheme.error,
                         ),
                       );
                     }

@@ -33,6 +33,36 @@ class AdminUserAccountRepository {
   }) : _functions = functions ?? FirebaseFunctions.instance,
        _firestore = firestore ?? FirebaseFirestore.instance;
 
+  static Map<String, dynamic> buildStoreAssignmentUpdates({
+    required String tenantId,
+    required String role,
+    String? oldStoreId,
+    String? newStoreId,
+  }) {
+    final normalizedTenantId = tenantId.trim();
+    final normalizedOldStoreId = oldStoreId?.trim();
+    final normalizedNewStoreId = newStoreId?.trim();
+    final updates = <String, dynamic>{};
+
+    if (normalizedTenantId.isEmpty) return updates;
+
+    if (normalizedOldStoreId != null &&
+        normalizedOldStoreId.isNotEmpty &&
+        normalizedOldStoreId != normalizedNewStoreId) {
+      updates['rolesByStore.$normalizedTenantId.$normalizedOldStoreId'] =
+          FieldValue.delete();
+    }
+
+    if (normalizedNewStoreId != null && normalizedNewStoreId.isNotEmpty) {
+      updates['currentStoreId'] = normalizedNewStoreId;
+      updates['rolesByStore.$normalizedTenantId.$normalizedNewStoreId'] =
+          role;
+    }
+
+    updates['rolesByTenant.$normalizedTenantId'] = role;
+    return updates;
+  }
+
   final FirebaseFunctions _functions;
   final FirebaseFirestore _firestore;
 
@@ -87,6 +117,13 @@ class AdminUserAccountRepository {
   }) async {
     final validRole =
         UserRole.values.any((r) => r.name == role) ? role : UserRole.viewer.name;
+    final storeUpdates = buildStoreAssignmentUpdates(
+      tenantId: tenantId ?? '',
+      role: validRole,
+      oldStoreId: null,
+      newStoreId: storeId,
+    );
+
     await _firestore.collection('users').doc(email).set({
       'authUid': uid,
       'createdAt': FieldValue.serverTimestamp(),
@@ -100,16 +137,8 @@ class AdminUserAccountRepository {
       if (tenantId != null && tenantId.trim().isNotEmpty) ...{
         'tenantId': tenantId.trim(),
         'tenantIds': FieldValue.arrayUnion([tenantId.trim()]),
-        'rolesByTenant.${tenantId.trim()}':
-            storeId != null && storeId.trim().isNotEmpty ? 'seller' : validRole,
       },
-      if (storeId != null && storeId.trim().isNotEmpty)
-        'currentStoreId': storeId.trim(),
-      if (tenantId != null &&
-          tenantId.trim().isNotEmpty &&
-          storeId != null &&
-          storeId.trim().isNotEmpty)
-        'rolesByStore.${tenantId.trim()}.${storeId.trim()}': validRole,
+      ...storeUpdates,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
@@ -124,6 +153,9 @@ class AdminUserAccountRepository {
   }) async {
     final normalizedEmail = email.trim().toLowerCase();
     _throwIfProtectedAccount(normalizedEmail);
+    final currentDoc = await _firestore.collection('users').doc(normalizedEmail).get();
+    final oldStoreId = currentDoc.data()?['currentStoreId'] as String?;
+
     try {
       final callable = _functions.httpsCallable('updateUserAccess');
       await callable.call<Map<String, dynamic>>({
@@ -136,6 +168,13 @@ class AdminUserAccountRepository {
       });
     } on FirebaseFunctionsException catch (error) {
       if (!_shouldUseLocalFallback(error)) rethrow;
+      final storeUpdates = buildStoreAssignmentUpdates(
+        tenantId: tenantId ?? '',
+        role: role,
+        oldStoreId: oldStoreId,
+        newStoreId: storeId,
+      );
+
       await _firestore.collection('users').doc(normalizedEmail).set({
         'disabled': disabled,
         'displayName': displayName.trim(),
@@ -145,16 +184,7 @@ class AdminUserAccountRepository {
           'tenantId': tenantId.trim(),
         if (tenantId != null && tenantId.trim().isNotEmpty)
           'tenantIds': FieldValue.arrayUnion([tenantId.trim()]),
-        if (tenantId != null && tenantId.trim().isNotEmpty)
-          'rolesByTenant.${tenantId.trim()}':
-              storeId != null && storeId.trim().isNotEmpty ? 'seller' : role,
-        if (storeId != null && storeId.trim().isNotEmpty)
-          'currentStoreId': storeId.trim(),
-        if (tenantId != null &&
-            tenantId.trim().isNotEmpty &&
-            storeId != null &&
-            storeId.trim().isNotEmpty)
-          'rolesByStore.${tenantId.trim()}.${storeId.trim()}': role,
+        ...storeUpdates,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     }
@@ -249,6 +279,13 @@ class AdminUserAccountRepository {
           ? role
           : UserRole.viewer.name;
 
+      final storeUpdates = buildStoreAssignmentUpdates(
+        tenantId: tenantId ?? '',
+        role: validRole,
+        oldStoreId: null,
+        newStoreId: storeId,
+      );
+
       await _firestore.collection('users').doc(email).set({
         'authUid': uid,
         'createdAt': FieldValue.serverTimestamp(),
@@ -262,18 +299,8 @@ class AdminUserAccountRepository {
         if (tenantId != null && tenantId.trim().isNotEmpty) ...{
           'tenantId': tenantId.trim(),
           'tenantIds': FieldValue.arrayUnion([tenantId.trim()]),
-          'rolesByTenant.${tenantId.trim()}':
-              storeId != null && storeId.trim().isNotEmpty
-                  ? 'seller'
-                  : validRole,
         },
-        if (storeId != null && storeId.trim().isNotEmpty)
-          'currentStoreId': storeId.trim(),
-        if (tenantId != null &&
-            tenantId.trim().isNotEmpty &&
-            storeId != null &&
-            storeId.trim().isNotEmpty)
-          'rolesByStore.${tenantId.trim()}.${storeId.trim()}': validRole,
+        ...storeUpdates,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
