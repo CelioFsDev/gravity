@@ -85,7 +85,7 @@ class CatalogoJaImportViewModel extends _$CatalogoJaImportViewModel {
 
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.any,
         withData: kIsWeb,
       );
@@ -96,7 +96,8 @@ class CatalogoJaImportViewModel extends _$CatalogoJaImportViewModel {
         if (!nameLower.endsWith('.json') && !nameLower.endsWith('.zip')) {
           state = state.copyWith(
             isLoading: false,
-            errorMessage: 'Formato inv\u00e1lido. Selecione um arquivo .json ou .zip.',
+            errorMessage:
+                'Formato inv\u00e1lido. Selecione um arquivo .json ou .zip.',
           );
           return;
         }
@@ -138,7 +139,9 @@ class CatalogoJaImportViewModel extends _$CatalogoJaImportViewModel {
             if (filePath == null) {
               throw Exception('Caminho do arquivo ZIP indisponivel.');
             }
-            final (p, dir) = await packageService.preparePackage(File(filePath));
+            final (p, dir) = await packageService.preparePackage(
+              File(filePath),
+            );
             payload = p;
             extractDir = dir.path;
           }

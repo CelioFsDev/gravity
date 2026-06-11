@@ -1,4 +1,4 @@
-﻿import 'dart:io' as io;
+import 'dart:io' as io;
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -408,8 +408,6 @@ class CatalogShareHelper {
       whatsappNumber: whatsappNumber,
     );
   }
-
-
 
   static Future<void> saveCatalogPdf(
     BuildContext context,

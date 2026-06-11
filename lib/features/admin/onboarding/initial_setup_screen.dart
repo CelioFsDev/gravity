@@ -65,7 +65,7 @@ class _InitialSetupScreenState extends ConsumerState<InitialSetupScreen>
   }
 
   Future<void> _importZip() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['zip', 'cja'],
     );
@@ -174,7 +174,9 @@ class _InitialSetupScreenState extends ConsumerState<InitialSetupScreen>
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(24),
                         side: isDark
-                            ? BorderSide(color: Colors.white.withValues(alpha: 0.05))
+                            ? BorderSide(
+                                color: Colors.white.withValues(alpha: 0.05),
+                              )
                             : BorderSide.none,
                       ),
                       color: isDark ? const Color(0xFF1E2330) : Colors.white,

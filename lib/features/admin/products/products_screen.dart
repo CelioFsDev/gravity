@@ -1,4 +1,4 @@
-import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
+﻿import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/models/category.dart';
@@ -29,7 +29,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   late final TextEditingController _assistantController;
   bool _isRunningAssistant = false;
   String? _assistantFeedback;
-
 
   @override
   void initState() {
@@ -148,6 +147,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         ),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SingleChildScrollView(
@@ -264,7 +264,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        border: Border.all(color: AppTokens.vibrantCyan.withValues(alpha: 0.25)),
+        border: Border.all(
+          color: AppTokens.vibrantCyan.withValues(alpha: 0.25),
+        ),
       ),
       child: ExpansionTile(
         leading: const Icon(
@@ -563,7 +565,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     );
   }
 
-
   Widget _buildSyncReminderBanner(BuildContext context) {
     final stateValue = ref.watch(productsViewModelProvider);
     final categoriesValue = ref.watch(categoriesViewModelProvider);
@@ -691,7 +692,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     );
   }
 
-
   void _clearFilters(ProductsState state) {
     final notifier = ref.read(productsViewModelProvider.notifier);
 
@@ -713,9 +713,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
     await Navigator.of(context).push(_buildCreatedProductRoute(createdProduct));
   }
-
-
-
 
   void _openDetails(BuildContext context, Product product) {
     Navigator.of(
@@ -1037,7 +1034,9 @@ class _ProductsContent extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.95),
+        color: Theme.of(
+          context,
+        ).colorScheme.primaryContainer.withValues(alpha: 0.95),
         border: const Border(bottom: BorderSide(color: Colors.black12)),
       ),
       child: Column(
@@ -1084,7 +1083,6 @@ class _ProductsContent extends ConsumerWidget {
   }
 }
 
-
 class _SearchAndFiltersSection extends StatelessWidget {
   final ProductsState state;
   final TextEditingController controller;
@@ -1107,6 +1105,7 @@ class _SearchAndFiltersSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         AppSearchField(

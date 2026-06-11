@@ -353,7 +353,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
   Future<void> _addPrimaryPhoto() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         allowMultiple: false,
         type: FileType.any,
         withData: kIsWeb,
@@ -404,14 +404,13 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     }
   }
 
-
   /// Adiciona fotos de detalhe (D1 / D2) sem mostrar o diálogo de meta.
   Future<void> _addDetailPhotos() async {
     final currentDetails = _photos.where(_isDetailPhoto).length;
     if (currentDetails >= 2) return;
 
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         allowMultiple: currentDetails == 0,
         type: FileType.any,
         withData: kIsWeb,
@@ -476,7 +475,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     if (currentColors >= 4) return;
 
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         allowMultiple: false,
         type: FileType.any,
         withData: kIsWeb,
@@ -822,7 +821,6 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     }
     return updated;
   }
-
 
   bool _isDetailPhoto(ProductPhoto photo) {
     return photo.photoType == 'D1' || photo.photoType == 'D2';
@@ -1427,7 +1425,10 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
             color: isDark ? AppTokens.surfaceDark : Colors.white,
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 20),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 20,
+              ),
             ],
           ),
           child: Column(
@@ -1485,10 +1486,14 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
       decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.95),
+        color: Theme.of(
+          context,
+        ).scaffoldBackgroundColor.withValues(alpha: 0.95),
         border: Border(
           top: BorderSide(
-            color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.08),
+            color: (isDark ? Colors.white : Colors.black).withValues(
+              alpha: 0.08,
+            ),
           ),
         ),
         boxShadow: [
@@ -1667,7 +1672,6 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     );
   }
 
-
   Widget _buildAddTile({required String label, required VoidCallback onTap}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return InkWell(
@@ -1789,7 +1793,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
               fontSize: 14,
             ),
             filled: true,
-            fillColor: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.white,
+            fillColor: isDark
+                ? Colors.white.withValues(alpha: 0.03)
+                : Colors.white,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 16,
@@ -2007,7 +2013,9 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       decoration: BoxDecoration(
         color: AppTokens.accentOrange.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        border: Border.all(color: AppTokens.accentOrange.withValues(alpha: 0.2)),
+        border: Border.all(
+          color: AppTokens.accentOrange.withValues(alpha: 0.2),
+        ),
       ),
       child: Row(
         children: [

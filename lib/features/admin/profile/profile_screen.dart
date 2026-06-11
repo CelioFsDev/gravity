@@ -84,7 +84,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (user == null || user.email == null) return;
 
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.image,
         allowMultiple: false,
         withData: kIsWeb, // Necessário no Web para acessar bytes
@@ -189,11 +189,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     children: [
                       CircleAvatar(
                         radius: 60,
-                        backgroundColor: AppTokens.accentBlue.withValues(alpha: 0.1),
-                        backgroundImage: UriUtils.isNetworkImageUri(_photoUrlController.text)
+                        backgroundColor: AppTokens.accentBlue.withValues(
+                          alpha: 0.1,
+                        ),
+                        backgroundImage:
+                            UriUtils.isNetworkImageUri(_photoUrlController.text)
                             ? NetworkImage(_photoUrlController.text)
                             : null,
-                        child: !UriUtils.isNetworkImageUri(_photoUrlController.text)
+                        child:
+                            !UriUtils.isNetworkImageUri(
+                              _photoUrlController.text,
+                            )
                             ? Text(
                                 (_nameController.text.isNotEmpty
                                         ? _nameController.text
@@ -254,8 +260,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           const Divider(height: AppTokens.space24),
                           _buildInfoRow(
                             'Status de Sincroniza\u00e7\u00e3o',
-                            _tenantController.text.isEmpty ? 'Offline (Apenas Local)' : 'Online (Nuvem Ativa)',
-                            _tenantController.text.isEmpty ? Icons.cloud_off : Icons.cloud_done,
+                            _tenantController.text.isEmpty
+                                ? 'Offline (Apenas Local)'
+                                : 'Online (Nuvem Ativa)',
+                            _tenantController.text.isEmpty
+                                ? Icons.cloud_off
+                                : Icons.cloud_done,
                           ),
                         ],
                       ),
@@ -263,14 +273,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
 
                   const SizedBox(height: AppTokens.space32),
-                  
+
                   // ✨ SEÇÃO DE SINCRONIZAÇÃO TOTAL
                   _buildGlobalSyncCard(context, ref),
 
                   const SizedBox(height: AppTokens.space32),
 
                   // Editable Fields
-                  _buildSectionTitle('Informa\u00e7\u00f5es de Exibi\u00e7\u00e3o'),
+                  _buildSectionTitle(
+                    'Informa\u00e7\u00f5es de Exibi\u00e7\u00e3o',
+                  ),
                   const SizedBox(height: AppTokens.space12),
                   _buildTextField(
                     controller: _nameController,
@@ -308,7 +320,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: AppPrimaryButton(
-                      onPressed: () => ref.read(authViewModelProvider.notifier).signOut(),
+                      onPressed: () =>
+                          ref.read(authViewModelProvider.notifier).signOut(),
                       label: 'SAIR DA CONTA',
                       icon: Icons.logout_rounded,
                       // Custom color for logout
@@ -379,7 +392,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               style: TextStyle(fontSize: 13, color: AppTokens.textMuted),
             ),
             const SizedBox(height: AppTokens.space24),
-            
+
             if (isSyncing) ...[
               LinearProgressIndicator(
                 value: syncProgress.progress,
@@ -388,7 +401,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               const SizedBox(height: 8),
               Text(
                 syncProgress.message,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: AppTokens.space24),
             ],
@@ -397,9 +413,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               children: [
                 Expanded(
                   child: AppPrimaryButton(
-                    onPressed: isSyncing 
-                      ? null 
-                      : () => ref.read(globalSyncViewModelProvider.notifier).syncUpEverything(),
+                    onPressed: isSyncing
+                        ? null
+                        : () => ref
+                              .read(globalSyncViewModelProvider.notifier)
+                              .syncUpEverything(),
                     icon: Icons.cloud_upload_outlined,
                     label: 'SUBIR TUDO',
                   ),
@@ -407,9 +425,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: AppPrimaryButton(
-                    onPressed: isSyncing 
-                      ? null 
-                      : () => ref.read(globalSyncViewModelProvider.notifier).syncDownEverything(),
+                    onPressed: isSyncing
+                        ? null
+                        : () => ref
+                              .read(globalSyncViewModelProvider.notifier)
+                              .syncDownEverything(),
                     icon: Icons.cloud_download_outlined,
                     label: 'BAIXAR TUDO',
                   ),
@@ -469,22 +489,39 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: TextStyle(color: isDark ? Colors.white24 : Colors.black26, fontSize: 13),
-            prefixIcon: Icon(icon, size: 20, color: isDark ? AppTokens.vibrantCyan : AppTokens.electricBlue),
+            hintStyle: TextStyle(
+              color: isDark ? Colors.white24 : Colors.black26,
+              fontSize: 13,
+            ),
+            prefixIcon: Icon(
+              icon,
+              size: 20,
+              color: isDark ? AppTokens.vibrantCyan : AppTokens.electricBlue,
+            ),
             filled: true,
-            fillColor: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.white,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            fillColor: isDark
+                ? Colors.white.withValues(alpha: 0.03)
+                : Colors.white,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide.none,
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: isDark ? Colors.white10 : Colors.black12),
+              borderSide: BorderSide(
+                color: isDark ? Colors.white10 : Colors.black12,
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: AppTokens.electricBlue, width: 2),
+              borderSide: const BorderSide(
+                color: AppTokens.electricBlue,
+                width: 2,
+              ),
             ),
           ),
         ),
@@ -503,7 +540,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             children: [
               Text(
                 label,
-                style: const TextStyle(fontSize: 11, color: AppTokens.textMuted),
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppTokens.textMuted,
+                ),
               ),
               Text(
                 value,

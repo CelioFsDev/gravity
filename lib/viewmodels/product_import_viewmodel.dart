@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' hide Category;
@@ -149,7 +149,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
+      FilePickerResult? result = await FilePicker.pickFiles(
         type: FileType.any,
         withData: kIsWeb,
       );
@@ -241,7 +241,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
   Future<void> pickAndMatchImages() async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
+      FilePickerResult? result = await FilePicker.pickFiles(
         allowMultiple: true,
         type: FileType.any,
         withData: !kIsWeb, // Important: need bytes for Drive files
@@ -369,7 +369,7 @@ class ProductImportViewModel extends _$ProductImportViewModel {
 
     try {
       // Pick files first to avoid losing the user gesture context on web.
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
+      FilePickerResult? result = await FilePicker.pickFiles(
         allowMultiple: true,
         type: FileType.any,
         withData: true,
@@ -769,7 +769,6 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     }
   }
 
-
   int _mainImageIndexFromPhotos(List<ProductPhoto> photos) {
     if (photos.isEmpty) return 0;
     final pIndex = photos.indexWhere((p) => p.photoType == 'P');
@@ -777,9 +776,6 @@ class ProductImportViewModel extends _$ProductImportViewModel {
     final primary = photos.indexWhere((p) => p.isPrimary);
     return primary >= 0 ? primary : 0;
   }
-
-
-
 
   Future<ParsedImport> _parseCsvFile(PlatformFile file) async {
     final input = await _readCsvContent(file);
@@ -1699,7 +1695,6 @@ class ParsedImport {
     required this.imagesTotalCount,
   });
 }
-
 
 class StockUpdateReport {
   int updatedCount = 0;

@@ -151,7 +151,7 @@ class OrderPdfImportViewModel extends StateNotifier<OrderPdfImportState> {
     );
 
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: const ['pdf'],
         withData: true,

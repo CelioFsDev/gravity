@@ -96,7 +96,7 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
 
   Future<void> _pickImage(bool isMini) async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.any,
         allowMultiple: false,
         withData: kIsWeb,
@@ -111,7 +111,9 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
       if (!supported.contains(ext)) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Por favor, selecione uma imagem v\u00e1lida.')),
+            const SnackBar(
+              content: Text('Por favor, selecione uma imagem v\u00e1lida.'),
+            ),
           );
         }
         return;
@@ -213,7 +215,9 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Coleção salva localmente! Sincronize para subir à nuvem.'),
+              content: Text(
+                'Coleção salva localmente! Sincronize para subir à nuvem.',
+              ),
               duration: Duration(seconds: 4),
               backgroundColor: Colors.blue,
             ),
@@ -258,8 +262,9 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
                         hintText: 'Ex: Ver\u00e3o 2026',
                         filled: true,
                       ),
-                      validator: (v) =>
-                          v == null || v.trim().isEmpty ? 'Obrigat\u00f3rio' : null,
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'Obrigat\u00f3rio'
+                          : null,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -271,8 +276,9 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
                         helperText: 'Identificador \u00fanico na URL',
                       ),
                       onChanged: (_) => _slugTouched = true,
-                      validator: (v) =>
-                          v == null || v.trim().isEmpty ? 'Obrigat\u00f3rio' : null,
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'Obrigat\u00f3rio'
+                          : null,
                     ),
                     const SizedBox(height: 16),
                     SwitchListTile.adaptive(
@@ -539,11 +545,7 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
         width: double.infinity,
         height: double.infinity,
         errorBuilder: (_, _, _) => const Center(
-          child: Icon(
-            Icons.broken_image,
-            size: 48,
-            color: AppTokens.textMuted,
-          ),
+          child: Icon(Icons.broken_image, size: 48, color: AppTokens.textMuted),
         ),
       );
     }
@@ -554,11 +556,7 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
       width: double.infinity,
       height: double.infinity,
       errorBuilder: (_, _, _) => const Center(
-        child: Icon(
-          Icons.broken_image,
-          size: 48,
-          color: AppTokens.textMuted,
-        ),
+        child: Icon(Icons.broken_image, size: 48, color: AppTokens.textMuted),
       ),
     );
   }
@@ -582,4 +580,3 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
     }
   }
 }
-

@@ -41,7 +41,7 @@ class _NuvemshopImportScreenState extends ConsumerState<NuvemshopImportScreen> {
       _report = null;
       _preview = null;
     });
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.any,
       // allowedExtensions: ['csv'],
       withData: true,
@@ -52,7 +52,9 @@ class _NuvemshopImportScreenState extends ConsumerState<NuvemshopImportScreen> {
     if (!file.name.toLowerCase().endsWith('.csv')) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Formato invalido. Selecione um arquivo .csv.')),
+          const SnackBar(
+            content: Text('Formato invalido. Selecione um arquivo .csv.'),
+          ),
         );
       }
       return;
@@ -186,7 +188,9 @@ class _NuvemshopImportScreenState extends ConsumerState<NuvemshopImportScreen> {
             SizedBox(
               width: double.infinity,
               child: AppPrimaryButton(
-                label: _loading ? 'Importando...' : 'Iniciar Importa\u00e7\u00e3o',
+                label: _loading
+                    ? 'Importando...'
+                    : 'Iniciar Importa\u00e7\u00e3o',
                 onPressed: _selectedFile == null || _loading ? null : _import,
                 icon: Icons.cloud_download_outlined,
               ),

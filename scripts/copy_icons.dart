@@ -1,7 +1,8 @@
 import 'dart:io';
 
 void main() async {
-  const artifactDir = r'C:\Users\celio\.gemini\antigravity\brain\2deeaad9-7f7c-4aac-87a0-a27f42e2dd72';
+  const artifactDir =
+      r'C:\Users\celio\.gemini\antigravity\brain\2deeaad9-7f7c-4aac-87a0-a27f42e2dd72';
   const targetDir = r'f:\gravity\assets\icon';
 
   final mappings = {
@@ -11,8 +12,11 @@ void main() async {
     'icon_categories_1776986465893.png': 'categories.png',
     'icon_settings_profile_1776986480717.png': 'settings_profile.png',
     'catalogo_ja_login_background_premium_1776986500878.png': 'login_bg.png',
-    'catalogo_ja_icon_premium_1776975848766.png': '../branding/icons/catalogo_ja_icon_premium.png',
-    'catalogo_ja_icon_premium_1776975848766.png': '../branding/logo/catalogoja_logo_master_2048x2048.png',
+    'catalogo_ja_icon_premium_1776975848766.png':
+        '../branding/icons/catalogo_ja_icon_premium.png',
+    // ignore: equal_keys_in_map
+    'catalogo_ja_icon_premium_1776975848766.png':
+        '../branding/logo/catalogoja_logo_master_2048x2048.png',
   };
 
   final dir = Directory(targetDir);
@@ -31,6 +35,6 @@ void main() async {
       print('Erro: Fonte não encontrada -> ${entry.key}');
     }
   }
-  
+
   print('\nPronto! Agora você pode usar os novos ícones no app.');
 }
