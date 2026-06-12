@@ -1354,11 +1354,21 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                       const SizedBox(height: AppTokens.space24),
                       _buildImagesSection(),
                       const SizedBox(height: AppTokens.space24),
-                      const SizedBox(height: AppTokens.space48),
+                      Padding(
+                        padding: const EdgeInsets.only(
+                          bottom: AppTokens.space24,
+                        ),
+                        child: AppPrimaryButton(
+                          label: widget.product == null
+                              ? 'CRIAR PRODUTO'
+                              : 'SALVAR ALTERAÇÕES',
+                          onPressed: _save,
+                          icon: Icons.check_circle_outline_rounded,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                _buildBottomBar(),
               ],
             ),
           ),
@@ -1476,40 +1486,6 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBottomBar() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-      decoration: BoxDecoration(
-        color: Theme.of(
-          context,
-        ).scaffoldBackgroundColor.withValues(alpha: 0.95),
-        border: Border(
-          top: BorderSide(
-            color: (isDark ? Colors.white : Colors.black).withValues(
-              alpha: 0.08,
-            ),
-          ),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: AppPrimaryButton(
-          label: widget.product == null ? 'CRIAR PRODUTO' : 'SALVAR ALTERAÇÕES',
-          onPressed: _save,
-          icon: Icons.check_circle_outline_rounded,
         ),
       ),
     );
@@ -2071,15 +2047,31 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                   labelText: 'Cole\u00e7\u00e3o (Obrigat\u00f3rio)',
                   filled: true,
                 ),
-                items: collections
-                    .map(
-                      (c) => DropdownMenuItem(
-                        value: c.id,
-                        child: Text(c.safeName),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (val) => setState(() => _selectedCollectionId = val),
+                items: collections.isEmpty
+                    ? [
+                        const DropdownMenuItem(
+                          enabled: false,
+                          value: '',
+                          child: Text('Nenhuma coleção disponível'),
+                        ),
+                      ]
+                    : collections
+                          .map(
+                            (c) => DropdownMenuItem(
+                              value: c.id,
+                              child: Text(c.safeName),
+                            ),
+                          )
+                          .toList(),
+                onChanged: collections.isEmpty
+                    ? null
+                    : (val) => setState(() => _selectedCollectionId = val),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Selecione uma coleção';
+                  }
+                  return null;
+                },
               ),
             ),
             const SizedBox(width: 8),

@@ -25,6 +25,8 @@ class ProductsScreen extends ConsumerStatefulWidget {
 }
 
 class _ProductsScreenState extends ConsumerState<ProductsScreen> {
+  bool get _showAiAssistant => false;
+
   late final TextEditingController _searchController;
   late final TextEditingController _assistantController;
   bool _isRunningAssistant = false;
@@ -49,16 +51,12 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     final state = ref.watch(productsViewModelProvider);
 
     return AppScaffold(
-      showHeader: true,
+      showHeader: false,
       title: 'Produtos',
       subtitle: 'Gerencie seu estoque e preços',
       body: Column(
         children: [
-          _buildHeader(
-            context,
-            Theme.of(context).brightness == Brightness.dark,
-          ),
-          _buildAiAssistantCard(context),
+          if (_showAiAssistant) _buildAiAssistantCard(context),
           _buildBulkActionsBar(context),
           _buildSyncReminderBanner(context),
           Expanded(
@@ -104,148 +102,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     .read(productsViewModelProvider.notifier)
                     .toggleSelection(id),
               ),
-            ),
-          ),
-        ],
-      ),
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 80),
-        child: FloatingActionButton.extended(
-          onPressed: () => _openNewProduct(context),
-          label: const Text(
-            'NOVO PRODUTO',
-            style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1),
-          ),
-          icon: const Icon(Icons.add_rounded),
-          backgroundColor: AppTokens.electricBlue,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context, bool isDark) {
-    final state = ref.watch(productsViewModelProvider).valueOrNull;
-    final totalProducts = state?.allProducts.length ?? 0;
-    final promoCount =
-        state?.allProducts.where((p) => p.promoEnabled).length ?? 0;
-    final outOfStockCount =
-        state?.allProducts.where((p) => p.isOutOfStock).length ?? 0;
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-      decoration: BoxDecoration(
-        color: isDark
-            ? AppTokens.deepNavy.withValues(alpha: 0.3)
-            : Colors.white.withValues(alpha: 0.5),
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(24),
-          bottomRight: Radius.circular(24),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildSummaryItem(
-                  'Total',
-                  totalProducts.toString(),
-                  AppTokens.vibrantCyan,
-                  Icons.inventory_2_outlined,
-                ),
-                const SizedBox(width: 8),
-                _buildSummaryItem(
-                  'Promo',
-                  promoCount.toString(),
-                  AppTokens.vibrantPink,
-                  Icons.percent_rounded,
-                ),
-                const SizedBox(width: 8),
-                _buildSummaryItem(
-                  'Esgotado',
-                  outOfStockCount.toString(),
-                  Colors.orangeAccent,
-                  Icons.block_flipped,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSummaryItem(
-    String label,
-    String value,
-    Color color,
-    IconData icon,
-  ) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      width: 120,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.08)
-              : Colors.black.withValues(alpha: 0.04),
-          width: 1,
-        ),
-        boxShadow: [
-          if (!isDark)
-            BoxShadow(
-              color: color.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, size: 16, color: color),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: isDark ? Colors.white : Colors.black87,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white38 : Colors.black45,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-              ],
             ),
           ),
         ],
@@ -947,6 +803,7 @@ class _ProductsContent extends ConsumerWidget {
                         onSelectCategory: onSelectCategory,
                         onSelectStatus: onSelectStatus,
                         onSelectSort: onSelectSort,
+                        onNewProduct: onNewProduct,
                       ),
                       const SizedBox(height: AppTokens.space24),
                     ]),
@@ -1091,6 +948,7 @@ class _SearchAndFiltersSection extends StatelessWidget {
   final ValueChanged<String?> onSelectCategory;
   final ValueChanged<ProductStatusFilter> onSelectStatus;
   final ValueChanged<ProductSort> onSelectSort;
+  final VoidCallback onNewProduct;
 
   const _SearchAndFiltersSection({
     required this.state,
@@ -1100,6 +958,7 @@ class _SearchAndFiltersSection extends StatelessWidget {
     required this.onSelectCategory,
     required this.onSelectStatus,
     required this.onSelectSort,
+    required this.onNewProduct,
   });
 
   @override
@@ -1108,11 +967,33 @@ class _SearchAndFiltersSection extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AppSearchField(
-          controller: controller,
-          hintText: 'Buscar por nome, REF, cor...',
-          onChanged: onSearchChanged,
-          onClear: onClearFilters,
+        Row(
+          children: [
+            Expanded(
+              child: AppSearchField(
+                controller: controller,
+                hintText: 'Buscar por nome, REF, cor...',
+                onChanged: onSearchChanged,
+                onClear: onClearFilters,
+              ),
+            ),
+            const SizedBox(width: AppTokens.space8),
+            SizedBox.square(
+              dimension: 48,
+              child: IconButton.filled(
+                tooltip: 'Novo produto',
+                onPressed: onNewProduct,
+                style: IconButton.styleFrom(
+                  backgroundColor: AppTokens.electricBlue,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+                  ),
+                ),
+                icon: const Icon(Icons.add_rounded),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: AppTokens.space12),
         SingleChildScrollView(

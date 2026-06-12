@@ -623,6 +623,7 @@ class ProductsViewModel extends _$ProductsViewModel {
         storageService,
         tenantId,
         ref.read(syncQueueRepositoryProvider),
+        ref.read(settingsRepositoryProvider),
       );
 
       // 2. Busca inicial

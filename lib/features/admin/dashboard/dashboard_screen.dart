@@ -8,7 +8,6 @@ import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/data/repositories/categories_repository.dart';
 import 'package:catalogo_ja/data/repositories/catalogs_repository.dart';
 import 'package:catalogo_ja/data/repositories/user_repository.dart';
-import 'package:catalogo_ja/viewmodels/global_sync_viewmodel.dart';
 import 'package:catalogo_ja/ui/widgets/sync_progress_overlay.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/settings_viewmodel.dart';
@@ -63,16 +62,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     );
 
     _statsStream = _combineStatsStreams();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-
-      final syncProgress = ref.read(syncProgressProvider);
-
-      if (!syncProgress.isSyncing) {
-        ref.read(globalSyncViewModelProvider.notifier).performSilentWifiSync();
-      }
-    });
   }
 
   @override
@@ -151,12 +140,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     return trimmedName.split(RegExp(r'\s+')).first;
   }
 
-  Future<void> _markInitialDone() async {
-    await ref
-        .read(settingsViewModelProvider.notifier)
-        .updateSettings(isInitialSyncCompleted: true);
-  }
-
   @override
   Widget build(BuildContext context) {
     final syncProgress = ref.watch(syncProgressProvider);
@@ -217,7 +200,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                               context.go('/admin/imports/nuvemshop'),
                           onCreateProduct: () => context.go('/admin/products'),
                           onCreateCatalog: () => context.go('/admin/catalogs'),
-                          onSkip: _markInitialDone,
                         ),
                       ),
                     ),
@@ -524,7 +506,6 @@ class _SetupBanner extends StatelessWidget {
     required this.onNuvemshop,
     required this.onCreateProduct,
     required this.onCreateCatalog,
-    required this.onSkip,
   });
 
   final bool isDark;
@@ -532,7 +513,6 @@ class _SetupBanner extends StatelessWidget {
   final VoidCallback onNuvemshop;
   final VoidCallback onCreateProduct;
   final VoidCallback onCreateCatalog;
-  final VoidCallback onSkip;
 
   @override
   Widget build(BuildContext context) {
@@ -626,12 +606,6 @@ class _SetupBanner extends StatelessWidget {
                 icon: Icons.auto_awesome_motion_rounded,
                 label: 'Criar catálogo',
                 onTap: onCreateCatalog,
-              ),
-              _SetupActionButton(
-                icon: Icons.check_rounded,
-                label: 'Começar depois',
-                onTap: onSkip,
-                muted: true,
               ),
             ],
           ),

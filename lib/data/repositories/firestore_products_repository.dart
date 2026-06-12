@@ -6,6 +6,7 @@ import 'package:catalogo_ja/core/sync/repositories/sync_queue_repository.dart';
 import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
 import 'package:catalogo_ja/data/repositories/contracts/products_repository_contract.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
+import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/product_image.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
@@ -21,6 +22,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
   final SaaSPhotoStorageService _storageService;
   final String _tenantId;
   final SyncQueueRepository _syncQueue;
+  final SettingsRepository _settingsRepo;
   final Set<String> _autoSyncInFlight = <String>{};
 
   FirestoreProductsRepository(
@@ -28,6 +30,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
     this._storageService,
     this._tenantId,
     this._syncQueue,
+    this._settingsRepo,
   );
 
   // 🔑 Cache em memória: evita re-leituras do Firestore dentro da mesma sessão.
@@ -70,6 +73,11 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
 
     try {
       final localProducts = await _localRepo.getProducts();
+      final settings = _settingsRepo.getSettings();
+
+      if (localProducts.isEmpty && !settings.isInitialSyncCompleted) {
+        return localProducts;
+      }
 
       // Busca incremental: só documentos mais novos que o mais recente local.
       // Se não há nada local, busca tudo (primeira vez).
@@ -178,7 +186,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
     // 🏠 Local-First: Salva no Hive instantaneamente
     await _localRepo.addProduct(productToSave);
     invalidateCache();
-    _scheduleAutoSync(productToSave);
+    _scheduleAutoSyncAfterInitialBackup(productToSave);
   }
 
   @override
@@ -201,7 +209,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
 
     await _localRepo.updateProduct(productToSave);
     invalidateCache();
-    _scheduleAutoSync(productToSave);
+    _scheduleAutoSyncAfterInitialBackup(productToSave);
   }
 
   @override
@@ -218,8 +226,11 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
     invalidateCache();
   }
 
-  void _scheduleAutoSync(Product product) {
+  void _scheduleAutoSyncAfterInitialBackup(Product product) {
+    final settings = _settingsRepo.getSettings();
+    if (!settings.isInitialSyncCompleted) return;
     if (_autoSyncInFlight.contains(product.id)) return;
+
     _autoSyncInFlight.add(product.id);
 
     unawaited(
@@ -570,6 +581,7 @@ final syncProductsRepositoryProvider = Provider<ProductsRepositoryContract>((
           SyncQueueRepository(
             Hive.box<SyncQueueItem>(SyncQueueRepository.boxName),
           ),
+          ref.watch(settingsRepositoryProvider),
         );
       }
       return localRepo;
