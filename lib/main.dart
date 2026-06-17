@@ -564,6 +564,9 @@ class _MyAppState extends ConsumerState<MyApp> {
             final extra = state.extra;
             final productFromExtra = extra is Map ? extra['product'] : null;
             final modeFromExtra = extra is Map ? extra['mode'] : null;
+            final initialImageUri = extra is Map
+                ? extra['initialImageUri'] as String?
+                : null;
 
             if (productFromExtra is Product && modeFromExtra is CatalogMode) {
               return _buildPage(
@@ -572,6 +575,7 @@ class _MyAppState extends ConsumerState<MyApp> {
                   product: productFromExtra,
                   mode: modeFromExtra,
                   shareCode: shareCode,
+                  initialImageUri: initialImageUri,
                 ),
               );
             }

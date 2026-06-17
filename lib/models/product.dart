@@ -480,6 +480,25 @@ class Product {
     return null;
   }
 
+  ProductImage? get variantImage {
+    bool isVariantLabel(String? label) {
+      final normalized = label?.trim().toLowerCase();
+      return normalized == 'v' ||
+          normalized == 'variant' ||
+          normalized == 'variante';
+    }
+
+    for (final image in images) {
+      if (isVariantLabel(image.label)) return image;
+    }
+
+    for (final photo in photos) {
+      if (isVariantLabel(photo.photoType)) return photo.toProductImage();
+    }
+
+    return null;
+  }
+
   List<ProductImage> get detailImages => images.where((i) {
     final l = i.label?.trim() ?? '';
     final lLower = l.toLowerCase();

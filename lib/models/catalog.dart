@@ -114,6 +114,9 @@ class Catalog {
   @HiveField(19, defaultValue: SyncStatus.synced)
   final SyncStatus syncStatus;
 
+  @HiveField(20, defaultValue: false)
+  final bool showVariantPhotoCards;
+
   Catalog({
     required this.id,
     required this.name,
@@ -135,6 +138,7 @@ class Catalog {
     this.coverType,
     this.tenantId,
     this.syncStatus = SyncStatus.synced,
+    this.showVariantPhotoCards = false,
   });
 
   Catalog copyWith({
@@ -158,6 +162,7 @@ class Catalog {
     String? coverType,
     String? tenantId,
     SyncStatus? syncStatus,
+    bool? showVariantPhotoCards,
   }) {
     return Catalog(
       id: id ?? this.id,
@@ -180,6 +185,8 @@ class Catalog {
       coverType: coverType ?? this.coverType,
       tenantId: tenantId ?? this.tenantId,
       syncStatus: syncStatus ?? this.syncStatus,
+      showVariantPhotoCards:
+          showVariantPhotoCards ?? this.showVariantPhotoCards,
     );
   }
 
@@ -205,6 +212,7 @@ class Catalog {
       'coverType': coverType,
       'tenantId': tenantId,
       'syncStatus': syncStatus.name,
+      'showVariantPhotoCards': showVariantPhotoCards,
     };
   }
 
@@ -280,6 +288,10 @@ class Catalog {
       coverType: safeNullableString(map['coverType']),
       tenantId: safeNullableString(map['tenantId']),
       syncStatus: parseSyncStatus(map['syncStatus']),
+      showVariantPhotoCards: safeBool(
+        map['showVariantPhotoCards'],
+        fallback: false,
+      ),
     );
   }
 }

@@ -89,13 +89,14 @@ class CatalogAdapter extends TypeAdapter<Catalog> {
       syncStatus: fields[19] is SyncStatus
           ? fields[19] as SyncStatus
           : SyncStatus.synced,
+      showVariantPhotoCards: fields[20] is bool ? fields[20] as bool : false,
     );
   }
 
   @override
   void write(BinaryWriter writer, Catalog obj) {
     writer
-      ..writeByte(20)
+      ..writeByte(21)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -135,7 +136,9 @@ class CatalogAdapter extends TypeAdapter<Catalog> {
       ..writeByte(18)
       ..write(obj.tenantId)
       ..writeByte(19)
-      ..write(obj.syncStatus);
+      ..write(obj.syncStatus)
+      ..writeByte(20)
+      ..write(obj.showVariantPhotoCards);
   }
 
   @override

@@ -136,6 +136,12 @@ class CatalogEditorViewModel extends _$CatalogEditorViewModel {
     state = state.copyWith(catalog: state.catalog.copyWith(photoLayout: val));
   }
 
+  void setShowVariantPhotoCards(bool value) {
+    state = state.copyWith(
+      catalog: state.catalog.copyWith(showVariantPhotoCards: value),
+    );
+  }
+
   void setAnnouncementEnabled(bool val) {
     state = state.copyWith(
       catalog: state.catalog.copyWith(announcementEnabled: val),

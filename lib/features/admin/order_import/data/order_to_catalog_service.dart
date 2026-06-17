@@ -104,6 +104,7 @@ class OrderToCatalogService {
       shareCode: '',
       ownerUid: '',
       includeCover: true,
+      showVariantPhotoCards: false,
       syncStatus: SyncStatus.pendingUpdate,
     );
 

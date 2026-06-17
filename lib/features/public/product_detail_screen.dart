@@ -19,12 +19,14 @@ class PublicProductDetailScreen extends ConsumerStatefulWidget {
   final Product product;
   final CatalogMode mode;
   final String? shareCode;
+  final String? initialImageUri;
 
   const PublicProductDetailScreen({
     super.key,
     required this.product,
     required this.mode,
     this.shareCode,
+    this.initialImageUri,
   });
 
   @override
@@ -42,7 +44,7 @@ class _PublicProductDetailScreenState
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
+    _pageController = PageController(initialPage: _initialImageIndex);
     final colors = _availableColors;
     final sizes = _availableSizes;
     if (colors.isNotEmpty) {
@@ -51,6 +53,15 @@ class _PublicProductDetailScreenState
     if (sizes.isNotEmpty) {
       _selectedSize = sizes.first;
     }
+  }
+
+  int get _initialImageIndex {
+    final initialUri = widget.initialImageUri?.trim();
+    if (initialUri == null || initialUri.isEmpty) return 0;
+    final index = widget.product.images.indexWhere(
+      (image) => image.uri.trim() == initialUri,
+    );
+    return index >= 0 ? index : 0;
   }
 
   @override
@@ -320,7 +331,9 @@ class _PublicProductDetailScreenState
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF43F5E).withValues(alpha: 0.1),
+                            color: const Color(
+                              0xFFF43F5E,
+                            ).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Text(
@@ -445,7 +458,10 @@ class _PublicProductDetailScreenState
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.black.withValues(alpha: 0.2), Colors.transparent],
+                  colors: [
+                    Colors.black.withValues(alpha: 0.2),
+                    Colors.transparent,
+                  ],
                 ),
               ),
             ),
@@ -633,7 +649,10 @@ class _PublicProductDetailScreenState
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 4,
+            ),
           ],
         ),
         child: Icon(icon, size: 20, color: const Color(0xFF0F172A)),

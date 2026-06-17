@@ -686,6 +686,7 @@ class CatalogDTO {
   final String shareCode;
   final bool includeCover;
   final String? coverType;
+  final bool showVariantPhotoCards;
   final String createdAt;
   final String updatedAt;
 
@@ -705,6 +706,7 @@ class CatalogDTO {
     this.shareCode = '',
     this.includeCover = true,
     this.coverType,
+    this.showVariantPhotoCards = false,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -728,6 +730,7 @@ class CatalogDTO {
       shareCode: catalog.shareCode,
       includeCover: catalog.includeCover,
       coverType: catalog.coverType,
+      showVariantPhotoCards: catalog.showVariantPhotoCards,
       createdAt: catalog.createdAt.toIso8601String(),
       updatedAt: catalog.updatedAt.toIso8601String(),
     );
@@ -752,6 +755,7 @@ class CatalogDTO {
       shareCode: shareCode,
       includeCover: includeCover,
       coverType: coverType,
+      showVariantPhotoCards: showVariantPhotoCards,
       tenantId: tenantId,
     );
   }
@@ -772,6 +776,7 @@ class CatalogDTO {
     String? shareCode,
     bool? includeCover,
     String? coverType,
+    bool? showVariantPhotoCards,
     String? createdAt,
     String? updatedAt,
   }) {
@@ -791,6 +796,8 @@ class CatalogDTO {
       shareCode: shareCode ?? this.shareCode,
       includeCover: includeCover ?? this.includeCover,
       coverType: coverType ?? this.coverType,
+      showVariantPhotoCards:
+          showVariantPhotoCards ?? this.showVariantPhotoCards,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -813,6 +820,7 @@ class CatalogDTO {
       'shareCode': shareCode,
       'includeCover': includeCover,
       'coverType': coverType,
+      'showVariantPhotoCards': showVariantPhotoCards,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
     };
@@ -839,6 +847,7 @@ class CatalogDTO {
       shareCode: json['shareCode'] ?? '',
       includeCover: json['includeCover'] ?? true,
       coverType: json['coverType'],
+      showVariantPhotoCards: json['showVariantPhotoCards'] ?? false,
       createdAt: json['createdAt'] ?? DateTime.now().toIso8601String(),
       updatedAt: json['updatedAt'] ?? DateTime.now().toIso8601String(),
     );

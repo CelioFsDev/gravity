@@ -432,6 +432,14 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                   onChanged: (v) => notifier.setPhotoLayout(v!),
                 ),
                 const SizedBox(height: 12),
+                _buildSwitchTile(
+                  title: 'Exibir Foto Variante',
+                  subtitle:
+                      'Produtos com foto variante aparecem em um segundo card no catálogo.',
+                  value: state.catalog.showVariantPhotoCards,
+                  onChanged: notifier.setShowVariantPhotoCards,
+                ),
+                const SizedBox(height: 12),
                 _buildDropdown(
                   label: 'Capa do PDF',
                   value:

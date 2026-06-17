@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/models/product_image.dart';
 import 'package:catalogo_ja/viewmodels/catalog_public_viewmodel.dart';
 import 'package:catalogo_ja/ui/widgets/app_product_card.dart';
 import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
@@ -16,6 +17,22 @@ import 'package:catalogo_ja/viewmodels/cart_viewmodel.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+class _CatalogCardItem {
+  final Product product;
+  final ProductImage? imageOverride;
+  final bool isPrimaryShowcase;
+  final bool isVariant;
+
+  const _CatalogCardItem({
+    required this.product,
+    this.imageOverride,
+    this.isPrimaryShowcase = false,
+    this.isVariant = false,
+  });
+
+  String? get initialImageUri => imageOverride?.uri.trim();
+}
 
 class CatalogHomePage extends ConsumerStatefulWidget {
   final String shareCode;
@@ -138,6 +155,10 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
 
           final whatsappNumber = widget.sellerWhatsapp ?? data.whatsappNumber;
           final filteredProducts = _getFilteredProducts(data.products);
+          final catalogItems = _buildCatalogCardItems(
+            data.catalog,
+            filteredProducts,
+          );
           final cart = ref.watch(cartViewModelProvider);
           final mediaSize = MediaQuery.sizeOf(context);
           final isCompactViewport =
@@ -165,7 +186,7 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
                     SliverToBoxAdapter(
                       child: _buildShowcaseHeader(
                         data.catalog,
-                        filteredProducts.length,
+                        catalogItems.length,
                         whatsappNumber,
                       ),
                     ),
@@ -182,7 +203,7 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
                         isCompact: isCompactViewport,
                       ),
                     ),
-                    if (filteredProducts.isEmpty)
+                    if (catalogItems.isEmpty)
                       const SliverFillRemaining(
                         hasScrollBody: false,
                         child: Center(
@@ -220,20 +241,27 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
                             context,
                             index,
                           ) {
-                            final product = filteredProducts[index];
+                            final item = catalogItems[index];
+                            final product = item.product;
                             return AppProductCard(
                               product: product,
                               mode: data.catalog.mode,
+                              imageOverride: item.imageOverride,
+                              showSelectors: !item.isPrimaryShowcase,
+                              showPurchaseControls: !item.isPrimaryShowcase,
+                              badgeLabel: item.isVariant ? 'Variante' : null,
                               onTap: () => context.push(
                                 '/c/${widget.shareCode}/p/${product.id}',
                                 extra: {
                                   'product': product,
                                   'mode': data.catalog.mode,
                                   'shareCode': widget.shareCode,
+                                  if ((item.initialImageUri ?? '').isNotEmpty)
+                                    'initialImageUri': item.initialImageUri,
                                 },
                               ),
                             );
-                          }, childCount: filteredProducts.length),
+                          }, childCount: catalogItems.length),
                         ),
                       ),
                   ],
@@ -431,6 +459,46 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
           .toList();
     }
     return list;
+  }
+
+  List<_CatalogCardItem> _buildCatalogCardItems(
+    Catalog catalog,
+    List<Product> products,
+  ) {
+    if (!catalog.showVariantPhotoCards) {
+      return products
+          .map((product) => _CatalogCardItem(product: product))
+          .toList();
+    }
+
+    final items = <_CatalogCardItem>[];
+    for (final product in products) {
+      final mainImage = product.mainImage;
+      final variantImage = product.variantImage;
+      final variantUri = variantImage?.uri.trim() ?? '';
+      final mainUri = mainImage?.uri.trim() ?? '';
+
+      if (variantImage == null || variantUri.isEmpty || variantUri == mainUri) {
+        items.add(_CatalogCardItem(product: product));
+        continue;
+      }
+
+      items.add(
+        _CatalogCardItem(
+          product: product,
+          imageOverride: mainImage,
+          isPrimaryShowcase: true,
+        ),
+      );
+      items.add(
+        _CatalogCardItem(
+          product: product,
+          imageOverride: variantImage,
+          isVariant: true,
+        ),
+      );
+    }
+    return items;
   }
 
   Widget _buildCartBar(

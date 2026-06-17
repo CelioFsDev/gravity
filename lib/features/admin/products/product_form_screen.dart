@@ -546,6 +546,52 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     }
   }
 
+  Future<void> _addVariantPhoto() async {
+    try {
+      final result = await FilePicker.pickFiles(
+        allowMultiple: false,
+        type: FileType.any,
+        withData: kIsWeb,
+      );
+      if (result == null || result.files.isEmpty) return;
+      final file = result.files.first;
+
+      final classification = _buildManualClassification(
+        fileName: file.name,
+        photoType: 'V',
+      );
+      final resolved = await _processPickedImage(
+        file,
+        classification: classification,
+      );
+      if (resolved == null || !mounted) return;
+
+      await _replacePhotosWithCleanup((currentPhotos) {
+        final nextPhotos = List<ProductPhoto>.from(currentPhotos);
+        final newPhoto = ProductPhoto(
+          path: resolved,
+          photoType: 'V',
+          isPrimary: false,
+          id: null,
+          url: '',
+        );
+        final existingIdx = nextPhotos.indexWhere((p) => _isVariantPhoto(p));
+        if (existingIdx != -1) {
+          nextPhotos[existingIdx] = newPhoto;
+        } else {
+          nextPhotos.add(newPhoto);
+        }
+        return nextPhotos;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao adicionar foto de variante: $e')),
+        );
+      }
+    }
+  }
+
   Future<_PhotoMetaResult?> _showPhotoMetaDialog(
     BuildContext context, {
     String initialType = 'C',
@@ -830,6 +876,10 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     final type = photo.photoType?.trim().toUpperCase();
     if (type == null) return false;
     return RegExp(r'^C[1-4]$').hasMatch(type) || type == 'C';
+  }
+
+  bool _isVariantPhoto(ProductPhoto photo) {
+    return photo.photoType?.trim().toUpperCase() == 'V';
   }
 
   List<ProductPhoto> _dedupePhotosByPath(List<ProductPhoto> photos) {
@@ -1497,13 +1547,25 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         _photos.where((p) => p.photoType == 'P').firstOrNull ??
         _photos.where((p) => p.isPrimary).firstOrNull;
     final primaryPath = photoP?.path;
+    final variantPhoto = _photos.where(_isVariantPhoto).firstOrNull;
+    final variantPath = variantPhoto?.path;
 
     final detailPhotos = _photos
-        .where((photo) => _isDetailPhoto(photo) && photo.path != primaryPath)
+        .where(
+          (photo) =>
+              _isDetailPhoto(photo) &&
+              photo.path != primaryPath &&
+              photo.path != variantPath,
+        )
         .toList();
 
     final colorPhotos = _photos
-        .where((photo) => _isColorPhoto(photo) && photo.path != primaryPath)
+        .where(
+          (photo) =>
+              _isColorPhoto(photo) &&
+              photo.path != primaryPath &&
+              photo.path != variantPath,
+        )
         .toList();
 
     return Column(
@@ -1552,7 +1614,51 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         ),
         const SizedBox(height: AppTokens.space24),
 
-        // --- 2. Fotos de Detalhes ---
+        // --- 2. Foto de Variante ---
+        SectionCard(
+          title: 'Foto Variante',
+          child: Column(
+            children: [
+              Text(
+                'Foto extra usada quando o catálogo estiver configurado para mostrar variante como card separado.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              if (variantPhoto != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: SizedBox(
+                    width: 140,
+                    height: 140,
+                    child: _buildPhotoTile(
+                      variantPhoto,
+                      key: ValueKey('variant_${variantPhoto.path}'),
+                      onRemove: () =>
+                          _removePhoto(_photos.indexOf(variantPhoto)),
+                      allowPrimaryAction: false,
+                    ),
+                  ),
+                ),
+              Center(
+                child: AppPrimaryButton(
+                  onPressed: _addVariantPhoto,
+                  icon: variantPhoto == null
+                      ? Icons.add_photo_alternate_rounded
+                      : Icons.refresh_rounded,
+                  label: variantPhoto == null
+                      ? 'ADICIONAR VARIANTE'
+                      : 'TROCAR VARIANTE',
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppTokens.space24),
+
+        // --- 3. Fotos de Detalhes ---
         SectionCard(
           title: 'Fotos de Detalhes (D1 / D2)',
           child: Column(
@@ -1600,7 +1706,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
         ),
         const SizedBox(height: AppTokens.space24),
 
-        // --- 3. Fotos de Cores ---
+        // --- 4. Fotos de Cores ---
         SectionCard(
           title: 'Fotos de Cores (C1 – C4)',
           child: Column(
@@ -1823,6 +1929,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     ProductPhoto photo, {
     Key? key,
     VoidCallback? onRemove,
+    bool allowPrimaryAction = true,
   }) {
     return Stack(
       key: key,
@@ -1840,7 +1947,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           clipBehavior: Clip.antiAlias,
           child: _buildPhotoPreview(photo.path),
         ),
-        if (photo.colorKey != null)
+        if (photo.colorKey != null || _isVariantPhoto(photo))
           Positioned(
             top: 4,
             left: 4,
@@ -1851,7 +1958,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
-                photo.colorKey!,
+                _isVariantPhoto(photo) ? 'VARIANTE' : photo.colorKey!,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 10,
@@ -1877,7 +1984,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
             ),
           ),
         ),
-        if (!photo.isPrimary)
+        if (allowPrimaryAction && !photo.isPrimary)
           Positioned(
             bottom: 4,
             left: 0,

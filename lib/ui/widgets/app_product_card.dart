@@ -19,12 +19,20 @@ class AppProductCard extends ConsumerStatefulWidget {
   final Product product;
   final CatalogMode mode;
   final VoidCallback onTap;
+  final ProductImage? imageOverride;
+  final bool showSelectors;
+  final bool showPurchaseControls;
+  final String? badgeLabel;
 
   const AppProductCard({
     super.key,
     required this.product,
     required this.mode,
     required this.onTap,
+    this.imageOverride,
+    this.showSelectors = true,
+    this.showPurchaseControls = true,
+    this.badgeLabel,
   });
 
   @override
@@ -89,12 +97,21 @@ class _AppProductCardState extends ConsumerState<AppProductCard> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  _buildImage(widget.product.mainImage),
+                  _buildImage(widget.imageOverride ?? widget.product.mainImage),
                   if (widget.product.promoEnabled)
                     Positioned(
                       top: 10,
                       left: 10,
                       child: _buildTag('PROMO', const Color(0xFFF43F5E)),
+                    ),
+                  if ((widget.badgeLabel ?? '').trim().isNotEmpty)
+                    Positioned(
+                      top: 10,
+                      right: 10,
+                      child: _buildTag(
+                        widget.badgeLabel!.trim().toUpperCase(),
+                        const Color(0xFF0F172A),
+                      ),
                     ),
                   if (widget.product.isOutOfStock)
                     Container(
@@ -150,7 +167,8 @@ class _AppProductCardState extends ConsumerState<AppProductCard> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                if (colors.isNotEmpty || sizes.isNotEmpty) ...[
+                if (widget.showSelectors &&
+                    (colors.isNotEmpty || sizes.isNotEmpty)) ...[
                   Row(
                     children: [
                       if (colors.isNotEmpty)
@@ -183,54 +201,55 @@ class _AppProductCardState extends ConsumerState<AppProductCard> {
                   ),
                   const SizedBox(height: 8),
                 ],
-                Row(
-                  children: [
-                    _buildQtyButton(Icons.remove_rounded, () {
-                      if (_quantity > 1) setState(() => _quantity--);
-                    }),
-                    SizedBox(
-                      width: 30,
-                      child: Text(
-                        '$_quantity',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Color(0xFF0F172A),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                    _buildQtyButton(
-                      Icons.add_rounded,
-                      () => setState(() => _quantity++),
-                    ),
-                    const SizedBox(width: 7),
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: widget.product.isOutOfStock
-                            ? null
-                            : _addToCart,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF0F172A),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 9),
-                          minimumSize: const Size(0, 36),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(11),
+                if (widget.showPurchaseControls)
+                  Row(
+                    children: [
+                      _buildQtyButton(Icons.remove_rounded, () {
+                        if (_quantity > 1) setState(() => _quantity--);
+                      }),
+                      SizedBox(
+                        width: 30,
+                        child: Text(
+                          '$_quantity',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Color(0xFF0F172A),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
                           ),
                         ),
-                        icon: const Icon(
-                          Icons.add_shopping_cart_rounded,
-                          size: 15,
-                        ),
-                        label: const Text(
-                          'Add',
-                          style: TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                      _buildQtyButton(
+                        Icons.add_rounded,
+                        () => setState(() => _quantity++),
+                      ),
+                      const SizedBox(width: 7),
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: widget.product.isOutOfStock
+                              ? null
+                              : _addToCart,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF0F172A),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 9),
+                            minimumSize: const Size(0, 36),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(11),
+                            ),
+                          ),
+                          icon: const Icon(
+                            Icons.add_shopping_cart_rounded,
+                            size: 15,
+                          ),
+                          label: const Text(
+                            'Add',
+                            style: TextStyle(fontWeight: FontWeight.w900),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
               ],
             ),
           ),
