@@ -56,6 +56,7 @@ import 'package:catalogo_ja/core/auth/user_role.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart' hide Category;
+import 'package:window_manager/window_manager.dart';
 
 /// Provider that checks if the user is disabled, manually defined to avoid build issues.
 final currentUserStatusProvider = StreamProvider<bool>((ref) {
@@ -142,6 +143,28 @@ void main() async {
     );
     WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
     FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+
+    // Bloqueia a rotação de tela (força modo retrato)
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+    ]);
+
+    if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.linux)) {
+      await windowManager.ensureInitialized();
+
+      WindowOptions windowOptions = const WindowOptions(
+        size: Size(1200, 800),
+        center: true,
+        backgroundColor: Colors.transparent,
+        skipTaskbar: false,
+        titleBarStyle: TitleBarStyle.normal,
+        minimumSize: Size(450, 700),
+      );
+      windowManager.waitUntilReadyToShow(windowOptions, () async {
+        await windowManager.show();
+        await windowManager.focus();
+      });
+    }
   } catch (e, st) {
     debugPrint('[BOOT_IOS][ERRO ETAPA 1]');
     debugPrint(e.toString());
@@ -245,12 +268,14 @@ void main() async {
         await Firebase.initializeApp(
           options: DefaultFirebaseOptions.currentPlatform,
         );
-        await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(
-          !kDebugMode,
-        );
-        await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(
-          !kDebugMode,
-        );
+        if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.macOS)) {
+          await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(
+            !kDebugMode,
+          );
+          await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(
+            !kDebugMode,
+          );
+        }
       } catch (e) {
         if (!e.toString().contains('duplicate-app')) {
           rethrow;
