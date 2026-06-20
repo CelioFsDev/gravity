@@ -36,6 +36,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late final TextEditingController _companyInstagramController;
   late bool _isInitialSyncCompleted;
   late bool _localOnlyMode;
+  bool _isUploadingChanges = false;
 
   @override
   void initState() {
@@ -91,6 +92,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  Future<void> _syncUpEverything() async {
+    if (_isUploadingChanges) return;
+    setState(() => _isUploadingChanges = true);
+    try {
+      await ref.read(globalSyncViewModelProvider.notifier).syncUpEverything();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Alterações enviadas para a nuvem.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Não foi possível enviar as alterações: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isUploadingChanges = false);
+    }
+  }
+
   Future<void> _testPublicLink(String baseUrl) async {
     final catalogs = ref.read(catalogsViewModelProvider).value ?? [];
     String shareCode = 'TEST-CODE';
@@ -130,10 +153,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (email == null) return;
     final emailDoc = email.toLowerCase().trim();
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    final loadingSnackBar = messenger.showSnackBar(
+      const SnackBar(
+        duration: Duration(days: 1),
+        behavior: SnackBarBehavior.floating,
+        content: Row(
+          children: [
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 12),
+            Expanded(child: Text('Buscando dados dispon\u00edveis...')),
+          ],
+        ),
+      ),
     );
 
     try {
@@ -141,7 +178,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           .collection('products')
           .limit(1)
           .get();
-      if (mounted) Navigator.pop(context); // Fecha loading
 
       if (query.docs.isEmpty) {
         if (mounted) {
@@ -189,11 +225,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        if (Navigator.canPop(context)) Navigator.pop(context);
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Erro: $e')));
       }
+    } finally {
+      loadingSnackBar.close();
     }
   }
 
@@ -299,6 +336,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           SizedBox(
             width: double.infinity,
             child: AppPrimaryButton(
+              color: Colors.blue,
               onPressed: _save,
               label: 'SALVAR DADOS DA LOJA',
               icon: Icons.save_outlined,
@@ -416,6 +454,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           SizedBox(
             width: double.infinity,
             child: AppPrimaryButton(
+              color: Colors.blue,
               onPressed: _save,
               label: 'SALVAR CONFIGURAÇÕES',
               icon: Icons.save_outlined,
@@ -451,6 +490,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: AppPrimaryButton(
+                      color: Colors.blue,
                       icon: Icons.people_outline,
                       label: 'Configurar Usuários',
                       onPressed: () => context.go('/admin/settings/users'),
@@ -500,11 +540,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () => ref
-                            .read(globalSyncViewModelProvider.notifier)
-                            .syncUpEverything(),
-                        icon: const Icon(Icons.cloud_upload_outlined),
-                        label: const Text('SUBIR ALTERAÇÕES'),
+                        onPressed: _isUploadingChanges
+                            ? null
+                            : _syncUpEverything,
+                        icon: _isUploadingChanges
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.cloud_upload_outlined),
+                        label: Text(
+                          _isUploadingChanges
+                              ? 'ENVIANDO...'
+                              : 'SUBIR ALTERAÇÕES',
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -831,7 +883,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               color: isDark ? AppTokens.vibrantCyan : AppTokens.electricBlue,
             ),
             filled: true,
-            fillColor: isDark ? Colors.white.withValues(alpha: 0.03) : Colors.white,
+            fillColor: isDark
+                ? Colors.white.withValues(alpha: 0.03)
+                : Colors.white,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 16,

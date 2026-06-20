@@ -59,6 +59,8 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
           if (_showAiAssistant) _buildAiAssistantCard(context),
           _buildBulkActionsBar(context),
           _buildSyncReminderBanner(context),
+          if (state.isRefreshing)
+            const LinearProgressIndicator(minHeight: 2),
           Expanded(
             child: state.whenStandard(
               onRetry: () =>

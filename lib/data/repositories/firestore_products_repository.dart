@@ -405,10 +405,32 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
 
   /// 🔄 Sincroniza todos os produtos que possuem mudanças locais pendentes.
   /// Retorna o total de produtos sincronizados.
-  Future<int> syncAllPending({Function(double, String)? onProgress}) async {
+  Future<int> syncAllPending({
+    bool force = false,
+    Function(double, String)? onProgress,
+  }) async {
     final localProducts = await _localRepo.getProducts();
+
+    // Em uma sincronização global, reconcilia a cópia local com a nuvem.
+    // Apenas produtos ausentes ou mais novos são reenviados, evitando que um
+    // cache antigo sobrescreva uma edição feita em outro dispositivo.
+    final remoteById = <String, Product>{};
+    if (force) {
+      final remoteSnapshot = await _collection.get();
+      for (final doc in remoteSnapshot.docs) {
+        final remoteProduct = Product.fromMap(doc.data());
+        remoteById[remoteProduct.id] = remoteProduct;
+      }
+    }
+
     final toSync = localProducts
-        .where((p) => p.syncStatus == SyncStatus.pendingUpdate)
+        .where((product) {
+          if (product.syncStatus == SyncStatus.pendingUpdate) return true;
+          if (!force) return false;
+          final remoteProduct = remoteById[product.id];
+          return remoteProduct == null ||
+              product.updatedAt.isAfter(remoteProduct.updatedAt);
+        })
         .toList();
 
     if (toSync.isEmpty) {

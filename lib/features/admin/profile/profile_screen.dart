@@ -13,6 +13,7 @@ import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
 import 'package:catalogo_ja/ui/widgets/app_primary_button.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
+import 'package:go_router/go_router.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -31,8 +32,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController();
-    _photoUrlController = TextEditingController();
+    final user = ref.read(authViewModelProvider).valueOrNull;
+    _nameController = TextEditingController(text: user?.displayName ?? '');
+    _photoUrlController = TextEditingController(text: user?.photoURL ?? '');
     _whatsappController = TextEditingController();
     _tenantController = TextEditingController();
 
@@ -158,6 +160,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
+  Future<void> _syncUpEverything() async {
+    try {
+      await ref.read(globalSyncViewModelProvider.notifier).syncUpEverything();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Alterações enviadas para a nuvem.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Não foi possível enviar as alterações: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authViewModelProvider).valueOrNull;
@@ -169,20 +189,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       maxWidth: 600,
       useAppBar: true,
       actions: [
-        if (!_isLoading)
-          IconButton(
-            icon: const Icon(Icons.save_outlined),
-            onPressed: _save,
-            tooltip: 'Salvar',
-          ),
+        IconButton(
+          icon: const Icon(Icons.save_outlined),
+          onPressed: _isLoading ? null : _save,
+          tooltip: 'Salvar',
+        ),
       ],
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
+      body: SingleChildScrollView(
               padding: const EdgeInsets.all(AppTokens.space24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  if (_isLoading) ...[
+                    const LinearProgressIndicator(minHeight: 2),
+                    const SizedBox(height: AppTokens.space16),
+                  ],
                   // Avatar Section
                   Stack(
                     alignment: Alignment.bottomRight,
@@ -214,7 +235,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             : null,
                       ),
                       InkWell(
-                        onTap: _pickProfileImage,
+                        onTap: _isLoading ? null : _pickProfileImage,
                         borderRadius: BorderRadius.circular(20),
                         child: Container(
                           padding: const EdgeInsets.all(8),
@@ -289,6 +310,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     label: 'Nome de Exibi\u00e7\u00e3o',
                     icon: Icons.person_outline,
                     hint: 'Seu nome completo ou apelido',
+                    enabled: !_isLoading,
                   ),
                   const SizedBox(height: AppTokens.space16),
                   _buildTextField(
@@ -297,6 +319,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     icon: Icons.phone_android_outlined,
                     hint: 'DDI + DDD + N\u00famero (ex: 5511999999999)',
                     keyboardType: TextInputType.phone,
+                    enabled: !_isLoading,
                   ),
                   const SizedBox(height: AppTokens.space16),
                   _buildTextField(
@@ -304,6 +327,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     label: 'ID da Empresa (SaaS ID)',
                     icon: Icons.business_outlined,
                     hint: 'ex: vitoriana_loja_01',
+                    enabled: !_isLoading,
                   ),
                   const SizedBox(height: AppTokens.space16),
                   _buildTextField(
@@ -312,16 +336,36 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     icon: Icons.link_outlined,
                     hint: 'https://link-da-sua-imagem.png',
                     onChanged: (val) => setState(() {}),
+                    enabled: !_isLoading,
                   ),
 
                   const SizedBox(height: AppTokens.space48),
+
+                  if (role.isOwner) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: AppPrimaryButton(
+                        onPressed: _isLoading
+                            ? null
+                            : () => context.push('/super-admin'),
+                        label: 'PAINEL SUPER ADMIN',
+                        icon: Icons.admin_panel_settings,
+                        color: Colors.purple,
+                      ),
+                    ),
+                    const SizedBox(height: AppTokens.space24),
+                  ],
 
                   // Logout Action
                   SizedBox(
                     width: double.infinity,
                     child: AppPrimaryButton(
-                      onPressed: () =>
-                          ref.read(authViewModelProvider.notifier).signOut(),
+                      color: Colors.blue,
+                      onPressed: _isLoading
+                          ? null
+                          : () => ref
+                                .read(authViewModelProvider.notifier)
+                                .signOut(),
                       label: 'SAIR DA CONTA',
                       icon: Icons.logout_rounded,
                       // Custom color for logout
@@ -331,9 +375,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ],
               ),
             ),
-      bottomNavigationBar: _isLoading
-          ? null
-          : Container(
+      bottomNavigationBar: Container(
               padding: const EdgeInsets.all(AppTokens.space24),
               decoration: BoxDecoration(
                 color: Theme.of(context).cardColor,
@@ -347,9 +389,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               child: SafeArea(
                 child: AppPrimaryButton(
+                  color: Colors.blue,
                   label: 'SALVAR PERFIL',
                   icon: Icons.check_circle_outline,
-                  onPressed: _save,
+                  onPressed: _isLoading ? null : _save,
                 ),
               ),
             ),
@@ -413,11 +456,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               children: [
                 Expanded(
                   child: AppPrimaryButton(
+                    color: Colors.blue,
                     onPressed: isSyncing
                         ? null
-                        : () => ref
-                              .read(globalSyncViewModelProvider.notifier)
-                              .syncUpEverything(),
+                        : _syncUpEverything,
                     icon: Icons.cloud_upload_outlined,
                     label: 'SUBIR TUDO',
                   ),
@@ -425,6 +467,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: AppPrimaryButton(
+                    color: Colors.blue,
                     onPressed: isSyncing
                         ? null
                         : () => ref
@@ -464,6 +507,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     String? hint,
     Function(String)? onChanged,
     TextInputType? keyboardType,
+    bool enabled = true,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
@@ -481,6 +525,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         const SizedBox(height: 8),
         TextField(
           controller: controller,
+          enabled: enabled,
           onChanged: onChanged,
           keyboardType: keyboardType,
           style: TextStyle(

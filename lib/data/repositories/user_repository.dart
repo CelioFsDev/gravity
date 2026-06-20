@@ -37,7 +37,7 @@ class UserRepository {
       }
 
       final assignedRole = UserRole.superAdminEmails.contains(normalizedEmail)
-          ? UserRole.admin
+          ? UserRole.superAdmin
           : UserRole.viewer;
 
       await setUserRole(normalizedEmail, assignedRole);
@@ -72,7 +72,7 @@ class UserRepository {
         currentRole ??
         preferredRole?.name ??
         (UserRole.superAdminEmails.contains(normalizedEmail)
-            ? UserRole.admin.name
+            ? UserRole.superAdmin.name
             : UserRole.viewer.name);
 
     final existingTenantId = data['tenantId'] as String?;
@@ -123,7 +123,7 @@ class UserRepository {
           .toList(),
       authUid: user.uid,
       preferredRole: UserRole.superAdminEmails.contains(email)
-          ? UserRole.admin
+          ? UserRole.superAdmin
           : UserRole.viewer,
     );
   }

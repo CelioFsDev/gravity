@@ -46,7 +46,13 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
           ),
       ],
       floatingActionButton: null,
-      body: categoriesState.when(
+      body: Column(
+        children: [
+          if (categoriesState.isRefreshing)
+            const LinearProgressIndicator(minHeight: 2),
+          Expanded(
+            child: categoriesState.when(
+              skipError: true,
         data: (state) {
           final collections = state.categories
               .where((c) => c.type == CategoryType.collection)
@@ -171,7 +177,10 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
                 ref.read(categoriesViewModelProvider.notifier).refresh(),
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: CircularProgressIndicator()),
+            ),
+          ),
+        ],
       ),
     );
   }

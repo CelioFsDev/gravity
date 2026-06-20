@@ -797,43 +797,41 @@ class CatalogShareHelper {
     String title = 'Gerando catálogo...',
     String message = 'Aguarde. Isso pode levar alguns minutos.',
   }) async {
-    BuildContext? dialogContext;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        dialogContext = ctx;
-        return Center(
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.hideCurrentSnackBar();
+    messenger?.showSnackBar(
+      SnackBar(
+        duration: const Duration(days: 1),
+        behavior: SnackBarBehavior.floating,
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 16),
-                  Text(
-                    title,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(message, textAlign: TextAlign.center),
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 2),
+                  Text(message, maxLines: 2, overflow: TextOverflow.ellipsis),
                 ],
               ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
-
-    await Future<void>.delayed(Duration.zero);
 
     try {
       return await action();
     } finally {
-      if (dialogContext != null && dialogContext!.mounted) {
-        Navigator.of(dialogContext!, rootNavigator: true).pop();
+      if (context.mounted) {
+        messenger?.hideCurrentSnackBar();
       }
     }
   }

@@ -87,8 +87,11 @@ class CatalogsScreen extends ConsumerWidget {
           children: [
             if (syncProgress.isSyncing)
               _buildSyncProgressBanner(context, syncProgress),
+            if (state.isRefreshing)
+              const LinearProgressIndicator(minHeight: 2),
             Expanded(
               child: state.when(
+                skipError: true,
                 data: (catalogs) => _CatalogsContent(
                   catalogs: catalogs,
                   onCreate: role.canEditCatalog

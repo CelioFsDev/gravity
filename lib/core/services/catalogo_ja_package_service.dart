@@ -475,6 +475,7 @@ class CatalogoJaPackageService {
     }
 
     final restoredProducts = <ProductDTO>[];
+    final copyTasks = <Future<void> Function()>[];
 
     for (final product in payload.products) {
       final restoredImages = <ProductImageDTO>[];
@@ -490,7 +491,7 @@ class CatalogoJaPackageService {
               originalPath: img.uri,
             );
             final targetFile = io.File(p.join(appImagesDir.path, newName));
-            await sourceFile.copy(targetFile.path);
+            copyTasks.add(() => sourceFile.copy(targetFile.path));
 
             restoredImages.add(
               ProductImageDTO(
@@ -525,7 +526,7 @@ class CatalogoJaPackageService {
               originalPath: photo.path,
             );
             final targetFile = io.File(p.join(appImagesDir.path, newName));
-            await sourceFile.copy(targetFile.path);
+            copyTasks.add(() => sourceFile.copy(targetFile.path));
 
             final restoredPhoto = ProductPhotoDTO(
               path: targetFile.path,
@@ -591,7 +592,7 @@ class CatalogoJaPackageService {
               fallbackExtension: p.extension(sourceFile.path),
             );
             final targetFile = io.File(p.join(appImagesDir.path, newName));
-            await sourceFile.copy(targetFile.path);
+            copyTasks.add(() => sourceFile.copy(targetFile.path));
             return targetFile.path;
           }
           return relPath;
@@ -667,7 +668,7 @@ class CatalogoJaPackageService {
               originalPath: banner.imagePath,
             );
             final targetFile = io.File(p.join(appImagesDir.path, newName));
-            await sourceFile.copy(targetFile.path);
+            copyTasks.add(() => sourceFile.copy(targetFile.path));
             restoredBanners.add(banner.copyWith(imagePath: targetFile.path));
           } else {
             restoredBanners.add(banner);
@@ -689,6 +690,14 @@ class CatalogoJaPackageService {
       products: restoredProducts,
       catalogs: restoredCatalogs,
     );
+
+    // Process all copy tasks in batches to avoid 'Too many open files' and speed up
+    const batchSize = 100;
+    for (var i = 0; i < copyTasks.length; i += batchSize) {
+      final end = (i + batchSize < copyTasks.length) ? i + batchSize : copyTasks.length;
+      final batch = copyTasks.sublist(i, end).map((f) => f());
+      await Future.wait(batch);
+    }
 
     final result = await _exportImportService.executeImport(
       importPayload,

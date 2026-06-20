@@ -49,6 +49,27 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
   CollectionReference<Map<String, dynamic>> get _collection =>
       _firestore.collection('tenants').doc(_tenantId).collection('categories');
 
+  /// Categorias criadas antes da estrutura multi-tenant viviam nesta
+  /// coleção. Mantemos uma leitura de compatibilidade para que uma sessão
+  /// nova na Web não pareça vazia enquanto esses dados ainda são migrados.
+  CollectionReference<Map<String, dynamic>> get _legacyCollection =>
+      _firestore.collection('categories');
+
+  Category _categoryFromDocument(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final category = Category.fromMap(doc.data()!);
+    return category.id.isEmpty
+        ? category.copyWith(id: doc.id, tenantId: _tenantId)
+        : category;
+  }
+
+  Future<List<Category>> _getLegacyCategories() async {
+    final snapshot = await _legacyCollection
+        .where('tenantId', isEqualTo: _tenantId)
+        .get()
+        .timeout(const Duration(seconds: 10));
+    return snapshot.docs.map(_categoryFromDocument).toList();
+  }
+
   @override
   Future<List<Category>> getCategories() async {
     if (_isCacheValid) return List.from(_memoryCache!);
@@ -74,9 +95,17 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
       }
 
       final snapshot = await query.get().timeout(const Duration(seconds: 10));
-      final newCloudCategories = snapshot.docs
-          .map((doc) => Category.fromMap(doc.data()))
+      var newCloudCategories = snapshot.docs
+          .map(_categoryFromDocument)
           .toList();
+
+      // Uma sessão Web começa sem Hive. Se ainda não houver documentos na
+      // subcoleção do tenant, procura os registros legados na raiz. Não
+      // fazemos essa leitura em sessões que já têm cache local para evitar
+      // custo recorrente e dar prioridade à estrutura atual.
+      if (newCloudCategories.isEmpty && localCategories.isEmpty) {
+        newCloudCategories = await _getLegacyCategories();
+      }
 
       final merged = <String, Category>{
         for (final c in localCategories) c.id: c,
@@ -115,7 +144,14 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
       );
     }
     final snapshot = await query.get().timeout(const Duration(seconds: 15));
-    return snapshot.docs.map((doc) => Category.fromMap(doc.data())).toList();
+    final categories = snapshot.docs.map(_categoryFromDocument).toList();
+
+    // A sincronização inicial não possui cursor; é o momento seguro para
+    // considerar os documentos legados que ainda não foram copiados.
+    if (categories.isEmpty && since == null) {
+      return _getLegacyCategories();
+    }
+    return categories;
   }
 
   @override
@@ -242,12 +278,32 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
   }
 
   /// 🔄 Sincroniza todas as categorias pendentes
-  Future<int> syncAllPending({Function(double, String)? onProgress}) async {
+  Future<int> syncAllPending({
+    bool force = false,
+    Function(double, String)? onProgress,
+  }) async {
     final localCategories = await _localRepo.getCategories();
 
-    // Identifica categorias com fotos locais ou modificações
+    // O envio normal preserva o comportamento incremental. Na sincronização
+    // global, também enviamos registros ausentes ou mais novos que a cópia na
+    // nuvem. Isso migra dados legados sem sobrescrever dados mais recentes.
+    final remoteById = <String, Category>{};
+    if (force) {
+      final remoteSnapshot = await _collection.get();
+      for (final doc in remoteSnapshot.docs) {
+        final remoteCategory = _categoryFromDocument(doc);
+        remoteById[remoteCategory.id] = remoteCategory;
+      }
+    }
+
     final toSync = localCategories
-        .where((c) => c.syncStatus == SyncStatus.pendingUpdate)
+        .where((category) {
+          if (category.syncStatus == SyncStatus.pendingUpdate) return true;
+          if (!force) return false;
+          final remoteCategory = remoteById[category.id];
+          return remoteCategory == null ||
+              category.updatedAt.isAfter(remoteCategory.updatedAt);
+        })
         .toList();
 
     if (toSync.isEmpty) {
@@ -331,7 +387,16 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
           .limit(1)
           .get();
       if (snapshot.docs.isNotEmpty) {
-        return Category.fromMap(snapshot.docs.first.data());
+        return _categoryFromDocument(snapshot.docs.first);
+      }
+
+      final legacySnapshot = await _legacyCollection
+          .where('tenantId', isEqualTo: _tenantId)
+          .where('slug', isEqualTo: slug)
+          .limit(1)
+          .get();
+      if (legacySnapshot.docs.isNotEmpty) {
+        return _categoryFromDocument(legacySnapshot.docs.first);
       }
     } catch (e) {
       print('Erro ao buscar categoria por slug na nuvem (usando local): $e');

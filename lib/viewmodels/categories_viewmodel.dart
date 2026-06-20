@@ -52,6 +52,15 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     }
   }
 
+  Future<void> _runWithRetainedState(
+    Future<CategoriesState> Function() action,
+  ) async {
+    final previousState = state;
+    state = const AsyncLoading<CategoriesState>().copyWithPrevious(previousState);
+    final nextState = await AsyncValue.guard(action);
+    state = nextState.copyWithPrevious(previousState);
+  }
+
   Future<CategoriesState> _fetchData() async {
     final categoriesRepository = ref.watch(syncCategoriesRepositoryProvider);
     // Carrega ambos da nuvem para que um novo navegador veja as relacoes.
@@ -75,11 +84,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
   }
 
   Future<void> _refresh() async {
-    final hasData = state.value != null;
-    if (!hasData) {
-      state = const AsyncLoading();
-    }
-    state = await AsyncValue.guard(() async {
+    await _runWithRetainedState(() async {
       try {
         return await _fetchData();
       } catch (e) {
@@ -438,8 +443,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
   }
 
   Future<void> deleteWithMove(String id, String targetCategoryId) async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
+    await _runWithRetainedState(() async {
       try {
         final categoriesRepo = ref.read(syncCategoriesRepositoryProvider);
         await categoriesRepo.reassignCategory(id, targetCategoryId);
@@ -453,8 +457,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
   }
 
   Future<bool> deleteAndUncategorize(String id) async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
+    await _runWithRetainedState(() async {
       try {
         final categoriesRepo = ref.read(syncCategoriesRepositoryProvider);
         await categoriesRepo.reassignCategory(id, '');
@@ -472,7 +475,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
   }
 
   /// Sincroniza todas as categorias/coleções locais para a nuvem
-  Future<int> syncAllToCloud() async {
+  Future<int> syncAllToCloud({bool force = false}) async {
     final progressNotifier = ref.read(syncProgressProvider.notifier);
     try {
       progressNotifier.startSync('Iniciando sincronização de categorias...');
@@ -508,6 +511,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
 
       if (repository is FirestoreCategoriesRepository) {
         syncedCount = await repository.syncAllPending(
+          force: force,
           onProgress: (p, m) => progressNotifier.updateProgress(p, m),
         );
       } else {

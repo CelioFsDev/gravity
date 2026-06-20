@@ -188,6 +188,7 @@ class _NuvemshopImportScreenState extends ConsumerState<NuvemshopImportScreen> {
             SizedBox(
               width: double.infinity,
               child: AppPrimaryButton(
+                color: Colors.blue,
                 label: _loading
                     ? 'Importando...'
                     : 'Iniciar Importa\u00e7\u00e3o',

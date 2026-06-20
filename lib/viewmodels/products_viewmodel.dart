@@ -246,6 +246,15 @@ class ProductsViewModel extends _$ProductsViewModel {
     }
   }
 
+  Future<void> _runWithRetainedState(
+    Future<ProductsState> Function() action,
+  ) async {
+    final previousState = state;
+    state = const AsyncLoading<ProductsState>().copyWithPrevious(previousState);
+    final nextState = await AsyncValue.guard(action);
+    state = nextState.copyWithPrevious(previousState);
+  }
+
   // Actions
   void setSearchQuery(String query) {
     if (state.value == null) return;
@@ -347,8 +356,7 @@ class ProductsViewModel extends _$ProductsViewModel {
 
   Future<void> deleteSelected() async {
     if (state.value == null || state.value!.selectedProductIds.isEmpty) return;
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
+    await _runWithRetainedState(() async {
       try {
         final repository = ref.read(syncProductsRepositoryProvider);
         for (final id in state.value!.selectedProductIds) {
@@ -365,8 +373,7 @@ class ProductsViewModel extends _$ProductsViewModel {
 
   Future<void> updateStatusSelected(bool active) async {
     if (state.value == null || state.value!.selectedProductIds.isEmpty) return;
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
+    await _runWithRetainedState(() async {
       try {
         final repository = ref.read(syncProductsRepositoryProvider);
         for (final id in state.value!.selectedProductIds) {
@@ -389,8 +396,7 @@ class ProductsViewModel extends _$ProductsViewModel {
 
   Future<void> updateCategorySelected(String categoryId) async {
     if (state.value == null || state.value!.selectedProductIds.isEmpty) return;
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
+    await _runWithRetainedState(() async {
       try {
         final repository = ref.read(syncProductsRepositoryProvider);
         for (final id in state.value!.selectedProductIds) {
@@ -422,8 +428,7 @@ class ProductsViewModel extends _$ProductsViewModel {
     final idsToAdd = categoryIds.where((id) => id.trim().isNotEmpty).toSet();
     if (idsToAdd.isEmpty) return;
 
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
+    await _runWithRetainedState(() async {
       try {
         final repository = ref.read(syncProductsRepositoryProvider);
         for (final id in state.value!.selectedProductIds) {
@@ -449,8 +454,7 @@ class ProductsViewModel extends _$ProductsViewModel {
 
   Future<void> clearCategoriesSelected() async {
     if (state.value == null || state.value!.selectedProductIds.isEmpty) return;
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
+    await _runWithRetainedState(() async {
       try {
         final repository = ref.read(syncProductsRepositoryProvider);
         for (final id in state.value!.selectedProductIds) {
@@ -474,8 +478,7 @@ class ProductsViewModel extends _$ProductsViewModel {
   }
 
   Future<void> deleteProduct(String id) async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
+    await _runWithRetainedState(() async {
       try {
         final repository = ref.read(syncProductsRepositoryProvider);
         await repository.deleteProduct(id);
@@ -492,8 +495,7 @@ class ProductsViewModel extends _$ProductsViewModel {
   }
 
   Future<void> addProduct(Product product) async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
+    await _runWithRetainedState(() async {
       // 🏠 Local-First: Salva apenas localmente (Hive).
       final repository = ref.read(syncProductsRepositoryProvider);
       await repository.addProduct(product);
@@ -511,8 +513,7 @@ class ProductsViewModel extends _$ProductsViewModel {
   }
 
   Future<void> updateProduct(Product product) async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
+    await _runWithRetainedState(() async {
       // 🏠 Local-First: Atualiza apenas o Hive.
       final repository = ref.read(syncProductsRepositoryProvider);
       await repository.updateProduct(product);
@@ -527,8 +528,7 @@ class ProductsViewModel extends _$ProductsViewModel {
   }
 
   Future<void> updateProductsBulk(List<Product> products) async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
+    await _runWithRetainedState(() async {
       if (kIsWeb) {
         final cloudRepository = ref.read(syncProductsRepositoryProvider);
         final progressNotifier = ref.read(syncProgressProvider.notifier);
@@ -556,20 +556,28 @@ class ProductsViewModel extends _$ProductsViewModel {
     });
   }
 
-  Future<int> syncAllToCloud() async {
+  Future<int> syncAllToCloud({
+    bool force = false,
+    bool syncCategories = true,
+  }) async {
     final progressNotifier = ref.read(syncProgressProvider.notifier);
     progressNotifier.startSync('Iniciando sincronização...');
 
     try {
       // 1. Primeiro sincroniza Categorias/Coleções (importante para integridade)
-      final categoriesNotifier = ref.read(categoriesViewModelProvider.notifier);
-      await categoriesNotifier.syncAllToCloud();
+      if (syncCategories) {
+        final categoriesNotifier = ref.read(
+          categoriesViewModelProvider.notifier,
+        );
+        await categoriesNotifier.syncAllToCloud(force: force);
+      }
 
       // 2. Depois sincroniza Produtos
       final repository = ref.read(syncProductsRepositoryProvider);
 
       if (repository is FirestoreProductsRepository) {
         final count = await repository.syncAllPending(
+          force: force,
           onProgress: (p, m) => progressNotifier.updateProgress(p, m),
         );
         progressNotifier.stopSync(
@@ -1021,8 +1029,7 @@ class ProductsViewModel extends _$ProductsViewModel {
 
   Future<void> refresh() async {
     final previous = state.value ?? ProductsState.initial();
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
+    await _runWithRetainedState(() async {
       try {
         final repository = ref.read(syncProductsRepositoryProvider);
         final categoriesRepository = ref.read(syncCategoriesRepositoryProvider);

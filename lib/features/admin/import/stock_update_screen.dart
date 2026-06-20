@@ -25,9 +25,9 @@ class _StockUpdateScreenState extends ConsumerState<StockUpdateScreen> {
   Future<void> _process() async {
     final text = _controller.text.trim();
     if (text.isEmpty) {
-       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cole o texto primeiro')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Cole o texto primeiro')));
       return;
     }
 
@@ -39,17 +39,17 @@ class _StockUpdateScreenState extends ConsumerState<StockUpdateScreen> {
       setState(() {
         _report = result;
       });
-      
+
       if (mounted && result.updatedCount > 0) {
-         ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${result.updatedCount} itens atualizados!')),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro: $e')));
       }
     }
   }
@@ -79,7 +79,8 @@ class _StockUpdateScreenState extends ConsumerState<StockUpdateScreen> {
               controller: _controller,
               maxLines: 15,
               decoration: InputDecoration(
-                hintText: 'Exemplo:\n106544 - CROPPED LISTRADO LUREX - BEGE - G UN 3',
+                hintText:
+                    'Exemplo:\n106544 - CROPPED LISTRADO LUREX - BEGE - G UN 3',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppTokens.radiusMd),
                 ),
@@ -98,6 +99,7 @@ class _StockUpdateScreenState extends ConsumerState<StockUpdateScreen> {
               )
             else
               AppPrimaryButton(
+                color: Colors.blue,
                 label: 'Processar Agora',
                 onPressed: state.isLoading ? null : _process,
               ),
@@ -156,7 +158,10 @@ class _StockUpdateScreenState extends ConsumerState<StockUpdateScreen> {
             const SizedBox(height: AppTokens.space16),
             Text(
               '⚠️ ${report.errors.length} itens ignorados (n\u00e3o encontrados):',
-              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.orange,
+              ),
             ),
             const SizedBox(height: 4),
             ConstrainedBox(

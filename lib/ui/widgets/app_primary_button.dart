@@ -12,6 +12,7 @@ class AppPrimaryButton extends StatelessWidget {
     required this.label,
     this.icon,
     this.onPressed,
+    required MaterialColor color,
   });
 
   @override

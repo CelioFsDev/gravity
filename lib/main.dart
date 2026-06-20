@@ -42,6 +42,7 @@ import 'package:catalogo_ja/features/admin/backup/backup_screen.dart';
 import 'package:catalogo_ja/features/theme/theme_providers.dart';
 import 'package:catalogo_ja/features/public/catalog_home_page.dart';
 import 'package:catalogo_ja/features/public/product_detail_screen.dart';
+import 'package:catalogo_ja/features/super_admin/presentation/super_admin_shell_screen.dart';
 import 'package:catalogo_ja/ui/theme/app_theme.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/features/auth/login_screen.dart';
@@ -501,6 +502,19 @@ class _MyAppState extends ConsumerState<MyApp> {
           path: '/splash',
           pageBuilder: (context, state) =>
               _buildPage(state, const SplashScreen()),
+        ),
+        GoRoute(
+          path: '/super-admin',
+          pageBuilder: (context, state) =>
+              _buildPage(state, const SuperAdminShellScreen()),
+          redirect: (context, state) {
+            final user = ref.read(authViewModelProvider).valueOrNull;
+            if (user == null || user.email == null) return '/login';
+            if (!UserRole.superAdminEmails.contains(user.email!.trim().toLowerCase())) {
+              return '/';
+            }
+            return null;
+          },
         ),
         GoRoute(
           path: '/login',

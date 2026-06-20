@@ -253,6 +253,7 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                   builder: (context, ref, _) {
                     final productsState = ref.watch(productsViewModelProvider);
                     return productsState.when(
+                      skipError: true,
                       data: (pData) => ProductsSelectionTab(
                         selectedIds: state.catalog.productIds,
                         onToggle: notifier.toggleProduct,
@@ -295,6 +296,7 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
           child: AppPrimaryButton(
             label: widget.isQuick ? 'GERAR E COMPARTILHAR' : 'SALVAR CATÁLOGO',
             icon: widget.isQuick ? Icons.send : Icons.check_circle_outline,
+            color: Colors.blue,
             onPressed: state.isSaving
                 ? null
                 : () async {
@@ -312,7 +314,6 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
       ),
     );
   }
-
 
   Widget _buildSettingsTab(
     CatalogEditorState state,

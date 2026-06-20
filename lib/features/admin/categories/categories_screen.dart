@@ -46,8 +46,11 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
           _buildHeader(context, role, notifier, isDark),
           if (syncProgress.isSyncing)
             _buildSyncProgressBanner(context, syncProgress),
+          if (state.isRefreshing)
+            const LinearProgressIndicator(minHeight: 2),
           Expanded(
             child: state.when(
+              skipError: true,
               data: (categoriesState) {
                 final categories = categoriesState.categories.where((c) {
                   final nameMatch = c.safeName.toLowerCase().contains(

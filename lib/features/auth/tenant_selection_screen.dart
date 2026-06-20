@@ -17,6 +17,8 @@ class TenantSelectionScreen extends ConsumerStatefulWidget {
 class _TenantSelectionScreenState extends ConsumerState<TenantSelectionScreen> {
   bool _isLoading = false;
   String _loadingMessage = 'Carregando...';
+  Future<Map<String, dynamic>?>? _userAndTenantsFuture;
+  String? _loadedEmail;
 
   @override
   Widget build(BuildContext context) {
@@ -24,6 +26,11 @@ class _TenantSelectionScreenState extends ConsumerState<TenantSelectionScreen> {
     final user = authState.valueOrNull;
 
     if (user == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    final email = user.email!.toLowerCase().trim();
+    if (_userAndTenantsFuture == null || _loadedEmail != email) {
+      _loadedEmail = email;
+      _userAndTenantsFuture = _fetchUserAndTenants(email);
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -38,7 +45,7 @@ class _TenantSelectionScreenState extends ConsumerState<TenantSelectionScreen> {
       body: Stack(
         children: [
           FutureBuilder<Map<String, dynamic>?>(
-            future: _fetchUserAndTenants(user.email!.toLowerCase().trim()),
+            future: _userAndTenantsFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -81,7 +88,9 @@ class _TenantSelectionScreenState extends ConsumerState<TenantSelectionScreen> {
                               itemBuilder: (context, index) {
                                 final id = docs[index].id;
                                 return _TenantTile(
-                                  tenantId: id, 
+                                  tenantId: id,
+                                  tenantData:
+                                      docs[index].data() as Map<String, dynamic>?,
                                   onSelected: () => _selectTenant(id),
                                   canDelete: isSuperAdminRaw,
                                   onDelete: () => setState(() {}),
@@ -104,20 +113,42 @@ class _TenantSelectionScreenState extends ConsumerState<TenantSelectionScreen> {
             },
           ),
           if (_isLoading)
-            Container(
-              color: Colors.black54,
-              child: Center(
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32.0),
-                    child: Column(
+            IgnorePointer(
+              child: SafeArea(
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: Container(
+                    margin: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const CircularProgressIndicator(),
-                        const SizedBox(height: 24),
-                        Text(_loadingMessage, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 8),
-                        const Text('Isso pode levar alguns segundos...', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                        const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        const SizedBox(width: 12),
+                        Flexible(
+                          child: Text(
+                            _loadingMessage,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -251,6 +282,7 @@ class _TenantSelectionScreenState extends ConsumerState<TenantSelectionScreen> {
   }
 
   Future<void> _createTenant(String companyName, String storeName) async {
+    if (_isLoading) return;
     setState(() {
       _isLoading = true;
       _loadingMessage = 'Criando sua empresa...';
@@ -305,6 +337,7 @@ class _TenantSelectionScreenState extends ConsumerState<TenantSelectionScreen> {
   }
 
   Future<void> _selectAndLinkTenant(String tenantId) async {
+    if (_isLoading) return;
     setState(() => _isLoading = true);
     try {
       final userEmail = ref.read(authViewModelProvider).value?.email;
@@ -366,6 +399,7 @@ class _TenantSelectionScreenState extends ConsumerState<TenantSelectionScreen> {
   }
 
   Future<void> _selectTenant(String tenantId) async {
+    if (_isLoading) return;
     setState(() => _isLoading = true);
     try {
       final userEmail = ref.read(authViewModelProvider).value?.email;
@@ -412,12 +446,14 @@ class _TenantSelectionScreenState extends ConsumerState<TenantSelectionScreen> {
 
 class _TenantTile extends StatelessWidget {
   final String tenantId;
+  final Map<String, dynamic>? tenantData;
   final VoidCallback onSelected;
   final bool canDelete;
   final VoidCallback? onDelete;
 
   const _TenantTile({
-    required this.tenantId, 
+    required this.tenantId,
+    this.tenantData,
     required this.onSelected,
     this.canDelete = false,
     this.onDelete,
@@ -425,12 +461,8 @@ class _TenantTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance.collection('tenants').doc(tenantId).get(),
-      builder: (context, snapshot) {
-        final data = snapshot.data?.data() as Map<String, dynamic>?;
-        final name = data?['name'] ?? 'Empresa Desconhecida';
-        return Card(
+    final name = tenantData?['name'] ?? 'Empresa Desconhecida';
+    return Card(
           margin: const EdgeInsets.all(AppTokens.space8),
           elevation: 2,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -471,8 +503,6 @@ class _TenantTile extends StatelessWidget {
             ),
             onTap: onSelected,
           ),
-        );
-      },
     );
   }
 }

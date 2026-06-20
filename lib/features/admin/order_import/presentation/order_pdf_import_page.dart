@@ -315,6 +315,7 @@ class _OrderPdfImportPageState extends ConsumerState<OrderPdfImportPage> {
           ),
           const SizedBox(height: AppTokens.space16),
           AppPrimaryButton(
+            color: Colors.blue,
             label: state.status == OrderPdfImportStatus.creatingCatalog
                 ? 'Criando catálogo...'
                 : isSuccess

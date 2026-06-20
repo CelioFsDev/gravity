@@ -41,6 +41,8 @@ extension AsyncValueUI on AsyncValue {
     VoidCallback? onRetry,
   }) {
     return when(
+      // Keep the previous content visible when a refresh fails.
+      skipError: true,
       data: data,
       error: (err, stack) =>
           AppErrorView(error: err, stackTrace: stack, onRetry: onRetry),

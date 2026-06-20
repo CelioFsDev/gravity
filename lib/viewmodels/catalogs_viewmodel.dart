@@ -42,6 +42,15 @@ class CatalogsViewModel extends _$CatalogsViewModel {
     }
   }
 
+  Future<void> _runWithRetainedState(
+    Future<List<Catalog>> Function() action,
+  ) async {
+    final previousState = state;
+    state = const AsyncLoading<List<Catalog>>().copyWithPrevious(previousState);
+    final nextState = await AsyncValue.guard(action);
+    state = nextState.copyWithPrevious(previousState);
+  }
+
   /// Corrige catálogos salvos no Hive com tenantId vazio (bug legado).
   Future<void> _migrateLegacyCatalogs(String tenantId) async {
     try {
@@ -61,13 +70,11 @@ class CatalogsViewModel extends _$CatalogsViewModel {
   }
 
   Future<void> deleteCatalog(String id) async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
+    await _runWithRetainedState(() async {
       try {
         final repository = ref.read(syncCatalogsRepositoryProvider);
         await repository.deleteCatalog(id);
-        ref.invalidateSelf();
-        return state.value ?? [];
+        return await build();
       } catch (e) {
         throw e.toAppFailure(action: 'deleteCatalog', entity: 'Catalog');
       }
@@ -222,20 +229,14 @@ class CatalogsViewModel extends _$CatalogsViewModel {
     return '$base-${DateTime.now().millisecondsSinceEpoch % 10000}';
   }
 
-  Future<int> syncAllToCloud() async {
+  Future<int> syncAllToCloud({bool force = false}) async {
     final progressNotifier = ref.read(syncProgressProvider.notifier);
     try {
       progressNotifier.startSync('Iniciando sincronização de catálogos...');
       
-      final localRepo = ref.read(catalogsRepositoryProvider) as HiveCatalogsRepository;
-      final localCatalogs = (await localRepo.getCatalogs())
-          .where((c) => c.syncStatus == SyncStatus.pendingUpdate)
-          .toList();
-      
-      if (localCatalogs.isEmpty) {
-        progressNotifier.stopSync();
-        return 0;
-      }
+      final localRepo =
+          ref.read(catalogsRepositoryProvider) as HiveCatalogsRepository;
+      final allLocalCatalogs = await localRepo.getCatalogs();
 
       final tenant = await ref.read(currentTenantProvider.future);
       String? tenantId = tenant?.id;
@@ -252,7 +253,31 @@ class CatalogsViewModel extends _$CatalogsViewModel {
       }
 
       final storageService = ref.read(saasPhotoStorageProvider);
-      final firestoreRepo = FirestoreCatalogsRepository(localRepo, storageService, tenantId);
+      final firestoreRepo = FirestoreCatalogsRepository(
+        localRepo,
+        storageService,
+        tenantId,
+      );
+      final remoteById = <String, Catalog>{};
+      if (force) {
+        final remoteCatalogs = await firestoreRepo.fetchFromCloudOnly();
+        for (final catalog in remoteCatalogs) {
+          remoteById[catalog.id] = catalog;
+        }
+      }
+
+      final localCatalogs = allLocalCatalogs.where((catalog) {
+        if (catalog.syncStatus == SyncStatus.pendingUpdate) return true;
+        if (!force) return false;
+        final remoteCatalog = remoteById[catalog.id];
+        return remoteCatalog == null ||
+            catalog.updatedAt.isAfter(remoteCatalog.updatedAt);
+      }).toList();
+
+      if (localCatalogs.isEmpty) {
+        progressNotifier.stopSync(message: 'Tudo já está sincronizado.');
+        return 0;
+      }
       var syncedCount = 0;
       final total = localCatalogs.length;
 

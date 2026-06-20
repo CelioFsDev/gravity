@@ -45,7 +45,9 @@ class _CategoryCreateModalState extends ConsumerState<CategoryCreateModal> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Categoria salva localmente! Sincronize para subir à nuvem.'),
+              content: Text(
+                'Categoria salva localmente! Sincronize para subir à nuvem.',
+              ),
               duration: Duration(seconds: 3),
               backgroundColor: Colors.blue,
             ),
@@ -67,7 +69,7 @@ class _CategoryCreateModalState extends ConsumerState<CategoryCreateModal> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       backgroundColor: isDark ? AppTokens.surfaceDark : Colors.white,
@@ -93,22 +95,35 @@ class _CategoryCreateModalState extends ConsumerState<CategoryCreateModal> {
             ),
             decoration: InputDecoration(
               labelText: 'Nome da Categoria',
-              labelStyle: TextStyle(color: isDark ? Colors.white38 : Colors.black38),
+              labelStyle: TextStyle(
+                color: isDark ? Colors.white38 : Colors.black38,
+              ),
               hintText: 'Ex: Camisetas, Calças...',
-              hintStyle: TextStyle(color: isDark ? Colors.white24 : Colors.black26),
+              hintStyle: TextStyle(
+                color: isDark ? Colors.white24 : Colors.black26,
+              ),
               filled: true,
-              fillColor: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.04),
+              fillColor: (isDark ? Colors.white : Colors.black).withValues(
+                alpha: 0.04,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
                 borderSide: BorderSide.none,
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05)),
+                borderSide: BorderSide(
+                  color: (isDark ? Colors.white : Colors.black).withValues(
+                    alpha: 0.05,
+                  ),
+                ),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: AppTokens.electricBlue, width: 2),
+                borderSide: const BorderSide(
+                  color: AppTokens.electricBlue,
+                  width: 2,
+                ),
               ),
             ),
             textCapitalization: TextCapitalization.sentences,
@@ -134,6 +149,7 @@ class _CategoryCreateModalState extends ConsumerState<CategoryCreateModal> {
           child: AppPrimaryButton(
             label: 'CRIAR',
             onPressed: _isLoading ? null : _save,
+            color: Colors.blue,
           ),
         ),
       ],

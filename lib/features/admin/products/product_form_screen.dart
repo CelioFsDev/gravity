@@ -1409,6 +1409,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                           bottom: AppTokens.space24,
                         ),
                         child: AppPrimaryButton(
+                          color: Colors.blue,
                           label: widget.product == null
                               ? 'CRIAR PRODUTO'
                               : 'SALVAR ALTERAÇÕES',
@@ -1591,6 +1592,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                 ),
               Center(
                 child: AppPrimaryButton(
+                  color: Colors.blue,
                   onPressed: _addPrimaryPhoto,
                   icon: photoP == null
                       ? Icons.add_a_photo_rounded
@@ -1644,6 +1646,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                 ),
               Center(
                 child: AppPrimaryButton(
+                  color: Colors.blue,
                   onPressed: _addVariantPhoto,
                   icon: variantPhoto == null
                       ? Icons.add_photo_alternate_rounded

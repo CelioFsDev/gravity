@@ -55,15 +55,24 @@ class GlobalSyncViewModel extends _$GlobalSyncViewModel {
 
     try {
       // 1. Sincroniza Categorias e Coleções
-      await ref.read(categoriesViewModelProvider.notifier).syncAllToCloud();
+      final categoriesCount = await ref
+          .read(categoriesViewModelProvider.notifier)
+          .syncAllToCloud(force: true);
 
       // 2. Sincroniza Produtos e Fotos (o processo mais pesado)
-      await ref.read(productsViewModelProvider.notifier).syncAllToCloud();
+      final productsCount = await ref
+          .read(productsViewModelProvider.notifier)
+          .syncAllToCloud(force: true, syncCategories: false);
 
       // 3. Sincroniza Catálogos (PDF e configs)
-      await ref.read(catalogsViewModelProvider.notifier).syncAllToCloud();
+      final catalogsCount = await ref
+          .read(catalogsViewModelProvider.notifier)
+          .syncAllToCloud(force: true);
 
-      progressNotifier.stopSync(message: 'Upload concluído!');
+      final total = categoriesCount + productsCount + catalogsCount;
+      progressNotifier.stopSync(
+        message: 'Upload concluído: $total itens enviados.',
+      );
     } catch (e) {
       progressNotifier.stopSync(message: 'Erro no upload: $e');
       rethrow;

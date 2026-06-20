@@ -39,6 +39,9 @@ String effectiveUserRoleName(
 }
 
 enum UserRole {
+  /// Super Admin: Global access across all tenants
+  superAdmin('Super Admin'),
+
   /// God Mode: Full access to everything
   admin('Administrador'),
 
@@ -54,8 +57,9 @@ enum UserRole {
   final String label;
   const UserRole(this.label);
 
-  /// Emails that have Super Admin privileges (can manage users)
+  /// Emails that have Super Admin privileges (global control)
   static const superAdminEmails = {
+    'celiodev@gmail.com', // Added by user request
     'ti.vitoriana@gmail.com',
     'celiofs.dev@gmail.com',
     'celio@gmail.com',
@@ -80,10 +84,10 @@ class CurrentRole extends _$CurrentRole {
       return UserRole.viewer;
     }
 
-    // Force super admins to be admin in memory immediately
+    // Force super admins to be superAdmin in memory immediately
     final isSuperAdmin = UserRole.superAdminEmails.contains(email);
     if (isSuperAdmin) {
-      _cachedRole = UserRole.admin;
+      _cachedRole = UserRole.superAdmin;
     }
 
     // Only re-fetch if the user email changed
@@ -99,7 +103,7 @@ class CurrentRole extends _$CurrentRole {
         if (!doc.exists) return;
         final data = doc.data()!;
         var role = _roleFromData(data);
-        if (isSuperAdmin) role = UserRole.admin;
+        if (isSuperAdmin) role = UserRole.superAdmin;
         _cachedRole = role;
         state = role;
       });
@@ -123,9 +127,9 @@ class CurrentRole extends _$CurrentRole {
 
         // Even if DB says otherwise, if it's a super admin, force it
         if (forceAdmin) {
-          role = UserRole.admin;
+          role = UserRole.superAdmin;
           // Sync DB if it was wrong
-          if (data['role'] != 'admin') {
+          if (data['role'] != 'superAdmin') {
             await ref.read(userRepositoryProvider).setUserRole(email, role);
           }
         }
@@ -137,8 +141,8 @@ class CurrentRole extends _$CurrentRole {
         if (forceAdmin) {
           await ref
               .read(userRepositoryProvider)
-              .setUserRole(email, UserRole.admin);
-          state = UserRole.admin;
+              .setUserRole(email, UserRole.superAdmin);
+          state = UserRole.superAdmin;
         }
       }
     } catch (e) {
@@ -168,21 +172,24 @@ class CurrentRole extends _$CurrentRole {
 }
 
 extension UserRoleGuards on UserRole {
+  /// Defines if the user is the Super Admin owner of the system
+  bool get isOwner => this == UserRole.superAdmin;
+
   /// Registrations management (Products, Categories, Collections)
   bool get canManageRegistrations =>
-      this == UserRole.admin || this == UserRole.operator;
+      this == UserRole.superAdmin || this == UserRole.admin || this == UserRole.operator;
 
   /// Critical product management actions (delete, batch edit)
   bool get canDeleteProduct =>
-      this == UserRole.admin || this == UserRole.operator;
+      this == UserRole.superAdmin || this == UserRole.admin || this == UserRole.operator;
 
   /// Creating/Editing products
   bool get canEditProduct =>
-      this == UserRole.admin || this == UserRole.operator;
+      this == UserRole.superAdmin || this == UserRole.admin || this == UserRole.operator;
 
   /// Catalog creation and editing
   bool get canEditCatalog =>
-      this == UserRole.admin || this == UserRole.operator;
+      this == UserRole.superAdmin || this == UserRole.admin || this == UserRole.operator;
 
   /// Sharing and viewing reports
   bool get canShareCatalog => this != UserRole.viewer;
@@ -191,36 +198,36 @@ extension UserRoleGuards on UserRole {
   bool get canShare => this != UserRole.viewer;
 
   /// Import and export operations
-  bool get canImportData => this == UserRole.admin;
+  bool get canImportData => this == UserRole.superAdmin || this == UserRole.admin;
 
   /// Sensitive settings (Public Link, Store Info)
-  bool get canEditSettings => this == UserRole.admin;
+  bool get canEditSettings => this == UserRole.superAdmin || this == UserRole.admin;
 
   /// User management for the active company.
   bool canManageUsers(String? email) {
-    return this == UserRole.admin;
+    return this == UserRole.superAdmin || this == UserRole.admin;
   }
 
   /// Global access to Admin Panel screens
   bool get canAccessAdmin => this != UserRole.viewer;
 
-  bool get canViewDashboard => this == UserRole.admin || this == UserRole.operator;
+  bool get canViewDashboard => this == UserRole.superAdmin || this == UserRole.admin || this == UserRole.operator;
 
-  bool get canViewProducts => this == UserRole.admin || this == UserRole.operator;
+  bool get canViewProducts => this == UserRole.superAdmin || this == UserRole.admin || this == UserRole.operator;
 
-  bool get canViewCollections => this == UserRole.admin || this == UserRole.operator;
+  bool get canViewCollections => this == UserRole.superAdmin || this == UserRole.admin || this == UserRole.operator;
 
-  bool get canViewCategories => this == UserRole.admin || this == UserRole.operator;
+  bool get canViewCategories => this == UserRole.superAdmin || this == UserRole.admin || this == UserRole.operator;
 
   bool get canViewCatalogs => this != UserRole.viewer;
 
-  bool get canViewProfile => this == UserRole.admin || this == UserRole.operator;
+  bool get canViewProfile => this == UserRole.superAdmin || this == UserRole.admin || this == UserRole.operator;
 
-  bool get canViewImports => this == UserRole.admin;
+  bool get canViewImports => this == UserRole.superAdmin || this == UserRole.admin;
 
-  bool get canViewSettings => this == UserRole.admin;
+  bool get canViewSettings => this == UserRole.superAdmin || this == UserRole.admin;
 
-  bool get canViewBackup => this == UserRole.admin;
+  bool get canViewBackup => this == UserRole.superAdmin || this == UserRole.admin;
 }
 
 /// Provider to check if the current user is disabled/suspended

@@ -300,6 +300,7 @@ class ExportImportService {
     }
 
     // 3. Import Products
+    final productsToSaveBulk = <Product>[];
     for (final pDTO in payload.products) {
       try {
         final ref = pDTO.ref.trim();
@@ -336,10 +337,7 @@ class ExportImportService {
                   syncStatus: SyncStatus.synced,
                 );
 
-            await _productsRepo.saveImportedProduct(
-              productToSave,
-              shouldSync: false,
-            );
+            productsToSaveBulk.add(productToSave);
             success++;
           }
         } else {
@@ -355,16 +353,17 @@ class ExportImportService {
                 syncStatus: SyncStatus.pendingUpdate,
               );
 
-          await _productsRepo.saveImportedProduct(
-            productToSave,
-            shouldSync: true,
-          );
+          productsToSaveBulk.add(productToSave);
           success++;
         }
       } catch (e) {
         errors++;
         errorList.add('Error importing product ${pDTO.name}: $e');
       }
+    }
+
+    if (productsToSaveBulk.isNotEmpty) {
+      await _productsRepo.updateProductsBulk(productsToSaveBulk);
     }
 
     // 4. Import Catalogs

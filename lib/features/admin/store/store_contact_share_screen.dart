@@ -66,7 +66,9 @@ class _StoreContactShareScreenState
       _isSyncingMessage = true;
       _messageController.value = TextEditingValue(
         text: _lastGeneratedMessage,
-        selection: TextSelection.collapsed(offset: _lastGeneratedMessage.length),
+        selection: TextSelection.collapsed(
+          offset: _lastGeneratedMessage.length,
+        ),
       );
       _isSyncingMessage = false;
       setState(() {});
@@ -96,16 +98,15 @@ class _StoreContactShareScreenState
 
     final catalogUrl =
         defaultCatalog != null && defaultCatalog.shareCode.isNotEmpty
-            ? PublicCatalogConfig.buildCatalogUrl(
-                settings.publicBaseUrl,
-                defaultCatalog.shareCode,
-              )
-            : null;
+        ? PublicCatalogConfig.buildCatalogUrl(
+            settings.publicBaseUrl,
+            defaultCatalog.shareCode,
+          )
+        : null;
 
     final currentTenantId =
         ref.watch(currentTenantProvider).valueOrNull?.id ?? '';
-    final currentStoreId =
-        ref.watch(currentStoreIdProvider).valueOrNull ?? '';
+    final currentStoreId = ref.watch(currentStoreIdProvider).valueOrNull ?? '';
 
     final usersStream = ref
         .watch(userRepositoryProvider)
@@ -122,14 +123,15 @@ class _StoreContactShareScreenState
         stream: usersStream,
         builder: (context, snapshot) {
           // Only show users with the seller role (not admin)
-          final sellers = snapshot.data
+          final sellers =
+              snapshot.data
                   ?.where(
                     (u) =>
                         effectiveUserRoleName(
-                          u,
-                          tenantId: currentTenantId,
-                          storeId: currentStoreId,
-                        ) ==
+                              u,
+                              tenantId: currentTenantId,
+                              storeId: currentStoreId,
+                            ) ==
                             UserRole.seller.name &&
                         (u['disabled'] as bool? ?? false) == false,
                   )
@@ -192,15 +194,14 @@ class _StoreContactShareScreenState
                     title: 'Vendedores',
                     child: Column(
                       children: sellers.map((s) {
-                        final name =
-                            s['displayName'] as String? ?? 'Vendedor';
-                        final whatsapp =
-                            s['whatsappNumber'] as String? ?? '';
+                        final name = s['displayName'] as String? ?? 'Vendedor';
+                        final whatsapp = s['whatsappNumber'] as String? ?? '';
                         return ListTile(
                           contentPadding: EdgeInsets.zero,
                           leading: CircleAvatar(
-                            backgroundColor:
-                                AppTokens.accentBlue.withValues(alpha: 0.1),
+                            backgroundColor: AppTokens.accentBlue.withValues(
+                              alpha: 0.1,
+                            ),
                             child: const Icon(
                               Icons.person,
                               color: AppTokens.accentBlue,
@@ -234,8 +235,11 @@ class _StoreContactShareScreenState
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       child: Row(
                         children: [
-                          const Icon(Icons.info_outline,
-                              color: AppTokens.textMuted, size: 18),
+                          const Icon(
+                            Icons.info_outline,
+                            color: AppTokens.textMuted,
+                            size: 18,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -317,10 +321,7 @@ class _StoreContactShareScreenState
               alignment: Alignment.centerLeft,
               child: Text(
                 'Usando a mensagem editada para copiar e compartilhar.',
-                style: TextStyle(
-                  color: AppTokens.textMuted,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: AppTokens.textMuted, fontSize: 12),
               ),
             ),
           ],
@@ -337,6 +338,7 @@ class _StoreContactShareScreenState
                 ),
               );
               final shareButton = AppPrimaryButton(
+                color: Colors.blue,
                 onPressed: _messageController.text.trim().isEmpty
                     ? null
                     : () => _handleShare(context, _messageController.text),
@@ -386,8 +388,7 @@ class _StoreContactShareScreenState
     }
 
     if ((settings.whatsappNumber as String).isNotEmpty) {
-      buffer.writeln(
-          '📞 *WhatsApp:* https://wa.me/${settings.whatsappNumber}');
+      buffer.writeln('📞 *WhatsApp:* https://wa.me/${settings.whatsappNumber}');
     }
 
     if ((settings.instagramUrl as String).isNotEmpty) {

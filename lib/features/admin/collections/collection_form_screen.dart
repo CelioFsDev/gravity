@@ -362,6 +362,7 @@ class _CollectionFormScreenState extends ConsumerState<CollectionFormScreen> {
                 child: AppPrimaryButton(
                   label: 'Salvar Cole\u00e7\u00e3o',
                   onPressed: _save,
+                  color: Colors.blue,
                 ),
               ),
             ],

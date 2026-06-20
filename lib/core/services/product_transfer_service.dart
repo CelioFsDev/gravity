@@ -217,44 +217,37 @@ class ProductTransferService {
     BuildContext context,
     Future<T> Function() action,
   ) async {
-    BuildContext? dialogContext;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        dialogContext = ctx;
-        return const Center(
-          child: Card(
-            child: Padding(
-              padding: EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text(
-                    'Preparando arquivo...',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 6),
-                  Text(
-                    'Aguarde enquanto o aplicativo organiza os dados.',
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.hideCurrentSnackBar();
+    messenger?.showSnackBar(
+      const SnackBar(
+        duration: Duration(days: 1),
+        behavior: SnackBarBehavior.floating,
+        content: Row(
+          children: [
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Preparando arquivo...',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
 
     try {
       return await action();
     } finally {
-      if (dialogContext != null && dialogContext!.mounted) {
-        Navigator.of(dialogContext!, rootNavigator: true).pop();
+      if (context.mounted) {
+        messenger?.hideCurrentSnackBar();
       }
     }
   }

@@ -262,7 +262,8 @@ class AppScaffold extends ConsumerWidget {
     );
   }
 
-  Widget _buildGlobalProgress(BuildContext context, Object activeTask) {
+  Widget _buildGlobalProgress(BuildContext context, BackgroundTask activeTask) {
+    final hasProgress = activeTask.progress > 0 && activeTask.progress < 1;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
@@ -275,12 +276,35 @@ class AppScaffold extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            activeTask.toString(),
-            style: Theme.of(context).textTheme.bodyMedium,
+          Row(
+            children: [
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  activeTask.title,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
           ),
+          if (activeTask.message.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              activeTask.message,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
           const SizedBox(height: 8),
-          const LinearProgressIndicator(),
+          LinearProgressIndicator(value: hasProgress ? activeTask.progress : null),
         ],
       ),
     );

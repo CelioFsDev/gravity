@@ -139,8 +139,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       end: Alignment.bottomCenter,
                       colors: [
                         Colors.transparent,
-                        (isDark ? AppTokens.deepNavy : Colors.white)
-                            .withValues(alpha: 0.94),
+                        (isDark ? AppTokens.deepNavy : Colors.white).withValues(
+                          alpha: 0.94,
+                        ),
                       ],
                       stops: const [0.18, 0.68],
                     ),
@@ -444,6 +445,7 @@ class _EmailPasswordForm extends StatelessWidget {
             label: isSubmitting ? 'ENTRANDO...' : 'ENTRAR',
             icon: Icons.login_rounded,
             onPressed: isSubmitting ? null : onSubmit,
+            color: Colors.blue,
           ),
         ],
       ),
