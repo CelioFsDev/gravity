@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
+import 'package:catalogo_ja/core/utils/product_image_sync.dart';
 import 'package:image_picker/image_picker.dart';
 
 /// Serviço isolado responsável por interceptar mídias locais ou base64
@@ -10,15 +11,6 @@ class MediaUploadResolver {
 
   MediaUploadResolver(this._storageService);
 
-  bool _isCloudResolvableImageUri(String uri) {
-    final trimmed = uri.trim();
-    return trimmed.startsWith('http://') ||
-        trimmed.startsWith('https://') ||
-        trimmed.startsWith('gs://') ||
-        trimmed.startsWith('tenants/') ||
-        trimmed.startsWith('public_catalogs/');
-  }
-
   /// Recebe um caminho local/base64, sobe no Storage e retorna a URL remota definitiva.
   /// Se já for uma URL remota válida (http/gs://), retorna imediatamente.
   Future<String> resolveImageUri({
@@ -26,11 +18,12 @@ class MediaUploadResolver {
     required String entityId,
     required String tenantId,
     String? label,
+    String? webFallbackUri,
   }) async {
     final isLocal =
         localUri.startsWith('data:') ||
         localUri.startsWith('blob:') ||
-        !_isCloudResolvableImageUri(localUri);
+        !isCloudImageUri(localUri);
 
     if (!isLocal) {
       return localUri;
@@ -46,6 +39,12 @@ class MediaUploadResolver {
       } else if (localUri.startsWith('blob:')) {
         final xFile = XFile(localUri);
         webBytes = await xFile.readAsBytes();
+      }
+
+      if (webBytes == null &&
+          webFallbackUri != null &&
+          isCloudImageUri(webFallbackUri)) {
+        return webFallbackUri.trim();
       }
     }
 

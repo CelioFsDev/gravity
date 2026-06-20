@@ -2,6 +2,7 @@ import 'package:catalogo_ja/core/sync/models/sync_queue_item.dart';
 import 'package:catalogo_ja/core/sync/handlers/sync_entity_handler.dart';
 import 'package:catalogo_ja/core/sync/handlers/media_upload_resolver.dart';
 import 'package:catalogo_ja/core/sync/policies/sync_conflict_policy.dart';
+import 'package:catalogo_ja/core/utils/product_image_sync.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/models/product.dart';
@@ -54,13 +55,15 @@ class ProductSyncHandler implements SyncEntityHandler {
 
     // 🌟 RESOLUÇÃO DE MÍDIA: Processa fotos locais antes de enviar para nuvem
     Map<String, dynamic> payload = Map<String, dynamic>.from(item.payload!);
+    final productForImageFallback = Product.fromMap(payload);
     bool hasUrlModifications = false;
     
     if (payload['images'] != null) {
       List<dynamic> imagesList = payload['images'];
       List<Map<String, dynamic>> updatedImages = [];
 
-      for (var imgData in imagesList) {
+      for (var index = 0; index < imagesList.length; index++) {
+        final imgData = imagesList[index];
         Map<String, dynamic> imgMap = Map<String, dynamic>.from(imgData);
         final uri = imgMap['uri'] as String?;
         final label = imgMap['label'] as String?;
@@ -71,6 +74,11 @@ class ProductSyncHandler implements SyncEntityHandler {
             entityId: item.entityId,
             tenantId: item.tenantId,
             label: label,
+            webFallbackUri: findCloudImageFallback(
+              product: productForImageFallback,
+              image: ProductImage.fromMap(imgMap),
+              imageIndex: index,
+            ),
           );
           
           if (cloudUrl != uri) {
@@ -88,14 +96,23 @@ class ProductSyncHandler implements SyncEntityHandler {
     if (payload['photos'] != null) {
       List<dynamic> photosList = payload['photos'];
       List<Map<String, dynamic>> updatedPhotos = [];
-      for (var photoData in photosList) {
+      for (var index = 0; index < photosList.length; index++) {
+        final photoData = photosList[index];
         Map<String, dynamic> photoMap = Map<String, dynamic>.from(photoData);
         final path = photoMap['path'] as String?;
         if (path != null) {
+          final photoImage = index < productForImageFallback.photos.length
+              ? productForImageFallback.photos[index].toProductImage()
+              : ProductImage.local(path: path);
           final cloudUrl = await _mediaResolver.resolveImageUri(
             localUri: path,
             entityId: item.entityId,
             tenantId: item.tenantId,
+            webFallbackUri: findCloudImageFallback(
+              product: productForImageFallback,
+              image: photoImage,
+              imageIndex: index,
+            ),
           );
           if (cloudUrl != path) {
             photoMap['path'] = cloudUrl;

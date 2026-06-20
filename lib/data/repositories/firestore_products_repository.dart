@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:catalogo_ja/core/sync/models/sync_queue_item.dart';
 import 'package:catalogo_ja/core/sync/repositories/sync_queue_repository.dart';
 import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
+import 'package:catalogo_ja/core/utils/product_image_sync.dart';
 import 'package:catalogo_ja/data/repositories/contracts/products_repository_contract.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:catalogo_ja/data/repositories/settings_repository.dart';
@@ -52,15 +53,6 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
 
   CollectionReference<Map<String, dynamic>> get _collection =>
       _firestore.collection('tenants').doc(_tenantId).collection('products');
-
-  bool _isCloudResolvableImageUri(String uri) {
-    final trimmed = uri.trim();
-    return trimmed.startsWith('http://') ||
-        trimmed.startsWith('https://') ||
-        trimmed.startsWith('gs://') ||
-        trimmed.startsWith('tenants/') ||
-        trimmed.startsWith('public_catalogs/');
-  }
 
   @override
   Future<Product?> getProduct(String id) async =>
@@ -268,6 +260,25 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
           .toList();
     }
 
+    // Uma cópia antiga no navegador pode ter sido criada a partir de um
+    // backup e conter apenas caminhos locais. Se o produto já existe na
+    // nuvem, suas URLs são uma fonte segura para recuperar essas imagens sem
+    // tentar ler um arquivo que o navegador não possui.
+    Product? remoteProductForWebFallback;
+    if (kIsWeb &&
+        imagesToSync.any((image) => !isCloudImageUri(image.uri))) {
+      try {
+        final remoteSnapshot = await _collection
+            .doc(product.id)
+            .get(const GetOptions(source: Source.server));
+        if (remoteSnapshot.exists && remoteSnapshot.data() != null) {
+          remoteProductForWebFallback = Product.fromMap(remoteSnapshot.data()!);
+        }
+      } catch (e) {
+        debugPrint('Erro ao buscar fotos remotas para recuperação: $e');
+      }
+    }
+
     final totalImages = imagesToSync.length;
     final updatedImages = <ProductImage>[];
     Object? imageUploadError;
@@ -284,14 +295,14 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
       final isLocal =
           image.uri.startsWith('data:') ||
           image.uri.startsWith('blob:') ||
-          (!_isCloudResolvableImageUri(image.uri) &&
+          (!isCloudImageUri(image.uri) &&
               image.sourceType != ProductImageSource.networkUrl &&
               image.sourceType != ProductImageSource.storage);
 
       if (!isLocal) {
         // Corrige inconsistências de importação onde a URI é http mas o tipo ficou como local
         if (image.sourceType != ProductImageSource.networkUrl &&
-            _isCloudResolvableImageUri(image.uri)) {
+            isCloudImageUri(image.uri)) {
           updatedImages.add(
             image.copyWith(sourceType: ProductImageSource.networkUrl),
           );
@@ -316,6 +327,33 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
             }
           } catch (e) {
             debugPrint('Erro ao ler bytes na Web: $e');
+          }
+        }
+
+        // Arquivos importados em outro dispositivo podem chegar à web como
+        // caminhos locais. Nessa plataforma não há como reler esses arquivos;
+        // quando já existe uma URL remota equivalente, reutilize-a.
+        if (kIsWeb && webBytes == null) {
+          final fallbackUrl = findCloudImageFallback(
+            product: product,
+            image: image,
+            imageIndex: i,
+          ) ??
+              (remoteProductForWebFallback == null
+                  ? null
+                  : findCloudImageFallback(
+                      product: remoteProductForWebFallback,
+                      image: image,
+                      imageIndex: i,
+                    ));
+          if (fallbackUrl != null) {
+            updatedImages.add(
+              image.copyWith(
+                uri: fallbackUrl,
+                sourceType: ProductImageSource.networkUrl,
+              ),
+            );
+            continue;
           }
         }
 
@@ -372,7 +410,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
             photoType: img.label,
             colorKey: img.colorTag,
             id: null,
-            url: '',
+            url: isCloudImageUri(img.uri) ? img.uri : '',
           ),
         )
         .toList();

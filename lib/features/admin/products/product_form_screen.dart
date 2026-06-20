@@ -276,6 +276,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           .where((e) => e.isNotEmpty)
           .toList(),
       images: imagesForSave,
+      remoteImages: _remoteImagesForSave(photosForSave),
       mainImageIndex: mainImageIndex,
       photos: photosForSave,
       isActive: _isActive,
@@ -823,6 +824,32 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
   List<ProductImage> _imagesFromPhotos(List<ProductPhoto> photos) {
     return photos.map((p) => p.toProductImage()).toList();
+  }
+
+  List<String> _remoteImagesForSave(List<ProductPhoto> photos) {
+    bool isRemote(String uri) {
+      final trimmed = uri.trim();
+      return trimmed.startsWith('http://') ||
+          trimmed.startsWith('https://') ||
+          trimmed.startsWith('gs://') ||
+          trimmed.startsWith('tenants/') ||
+          trimmed.startsWith('public_catalogs/');
+    }
+
+    final previous = widget.product?.remoteImages ?? const <String>[];
+    final remoteImages = <String>[];
+    for (var index = 0; index < photos.length; index++) {
+      final photo = photos[index];
+      final imageUri = photo.url.trim().isNotEmpty ? photo.url : photo.path;
+      if (isRemote(imageUri)) {
+        remoteImages.add(imageUri.trim());
+      } else if (index < previous.length && isRemote(previous[index])) {
+        // Mantém a URL da imagem importada quando o caminho local não pode ser
+        // carregado pelo navegador numa sincronização futura.
+        remoteImages.add(previous[index].trim());
+      }
+    }
+    return remoteImages.toSet().toList();
   }
 
   List<ProductPhoto> _normalizePhotosForSave() {
