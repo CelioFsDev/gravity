@@ -28,7 +28,7 @@ class AuthViewModel extends StreamNotifier<User?> {
     yield* _repository.authStateChanges.asyncMap((user) async {
       if (user?.email != null) {
         try {
-          await _syncUserProfile(user!);
+          await _syncUserProfile(user!).timeout(const Duration(seconds: 10));
         } catch (e, stack) {
           _logger.logError(
             'Erro ao sincronizar perfil do usuario no Firestore',
@@ -128,14 +128,21 @@ class AuthViewModel extends StreamNotifier<User?> {
       final user = credential.user;
 
       if (user != null) {
-        await _syncUserProfile(user);
+        try {
+          await _syncUserProfile(user).timeout(const Duration(seconds: 10));
+        } catch (e, stack) {
+          _logger.logError(
+            'Login com Google: sincronizacao inicial falhou ou expirou tempo limite',
+            error: e,
+            stackTrace: stack,
+          );
+        }
         _logger.log(
           AppEvent.login,
           parameters: {'uid': user.uid, 'email': user.email},
         );
+        state = AsyncValue.data(user);
       }
-
-      // Riverpod will automatically update state from authStateChanges stream
     } catch (e, stack) {
       _logger.logError('Erro no login com Google', error: e, stackTrace: stack);
       state = AsyncValue.error(e, stack);
@@ -154,10 +161,10 @@ class AuthViewModel extends StreamNotifier<User?> {
 
       if (user != null) {
         try {
-          await _syncUserProfile(user);
+          await _syncUserProfile(user).timeout(const Duration(seconds: 10));
         } catch (e, stack) {
           _logger.logError(
-            'Login realizado, mas a sincronizacao inicial falhou',
+            'Login realizado, mas a sincronizacao inicial falhou ou expirou tempo limite',
             error: e,
             stackTrace: stack,
           );
@@ -170,6 +177,7 @@ class AuthViewModel extends StreamNotifier<User?> {
             'provider': 'password',
           },
         );
+        state = AsyncValue.data(user);
       }
     } catch (e, stack) {
       _logger.logError(

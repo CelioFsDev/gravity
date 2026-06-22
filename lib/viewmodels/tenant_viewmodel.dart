@@ -19,9 +19,9 @@ final currentTenantProvider = StreamProvider<Tenant?>((ref) {
       // 🔑 distinct: ignora re-emissões que não mudem o tenantId.
       // Sem isso, cada write em /users/{email} (ex: lastRefreshAt)
       // dispara uma nova leitura desnecessária em /tenants/{id}.
-      .where((doc) => doc.exists && doc.data()?['tenantId'] != null)
       .distinct((a, b) => a.data()?['tenantId'] == b.data()?['tenantId'])
       .asyncMap((userDoc) async {
+        if (!userDoc.exists) return null;
         final tenantId = userDoc.data()?['tenantId'] as String?;
         if (tenantId == null || tenantId.isEmpty) return null;
 

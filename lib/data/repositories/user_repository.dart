@@ -65,8 +65,13 @@ class UserRepository {
     if (normalizedEmail.isEmpty) return;
 
     final docRef = _firestore.collection('users').doc(normalizedEmail);
-    final snapshot = await docRef.get();
-    final data = snapshot.data() ?? <String, dynamic>{};
+    DocumentSnapshot<Map<String, dynamic>>? snapshot;
+    try {
+      snapshot = await docRef.get().timeout(const Duration(seconds: 5));
+    } catch (e) {
+      // Ignora erro de timeout ou permissão na leitura para não travar o fluxo principal
+    }
+    final data = snapshot?.data() ?? <String, dynamic>{};
     final currentRole = data['role'] as String?;
     final role =
         currentRole ??
@@ -84,25 +89,29 @@ class UserRepository {
     }
     
     // Atualizamos o payload
-    await docRef.set({
-      'authUid': authUid ?? data['authUid'],
-      'createdAt': data['createdAt'] ?? FieldValue.serverTimestamp(),
-      'disabled': data['disabled'] ?? false,
-      'displayName': displayName.isNotEmpty
-          ? displayName
-          : (data['displayName'] as String? ?? ''),
-      'email': normalizedEmail,
-      'lastRefreshAt': FieldValue.serverTimestamp(),
-      'photoURL': photoURL.isNotEmpty ? photoURL : (data['photoURL'] as String? ?? ''),
-      'providerIds': providerIds.isNotEmpty
-          ? providerIds
-          : List<String>.from(data['providerIds'] ?? const []),
-      'role': role,
-      'tenantId': existingTenantId, // Não forçamos mais um falso
-      'tenantIds': existingTenantIds, // Nova estrutura de array
-      'whatsappNumber': data['whatsappNumber'] ?? '',
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    try {
+      await docRef.set({
+        'authUid': authUid ?? data['authUid'],
+        'createdAt': data['createdAt'] ?? FieldValue.serverTimestamp(),
+        'disabled': data['disabled'] ?? false,
+        'displayName': displayName.isNotEmpty
+            ? displayName
+            : (data['displayName'] as String? ?? ''),
+        'email': normalizedEmail,
+        'lastRefreshAt': FieldValue.serverTimestamp(),
+        'photoURL': photoURL.isNotEmpty ? photoURL : (data['photoURL'] as String? ?? ''),
+        'providerIds': providerIds.isNotEmpty
+            ? providerIds
+            : List<String>.from(data['providerIds'] ?? const []),
+        'role': role,
+        'tenantId': existingTenantId, // Não forçamos mais um falso
+        'tenantIds': existingTenantIds, // Nova estrutura de array
+        'whatsappNumber': data['whatsappNumber'] ?? '',
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true)).timeout(const Duration(seconds: 5));
+    } catch (e) {
+      // Ignora erro de escrita (ex. timeout offline) para não travar o login
+    }
   }
 
   Future<void> ensureUserProfileFromAuth(User user) async {
