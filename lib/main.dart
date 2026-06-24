@@ -478,6 +478,15 @@ class _MyAppState extends ConsumerState<MyApp> {
         }
 
         if (isAuthRoute) {
+          // Wait for tenant info to load before deciding where to send the user
+          if (currentTenantAsync is AsyncLoading) {
+            return null;
+          }
+
+          if (currentTenantAsync.value != null) {
+            return '/';
+          }
+
           final needsOnboarding =
               ref.read(requiresTenantOnboardingProvider).valueOrNull ?? false;
           return needsOnboarding ? '/onboarding' : '/picker';
@@ -925,7 +934,8 @@ class _MyAppState extends ConsumerState<MyApp> {
       final doc = await FirebaseFirestore.instance
           .collection('users')
           .doc(email)
-          .get();
+          .get()
+          .timeout(const Duration(seconds: 3));
 
       final data = doc.data() ?? {};
       final tenantId = data['tenantId'] as String? ?? '';

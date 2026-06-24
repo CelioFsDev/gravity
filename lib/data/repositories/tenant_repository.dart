@@ -12,7 +12,8 @@ class TenantRepository {
     final doc = await _firestore
         .collection('users')
         .doc(email.trim().toLowerCase())
-        .get();
+        .get()
+        .timeout(const Duration(seconds: 5));
     _cachedTenantId = doc.data()?['tenantId'] as String?;
     return _cachedTenantId;
   }
@@ -37,7 +38,8 @@ class TenantRepository {
       final doc = await _firestore
           .collection('users')
           .doc(email.trim().toLowerCase())
-          .get();
+          .get()
+          .timeout(const Duration(seconds: 5));
       final List<String> tenantIds = List<String>.from(
         doc.data()?['tenantIds'] ?? [],
       );
@@ -60,7 +62,8 @@ class TenantRepository {
         final snapshot = await _firestore
             .collection('tenants')
             .where(FieldPath.documentId, whereIn: chunk)
-            .get();
+            .get()
+            .timeout(const Duration(seconds: 5));
         allTenants.addAll(snapshot.docs.map((d) => Tenant.fromMap(d.data())));
       }
 

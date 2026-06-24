@@ -156,6 +156,9 @@ class AuthViewModel extends StreamNotifier<User?> {
       final credential = await _repository.signInWithEmailAndPassword(
         email,
         password,
+      ).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw Exception('Tempo limite excedido. Verifique sua conexão.'),
       );
       final user = credential.user;
 
@@ -196,6 +199,9 @@ class AuthViewModel extends StreamNotifier<User?> {
       final credential = await _repository.signUpWithEmailAndPassword(
         email,
         password,
+      ).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw Exception('Tempo limite excedido. Verifique sua conexão.'),
       );
       final user = credential.user;
 

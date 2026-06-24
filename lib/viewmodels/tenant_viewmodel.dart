@@ -48,7 +48,7 @@ final requiresTenantOnboardingProvider = FutureProvider<bool>((ref) async {
   final authUser = ref.watch(authViewModelProvider).valueOrNull;
   if (authUser == null || authUser.email == null) return false;
 
-  final doc = await FirebaseFirestore.instance.collection('users').doc(authUser.email!.trim().toLowerCase()).get();
+  final doc = await FirebaseFirestore.instance.collection('users').doc(authUser.email!.trim().toLowerCase()).get().timeout(const Duration(seconds: 5));
   final tenantIds = List<String>.from(doc.data()?['tenantIds'] ?? []);
   final oldTenantId = doc.data()?['tenantId'] as String?;
   
