@@ -34,55 +34,62 @@ class AdminShellScreen extends ConsumerWidget {
     ),
     _NavItem(
       branchIndex: 2,
+      icon: Icons.local_offer_rounded,
+      iconOutlined: Icons.local_offer_outlined,
+      label: 'Promocoes',
+      color: AppTokens.vibrantPink,
+    ),
+    _NavItem(
+      branchIndex: 3,
       icon: Icons.collections_bookmark_rounded,
       iconOutlined: Icons.collections_bookmark_outlined,
       label: 'Coleções',
       color: AppTokens.softPurple,
     ),
     _NavItem(
-      branchIndex: 3,
+      branchIndex: 4,
       icon: Icons.category_rounded,
       iconOutlined: Icons.category_outlined,
       label: 'Categorias',
       color: AppTokens.accentOrange,
     ),
     _NavItem(
-      branchIndex: 4,
+      branchIndex: 5,
       icon: Icons.menu_book_rounded,
       iconOutlined: Icons.menu_book_outlined,
       label: 'Catálogos',
       color: AppTokens.vibrantPink,
     ),
     _NavItem(
-      branchIndex: 5,
+      branchIndex: 6,
       icon: Icons.cloud_download_rounded,
       iconOutlined: Icons.cloud_download_outlined,
       label: 'Importações',
       color: AppTokens.vibrantCyan,
     ),
     _NavItem(
-      branchIndex: 6,
+      branchIndex: 7,
       icon: Icons.person_rounded,
       iconOutlined: Icons.person_outline,
       label: 'Meu Perfil',
       color: AppTokens.electricBlue,
     ),
     _NavItem(
-      branchIndex: 7,
+      branchIndex: 8,
       icon: Icons.campaign_rounded,
       iconOutlined: Icons.campaign_outlined,
       label: 'Divulgação',
       color: AppTokens.accentGold,
     ),
     _NavItem(
-      branchIndex: 8,
+      branchIndex: 9,
       icon: Icons.settings_rounded,
       iconOutlined: Icons.settings_outlined,
       label: 'Ajustes',
       color: AppTokens.textSecondaryDark,
     ),
     _NavItem(
-      branchIndex: 9,
+      branchIndex: 10,
       icon: Icons.backup_rounded,
       iconOutlined: Icons.backup_outlined,
       label: 'Backup',
@@ -121,6 +128,7 @@ class AdminShellScreen extends ConsumerWidget {
     final isRootPage = [
       '/admin/dashboard',
       '/admin/products',
+      '/admin/promotions',
       '/admin/collections',
       '/admin/categories',
       '/admin/catalogs',
@@ -137,7 +145,7 @@ class AdminShellScreen extends ConsumerWidget {
         final isDark = Theme.of(context).brightness == Brightness.dark;
 
         // Bottom nav: Início, Produtos, Catálogos, Divulgação, Ajustes
-        final bottomNavIndices = [0, 1, 4, 7, 8];
+        final bottomNavIndices = [0, 1, 5, 8, 9];
 
         return Scaffold(
           key: _scaffoldKey,
@@ -725,14 +733,15 @@ class _NavItem {
     return switch (branchIndex) {
       0 => role.canViewDashboard,
       1 => role.canViewProducts,
-      2 => role.canViewCollections,
-      3 => role.canViewCategories,
-      4 => role.canViewCatalogs,
-      5 => role.canViewImports,
-      6 => role.canViewProfile,
-      7 => role.canShare,
-      8 => role.canViewSettings,
-      9 => role.canViewBackup,
+      2 => role.canViewProducts,
+      3 => role.canViewCollections,
+      4 => role.canViewCategories,
+      5 => role.canViewCatalogs,
+      6 => role.canViewImports,
+      7 => role.canViewProfile,
+      8 => role.canShare,
+      9 => role.canViewSettings,
+      10 => role.canViewBackup,
       _ => false,
     };
   }

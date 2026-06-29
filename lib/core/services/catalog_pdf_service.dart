@@ -1033,8 +1033,9 @@ class CatalogPdfService {
                           if (product.promoEnabled)
                             pw.Text(
                               currencyFormat.format(
-                                product.priceForMode(CatalogMode.varejo.name) /
-                                    (1 - (product.promoPercent / 100)),
+                                product.originalPriceForMode(
+                                  CatalogMode.varejo.name,
+                                ),
                               ),
                               style: pw.TextStyle(
                                 color: PdfColor(1, 1, 1, 0.6),
@@ -1175,8 +1176,7 @@ class CatalogPdfService {
                 if (product.promoEnabled) ...[
                   pw.Text(
                     currencyFormat.format(
-                      product.priceForMode(CatalogMode.varejo.name) /
-                          (1 - (product.promoPercent / 100)),
+                      product.originalPriceForMode(CatalogMode.varejo.name),
                     ),
                     style: pw.TextStyle(
                       fontSize: 9,
@@ -1290,7 +1290,11 @@ class CatalogPdfService {
                       ),
                     ),
                     if (product.promoEnabled)
-                      _buildBadge('-${product.promoPercent.toInt()}%'),
+                      _buildBadge(
+                        product.promoPercent > 0
+                            ? '-${product.promoPercent.toInt()}%'
+                            : 'PROMO',
+                      ),
                   ],
                 ),
                 pw.Text(
@@ -1314,8 +1318,9 @@ class CatalogPdfService {
                         pw.SizedBox(width: 8),
                         pw.Text(
                           currencyFormat.format(
-                            product.priceForMode(CatalogMode.varejo.name) /
-                                (1 - (product.promoPercent / 100)),
+                            product.originalPriceForMode(
+                              CatalogMode.varejo.name,
+                            ),
                           ),
                           style: pw.TextStyle(
                             fontSize: 10,

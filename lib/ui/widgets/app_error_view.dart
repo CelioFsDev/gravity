@@ -34,9 +34,9 @@ class AppErrorView extends StatelessWidget {
   }
 }
 
-extension AsyncValueUI on AsyncValue {
+extension AsyncValueUI<T> on AsyncValue<T> {
   Widget whenStandard({
-    required Widget Function(dynamic data) data,
+    required Widget Function(T data) data,
     Widget Function()? loading,
     VoidCallback? onRetry,
   }) {

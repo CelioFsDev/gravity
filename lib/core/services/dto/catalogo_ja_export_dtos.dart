@@ -1,3 +1,4 @@
+import 'package:catalogo_ja/core/utils/safe_parse.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/product_image.dart';
@@ -449,6 +450,14 @@ class ProductDTO {
   final bool isOutOfStock;
   final bool promoEnabled;
   final double promoPercent;
+  final double? priceOriginal;
+  final double? pricePromotion;
+  final String? promotionName;
+  final String? promotionCollectionId;
+  final String? promotionType;
+  final String? promotionId;
+  final String? promotionCreatedAt;
+  final String? promotionUpdatedAt;
   final List<ProductImageDTO> images;
   final List<ProductPhotoDTO> photos;
   final int mainImageIndex;
@@ -478,6 +487,14 @@ class ProductDTO {
     this.isOutOfStock = false,
     this.promoEnabled = false,
     this.promoPercent = 0,
+    this.priceOriginal,
+    this.pricePromotion,
+    this.promotionName,
+    this.promotionCollectionId,
+    this.promotionType,
+    this.promotionId,
+    this.promotionCreatedAt,
+    this.promotionUpdatedAt,
     this.images = const [],
     this.photos = const [],
     this.remoteImages = const [],
@@ -502,6 +519,14 @@ class ProductDTO {
       isOutOfStock: product.isOutOfStock,
       promoEnabled: product.promoEnabled,
       promoPercent: product.promoPercent,
+      priceOriginal: product.priceOriginal,
+      pricePromotion: product.pricePromotion,
+      promotionName: product.promotionName,
+      promotionCollectionId: product.promotionCollectionId,
+      promotionType: product.promotionType,
+      promotionId: product.promotionId,
+      promotionCreatedAt: product.promotionCreatedAt?.toIso8601String(),
+      promotionUpdatedAt: product.promotionUpdatedAt?.toIso8601String(),
       images: product.images.map((i) => ProductImageDTO.fromModel(i)).toList(),
       photos: product.photos.map((p) => ProductPhotoDTO.fromModel(p)).toList(),
       remoteImages: product.remoteImages,
@@ -538,6 +563,14 @@ class ProductDTO {
       isOutOfStock: isOutOfStock,
       promoEnabled: promoEnabled,
       promoPercent: promoPercent,
+      priceOriginal: priceOriginal,
+      pricePromotion: pricePromotion,
+      promotionName: promotionName,
+      promotionCollectionId: promotionCollectionId,
+      promotionType: promotionType,
+      promotionId: promotionId,
+      promotionCreatedAt: DateTime.tryParse(promotionCreatedAt ?? ''),
+      promotionUpdatedAt: DateTime.tryParse(promotionUpdatedAt ?? ''),
       createdAt: DateTime.tryParse(createdAt ?? '') ?? DateTime.now(),
       updatedAt: DateTime.tryParse(updatedAt ?? '') ?? DateTime.now(),
       tenantId: tenantId,
@@ -557,6 +590,16 @@ class ProductDTO {
       'isOutOfStock': isOutOfStock,
       'promoEnabled': promoEnabled,
       'promoPercent': promoPercent,
+      'priceOriginal': priceOriginal,
+      'pricePromotion': pricePromotion,
+      'promotionActive': promoEnabled,
+      'promotionPercent': promoPercent,
+      'promotionName': promotionName,
+      'promotionCollectionId': promotionCollectionId,
+      'promotionType': promotionType,
+      'promotionId': promotionId,
+      'promotionCreatedAt': promotionCreatedAt,
+      'promotionUpdatedAt': promotionUpdatedAt,
       'images': images.map((i) => i.toJson()).toList(),
       'photos': photos.map((p) => p.toJson()).toList(),
       'remoteImages': remoteImages,
@@ -580,8 +623,25 @@ class ProductDTO {
       priceWholesale: (json['priceWholesale'] as num?)?.toDouble() ?? 0.0,
       isActive: json['isActive'] ?? true,
       isOutOfStock: json['isOutOfStock'] ?? false,
-      promoEnabled: json['promoEnabled'] ?? false,
-      promoPercent: (json['promoPercent'] as num?)?.toDouble() ?? 0.0,
+      promoEnabled:
+          json['promotionActive'] ?? json['promoEnabled'] ?? false,
+      promoPercent: safeDouble(
+        json['promotionPercent'] ?? json['promoPercent'],
+      ),
+      priceOriginal: json['priceOriginal'] == null
+          ? null
+          : safeDouble(json['priceOriginal']),
+      pricePromotion: json['pricePromotion'] == null
+          ? null
+          : safeDouble(json['pricePromotion']),
+      promotionName: safeNullableString(json['promotionName']),
+      promotionCollectionId: safeNullableString(
+        json['promotionCollectionId'],
+      ),
+      promotionType: safeNullableString(json['promotionType']),
+      promotionId: safeNullableString(json['promotionId']),
+      promotionCreatedAt: safeNullableString(json['promotionCreatedAt']),
+      promotionUpdatedAt: safeNullableString(json['promotionUpdatedAt']),
       images:
           (json['images'] as List<dynamic>?)?.map((e) {
             if (e is Map<String, dynamic>) {

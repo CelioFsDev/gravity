@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -287,6 +287,22 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       promoPercent: _isOnSale
           ? (int.tryParse(_discountController.text) ?? 0).toDouble()
           : 0.0,
+      priceOriginal: _isOnSale
+          ? (widget.product?.priceOriginal ?? _parsePrice(_retailController.text))
+          : null,
+      pricePromotion: _isOnSale ? widget.product?.pricePromotion : null,
+      promotionName: _isOnSale ? widget.product?.promotionName : null,
+      promotionCollectionId: _isOnSale
+          ? widget.product?.promotionCollectionId
+          : null,
+      promotionType: _isOnSale ? widget.product?.promotionType : null,
+      promotionId: _isOnSale ? widget.product?.promotionId : null,
+      promotionCreatedAt: _isOnSale
+          ? widget.product?.promotionCreatedAt
+          : null,
+      promotionUpdatedAt: _isOnSale
+          ? widget.product?.promotionUpdatedAt
+          : null,
       description: widget.product?.description,
       tenantId: tenantId ?? widget.product?.tenantId,
       storeOverrides: widget.product?.storeOverrides ?? {},

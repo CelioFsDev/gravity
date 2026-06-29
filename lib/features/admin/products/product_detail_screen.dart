@@ -39,6 +39,18 @@ class ProductDetailScreen extends ConsumerWidget {
       locale: Localizations.localeOf(context).toString(),
     );
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final retailDisplayPrice = currentStoreId == null
+        ? updatedProduct.effectivePriceRetail
+        : PriceCalculator.effectiveRetail(
+            updatedProduct.getRetailPrice(currentStoreId),
+            updatedProduct.promoEnabled,
+            updatedProduct.promoPercent,
+          );
+    final wholesaleDisplayPrice = PriceCalculator.effectiveWholesale(
+      updatedProduct.getWholesalePrice(currentStoreId),
+      updatedProduct.promoEnabled,
+      updatedProduct.promoPercent,
+    );
 
     return AppScaffold(
       title: updatedProduct.name,
@@ -192,13 +204,7 @@ class ProductDetailScreen extends ConsumerWidget {
                         child: _buildPriceBox(
                           context,
                           'Varejo',
-                          currency.format(
-                            PriceCalculator.effectiveRetail(
-                              updatedProduct.getRetailPrice(currentStoreId),
-                              updatedProduct.promoEnabled,
-                              updatedProduct.promoPercent,
-                            ),
-                          ),
+                          currency.format(retailDisplayPrice),
                           AppTokens.electricBlue,
                           isDark,
                         ),
@@ -208,13 +214,7 @@ class ProductDetailScreen extends ConsumerWidget {
                         child: _buildPriceBox(
                           context,
                           'Atacado',
-                          currency.format(
-                            PriceCalculator.effectiveWholesale(
-                              updatedProduct.getWholesalePrice(currentStoreId),
-                              updatedProduct.promoEnabled,
-                              updatedProduct.promoPercent,
-                            ),
-                          ),
+                          currency.format(wholesaleDisplayPrice),
                           AppTokens.softPurple,
                           isDark,
                         ),

@@ -76,6 +76,18 @@ class SystemBackupService {
           .toList();
       await _productsRepo.updateProductsBulk(syncedProducts);
 
+      final categories = await _categoriesRepo.getCategories();
+      final syncedCategories = categories
+          .map((c) => c.copyWith(syncStatus: SyncStatus.synced))
+          .toList();
+      await _categoriesRepo.updateCategoriesBulk(syncedCategories);
+
+      final catalogs = await _catalogsRepo.getCatalogs();
+      final syncedCatalogs = catalogs
+          .map((c) => c.copyWith(syncStatus: SyncStatus.synced))
+          .toList();
+      await _catalogsRepo.updateCatalogsBulk(syncedCatalogs);
+
       // Marca que a carga inicial foi concluída (via backup)
       final settings = _settingsRepo.getSettings();
       await _settingsRepo.saveSettings(

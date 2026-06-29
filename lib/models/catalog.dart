@@ -73,7 +73,7 @@ class Catalog {
   final bool requireCustomerData;
 
   @HiveField(6)
-  final String photoLayout; // "grid", "list", "carousel"
+  final String photoLayout; // "grid", "list", "carousel", "promotion"
 
   @HiveField(7)
   final bool announcementEnabled;

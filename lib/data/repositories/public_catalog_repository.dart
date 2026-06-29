@@ -94,10 +94,34 @@ class FirestorePublicCatalogRepository {
       }
 
       final productIds = catalog.productIds;
+      final isPromotionLayout = catalog.photoLayout == 'promotion';
       var products = <Product>[];
 
-      if (productIds.isNotEmpty) {
-        final tenantId = (catalog.tenantId ?? '').trim();
+      final tenantId = (catalog.tenantId ?? '').trim();
+      if (isPromotionLayout) {
+        if (tenantId.isNotEmpty) {
+          try {
+            products = await _fetchPromotionalProductsFromCollection(
+              _firestore
+                  .collection('tenants')
+                  .doc(tenantId)
+                  .collection('products'),
+            );
+          } catch (e, s) {
+            _logPublicCatalogFetchError('tenant products for $tenantId', e, s);
+          }
+        }
+
+        if (products.isEmpty) {
+          try {
+            products = await _fetchPromotionalProductsFromCollection(
+              _firestore.collection('products'),
+            );
+          } catch (e, s) {
+            _logPublicCatalogFetchError('root products', e, s);
+          }
+        }
+      } else if (productIds.isNotEmpty) {
         if (tenantId.isNotEmpty) {
           try {
             products = await _fetchProductsFromCollection(
@@ -294,6 +318,36 @@ class FirestorePublicCatalogRepository {
       if (p != null) result.add(p);
     }
     return result;
+  }
+
+  Future<List<Product>> _fetchPromotionalProductsFromCollection(
+    CollectionReference<Map<String, dynamic>> collection,
+  ) async {
+    final products = <Product>[];
+    final snapshot = await collection
+        .where('promoEnabled', isEqualTo: true)
+        .get();
+
+    for (final doc in snapshot.docs) {
+      final fieldPath = '${collection.path}/${doc.id}';
+      final data = _mapFromDynamic(doc.data(), fieldPath);
+      if (data == null) continue;
+      try {
+        _logRawPublicProduct(data, fieldPath);
+        final product = await _resolvePublicProductImages(
+          _parseProduct(data, fieldPath),
+        );
+        if (product.isActive && product.promotionActive) {
+          products.add(product);
+        }
+      } catch (e, s) {
+        debugPrint('Skipping invalid promotional product at $fieldPath: $e');
+        debugPrint(s.toString());
+      }
+    }
+
+    products.sort((a, b) => a.name.compareTo(b.name));
+    return products;
   }
 
   Future<List<Category>> _fetchCategoriesFromCollection(

@@ -260,7 +260,10 @@ class _PublicProductDetailScreenState
     final price = widget.product.priceForMode(
       widget.mode == CatalogMode.atacado ? 'atacado' : 'varejo',
     );
-    final hasPromo = widget.product.promoEnabled;
+    final originalPrice = widget.product.originalPriceForMode(
+      widget.mode == CatalogMode.atacado ? 'atacado' : 'varejo',
+    );
+    final hasPromo = widget.product.promotionActive;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -358,35 +361,27 @@ class _PublicProductDetailScreenState
                     ),
                   ),
                   const SizedBox(height: 20),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      Text(
-                        currency.format(price),
-                        style: const TextStyle(
-                          color: Color(0xFF0F172A),
-                          fontSize: 36,
-                          fontWeight: FontWeight.w900,
-                        ),
+                  if (hasPromo) ...[
+                    Text(
+                      currency.format(originalPrice),
+                      style: TextStyle(
+                        color: Colors.grey.shade400,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        decoration: TextDecoration.lineThrough,
                       ),
-                      if (hasPromo) ...[
-                        const SizedBox(width: 12),
-                        Text(
-                          currency.format(
-                            widget.mode == CatalogMode.atacado
-                                ? widget.product.priceWholesale
-                                : widget.product.priceRetail,
-                          ),
-                          style: TextStyle(
-                            color: Colors.grey.shade400,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            decoration: TextDecoration.lineThrough,
-                          ),
-                        ),
-                      ],
-                    ],
+                    ),
+                    const SizedBox(height: 4),
+                  ],
+                  Text(
+                    currency.format(price),
+                    style: TextStyle(
+                      color: hasPromo
+                          ? const Color(0xFFF43F5E)
+                          : const Color(0xFF0F172A),
+                      fontSize: 36,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                   const Divider(height: 48),
 

@@ -136,6 +136,24 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
     invalidateCache();
   }
 
+  @override
+  Future<void> updateCatalogsBulk(List<Catalog> catalogs) async {
+    final pendingCatalogs = catalogs.map((catalog) {
+      final withTenant = (catalog.tenantId ?? '').isEmpty
+          ? catalog.copyWith(tenantId: _tenantId)
+          : catalog;
+      return withTenant.syncStatus == SyncStatus.synced
+          ? withTenant
+          : withTenant.copyWith(
+              syncStatus: SyncStatus.pendingUpdate,
+              updatedAt: DateTime.now(),
+            );
+    }).toList();
+    
+    await _localRepo.updateCatalogsBulk(pendingCatalogs);
+    invalidateCache();
+  }
+
   /// 🔄 Sincroniza um único catálogo para a nuvem
   Future<void> syncCatalogToCloud(Catalog catalog) async {
     final List<CatalogBanner> updatedBanners = [];

@@ -714,11 +714,31 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     final percent = enabled && product.promoPercent <= 0
         ? 10.0
         : product.promoPercent;
+    final originalPrice = product.priceOriginal ?? product.priceRetail;
+    final clampedPercent = percent.clamp(0, 100).toDouble();
+    final promotionalPrice = enabled
+        ? product.pricePromotion ??
+              (originalPrice * (1 - (clampedPercent / 100)))
+        : product.pricePromotion;
+    final now = DateTime.now();
 
     final updated = product.copyWith(
       promoEnabled: enabled,
-      promoPercent: enabled ? percent : 0.0,
-      updatedAt: DateTime.now(),
+      promoPercent: enabled ? clampedPercent : 0.0,
+      priceOriginal: enabled ? originalPrice : product.priceOriginal,
+      pricePromotion: promotionalPrice,
+      promotionName: enabled
+          ? (product.promotionName ?? 'Promocao rapida')
+          : product.promotionName,
+      promotionType: enabled ? 'percent' : product.promotionType,
+      promotionId: enabled
+          ? (product.promotionId ?? const Uuid().v4())
+          : product.promotionId,
+      promotionUpdatedAt: enabled ? now : product.promotionUpdatedAt,
+      promotionCreatedAt: enabled
+          ? (product.promotionCreatedAt ?? now)
+          : product.promotionCreatedAt,
+      updatedAt: now,
     );
 
     ref.read(productsViewModelProvider.notifier).updateProduct(updated);

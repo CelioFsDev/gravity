@@ -22,6 +22,8 @@ class PriceCalculator {
     return _round(value < 0 ? 0 : value);
   }
 
+  static double round(double value) => _round(value);
+
   static double _round(double value) {
     return double.parse(value.toStringAsFixed(2));
   }

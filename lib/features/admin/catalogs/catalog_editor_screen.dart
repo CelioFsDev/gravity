@@ -429,6 +429,7 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                     'grid': 'Grade (Padr\u00e3o)',
                     'list': 'Lista Detalhada',
                     'carousel': 'Carrossel em Foco',
+                    'promotion': 'Cat\u00e1logo Promo\u00e7\u00e3o',
                   },
                   onChanged: (v) => notifier.setPhotoLayout(v!),
                 ),

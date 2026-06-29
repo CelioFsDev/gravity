@@ -151,16 +151,19 @@ class PublicCatalogSnapshotService {
     var products = await _productsRepo.getProducts();
     final categories = await _categoriesRepo.getCategories();
     final selectedIds = catalog.productIds.toSet();
+    final isPromotionLayout = catalog.photoLayout == 'promotion';
 
-    var filteredProducts = products
-        .where((p) => selectedIds.contains(p.id) && p.isActive)
-        .toList();
+    bool includeProduct(Product product) {
+      if (!product.isActive) return false;
+      if (isPromotionLayout) return product.promotionActive;
+      return selectedIds.contains(product.id);
+    }
+
+    var filteredProducts = products.where(includeProduct).toList();
 
     await _syncProductsBeforeSnapshot(filteredProducts);
     products = await _productsRepo.getProducts();
-    filteredProducts = products
-        .where((p) => selectedIds.contains(p.id) && p.isActive)
-        .toList();
+    filteredProducts = products.where(includeProduct).toList();
 
     final unresolvedImageProducts = filteredProducts
         .where((product) => product.hasLocalOnlyPhotos)

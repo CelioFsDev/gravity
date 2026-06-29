@@ -11,6 +11,7 @@ import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
 import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
 import 'package:catalogo_ja/features/admin/catalogs/catalog_editor_screen.dart';
 import 'package:catalogo_ja/models/catalog.dart';
+import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
 import 'package:intl/intl.dart';
@@ -358,8 +359,16 @@ class _CatalogsContent extends ConsumerWidget {
       itemBuilder: (context, index) {
         final catalog = catalogs[index];
         final role = ref.watch(currentRoleProvider);
-        final List<dynamic> backgroundImageUris = catalog.productIds
-            .map((id) => productById[id]?.mainImage?.uri ?? '')
+        final displayProducts = catalog.photoLayout == 'promotion'
+            ? productById.values
+                  .where((product) => product.promotionActive)
+                  .toList()
+            : catalog.productIds
+                  .map((id) => productById[id])
+                  .whereType<Product>()
+                  .toList();
+        final List<dynamic> backgroundImageUris = displayProducts
+            .map((product) => product.mainImage?.uri ?? '')
             .where((uri) => uri.trim().isNotEmpty)
             .take(4)
             .toList();
@@ -369,6 +378,7 @@ class _CatalogsContent extends ConsumerWidget {
           onShare: () => onShare(catalog),
           onEdit: role.canEditCatalog ? () => onEdit(catalog) : null,
           onDelete: role.canEditCatalog ? () => onDelete(catalog) : null,
+          productCount: displayProducts.length,
           backgroundImageUris: [
             backgroundImageUris.isNotEmpty ? backgroundImageUris[0] : '',
             backgroundImageUris.length > 1 ? backgroundImageUris[1] : '',
@@ -533,6 +543,7 @@ class CatalogCard extends StatelessWidget {
 
 class _EnhancedCatalogCard extends StatelessWidget {
   final Catalog catalog;
+  final int? productCount;
   final List<String> backgroundImageUris;
   final VoidCallback onShare;
   final VoidCallback? onEdit;
@@ -542,6 +553,7 @@ class _EnhancedCatalogCard extends StatelessWidget {
     required this.catalog,
     required this.backgroundImageUris,
     required this.onShare,
+    this.productCount,
     this.onEdit,
     this.onDelete,
   });
@@ -828,7 +840,7 @@ class _EnhancedCatalogCard extends StatelessWidget {
             _buildInfoChip(
               context,
               Icons.shopping_bag_outlined,
-              '${catalog.productIds.length} produtos',
+              '${productCount ?? catalog.productIds.length} produtos',
             ),
             _buildInfoChip(context, Icons.calendar_today_outlined, date),
             if (catalog.isPublic)

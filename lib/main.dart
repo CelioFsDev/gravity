@@ -25,6 +25,7 @@ import 'package:catalogo_ja/core/sync/models/sync_queue_item.dart';
 import 'package:catalogo_ja/core/sync/repositories/sync_queue_repository.dart';
 import 'package:catalogo_ja/features/admin/admin_shell_screen.dart';
 import 'package:catalogo_ja/features/admin/products/products_screen.dart';
+import 'package:catalogo_ja/features/admin/promotions/promotions_screen.dart';
 import 'package:catalogo_ja/features/admin/categories/categories_screen.dart';
 import 'package:catalogo_ja/features/admin/collections/collections_screen.dart';
 import 'package:catalogo_ja/features/admin/collections/collection_form_screen.dart';
@@ -738,6 +739,15 @@ class _MyAppState extends ConsumerState<MyApp> {
             StatefulShellBranch(
               routes: [
                 GoRoute(
+                  path: '/admin/promotions',
+                  pageBuilder: (context, state) =>
+                      _buildPage(state, const PromotionsScreen()),
+                ),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
                   path: '/admin/collections',
                   pageBuilder: (context, state) =>
                       _buildPage(state, const CollectionsScreen()),
@@ -902,6 +912,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     if (!role.canAccessAdmin) return false;
     if (location.startsWith('/admin/dashboard')) return role.canViewDashboard;
     if (location.startsWith('/admin/products')) return role.canViewProducts;
+    if (location.startsWith('/admin/promotions')) return role.canViewProducts;
     if (location.startsWith('/admin/collections')) {
       return role.canViewCollections;
     }

@@ -6,6 +6,7 @@ abstract class CatalogsRepositoryContract {
   Future<List<Catalog>> getCatalogs();
   Future<void> addCatalog(Catalog catalog);
   Future<void> updateCatalog(Catalog catalog);
+  Future<void> updateCatalogsBulk(List<Catalog> catalogs);
   Future<void> deleteCatalog(String id);
   Future<bool> isSlugTaken(String slug, {String? excludeId});
   Future<Catalog?> getBySlug(String slug);

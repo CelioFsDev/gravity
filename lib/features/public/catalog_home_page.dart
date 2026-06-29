@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart' hide Category;
@@ -154,7 +155,11 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
           }
 
           final whatsappNumber = widget.sellerWhatsapp ?? data.whatsappNumber;
-          final filteredProducts = _getFilteredProducts(data.products);
+          final isPromotionLayout = data.catalog.photoLayout == 'promotion';
+          final filteredProducts = _getFilteredProducts(
+            data.products,
+            promotionOnly: isPromotionLayout,
+          );
           final catalogItems = _buildCatalogCardItems(
             data.catalog,
             filteredProducts,
@@ -190,19 +195,20 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
                         whatsappNumber,
                       ),
                     ),
-                    SliverPersistentHeader(
-                      pinned: !isCompactViewport,
-                      delegate: _SearchAndCategoriesDelegate(
-                        searchController: _searchController,
-                        onSearchChanged: (val) =>
-                            setState(() => _searchQuery = val.toLowerCase()),
-                        categories: data.categories,
-                        selectedCategoryId: _selectedCategoryId,
-                        onCategorySelected: (id) =>
-                            setState(() => _selectedCategoryId = id),
-                        isCompact: isCompactViewport,
+                    if (!isPromotionLayout)
+                      SliverPersistentHeader(
+                        pinned: !isCompactViewport,
+                        delegate: _SearchAndCategoriesDelegate(
+                          searchController: _searchController,
+                          onSearchChanged: (val) =>
+                              setState(() => _searchQuery = val.toLowerCase()),
+                          categories: data.categories,
+                          selectedCategoryId: _selectedCategoryId,
+                          onCategorySelected: (id) =>
+                              setState(() => _selectedCategoryId = id),
+                          isCompact: isCompactViewport,
+                        ),
                       ),
-                    ),
                     if (catalogItems.isEmpty)
                       const SliverFillRemaining(
                         hasScrollBody: false,
@@ -243,6 +249,9 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
                           ) {
                             final item = catalogItems[index];
                             final product = item.product;
+                            if (isPromotionLayout) {
+                              return _PromotionalProductCard(product: product);
+                            }
                             return AppProductCard(
                               product: product,
                               mode: data.catalog.mode,
@@ -268,7 +277,7 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
                 ),
 
                 // Floating Cart Bar
-                if (cart.items.isNotEmpty)
+                if (!isPromotionLayout && cart.items.isNotEmpty)
                   Positioned(
                     bottom: 0,
                     left: 0,
@@ -305,6 +314,12 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
   }
 
   int _getCrossAxisCount(BuildContext context, String layout) {
+    if (layout == 'promotion') {
+      final width = MediaQuery.of(context).size.width;
+      if (width > 1000) return 4;
+      if (width > 650) return 3;
+      return 2;
+    }
     if (layout == 'list') return 1;
     final width = MediaQuery.of(context).size.width;
     if (width > 1200) return 5;
@@ -314,6 +329,12 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
   }
 
   double _getChildAspectRatio(BuildContext context, String layout) {
+    if (layout == 'promotion') {
+      final width = MediaQuery.of(context).size.width;
+      if (width > 900) return 0.72;
+      if (width > 600) return 0.68;
+      return 0.58;
+    }
     if (layout == 'list') return 2.2;
     final width = MediaQuery.of(context).size.width;
     if (width > 900) return 0.58;
@@ -442,14 +463,21 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
     );
   }
 
-  List<Product> _getFilteredProducts(List<Product> all) {
-    var list = _selectedCategoryId == null
-        ? all
-        : all
-              .where((p) => p.categoryIds.contains(_selectedCategoryId))
-              .toList();
+  List<Product> _getFilteredProducts(
+    List<Product> all, {
+    bool promotionOnly = false,
+  }) {
+    var list = List<Product>.from(all);
 
-    if (_searchQuery.isNotEmpty) {
+    if (promotionOnly) {
+      list = list.where((product) => product.promotionActive).toList();
+    } else if (_selectedCategoryId != null) {
+      list = list
+          .where((product) => product.categoryIds.contains(_selectedCategoryId))
+          .toList();
+    }
+
+    if (!promotionOnly && _searchQuery.isNotEmpty) {
       list = list
           .where(
             (p) =>
@@ -465,6 +493,12 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
     Catalog catalog,
     List<Product> products,
   ) {
+    if (catalog.photoLayout == 'promotion') {
+      return products
+          .map((product) => _CatalogCardItem(product: product))
+          .toList();
+    }
+
     if (!catalog.showVariantPhotoCards) {
       return products
           .map((product) => _CatalogCardItem(product: product))
@@ -1068,6 +1102,191 @@ class _CartSheetContent extends ConsumerWidget {
       }
     }
     return '';
+  }
+}
+
+class _PromotionalProductCard extends StatelessWidget {
+  const _PromotionalProductCard({required this.product});
+
+  final Product product;
+
+  @override
+  Widget build(BuildContext context) {
+    final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
+    final originalPrice = product.priceOriginalForPromotion;
+    final promotionPrice = product.promotionPriceRetail;
+
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _buildImage(product.mainImage),
+                Positioned(
+                  top: 10,
+                  left: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF43F5E),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      'PROMO',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  product.ref.trim().isEmpty
+                      ? product.name
+                      : product.ref.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.grey.shade500,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  product.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF0F172A),
+                    fontSize: 14,
+                    height: 1.15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  currency.format(originalPrice),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.grey.shade500,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    decoration: TextDecoration.lineThrough,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  currency.format(promotionPrice),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFFF43F5E),
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.info_outline_rounded,
+                      size: 14,
+                      color: Color(0xFF64748B),
+                    ),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        'Cores e tamanhos sob consulta',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImage(ProductImage? image) {
+    final uri = image?.uri.trim() ?? '';
+    if (uri.isEmpty) return _placeholder();
+
+    if (uri.startsWith('data:')) {
+      try {
+        final commaIndex = uri.indexOf(',');
+        if (commaIndex == -1) return _placeholder();
+        final bytes = base64Decode(uri.substring(commaIndex + 1));
+        return Image.memory(bytes, fit: BoxFit.cover);
+      } catch (_) {
+        return _placeholder();
+      }
+    }
+
+    if (uri.startsWith('http://') ||
+        uri.startsWith('https://') ||
+        uri.startsWith('blob:')) {
+      return Image.network(
+        uri,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => _placeholder(),
+      );
+    }
+
+    return _placeholder();
+  }
+
+  Widget _placeholder() {
+    return Container(
+      color: const Color(0xFFF1F5F9),
+      child: const Center(
+        child: Icon(
+          Icons.image_outlined,
+          size: 36,
+          color: Color(0xFFCBD5E1),
+        ),
+      ),
+    );
   }
 }
 

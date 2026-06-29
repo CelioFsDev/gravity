@@ -147,6 +147,22 @@ class ProductAdapter extends TypeAdapter<Product> {
       syncStatus: fields[27] is SyncStatus
           ? fields[27] as SyncStatus
           : SyncStatus.synced,
+      priceOriginal: fields[28] is num
+          ? (fields[28] as num).toDouble()
+          : null,
+      pricePromotion: fields[29] is num
+          ? (fields[29] as num).toDouble()
+          : null,
+      promotionName: fields[30]?.toString(),
+      promotionCollectionId: fields[31]?.toString(),
+      promotionCreatedAt: fields[32] is DateTime
+          ? fields[32] as DateTime
+          : null,
+      promotionUpdatedAt: fields[33] is DateTime
+          ? fields[33] as DateTime
+          : null,
+      promotionType: fields[34]?.toString(),
+      promotionId: fields[35]?.toString(),
       updatedAt: fields[23] is DateTime ? fields[23] as DateTime : null,
     );
   }
@@ -154,7 +170,7 @@ class ProductAdapter extends TypeAdapter<Product> {
   @override
   void write(BinaryWriter writer, Product obj) {
     writer
-      ..writeByte(27)
+      ..writeByte(35)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -208,7 +224,23 @@ class ProductAdapter extends TypeAdapter<Product> {
       ..writeByte(26)
       ..write(obj.storeOverrides)
       ..writeByte(27)
-      ..write(obj.syncStatus);
+      ..write(obj.syncStatus)
+      ..writeByte(28)
+      ..write(obj.priceOriginal)
+      ..writeByte(29)
+      ..write(obj.pricePromotion)
+      ..writeByte(30)
+      ..write(obj.promotionName)
+      ..writeByte(31)
+      ..write(obj.promotionCollectionId)
+      ..writeByte(32)
+      ..write(obj.promotionCreatedAt)
+      ..writeByte(33)
+      ..write(obj.promotionUpdatedAt)
+      ..writeByte(34)
+      ..write(obj.promotionType)
+      ..writeByte(35)
+      ..write(obj.promotionId);
   }
 
   @override

@@ -72,6 +72,9 @@ class _AppProductCardState extends ConsumerState<AppProductCard> {
     final price = widget.product.priceForMode(
       widget.mode == CatalogMode.atacado ? 'atacado' : 'varejo',
     );
+    final originalPrice = widget.product.originalPriceForMode(
+      widget.mode == CatalogMode.atacado ? 'atacado' : 'varejo',
+    );
     final colors = _availableColors;
     final sizes = _availableSizes;
 
@@ -98,7 +101,7 @@ class _AppProductCardState extends ConsumerState<AppProductCard> {
                 fit: StackFit.expand,
                 children: [
                   _buildImage(widget.imageOverride ?? widget.product.mainImage),
-                  if (widget.product.promoEnabled)
+                  if (widget.product.promotionActive)
                     Positioned(
                       top: 10,
                       left: 10,
@@ -158,14 +161,7 @@ class _AppProductCardState extends ConsumerState<AppProductCard> {
                   ),
                 ),
                 const SizedBox(height: 7),
-                Text(
-                  currency.format(price),
-                  style: const TextStyle(
-                    color: Color(0xFF2563EB),
-                    fontWeight: FontWeight.w900,
-                    fontSize: 16,
-                  ),
-                ),
+                _buildPriceBlock(currency, price, originalPrice),
                 const SizedBox(height: 8),
                 if (widget.showSelectors &&
                     (colors.isNotEmpty || sizes.isNotEmpty)) ...[
@@ -328,6 +324,51 @@ class _AppProductCardState extends ConsumerState<AppProductCard> {
           )
           .toList(),
       onChanged: onChanged,
+    );
+  }
+
+  Widget _buildPriceBlock(
+    NumberFormat currency,
+    double price,
+    double originalPrice,
+  ) {
+    if (!widget.product.promotionActive) {
+      return Text(
+        currency.format(price),
+        style: const TextStyle(
+          color: Color(0xFF2563EB),
+          fontWeight: FontWeight.w900,
+          fontSize: 16,
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          currency.format(originalPrice),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: Colors.grey.shade500,
+            fontWeight: FontWeight.w700,
+            fontSize: 11,
+            decoration: TextDecoration.lineThrough,
+          ),
+        ),
+        const SizedBox(height: 1),
+        Text(
+          currency.format(price),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Color(0xFFF43F5E),
+            fontWeight: FontWeight.w900,
+            fontSize: 16,
+          ),
+        ),
+      ],
     );
   }
 

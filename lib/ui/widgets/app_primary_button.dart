@@ -7,12 +7,14 @@ class AppPrimaryButton extends StatelessWidget {
   final IconData? icon;
   final VoidCallback? onPressed;
 
+  final dynamic color;
+
   const AppPrimaryButton({
     super.key,
     required this.label,
     this.icon,
     this.onPressed,
-    required MaterialColor color,
+    this.color,
   });
 
   @override

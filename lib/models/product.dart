@@ -176,6 +176,30 @@ class Product {
   @HiveField(27)
   final SyncStatus syncStatus;
 
+  @HiveField(28)
+  final double? priceOriginal;
+
+  @HiveField(29)
+  final double? pricePromotion;
+
+  @HiveField(30)
+  final String? promotionName;
+
+  @HiveField(31)
+  final String? promotionCollectionId;
+
+  @HiveField(32)
+  final DateTime? promotionCreatedAt;
+
+  @HiveField(33)
+  final DateTime? promotionUpdatedAt;
+
+  @HiveField(34)
+  final String? promotionType;
+
+  @HiveField(35)
+  final String? promotionId;
+
   Product({
     required this.id,
     required this.name,
@@ -203,6 +227,14 @@ class Product {
     this.tenantId,
     this.storeOverrides = const {},
     this.syncStatus = SyncStatus.pendingUpdate,
+    this.priceOriginal,
+    this.pricePromotion,
+    this.promotionName,
+    this.promotionCollectionId,
+    this.promotionCreatedAt,
+    this.promotionUpdatedAt,
+    this.promotionType,
+    this.promotionId,
     DateTime? updatedAt,
   }) : updatedAt = updatedAt ?? createdAt;
 
@@ -234,6 +266,22 @@ class Product {
     String? tenantId,
     Map<String, Map<String, dynamic>>? storeOverrides,
     SyncStatus? syncStatus,
+    double? priceOriginal,
+    double? pricePromotion,
+    String? promotionName,
+    String? promotionCollectionId,
+    DateTime? promotionCreatedAt,
+    DateTime? promotionUpdatedAt,
+    String? promotionType,
+    String? promotionId,
+    bool clearPriceOriginal = false,
+    bool clearPricePromotion = false,
+    bool clearPromotionName = false,
+    bool clearPromotionCollectionId = false,
+    bool clearPromotionCreatedAt = false,
+    bool clearPromotionUpdatedAt = false,
+    bool clearPromotionType = false,
+    bool clearPromotionId = false,
   }) {
     return Product(
       id: id ?? this.id,
@@ -263,6 +311,28 @@ class Product {
       tenantId: tenantId ?? this.tenantId,
       storeOverrides: storeOverrides ?? this.storeOverrides,
       syncStatus: syncStatus ?? this.syncStatus,
+      priceOriginal: clearPriceOriginal
+          ? null
+          : (priceOriginal ?? this.priceOriginal),
+      pricePromotion: clearPricePromotion
+          ? null
+          : (pricePromotion ?? this.pricePromotion),
+      promotionName: clearPromotionName
+          ? null
+          : (promotionName ?? this.promotionName),
+      promotionCollectionId: clearPromotionCollectionId
+          ? null
+          : (promotionCollectionId ?? this.promotionCollectionId),
+      promotionCreatedAt: clearPromotionCreatedAt
+          ? null
+          : (promotionCreatedAt ?? this.promotionCreatedAt),
+      promotionUpdatedAt: clearPromotionUpdatedAt
+          ? null
+          : (promotionUpdatedAt ?? this.promotionUpdatedAt),
+      promotionType: clearPromotionType
+          ? null
+          : (promotionType ?? this.promotionType),
+      promotionId: clearPromotionId ? null : (promotionId ?? this.promotionId),
     );
   }
 
@@ -321,6 +391,16 @@ class Product {
       'tenantId': tenantId,
       'storeOverrides': storeOverrides,
       'syncStatus': syncStatus.index,
+      'priceOriginal': priceOriginal,
+      'pricePromotion': pricePromotion,
+      'promotionActive': promoEnabled,
+      'promotionPercent': promoPercent,
+      'promotionName': promotionName,
+      'promotionCollectionId': promotionCollectionId,
+      'promotionCreatedAt': promotionCreatedAt?.toIso8601String(),
+      'promotionUpdatedAt': promotionUpdatedAt?.toIso8601String(),
+      'promotionType': promotionType,
+      'promotionId': promotionId,
     };
   }
 
@@ -395,11 +475,13 @@ class Product {
       isActive: safeBool(map['isActive'], fallback: true),
       isOutOfStock: safeBool(map['isOutOfStock'], fallback: false),
       promoEnabled: safeBool(
-        map['promoEnabled'] ?? map['isOnSale'],
+        map['promotionActive'] ?? map['promoEnabled'] ?? map['isOnSale'],
         fallback: false,
       ),
       promoPercent: safeDouble(
-        map['promoPercent'] ?? map['saleDiscountPercent'],
+        map['promotionPercent'] ??
+            map['promoPercent'] ??
+            map['saleDiscountPercent'],
       ),
       slug: safeString(map['slug']),
       description: safeNullableString(map['description']),
@@ -439,6 +521,22 @@ class Product {
       tenantId: safeNullableString(map['tenantId']),
       storeOverrides: parseStoreOverrides(map['storeOverrides']),
       syncStatus: parseSyncStatus(map['syncStatus']),
+      priceOriginal: map['priceOriginal'] == null
+          ? null
+          : safeDouble(map['priceOriginal']),
+      pricePromotion: map['pricePromotion'] == null
+          ? null
+          : safeDouble(map['pricePromotion']),
+      promotionName: safeNullableString(map['promotionName']),
+      promotionCollectionId: safeNullableString(map['promotionCollectionId']),
+      promotionCreatedAt: map['promotionCreatedAt'] == null
+          ? null
+          : safeDateTime(map['promotionCreatedAt']),
+      promotionUpdatedAt: map['promotionUpdatedAt'] == null
+          ? null
+          : safeDateTime(map['promotionUpdatedAt']),
+      promotionType: safeNullableString(map['promotionType']),
+      promotionId: safeNullableString(map['promotionId']),
     );
   }
 
@@ -543,10 +641,40 @@ class Product {
   double get priceAtacado => priceWholesale;
   String get reference => ref;
   bool get isOnSale => promoEnabled;
+  bool get promotionActive => promoEnabled;
   int get saleDiscountPercent => promoPercent.toInt();
+  double get promotionPercent => promoPercent;
+  double? get promotionPrice => pricePromotion;
+  double get originalPrice => priceOriginalForPromotion;
 
-  double get effectivePriceRetail =>
-      PriceCalculator.effectiveRetail(priceRetail, promoEnabled, promoPercent);
+  double get priceOriginalForPromotion => priceOriginal ?? priceRetail;
+
+  bool get hasManualPromotionPrice =>
+      pricePromotion != null && pricePromotion! > 0;
+
+  String get resolvedPromotionType {
+    final normalized = promotionType?.trim().toLowerCase();
+    if (normalized == 'manual' || normalized == 'percent') return normalized!;
+    if (hasManualPromotionPrice && promoPercent <= 0) return 'manual';
+    return 'percent';
+  }
+
+  double get promotionPriceRetail {
+    if (!promoEnabled) return PriceCalculator.round(priceRetail);
+    if (resolvedPromotionType == 'manual' && hasManualPromotionPrice) {
+      return PriceCalculator.round(pricePromotion!);
+    }
+    return PriceCalculator.effectiveRetail(
+      priceOriginalForPromotion,
+      true,
+      promoPercent,
+    );
+  }
+
+  bool get hasActivePromotion =>
+      promoEnabled && priceOriginalForPromotion > 0 && promotionPriceRetail > 0;
+
+  double get effectivePriceRetail => promotionPriceRetail;
 
   double get effectivePriceWholesale => PriceCalculator.effectiveWholesale(
     priceWholesale,
@@ -561,19 +689,22 @@ class Product {
 
   bool hasCategory(String categoryId) => categoryIds.contains(categoryId);
 
+  double originalPriceForMode(String mode) {
+    final isWholesale = mode.toLowerCase() == 'atacado';
+    return isWholesale ? priceWholesale : priceOriginalForPromotion;
+  }
+
+  double promotionPriceForMode(String mode) {
+    final isWholesale = mode.toLowerCase() == 'atacado';
+    if (isWholesale) {
+      return effectivePriceWholesale;
+    }
+    return effectivePriceRetail;
+  }
+
   double priceForMode(String mode) {
     final isWholesale = mode.toLowerCase() == 'atacado';
-    return isWholesale
-        ? PriceCalculator.effectiveWholesale(
-            priceWholesale,
-            promoEnabled,
-            promoPercent,
-          )
-        : PriceCalculator.effectiveRetail(
-            priceRetail,
-            promoEnabled,
-            promoPercent,
-          );
+    return isWholesale ? effectivePriceWholesale : effectivePriceRetail;
   }
 
   // --- STORE SPECIFIC RESOLVERS ---

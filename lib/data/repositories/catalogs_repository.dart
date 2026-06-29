@@ -46,6 +46,14 @@ class HiveCatalogsRepository implements CatalogsRepositoryContract {
   }
 
   @override
+  Future<void> updateCatalogsBulk(List<Catalog> catalogs) async {
+    final Map<String, Catalog> updates = {
+      for (var c in catalogs) c.id: c,
+    };
+    await _catalogsBox.putAll(updates);
+  }
+
+  @override
   Future<void> deleteCatalog(String id) async {
     await _catalogsBox.delete(id);
   }
