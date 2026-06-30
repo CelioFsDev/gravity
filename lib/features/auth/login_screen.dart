@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -30,8 +31,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _handleEmailPasswordLogin() async {
+    debugPrint('👉 [LoginScreen] Botão Entrar clicado');
     final form = _formKey.currentState;
-    if (_isSubmitting || form == null || !form.validate()) return;
+    if (_isSubmitting || form == null) return;
+    
+    if (!form.validate()) {
+      debugPrint('❌ [LoginScreen] Validação de formulário falhou');
+      return;
+    }
+    
+    debugPrint('✅ [LoginScreen] Validação passou. Iniciando submissão...');
 
     setState(() {
       _loginError = null;
@@ -39,28 +48,33 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
+      debugPrint('⏳ [LoginScreen] Chamando FirebaseAuth.signIn...');
       await ref
           .read(authViewModelProvider.notifier)
           .signInWithEmailAndPassword(
             _emailController.text.trim().toLowerCase(),
             _passwordController.text,
           );
+      debugPrint('✅ [LoginScreen] Login Firebase concluído (UI mantém isSubmitting para GoRouter)');
     } catch (error) {
+      debugPrint('❌ [LoginScreen] Erro capturado no login: $error');
       // Keep login errors local so stale auth/provider errors do not render
       // when the login page opens.
       if (mounted) {
-        setState(() => _loginError = error);
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
+        setState(() {
+          _loginError = error;
+          _isSubmitting = false;
+        });
       }
     }
   }
 
   String _authErrorMessage(Object error) {
+    if (error is FirebaseException && error.code == 'permission-denied') {
+      return 'Permissão negada. Verifique se seu acesso está ativo.';
+    }
     if (error is! FirebaseAuthException) {
-      return 'Falha ao entrar. Tente novamente.';
+      return 'Falha ao entrar: ${error.toString()}';
     }
 
     switch (error.code) {
@@ -83,6 +97,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(currentTenantProvider, (previous, next) {
+      if (next is AsyncError && _isSubmitting) {
+        if (mounted) {
+          setState(() {
+            _isSubmitting = false;
+            _loginError = next.error;
+          });
+        }
+      }
+    });
+
+    ref.listen(requiresTenantOnboardingProvider, (previous, next) {
+      if (next is AsyncError && _isSubmitting) {
+        if (mounted) {
+          setState(() {
+            _isSubmitting = false;
+            _loginError = next.error;
+          });
+        }
+      }
+    });
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(

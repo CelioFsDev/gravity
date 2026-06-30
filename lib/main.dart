@@ -480,17 +480,34 @@ class _MyAppState extends ConsumerState<MyApp> {
         }
 
         if (isAuthRoute) {
+          if (currentTenantAsync is AsyncError) {
+            debugPrint('⚠️ [GoRouter] tenant falhou, parando loading do botão Entrar');
+            return null; // Mantém no login para mostrar o erro visual
+          }
+
           // Wait for tenant info to load before deciding where to send the user
           if (currentTenantAsync is AsyncLoading) {
+            debugPrint('⏳ [GoRouter] aguardando currentTenantProvider resolver...');
             return null;
           }
 
           if (currentTenantAsync.value != null) {
+            debugPrint('✅ [GoRouter] tenant ativo: ${currentTenantAsync.value!.id}, indo para /');
             return '/';
           }
 
-          final needsOnboarding =
-              ref.read(requiresTenantOnboardingProvider).valueOrNull ?? false;
+          final onboardingAsync = ref.read(requiresTenantOnboardingProvider);
+          if (onboardingAsync is AsyncLoading) {
+            debugPrint('⏳ [GoRouter] aguardando onboarding provider...');
+            return null;
+          }
+          if (onboardingAsync is AsyncError) {
+             debugPrint('⚠️ [GoRouter] onboarding provider falhou');
+             return null;
+          }
+
+          final needsOnboarding = onboardingAsync.valueOrNull ?? false;
+          debugPrint('✅ [GoRouter] redirecionando authRoute: ${needsOnboarding ? "/onboarding" : "/picker"}');
           return needsOnboarding ? '/onboarding' : '/picker';
         }
 
@@ -568,13 +585,18 @@ class _MyAppState extends ConsumerState<MyApp> {
         ),
         GoRoute(
           path: '/',
+          pageBuilder: (context, state) => _buildPage(
+            state,
+            const Scaffold(body: Center(child: CircularProgressIndicator())),
+          ),
           redirect: (context, state) {
             final user = ref.read(authViewModelProvider).valueOrNull;
             if (user == null) return '/login';
 
             final roleAsync = ref.read(userRoleStreamProvider);
             if (roleAsync is AsyncLoading) return null;
-            final role = roleAsync.value ?? UserRole.viewer;
+            
+            final role = roleAsync.valueOrNull ?? UserRole.viewer;
             return _defaultAdminLocationFor(role);
           },
         ),
