@@ -37,6 +37,8 @@ class CategoriesState {
 
 @riverpod
 class CategoriesViewModel extends _$CategoriesViewModel {
+  StreamSubscription? _categoriesSub;
+
   @override
   FutureOr<CategoriesState> build() async {
     try {
@@ -46,7 +48,28 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       if (authUser != null) {
         await ref.watch(currentTenantProvider.future);
       }
-      return await _fetchData();
+      final data = await _fetchData();
+
+      if (kIsWeb) {
+        _categoriesSub?.cancel();
+        final categoriesRepository = ref.read(syncCategoriesRepositoryProvider);
+        _categoriesSub = categoriesRepository.watchCategories().listen((cloudCategories) {
+          if (state.hasValue) {
+            final currentCounts = state.value!.productCounts;
+            var sorted = List<Category>.from(cloudCategories);
+            _applySort(sorted, state.value!.sortOption);
+            state = AsyncData(CategoriesState(
+              categories: sorted,
+              productCounts: currentCounts,
+              sortOption: state.value!.sortOption,
+              searchQuery: state.value!.searchQuery,
+            ));
+          }
+        });
+        ref.onDispose(() => _categoriesSub?.cancel());
+      }
+
+      return data;
     } catch (e) {
       throw e.toAppFailure(action: 'build', entity: 'Categories');
     }

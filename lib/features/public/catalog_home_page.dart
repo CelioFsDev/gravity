@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:ui';
 
+import 'package:cached_network_image/cached_network_image.dart';
+
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -782,9 +784,11 @@ class _CartSheetContent extends ConsumerWidget {
                               width: 64,
                               height: 64,
                               child: product.images.isNotEmpty
-                                  ? Image.network(
-                                      product.images.first.uri,
+                                  ? CachedNetworkImage(
+                                      imageUrl: product.images.first.uri,
                                       fit: BoxFit.cover,
+                                      placeholder: (context, url) => Container(color: Colors.grey.shade100),
+                                      errorWidget: (context, url, error) => Container(color: Colors.grey.shade100),
                                     )
                                   : Container(color: Colors.grey.shade100),
                             ),
@@ -1264,8 +1268,16 @@ class _PromotionalProductCard extends StatelessWidget {
     }
 
     if (uri.startsWith('http://') ||
-        uri.startsWith('https://') ||
-        uri.startsWith('blob:')) {
+        uri.startsWith('https://')) {
+      return CachedNetworkImage(
+        imageUrl: uri,
+        fit: BoxFit.cover,
+        placeholder: (context, url) => _placeholder(),
+        errorWidget: (context, url, error) => _placeholder(),
+      );
+    }
+
+    if (uri.startsWith('blob:')) {
       return Image.network(
         uri,
         fit: BoxFit.cover,

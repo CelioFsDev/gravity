@@ -792,6 +792,7 @@ class CatalogPdfService {
       case CatalogPdfStyle.clean:
         return _buildClassicLayout(
           product,
+          mode,
           showPrice,
           displayPrice,
           photoP,
@@ -808,6 +809,7 @@ class CatalogPdfService {
       case CatalogPdfStyle.compact:
         return _buildCompactLayout(
           product,
+          mode,
           showPrice,
           displayPrice,
           photoP,
@@ -824,6 +826,7 @@ class CatalogPdfService {
       case CatalogPdfStyle.editorial:
         return _buildEditorialLayout(
           product,
+          mode,
           showPrice,
           displayPrice,
           photoP,
@@ -837,6 +840,7 @@ class CatalogPdfService {
       case CatalogPdfStyle.minimal:
         return _buildMinimalLayout(
           product,
+          mode,
           showPrice,
           displayPrice,
           photoP,
@@ -851,6 +855,7 @@ class CatalogPdfService {
       case CatalogPdfStyle.classic:
         return _buildClassicLayout(
           product,
+          mode,
           showPrice,
           displayPrice,
           photoP,
@@ -868,6 +873,7 @@ class CatalogPdfService {
 
   static pw.Widget _buildEditorialLayout(
     Product product,
+    CatalogMode mode,
     bool showPrice,
     double displayPrice,
     ProductImage? photoP,
@@ -1091,6 +1097,7 @@ class CatalogPdfService {
 
   static pw.Widget _buildMinimalLayout(
     Product product,
+    CatalogMode mode,
     bool showPrice,
     double displayPrice,
     ProductImage? photoP,
@@ -1229,6 +1236,7 @@ class CatalogPdfService {
 
   static pw.Widget _buildCompactLayout(
     Product product,
+    CatalogMode mode,
     bool showPrice,
     double displayPrice,
     ProductImage? photoP,
@@ -1385,6 +1393,7 @@ class CatalogPdfService {
 
   static pw.Widget _buildClassicLayout(
     Product product,
+    CatalogMode mode,
     bool showPrice,
     double displayPrice,
     ProductImage? photoP,

@@ -494,12 +494,16 @@ class _MyAppState extends ConsumerState<MyApp> {
         }
 
         if (locationPath == '/') {
-          final role = await _effectiveRoleForRedirect(user.email);
+          final roleAsync = ref.read(userRoleStreamProvider);
+          if (roleAsync is AsyncLoading) return null;
+          final role = roleAsync.value ?? UserRole.viewer;
           return _defaultAdminLocationFor(role);
         }
 
         if (locationPath.startsWith('/admin')) {
-          final role = await _effectiveRoleForRedirect(user.email);
+          final roleAsync = ref.read(userRoleStreamProvider);
+          if (roleAsync is AsyncLoading) return null;
+          final role = roleAsync.value ?? UserRole.viewer;
           if (!_canAccessAdminLocation(role, state.matchedLocation)) {
             return _defaultAdminLocationFor(role);
           }
@@ -563,11 +567,13 @@ class _MyAppState extends ConsumerState<MyApp> {
         ),
         GoRoute(
           path: '/',
-          redirect: (context, state) async {
+          redirect: (context, state) {
             final user = ref.read(authViewModelProvider).valueOrNull;
             if (user == null) return '/login';
 
-            final role = await _effectiveRoleForRedirect(user.email);
+            final roleAsync = ref.read(userRoleStreamProvider);
+            if (roleAsync is AsyncLoading) return null;
+            final role = roleAsync.value ?? UserRole.viewer;
             return _defaultAdminLocationFor(role);
           },
         ),
@@ -1130,6 +1136,11 @@ class _RouterRefreshNotifier extends ChangeNotifier {
       (_, _) => notifyListeners(),
     );
 
+    _userRoleStreamSubscription = ref.listenManual(
+      userRoleStreamProvider,
+      (_, _) => notifyListeners(),
+    );
+
     _tenantSubscription = ref.listenManual(
       currentTenantProvider,
       (_, _) => notifyListeners(),
@@ -1143,6 +1154,7 @@ class _RouterRefreshNotifier extends ChangeNotifier {
 
   late final ProviderSubscription<AsyncValue<dynamic>> _authSubscription;
   late final ProviderSubscription<UserRole> _roleSubscription;
+  late final ProviderSubscription<AsyncValue<dynamic>> _userRoleStreamSubscription;
   late final ProviderSubscription<AsyncValue<dynamic>> _tenantSubscription;
   late final ProviderSubscription<AsyncValue<dynamic>>
   _tenantOnboardingSubscription;
@@ -1151,6 +1163,7 @@ class _RouterRefreshNotifier extends ChangeNotifier {
   void dispose() {
     _authSubscription.close();
     _roleSubscription.close();
+    _userRoleStreamSubscription.close();
     _tenantSubscription.close();
     _tenantOnboardingSubscription.close();
     super.dispose();

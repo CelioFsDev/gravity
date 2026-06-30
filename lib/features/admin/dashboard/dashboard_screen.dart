@@ -4,25 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
-import 'package:catalogo_ja/data/repositories/products_repository.dart';
-import 'package:catalogo_ja/data/repositories/categories_repository.dart';
-import 'package:catalogo_ja/data/repositories/catalogs_repository.dart';
+import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
 import 'package:catalogo_ja/data/repositories/user_repository.dart';
 import 'package:catalogo_ja/ui/widgets/sync_progress_overlay.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/settings_viewmodel.dart';
 
-class _DashboardStats {
-  const _DashboardStats({
-    required this.productCount,
-    required this.categoryCount,
-    required this.catalogCount,
-  });
 
-  final int productCount;
-  final int categoryCount;
-  final int catalogCount;
-}
 
 final _dashboardUserProfileProvider =
     StreamProvider.autoDispose.family<Map<String, dynamic>?, String>((
@@ -45,7 +34,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _greetingController;
   late Animation<double> _greetingFade;
-  late final Stream<_DashboardStats> _statsStream;
 
   @override
   void initState() {
@@ -60,8 +48,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       parent: _greetingController,
       curve: Curves.easeOut,
     );
-
-    _statsStream = _combineStatsStreams();
   }
 
   @override
@@ -70,58 +56,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     super.dispose();
   }
 
-  Stream<_DashboardStats> _combineStatsStreams() {
-    final productsStream = ref.read(productsRepositoryProvider).watchProducts();
-    final categoriesStream =
-        ref.read(categoriesRepositoryProvider).watchCategories();
-    final catalogsStream = ref.read(catalogsRepositoryProvider).watchCatalogs();
 
-    return Stream<_DashboardStats>.multi((controller) {
-      var productCount = 0;
-      var categoryCount = 0;
-      var catalogCount = 0;
-
-      var hasProducts = false;
-      var hasCategories = false;
-      var hasCatalogs = false;
-
-      void emitIfReady() {
-        if (!hasProducts || !hasCategories || !hasCatalogs) return;
-
-        controller.add(
-          _DashboardStats(
-            productCount: productCount,
-            categoryCount: categoryCount,
-            catalogCount: catalogCount,
-          ),
-        );
-      }
-
-      final productsSub = productsStream.listen((items) {
-        productCount = items.length;
-        hasProducts = true;
-        emitIfReady();
-      }, onError: controller.addError);
-
-      final categoriesSub = categoriesStream.listen((items) {
-        categoryCount = items.length;
-        hasCategories = true;
-        emitIfReady();
-      }, onError: controller.addError);
-
-      final catalogsSub = catalogsStream.listen((items) {
-        catalogCount = items.length;
-        hasCatalogs = true;
-        emitIfReady();
-      }, onError: controller.addError);
-
-      controller.onCancel = () async {
-        await productsSub.cancel();
-        await categoriesSub.cancel();
-        await catalogsSub.cancel();
-      };
-    });
-  }
 
   String _greeting() {
     final hour = DateTime.now().hour;
@@ -161,23 +96,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           : authUser?.displayName,
     );
 
+    final productsState = ref.watch(productsViewModelProvider);
+    final categoriesState = ref.watch(categoriesViewModelProvider);
+    final catalogsState = ref.watch(catalogsViewModelProvider);
+
+    final isLoading = productsState.isLoading || categoriesState.isLoading || catalogsState.isLoading;
+    final productCount = productsState.valueOrNull?.allProducts.length ?? 0;
+    final categoryCount = categoriesState.valueOrNull?.categories.length ?? 0;
+    final catalogCount = catalogsState.valueOrNull?.length ?? 0;
+
     return Stack(
       children: [
         AppScaffold(
           showHeader: true,
           title: '${_greeting()}, $profileFirstName',
           subtitle: 'Visão geral',
-          body: StreamBuilder<_DashboardStats>(
-            stream: _statsStream,
-            builder: (context, snapshot) {
-              final stats = snapshot.data ??
-                  const _DashboardStats(
-                    productCount: 0,
-                    categoryCount: 0,
-                    catalogCount: 0,
-                  );
-
-              return CustomScrollView(
+          body: CustomScrollView(
                 slivers: [
                   SliverToBoxAdapter(
                     child: FadeTransition(
@@ -349,17 +283,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     sliver: SliverToBoxAdapter(
                       child: _buildStatsSection(
                         context,
-                        productCount: stats.productCount,
-                        categoryCount: stats.categoryCount,
-                        catalogCount: stats.catalogCount,
+                        productCount: productCount,
+                        categoryCount: categoryCount,
+                        catalogCount: catalogCount,
                         isDark: isDark,
+                        isLoading: isLoading,
                       ),
                     ),
                   ),
                 ],
-              );
-            },
-          ),
+              ),
         ),
         if (syncProgress.isSyncing)
           SyncProgressOverlay(
@@ -376,6 +309,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     required int categoryCount,
     required int catalogCount,
     required bool isDark,
+    required bool isLoading,
   }) {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -391,6 +325,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                   icon: Icons.inventory_2_rounded,
                   gradient: AppTokens.primaryGradient,
                   isDark: isDark,
+                  isLoading: isLoading,
                 ),
               ),
               const SizedBox(width: 12),
@@ -401,6 +336,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                   icon: Icons.collections_bookmark_rounded,
                   gradient: AppTokens.accentGradient,
                   isDark: isDark,
+                  isLoading: isLoading,
                 ),
               ),
               const SizedBox(width: 12),
@@ -411,6 +347,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                   icon: Icons.menu_book_rounded,
                   gradient: AppTokens.warmGradient,
                   isDark: isDark,
+                  isLoading: isLoading,
                 ),
               ),
             ],
@@ -429,6 +366,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     gradient: AppTokens.primaryGradient,
                     isDark: isDark,
                     compact: true,
+                    isLoading: isLoading,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -440,6 +378,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     gradient: AppTokens.accentGradient,
                     isDark: isDark,
                     compact: true,
+                    isLoading: isLoading,
                   ),
                 ),
               ],
@@ -453,6 +392,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               isDark: isDark,
               compact: true,
               fullWidth: true,
+              isLoading: isLoading,
             ),
           ],
         );
@@ -820,6 +760,7 @@ class _StatCard extends StatelessWidget {
     required this.isDark,
     this.compact = false,
     this.fullWidth = false,
+    this.isLoading = false,
   });
 
   final String title;
@@ -829,6 +770,7 @@ class _StatCard extends StatelessWidget {
   final bool isDark;
   final bool compact;
   final bool fullWidth;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -884,16 +826,31 @@ class _StatCard extends StatelessWidget {
         child: Icon(icon, color: Colors.white, size: 20),
       );
 
-  Widget _valueText() => Text(
-        value.toString(),
-        style: TextStyle(
-          fontSize: compact ? 26 : 32,
-          fontWeight: FontWeight.w900,
-          color: isDark ? Colors.white : AppTokens.textPrimary,
-          letterSpacing: -1,
-          height: 1.0,
+  Widget _valueText() {
+    if (isLoading) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: isDark ? Colors.white60 : AppTokens.textPrimary,
+          ),
         ),
       );
+    }
+    return Text(
+      value.toString(),
+      style: TextStyle(
+        fontSize: compact ? 26 : 32,
+        fontWeight: FontWeight.w900,
+        color: isDark ? Colors.white : AppTokens.textPrimary,
+        letterSpacing: -1,
+        height: 1.0,
+      ),
+    );
+  }
 
   Widget _titleText() => Text(
         title,

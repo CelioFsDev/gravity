@@ -13,6 +13,7 @@ import 'package:catalogo_ja/data/repositories/categories_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
+import 'package:flutter/foundation.dart';
 
 class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;

@@ -8,20 +8,15 @@ part 'catalog_public_viewmodel.g.dart';
 typedef PublicCatalogData = PublicCatalogDataResponse;
 
 @riverpod
-Future<PublicCatalogData?> catalogPublic(
+Stream<PublicCatalogData?> catalogPublic(
   CatalogPublicRef ref,
   String shareCode,
-) async {
+) async* {
   final repo = ref.watch(publicCatalogRepositoryProvider);
   final normalizedShareCode = shareCode.trim().toLowerCase();
   debugPrint('catalogPublicProvider load: shareCode="$normalizedShareCode"');
   try {
-    final data = await repo.getPublicCatalogData(normalizedShareCode);
-    debugPrint(
-      'catalogPublicProvider loaded: shareCode="$normalizedShareCode", '
-      'hasData=${data != null}',
-    );
-    return data;
+    yield* repo.getPublicCatalogStream(normalizedShareCode);
   } catch (e, s) {
     debugPrint('catalogPublicProvider error for $normalizedShareCode: $e');
     debugPrint(e.toString());

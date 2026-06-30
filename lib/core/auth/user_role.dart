@@ -244,3 +244,35 @@ Stream<bool> currentUserStatus(ref) {
       .snapshots()
       .map((doc) => doc.data()?['disabled'] as bool? ?? false);
 }
+
+@riverpod
+Stream<UserRole> userRoleStream(ref) {
+  final user = ref.watch(authViewModelProvider).valueOrNull;
+  if (user == null || user.email == null) return Stream.value(UserRole.viewer);
+
+  final email = _normalizeEmail(user.email);
+  if (UserRole.superAdminEmails.contains(email)) {
+    return Stream.value(UserRole.superAdmin);
+  }
+
+  return FirebaseFirestore.instance
+      .collection('users')
+      .doc(email)
+      .snapshots()
+      .map((doc) {
+    if (!doc.exists) return UserRole.viewer;
+    final data = doc.data()!;
+    final activeTenantId = data['tenantId'] as String? ?? '';
+    final activeStoreId = data['currentStoreId'] as String? ?? '';
+    final roleStr = effectiveUserRoleName(
+      data,
+      tenantId: activeTenantId,
+      storeId: activeStoreId,
+    );
+
+    return UserRole.values.firstWhere(
+      (item) => item.name == roleStr,
+      orElse: () => UserRole.viewer,
+    );
+  });
+}

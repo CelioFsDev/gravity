@@ -9,12 +9,25 @@ import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter/foundation.dart';
+import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
+import 'package:catalogo_ja/core/sync/providers/sync_providers.dart';
 part 'global_sync_viewmodel.g.dart';
 
 @riverpod
 class GlobalSyncViewModel extends _$GlobalSyncViewModel {
+  bool _isSyncingUp = false;
+
   @override
-  void build() {}
+  void build() {
+    ref.listen(currentTenantProvider, (previous, next) {
+      final prevId = previous?.valueOrNull?.id;
+      final nextId = next.valueOrNull?.id;
+      if (prevId != null && nextId != null && prevId != nextId) {
+        debugPrint('🏢 Troca de Tenant detectada ($prevId -> $nextId). Limpando fila de sincronização...');
+        ref.read(syncQueueRepositoryProvider).clearAll();
+      }
+    });
+  }
 
   /// Sincronização automática em segundo plano (apenas se estiver no Wi-Fi)
   Future<void> performSilentWifiSync() async {
@@ -50,6 +63,11 @@ class GlobalSyncViewModel extends _$GlobalSyncViewModel {
 
   /// Sobe todas as Categorias, Coleções, Produtos e Catálogos para a Nuvem
   Future<void> syncUpEverything() async {
+    if (_isSyncingUp) {
+      debugPrint('⏳ Sincronização já em andamento. Ignorando nova chamada.');
+      return;
+    }
+    _isSyncingUp = true;
     final progressNotifier = ref.read(syncProgressProvider.notifier);
     progressNotifier.startSync('Iniciando upload...');
     String? finalMessage;
@@ -77,6 +95,7 @@ class GlobalSyncViewModel extends _$GlobalSyncViewModel {
       rethrow;
     } finally {
       progressNotifier.stopSync(message: finalMessage);
+      _isSyncingUp = false;
     }
   }
 

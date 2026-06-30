@@ -221,6 +221,8 @@ final cloudProductUpdatesPendingProvider = StreamProvider.autoDispose<bool>((
 
 @riverpod
 class ProductsViewModel extends _$ProductsViewModel {
+  StreamSubscription? _productsSub;
+
   @override
   FutureOr<ProductsState> build() async {
     try {
@@ -234,6 +236,20 @@ class ProductsViewModel extends _$ProductsViewModel {
       final categoryRepository = ref.watch(syncCategoriesRepositoryProvider);
       final products = await productRepository.getProducts();
       final categories = await categoryRepository.getCategories();
+
+      if (kIsWeb) {
+        _productsSub?.cancel();
+        _productsSub = productRepository.watchProducts().listen((cloudProducts) {
+          if (state.hasValue) {
+            state = AsyncData(
+              _applyFilters(
+                state.value!.copyWith(allProducts: cloudProducts),
+              ),
+            );
+          }
+        });
+        ref.onDispose(() => _productsSub?.cancel());
+      }
 
       return _applyFilters(
         ProductsState.initial().copyWith(

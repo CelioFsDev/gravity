@@ -42,6 +42,10 @@ class SyncQueueRepository {
     return _box.values.toList();
   }
 
+  Future<void> clearAll() async {
+    await _box.clear();
+  }
+
   /// Limpa itens que já foram sincronizados com sucesso há mais de X tempo (Cleanup)
   Future<void> clearSuccessfullySynced({Duration olderThan = const Duration(days: 1)}) async {
     final cutoff = DateTime.now().subtract(olderThan);

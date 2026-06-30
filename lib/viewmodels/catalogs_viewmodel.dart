@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:catalogo_ja/core/services/public_catalog_snapshot_service.dart';
 import 'package:catalogo_ja/data/repositories/contracts/catalogs_repository_contract.dart';
 import 'package:catalogo_ja/models/catalog.dart';
@@ -15,10 +16,13 @@ import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 
+import 'package:flutter/foundation.dart';
+
 part 'catalogs_viewmodel.g.dart';
 
 @riverpod
 class CatalogsViewModel extends _$CatalogsViewModel {
+  StreamSubscription? _catalogsSub;
   @override
   FutureOr<List<Catalog>> build() async {
     try {
@@ -36,7 +40,19 @@ class CatalogsViewModel extends _$CatalogsViewModel {
       }
 
       final repository = ref.watch(syncCatalogsRepositoryProvider);
-      return await repository.getCatalogs();
+      final catalogs = await repository.getCatalogs();
+
+      if (kIsWeb) {
+        _catalogsSub?.cancel();
+        _catalogsSub = repository.watchCatalogs().listen((cloudCatalogs) {
+          if (state.hasValue) {
+            state = AsyncData(cloudCatalogs);
+          }
+        });
+        ref.onDispose(() => _catalogsSub?.cancel());
+      }
+
+      return catalogs;
     } catch (e) {
       throw e.toAppFailure(action: 'build', entity: 'Catalogs');
     }
@@ -292,14 +308,14 @@ class CatalogsViewModel extends _$CatalogsViewModel {
           await firestoreRepo.syncCatalogToCloud(cat);
           syncedCount++;
         } catch (e) {
-          print('❌ Erro ao sincronizar catálogo ${cat.name}: $e');
+          debugPrint('❌ Erro ao sincronizar catálogo ${cat.name}: $e');
         }
       }
 
       ref.invalidateSelf();
       return syncedCount;
     } catch (e) {
-      print('Erro ao sincronizar catálogos: $e');
+      debugPrint('Erro ao sincronizar catálogos: $e');
       rethrow;
     } finally {
       progressNotifier.stopSync(message: finalMessage);
@@ -399,7 +415,7 @@ class CatalogsViewModel extends _$CatalogsViewModel {
       ref.invalidateSelf();
       return downloadedCount;
     } catch (e) {
-      print('Erro ao baixar catálogos: $e');
+      debugPrint('Erro ao baixar catálogos: $e');
       rethrow;
     } finally {
       progressNotifier.stopSync(message: finalMessage);
