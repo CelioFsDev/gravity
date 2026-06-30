@@ -1034,7 +1034,7 @@ class CatalogPdfService {
                             pw.Text(
                               currencyFormat.format(
                                 product.originalPriceForMode(
-                                  CatalogMode.varejo.name,
+                                  mode.name,
                                 ),
                               ),
                               style: pw.TextStyle(
@@ -1176,7 +1176,7 @@ class CatalogPdfService {
                 if (product.promoEnabled) ...[
                   pw.Text(
                     currencyFormat.format(
-                      product.originalPriceForMode(CatalogMode.varejo.name),
+                      product.originalPriceForMode(mode.name),
                     ),
                     style: pw.TextStyle(
                       fontSize: 9,
@@ -1318,9 +1318,7 @@ class CatalogPdfService {
                         pw.SizedBox(width: 8),
                         pw.Text(
                           currencyFormat.format(
-                            product.originalPriceForMode(
-                              CatalogMode.varejo.name,
-                            ),
+                            product.originalPriceForMode(mode.name),
                           ),
                           style: pw.TextStyle(
                             fontSize: 10,
@@ -1518,7 +1516,7 @@ class CatalogPdfService {
                         pw.SizedBox(height: 15),
                         if (product.hasActivePromotion && !editablePrice) ...[
                           pw.Text(
-                            currencyFormat.format(product.originalPriceForMode(CatalogMode.varejo.name)),
+                            currencyFormat.format(product.originalPriceForMode(mode.name)),
                             style: pw.TextStyle(
                               fontSize: isClean ? 16 : 14,
                               color: PdfColors.grey500,
