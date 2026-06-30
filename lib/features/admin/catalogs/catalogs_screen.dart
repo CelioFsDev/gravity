@@ -12,6 +12,7 @@ import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
 import 'package:catalogo_ja/features/admin/catalogs/catalog_editor_screen.dart';
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/ui/widgets/app_product_image_view.dart';
 import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
 import 'package:intl/intl.dart';
@@ -347,7 +348,7 @@ class _CatalogsContent extends ConsumerWidget {
                   .whereType<Product>()
                   .toList();
         final List<dynamic> backgroundImageUris = displayProducts
-            .map((product) => product.mainImage?.uri ?? '')
+            .map((product) => product.displayImageUrl ?? '')
             .where((uri) => uri.trim().isNotEmpty)
             .take(4)
             .toList();
@@ -681,47 +682,12 @@ class _EnhancedCatalogCard extends StatelessWidget {
   }
 
   Widget _buildWallpaperImage(String uri) {
-    final path = uri.trim();
-
-    if (path.startsWith('data:')) {
-      final commaIndex = path.indexOf(',');
-      if (commaIndex != -1 && commaIndex + 1 < path.length) {
-        try {
-          return Image.memory(
-            base64Decode(path.substring(commaIndex + 1)),
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => const SizedBox.shrink(),
-          );
-        } catch (_) {
-          return const SizedBox.shrink();
-        }
-      }
-    }
-
-    if (path.startsWith('http://') ||
-        path.startsWith('https://') ||
-        path.startsWith('blob:')) {
-      return Image.network(
-        path,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => const SizedBox.shrink(),
-      );
-    }
-
-    if (!kIsWeb) {
-      try {
-        final file = File(path);
-        if (file.existsSync()) {
-          return Image.file(
-            file,
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => const SizedBox.shrink(),
-          );
-        }
-      } catch (_) {}
-    }
-
-    return const SizedBox.shrink();
+    return AppProductImageView(
+      imageUrl: uri,
+      width: double.infinity,
+      height: double.infinity,
+      borderRadius: 0,
+    );
   }
 
   Widget _buildCatalogMark(BuildContext context) {

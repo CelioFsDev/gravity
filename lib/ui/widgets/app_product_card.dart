@@ -8,19 +8,18 @@ import 'package:catalogo_ja/models/order.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/product_image.dart';
 import 'package:catalogo_ja/models/product_variant.dart';
-import 'package:catalogo_ja/viewmodels/cart_viewmodel.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:catalogo_ja/ui/widgets/promo_badge.dart';
+import 'package:catalogo_ja/ui/widgets/app_product_image_view.dart';
+import 'package:catalogo_ja/viewmodels/cart_viewmodel.dart';
 
 class AppProductCard extends ConsumerStatefulWidget {
   final Product product;
   final CatalogMode mode;
   final VoidCallback onTap;
-  final ProductImage? imageOverride;
+  final String? imageOverrideUrl;
   final bool showSelectors;
   final bool showPurchaseControls;
   final String? badgeLabel;
@@ -30,7 +29,7 @@ class AppProductCard extends ConsumerStatefulWidget {
     required this.product,
     required this.mode,
     required this.onTap,
-    this.imageOverride,
+    this.imageOverrideUrl,
     this.showSelectors = true,
     this.showPurchaseControls = true,
     this.badgeLabel,
@@ -100,7 +99,9 @@ class _AppProductCardState extends ConsumerState<AppProductCard> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  _buildImage(widget.imageOverride ?? widget.product.mainImage),
+                  AppProductImageView(
+                    imageUrl: widget.imageOverrideUrl ?? widget.product.displayImageUrl,
+                  ),
                   if (hasPromo)
                     Positioned(
                       top: 10,
@@ -544,108 +545,5 @@ class _AppProductCardState extends ConsumerState<AppProductCard> {
         ),
       ),
     );
-  }
-
-  Widget _buildImage(ProductImage? img) {
-    if (img == null || img.uri.isEmpty) {
-      return _buildPlaceholder();
-    }
-
-    final uri = img.uri.trim();
-    if (!UriUtils.isUsableImagePath(uri)) {
-      return _buildPlaceholder();
-    }
-
-    if (uri.startsWith('gs://')) {
-      return FutureBuilder<String?>(
-        future: _getDownloadUrl(uri),
-        builder: (context, snapshot) {
-          final url = snapshot.data;
-          if (url == null || url.isEmpty) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return _buildLoadingPlaceholder();
-            }
-            return _buildPlaceholder(icon: Icons.cloud_off);
-          }
-          return _buildNetworkImage(url);
-        },
-      );
-    }
-
-    if (uri.startsWith('data:')) {
-      return _buildDataUrlImage(uri);
-    }
-
-    if (UriUtils.isNetworkImageUri(uri)) {
-      return _buildNetworkImage(uri);
-    }
-
-    if (!kIsWeb) {
-      try {
-        final file = File(uri);
-        if (file.existsSync() &&
-            file.statSync().type != FileSystemEntityType.directory) {
-          return Image.file(file, fit: BoxFit.cover);
-        }
-      } catch (_) {}
-    }
-
-    return _buildPlaceholder();
-  }
-
-  Widget _buildNetworkImage(String uri) {
-    return CachedNetworkImage(
-      imageUrl: uri,
-      fit: BoxFit.cover,
-      placeholder: (context, url) => _buildLoadingPlaceholder(),
-      errorWidget: (context, url, error) => _buildPlaceholder(),
-    );
-  }
-
-  Widget _buildLoadingPlaceholder() {
-    return Container(
-      color: const Color(0xFFF1F5F9),
-      child: const Center(
-        child: SizedBox(
-          width: 18,
-          height: 18,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: Color(0xFFCBD5E1),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<String?> _getDownloadUrl(String storageUri) async {
-    try {
-      final ref = FirebaseStorage.instanceFor(
-        bucket: 'gs://catalogo-ja-89aae.firebasestorage.app',
-      ).refFromURL(storageUri);
-      return await ref.getDownloadURL();
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Widget _buildPlaceholder({IconData icon = Icons.image_outlined}) {
-    return Container(
-      color: const Color(0xFFF1F5F9),
-      child: Center(
-        child: Icon(icon, color: const Color(0xFFCBD5E1), size: 32),
-      ),
-    );
-  }
-
-  Widget _buildDataUrlImage(String uri) {
-    try {
-      final commaIndex = uri.indexOf(',');
-      if (commaIndex == -1) return _buildPlaceholder();
-      final bytes = base64Decode(uri.substring(commaIndex + 1));
-      return Image.memory(bytes, fit: BoxFit.cover);
-    } catch (_) {
-      return _buildPlaceholder();
-    }
   }
 }

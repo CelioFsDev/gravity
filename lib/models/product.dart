@@ -637,6 +637,23 @@ class Product {
 
   // --- HELPERS (ProductImage) ---
 
+  String? get displayImageUrl {
+    if (remoteImages.isNotEmpty) {
+      final remoteUrl = remoteImages.firstWhere(
+        (url) => url.trim().isNotEmpty && _isRemoteOrStorageImageUri(url),
+        orElse: () => '',
+      );
+      if (remoteUrl.isNotEmpty) return remoteUrl.trim();
+    }
+
+    final mImage = mainImage;
+    if (mImage != null && mImage.uri.isNotEmpty) {
+      return mImage.uri.trim();
+    }
+
+    return null;
+  }
+
   ProductImage? get mainImage {
     // Priority 1: New images list
     if (images.isNotEmpty) {

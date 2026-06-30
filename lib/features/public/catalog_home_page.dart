@@ -17,6 +17,7 @@ import 'package:catalogo_ja/ui/widgets/promo_badge.dart';
 import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/order.dart';
+import 'package:catalogo_ja/ui/widgets/app_product_image_view.dart';
 import 'package:catalogo_ja/viewmodels/cart_viewmodel.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
@@ -53,6 +54,7 @@ class CatalogHomePage extends ConsumerStatefulWidget {
   @override
   ConsumerState<CatalogHomePage> createState() => _CatalogHomePageState();
 }
+
 
 class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
   final _searchController = TextEditingController();
@@ -261,7 +263,7 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
                             return AppProductCard(
                               product: product,
                               mode: data.catalog.mode,
-                              imageOverride: item.imageOverride,
+                              imageOverrideUrl: item.initialImageUri,
                               showSelectors: !item.isPrimaryShowcase,
                               showPurchaseControls: !item.isPrimaryShowcase,
                               badgeLabel: item.isVariant ? 'Variante' : null,
@@ -513,10 +515,10 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
 
     final items = <_CatalogCardItem>[];
     for (final product in products) {
-      final mainImage = product.mainImage;
+      final mainImage = product.displayImageUrl;
       final variantImage = product.variantImage;
       final variantUri = variantImage?.uri.trim() ?? '';
-      final mainUri = mainImage?.uri.trim() ?? '';
+      final mainUri = mainImage?.trim() ?? '';
 
       if (variantImage == null || variantUri.isEmpty || variantUri == mainUri) {
         items.add(_CatalogCardItem(product: product));
@@ -526,7 +528,7 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
       items.add(
         _CatalogCardItem(
           product: product,
-          imageOverride: mainImage,
+          imageOverride: product.mainImage,
           isPrimaryShowcase: true,
         ),
       );
@@ -787,12 +789,9 @@ class _CartSheetContent extends ConsumerWidget {
                             child: SizedBox(
                               width: 64,
                               height: 64,
-                              child: product.images.isNotEmpty
-                                  ? CachedNetworkImage(
-                                      imageUrl: product.images.first.uri,
-                                      fit: BoxFit.cover,
-                                      placeholder: (context, url) => Container(color: Colors.grey.shade100),
-                                      errorWidget: (context, url, error) => Container(color: Colors.grey.shade100),
+                              child: product.displayImageUrl != null
+                                  ? AppProductImageView(
+                                      imageUrl: product.displayImageUrl,
                                     )
                                   : Container(color: Colors.grey.shade100),
                             ),
@@ -1126,6 +1125,7 @@ class _PromotionalProductCard extends StatelessWidget {
     final promotionPrice = product.promotionPriceForMode(mode);
     final hasPromo = product.hasActivePromotionForMode(mode);
     final discount = product.discountPercentageForMode(mode);
+    final mainImage = product.displayImageUrl;
 
     return Container(
       clipBehavior: Clip.antiAlias,
@@ -1148,7 +1148,22 @@ class _PromotionalProductCard extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                _buildImage(product.mainImage),
+                if (mainImage != null && mainImage.trim().isNotEmpty)
+                  AppProductImageView(
+                    imageUrl: mainImage,
+                    width: double.infinity,
+                    height: double.infinity,
+                  )
+                else
+                  Container(
+                    color: Colors.grey.shade100,
+                    alignment: Alignment.center,
+                    child: Icon(
+                      Icons.image_outlined,
+                      color: Colors.grey.shade300,
+                      size: 48,
+                    ),
+                  ),
                 if (hasPromo)
                   Positioned(
                     top: 10,
@@ -1242,55 +1257,6 @@ class _PromotionalProductCard extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildImage(ProductImage? image) {
-    final uri = image?.uri.trim() ?? '';
-    if (uri.isEmpty) return _placeholder();
-
-    if (uri.startsWith('data:')) {
-      try {
-        final commaIndex = uri.indexOf(',');
-        if (commaIndex == -1) return _placeholder();
-        final bytes = base64Decode(uri.substring(commaIndex + 1));
-        return Image.memory(bytes, fit: BoxFit.cover);
-      } catch (_) {
-        return _placeholder();
-      }
-    }
-
-    if (uri.startsWith('http://') ||
-        uri.startsWith('https://')) {
-      return CachedNetworkImage(
-        imageUrl: uri,
-        fit: BoxFit.cover,
-        placeholder: (context, url) => _placeholder(),
-        errorWidget: (context, url, error) => _placeholder(),
-      );
-    }
-
-    if (uri.startsWith('blob:')) {
-      return Image.network(
-        uri,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => _placeholder(),
-      );
-    }
-
-    return _placeholder();
-  }
-
-  Widget _placeholder() {
-    return Container(
-      color: const Color(0xFFF1F5F9),
-      child: const Center(
-        child: Icon(
-          Icons.image_outlined,
-          size: 36,
-          color: Color(0xFFCBD5E1),
-        ),
       ),
     );
   }

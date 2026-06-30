@@ -135,10 +135,44 @@ class ProductImage {
       return ProductImageSource.unknown;
     }
 
+    final uri = safeString(
+      map['uri'] ??
+          map['downloadUrl'] ??
+          map['downloadURL'] ??
+          map['url'] ??
+          map['imageUrl'] ??
+          map['path'] ??
+          map['storagePath'] ??
+          map['fullPath'],
+    );
+    final sourceType = parseSource(map['sourceType']);
+
+    ProductImageSource inferredSourceType() {
+      if (sourceType != ProductImageSource.unknown || uri.isEmpty) {
+        return sourceType;
+      }
+      final normalizedUri = uri.startsWith('gs://')
+          ? uri
+          : uri.replaceFirst(RegExp(r'^/+'), '');
+      if (normalizedUri.startsWith('gs://') ||
+          normalizedUri.startsWith('tenants/') ||
+          normalizedUri.startsWith('public_catalogs/') ||
+          normalizedUri.startsWith('users/')) {
+        return ProductImageSource.storage;
+      }
+      if (uri.startsWith('http://') || uri.startsWith('https://')) {
+        return ProductImageSource.networkUrl;
+      }
+      if (uri.startsWith('data:') || uri.startsWith('blob:')) {
+        return ProductImageSource.memory;
+      }
+      return ProductImageSource.localPath;
+    }
+
     return ProductImage(
       id: safeString(map['id'], fallback: const Uuid().v4().substring(0, 8)),
-      sourceType: parseSource(map['sourceType']),
-      uri: safeString(map['uri']),
+      sourceType: inferredSourceType(),
+      uri: uri,
       label: safeNullableString(map['label']),
       order: safeInt(map['order']),
       colorTag: safeNullableString(map['colorTag']),

@@ -8,6 +8,7 @@ import 'package:catalogo_ja/ui/widgets/section_card.dart';
 import 'package:catalogo_ja/ui/widgets/promo_badge.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
 import 'package:flutter/material.dart';
+import 'package:catalogo_ja/ui/widgets/app_product_image_view.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -451,24 +452,34 @@ class _AlteredProductRowState extends State<_AlteredProductRow> {
     _typeRetail = widget.product.resolvedPromotionType;
     _typeWholesale = widget.product.resolvedPromotionTypeWholesale;
 
+    final pPriceR = widget.product.pricePromotionRetail ?? 0;
+    final originalR = widget.product.priceOriginalForPromotion;
+    double initialDiscountR = widget.product.promoPercentRetail;
+    if (_typeRetail == 'manual' && pPriceR > 0 && originalR > 0) {
+      initialDiscountR = originalR - pPriceR;
+    }
     _percentRetailCtrl = TextEditingController(
-      text: widget.product.promoPercentRetail > 0
-          ? _formatPercent(widget.product.promoPercentRetail)
+      text: initialDiscountR > 0
+          ? _formatPercent(initialDiscountR)
           : '',
     );
-    final pPriceR = widget.product.pricePromotionRetail ?? 0;
     _manualRetailCtrl = TextEditingController(
-      text: pPriceR > 0 ? _formatCurrency(pPriceR) : '',
+      text: pPriceR > 0 ? _formatCurrency(pPriceR).replaceAll('R\$ ', '') : '',
     );
 
+    final pPriceW = widget.product.pricePromotionWholesale ?? 0;
+    final originalW = widget.product.priceOriginalForPromotionWholesale;
+    double initialDiscountW = widget.product.promoPercentWholesale;
+    if (_typeWholesale == 'manual' && pPriceW > 0 && originalW > 0) {
+      initialDiscountW = originalW - pPriceW;
+    }
     _percentWholesaleCtrl = TextEditingController(
-      text: widget.product.promoPercentWholesale > 0
-          ? _formatPercent(widget.product.promoPercentWholesale)
+      text: initialDiscountW > 0
+          ? _formatPercent(initialDiscountW)
           : '',
     );
-    final pPriceW = widget.product.pricePromotionWholesale ?? 0;
     _manualWholesaleCtrl = TextEditingController(
-      text: pPriceW > 0 ? _formatCurrency(pPriceW) : '',
+      text: pPriceW > 0 ? _formatCurrency(pPriceW).replaceAll('R\$ ', '') : '',
     );
   }
 
@@ -502,18 +513,79 @@ class _AlteredProductRowState extends State<_AlteredProductRow> {
   double _parseCurrency(String text) {
     if (text.isEmpty) return 0.0;
     String cleaned = text
+        .replaceAll('R\$', '')
+        .replaceAll('%', '')
+        .replaceAll('.', '')
         .replaceAll(',', '.')
-        .replaceAll(RegExp(r'[^0-9.]'), '');
-    if (cleaned.split('.').length > 2) {
-      final parts = cleaned.split('.');
-      final decimal = parts.removeLast();
-      cleaned = '${parts.join('')}.$decimal';
-    }
+        .trim();
     return double.tryParse(cleaned) ?? 0.0;
   }
 
   double _parseNumber(String text) {
-    return safeDouble(text);
+    return _parseCurrency(text);
+  }
+
+  double _calculatePromotionalPrice({
+    required double originalPrice,
+    required double discountValue,
+    required String type,
+  }) {
+    if (originalPrice <= 0) return 0;
+    if (type == 'percent') {
+      final percent = discountValue.clamp(0, 100);
+      return originalPrice * (1 - (percent / 100));
+    }
+    if (type == 'manual') {
+      final result = originalPrice - discountValue;
+      return result < 0 ? 0 : result;
+    }
+    return originalPrice;
+  }
+
+  void _onDiscountChanged(bool isRetail, String value, double originalPrice) {
+    final discount = _parseNumber(value);
+    final type = isRetail ? _typeRetail : _typeWholesale;
+    
+    final newPrice = _calculatePromotionalPrice(
+      originalPrice: originalPrice,
+      discountValue: discount,
+      type: type,
+    );
+
+    setState(() {
+      final formattedPrice = newPrice.toStringAsFixed(2).replaceAll('.', ',');
+      if (isRetail) {
+        _manualRetailCtrl.text = formattedPrice;
+      } else {
+        _manualWholesaleCtrl.text = formattedPrice;
+      }
+    });
+  }
+
+  void _onTypeChanged(bool isRetail, String newType, double originalPrice) {
+    setState(() {
+      if (isRetail) {
+        _typeRetail = newType;
+      } else {
+        _typeWholesale = newType;
+      }
+    });
+    
+    final ctrl = isRetail ? _percentRetailCtrl : _percentWholesaleCtrl;
+    _onDiscountChanged(isRetail, ctrl.text, originalPrice);
+  }
+
+  void _onPriceChanged(bool isRetail, String value, double originalPrice) {
+    // Se o usuário editar o preço final manualmente, marcamos como manual (se for porcentagem, deixa como está e não recalcula desconto para evitar loop complexo, ou podemos recalcular o desconto)
+    // O usuário pediu: "Se o usuário alterar o campo 'Por', pode recalcular o desconto inverso ou marcar como preço manual. Preferência: Quando o tipo for 'Porcentagem', o campo 'Por' deve ser calculado automaticamente pelo desconto."
+    // Como a preferência é calcular pelo desconto, se ele mexer no preço final, marcamos como manual para ele poder editar livremente.
+    setState(() {
+      if (isRetail) {
+        _typeRetail = 'manual';
+      } else {
+        _typeWholesale = 'manual';
+      }
+    });
   }
 
   @override
@@ -558,10 +630,10 @@ class _AlteredProductRowState extends State<_AlteredProductRow> {
                   color: Colors.grey[200],
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: p.mainImage != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: _buildImage(p.mainImage!.uri),
+                child: p.displayImageUrl != null
+                    ? AppProductImageView(
+                        imageUrl: p.displayImageUrl,
+                        borderRadius: 8,
                       )
                     : const Icon(Icons.image_not_supported, color: Colors.grey),
               ),
@@ -650,9 +722,9 @@ class _AlteredProductRowState extends State<_AlteredProductRow> {
                 _typeRetail,
                 _percentRetailCtrl,
                 _manualRetailCtrl,
-                (v) => setState(() => _typeRetail = v),
-                (_) => setState(() {}),
-                (_) => setState(() {}),
+                (v) => _onTypeChanged(true, v, originalR),
+                (v) => _onDiscountChanged(true, v, originalR),
+                (v) => _onPriceChanged(true, v, originalR),
                 _isActiveRetail,
                 (v) => setState(() => _isActiveRetail = v),
               );
@@ -665,9 +737,9 @@ class _AlteredProductRowState extends State<_AlteredProductRow> {
                 _typeWholesale,
                 _percentWholesaleCtrl,
                 _manualWholesaleCtrl,
-                (v) => setState(() => _typeWholesale = v),
-                (_) => setState(() {}),
-                (_) => setState(() {}),
+                (v) => _onTypeChanged(false, v, originalW),
+                (v) => _onDiscountChanged(false, v, originalW),
+                (v) => _onPriceChanged(false, v, originalW),
                 _isActiveWholesale,
                 (v) => setState(() => _isActiveWholesale = v),
               );
@@ -718,13 +790,9 @@ class _AlteredProductRowState extends State<_AlteredProductRow> {
     ValueChanged<bool> onActiveChanged,
   ) {
     double finalPricePreview = original;
-    if (type == 'percent') {
-      final perc = _parseNumber(percentController.text);
-      if (perc > 0 && perc <= 100)
-        finalPricePreview = original * (1 - (perc / 100));
-    } else {
-      final man = _parseCurrency(priceController.text);
-      if (man > 0) finalPricePreview = man;
+    final man = _parseCurrency(priceController.text);
+    if (man > 0) {
+      finalPricePreview = man;
     }
 
     return Container(
@@ -818,7 +886,7 @@ class _AlteredProductRowState extends State<_AlteredProductRow> {
                 flex: 2,
                 child: TextField(
                   controller: percentController,
-                  enabled: isActive && type == 'percent',
+                  enabled: isActive,
                   textAlign: TextAlign.end,
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
@@ -827,11 +895,12 @@ class _AlteredProductRowState extends State<_AlteredProductRow> {
                     FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]')),
                   ],
                   onChanged: onPercentChanged,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Desconto',
-                    suffixText: '%',
+                    suffixText: type == 'percent' ? '%' : null,
+                    prefixText: type == 'manual' ? 'R\$ ' : null,
                     isDense: true,
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
                   ),
                 ),
               ),
@@ -860,16 +929,5 @@ class _AlteredProductRowState extends State<_AlteredProductRow> {
         ],
       ),
     );
-  }
-
-  Widget _buildImage(String uri) {
-    if (uri.startsWith('http') || uri.startsWith('gs')) {
-      return Image.network(
-        uri,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => const Icon(Icons.error),
-      );
-    }
-    return const Icon(Icons.image);
   }
 }

@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:convert';
-import 'package:catalogo_ja/models/product_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:catalogo_ja/models/product.dart';
@@ -9,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:catalogo_ja/core/utils/uri_utils.dart';
+import 'package:catalogo_ja/ui/widgets/app_product_image_view.dart';
 
 class AppProductListTile extends StatelessWidget {
   final Product product;
@@ -71,8 +71,8 @@ class AppProductListTile extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          if (primaryImage?.uri.trim().isNotEmpty == true)
-            Positioned.fill(child: _buildCardWallpaper(primaryImage!.uri)),
+          if (primaryImage != null && primaryImage.trim().isNotEmpty == true)
+            Positioned.fill(child: _buildCardWallpaper(primaryImage)),
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -102,7 +102,7 @@ class AppProductListTile extends StatelessWidget {
               padding: const EdgeInsets.all(12),
               child: Row(
                 children: [
-                  _buildPhotoFrame(context, primaryImage?.uri, isDark),
+                  _buildPhotoFrame(context, primaryImage, isDark),
                   const SizedBox(width: 16),
 
                   // Info Section
@@ -423,91 +423,14 @@ class AppProductListTile extends StatelessWidget {
   }
 
   Widget _buildImage(String? originalPath) {
-    if (originalPath == null || originalPath.trim().isEmpty) {
-      return const Icon(
-        Icons.image_not_supported_outlined,
-        size: 24,
-        color: Colors.grey,
-      );
-    }
-
-    final path = originalPath.trim();
-    if (!UriUtils.isUsableImagePath(path)) {
-      return const Icon(
-        Icons.image_not_supported_outlined,
-        size: 24,
-        color: Colors.grey,
-      );
-    }
-
-    // 1. Network / Cloud / Blob
-    if (UriUtils.isNetworkImageUri(path)) {
-      return CachedNetworkImage(
-        imageUrl: path,
-        cacheManager: DefaultCacheManager(),
-        fit: BoxFit.contain,
-        maxWidthDiskCache: 400,
-        memCacheWidth: 200,
-        placeholder: (context, url) => Container(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          child: const Center(
-            child: SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          ),
-        ),
-        errorWidget: (context, url, error) => const Icon(
-          Icons.broken_image_outlined,
-          size: 20,
-          color: AppTokens.textMuted,
-        ),
-      );
-    }
-
-    // 2. Data URI (Base64)
-    if (path.startsWith('data:')) {
-      final commaIndex = path.indexOf(',');
-      if (commaIndex != -1 && commaIndex + 1 < path.length) {
-        try {
-          return Image.memory(
-            base64Decode(path.substring(commaIndex + 1)),
-            fit: BoxFit.contain,
-            cacheWidth: 200,
-            errorBuilder: (_, _, _) =>
-                const Icon(Icons.broken_image_outlined, size: 20),
-          );
-        } catch (_) {}
-      }
-    }
-
-    // 3. Local File (Non-Web)
-    if (!kIsWeb) {
-      try {
-        final file = File(path);
-        if (file.existsSync() &&
-            file.statSync().type != FileSystemEntityType.directory) {
-          return Image.file(
-            file,
-            fit: BoxFit.contain,
-            cacheWidth: 200,
-            errorBuilder: (_, _, _) =>
-                const Icon(Icons.broken_image_outlined, size: 20),
-          );
-        }
-      } catch (_) {}
-    }
-
-    // Final Fallback
-    return const Icon(
-      Icons.image_not_supported_outlined,
-      size: 24,
-      color: Colors.grey,
+    return AppProductImageView(
+      imageUrl: originalPath,
+      borderRadius: 13,
+      fit: BoxFit.contain,
     );
   }
 
-  ProductImage? _resolvePrimaryImage(Product product) {
-    return product.mainImage;
+  String? _resolvePrimaryImage(Product product) {
+    return product.displayImageUrl;
   }
 }

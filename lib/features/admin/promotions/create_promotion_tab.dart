@@ -559,24 +559,20 @@ class _CreatePromotionTabState extends ConsumerState<CreatePromotionTab> {
     setState(() {
       if (isRetail) {
         _typeRetailByProductId[product.id] = type;
-        if (type == _PromotionApplyMode.percent) {
-          var percent = _parseNumber(_percentRetailControllers[product.id]?.text ?? _percentRetailController.text);
-          if (percent <= 0) {
-            percent = _parseNumber(_percentRetailController.text);
-            _percentRetailControllers[product.id]?.text = _formatPercent(percent);
-          }
-          if (percent >= 0 && percent <= 100) _updatePercentPrice(product, true, percent);
+        var discount = _parseNumber(_percentRetailControllers[product.id]?.text ?? _percentRetailController.text);
+        if (discount <= 0 && type == _PromotionApplyMode.percent) {
+          discount = _parseNumber(_percentRetailController.text);
+          _percentRetailControllers[product.id]?.text = _formatPercent(discount);
         }
+        if (discount >= 0) _updatePercentPrice(product, true, discount);
       } else {
         _typeWholesaleByProductId[product.id] = type;
-        if (type == _PromotionApplyMode.percent) {
-          var percent = _parseNumber(_percentWholesaleControllers[product.id]?.text ?? _percentWholesaleController.text);
-          if (percent <= 0) {
-            percent = _parseNumber(_percentWholesaleController.text);
-            _percentWholesaleControllers[product.id]?.text = _formatPercent(percent);
-          }
-          if (percent >= 0 && percent <= 100) _updatePercentPrice(product, false, percent);
+        var discount = _parseNumber(_percentWholesaleControllers[product.id]?.text ?? _percentWholesaleController.text);
+        if (discount <= 0 && type == _PromotionApplyMode.percent) {
+          discount = _parseNumber(_percentWholesaleController.text);
+          _percentWholesaleControllers[product.id]?.text = _formatPercent(discount);
         }
+        if (discount >= 0) _updatePercentPrice(product, false, discount);
       }
     });
   }
@@ -585,13 +581,28 @@ class _CreatePromotionTabState extends ConsumerState<CreatePromotionTab> {
     setState(() {
       final percent = _parseNumber(value);
       if (isRetail) {
-        _typeRetailByProductId[product.id] = _PromotionApplyMode.percent;
-        if (percent >= 0 && percent <= 100) _updatePercentPrice(product, true, percent);
+        _updatePercentPrice(product, true, percent);
       } else {
-        _typeWholesaleByProductId[product.id] = _PromotionApplyMode.percent;
-        if (percent >= 0 && percent <= 100) _updatePercentPrice(product, false, percent);
+        _updatePercentPrice(product, false, percent);
       }
     });
+  }
+
+  double _calculatePromotionalPrice({
+    required double originalPrice,
+    required double discountValue,
+    required _PromotionApplyMode type,
+  }) {
+    if (originalPrice <= 0) return 0;
+    if (type == _PromotionApplyMode.percent) {
+      final percent = discountValue.clamp(0, 100);
+      return originalPrice * (1 - (percent / 100));
+    }
+    if (type == _PromotionApplyMode.manual) {
+      final result = originalPrice - discountValue;
+      return result < 0 ? 0 : result;
+    }
+    return originalPrice;
   }
 
   void _setProductManual(String productId, bool isRetail) {
@@ -604,15 +615,25 @@ class _CreatePromotionTabState extends ConsumerState<CreatePromotionTab> {
     }
   }
 
-  void _updatePercentPrice(Product product, bool isRetail, double percent) {
+  void _updatePercentPrice(Product product, bool isRetail, double discount) {
     if (isRetail) {
       final original = product.priceOriginalForPromotion;
-      final value = original * (1 - (percent / 100));
-      _priceRetailControllers[product.id]?.text = _formatCurrency(value);
+      final type = _typeRetailByProductId[product.id] ?? _PromotionApplyMode.percent;
+      final value = _calculatePromotionalPrice(
+        originalPrice: original,
+        discountValue: discount,
+        type: type,
+      );
+      _priceRetailControllers[product.id]?.text = _formatCurrency(value).replaceAll('R\$ ', '');
     } else {
       final original = product.priceOriginalForPromotionWholesale;
-      final value = original * (1 - (percent / 100));
-      _priceWholesaleControllers[product.id]?.text = _formatCurrency(value);
+      final type = _typeWholesaleByProductId[product.id] ?? _PromotionApplyMode.percent;
+      final value = _calculatePromotionalPrice(
+        originalPrice: original,
+        discountValue: discount,
+        type: type,
+      );
+      _priceWholesaleControllers[product.id]?.text = _formatCurrency(value).replaceAll('R\$ ', '');
     }
   }
 
@@ -842,12 +863,12 @@ class _CreatePromotionTabState extends ConsumerState<CreatePromotionTab> {
   
   double _parseCurrency(String text) {
     if (text.isEmpty) return 0.0;
-    String cleaned = text.replaceAll(',', '.').replaceAll(RegExp(r'[^0-9.]'), '');
-    if (cleaned.split('.').length > 2) {
-      final parts = cleaned.split('.');
-      final decimal = parts.removeLast();
-      cleaned = '${parts.join('')}.$decimal';
-    }
+    String cleaned = text
+        .replaceAll('R\$', '')
+        .replaceAll('%', '')
+        .replaceAll('.', '')
+        .replaceAll(',', '.')
+        .trim();
     return double.tryParse(cleaned) ?? 0.0;
   }
 
@@ -1098,12 +1119,18 @@ class _PromotionProductRow extends StatelessWidget {
                 flex: 2,
                 child: TextField(
                   controller: percentController,
-                  enabled: selected && type == _PromotionApplyMode.percent,
+                  enabled: selected,
                   textAlign: TextAlign.end,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]'))],
                   onChanged: onPercentChanged,
-                  decoration: const InputDecoration(labelText: 'Desconto', suffixText: '%', isDense: true, border: OutlineInputBorder()),
+                  decoration: InputDecoration(
+                    labelText: 'Desconto', 
+                    suffixText: type == _PromotionApplyMode.percent ? '%' : null, 
+                    prefixText: type == _PromotionApplyMode.manual ? 'R\$ ' : null,
+                    isDense: true, 
+                    border: const OutlineInputBorder()
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
