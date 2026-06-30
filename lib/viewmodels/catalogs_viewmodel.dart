@@ -364,7 +364,7 @@ class CatalogsViewModel extends _$CatalogsViewModel {
           currentLocalCatalogs.isEmpty && currentLocalProducts.isEmpty;
       if (hasNoLocalData) {
         final settings = ref.read(settingsRepositoryProvider).getSettings();
-        if (!settings.isInitialSyncCompleted) {
+        if (!settings.isInitialSyncCompleted && !kIsWeb) {
           return 0; // Aguarda carga inicial via backup
         }
       }

@@ -67,7 +67,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
       final localProducts = await _localRepo.getProducts();
       final settings = _settingsRepo.getSettings();
 
-      if (localProducts.isEmpty && !settings.isInitialSyncCompleted) {
+      if (localProducts.isEmpty && !settings.isInitialSyncCompleted && !kIsWeb) {
         return localProducts;
       }
 

@@ -1,4 +1,4 @@
-﻿import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
+import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/models/category.dart';
@@ -16,7 +16,7 @@ import 'package:catalogo_ja/ui/widgets/app_product_list_tile.dart';
 import 'package:uuid/uuid.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
 import 'package:catalogo_ja/viewmodels/settings_viewmodel.dart';
-
+import 'package:flutter/foundation.dart';
 class ProductsScreen extends ConsumerStatefulWidget {
   const ProductsScreen({super.key});
 
@@ -856,7 +856,7 @@ class _ProductsContent extends ConsumerWidget {
       return SliverPadding(
         padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
         sliver: SliverToBoxAdapter(
-          child: !isInitialSyncCompleted
+          child: !isInitialSyncCompleted && !kIsWeb
               ? const AppEmptyState(
                   icon: Icons.cloud_download_outlined,
                   title: 'Carga Inicial Necessária',
@@ -1323,7 +1323,7 @@ class _ProductsListSectionState extends State<_ProductsListSection> {
   @override
   Widget build(BuildContext context) {
     if (widget.state.filteredProducts.isEmpty) {
-      if (!widget.isInitialSyncCompleted) {
+      if (!widget.isInitialSyncCompleted && !kIsWeb) {
         return const AppEmptyState(
           icon: Icons.cloud_download_outlined,
           title: 'Carga Inicial Necessária',

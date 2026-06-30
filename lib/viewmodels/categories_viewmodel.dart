@@ -607,7 +607,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       // 🔑 Trava de Offline-First
       if (currentLocalCategories.isEmpty) {
         final settings = ref.read(settingsRepositoryProvider).getSettings();
-        if (!settings.isInitialSyncCompleted) {
+        if (!settings.isInitialSyncCompleted && !kIsWeb) {
           return 0; // Abort download to save Firebase reads
         }
       }
