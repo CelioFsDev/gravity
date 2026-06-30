@@ -5,6 +5,7 @@ import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
+import 'package:catalogo_ja/ui/widgets/app_product_image_view.dart';
 import 'package:catalogo_ja/ui/widgets/app_search_field.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
@@ -61,7 +62,7 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
       if (_onlySelected && !selectedIdSet.contains(product.id)) {
         return false;
       }
-      if (_onlyWithPhoto && product.photos.isEmpty && product.images.isEmpty) {
+      if (_onlyWithPhoto && !product.hasValidProductImage) {
         return false;
       }
       if (_onlyPromotion && !product.promotionActive) {
@@ -347,6 +348,19 @@ class _ProductSelectTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
 
+    final ref = product.ref;
+    if (['00002', '107037', '107031', '106852', '106923', '106860'].contains(ref)) {
+      debugPrint(
+        'Produto REF $ref | '
+        'nome: ${product.name} | '
+        'remoteImages: ${product.remoteImages} | '
+        'images: ${product.images.map((e) => e.uri).toList()} | '
+        'photos: ${product.photos.map((e) => e.path).toList()} | '
+        'displayImageUrl: ${product.displayImageUrl} | '
+        'hasValidProductImage: ${product.hasValidProductImage}'
+      );
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: isSelected
@@ -362,7 +376,12 @@ class _ProductSelectTile extends StatelessWidget {
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.all(12),
-        leading: _ProductThumb(imagePath: _resolvePrimaryImage(product)),
+        leading: AppProductImageView(
+          imageUrl: product.displayImageUrl,
+          width: 56,
+          height: 56,
+          borderRadius: 12,
+        ),
         title: Text(
           product.name,
           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
@@ -387,99 +406,4 @@ class _ProductSelectTile extends StatelessWidget {
     );
   }
 
-  String? _resolvePrimaryImage(Product product) {
-    if (product.photos.isNotEmpty) {
-      final typedPrimary = product.photos.firstWhere(
-        (photo) => photo.photoType == 'P',
-        orElse: () => product.photos.firstWhere(
-          (photo) => photo.isPrimary,
-          orElse: () => product.photos.first,
-        ),
-      );
-      final path = typedPrimary.path.trim();
-      if (path.isNotEmpty) return path;
-    }
-
-    if (product.images.isNotEmpty) {
-      final index = product.mainImageIndex;
-      if (index >= 0 && index < product.images.length) {
-        final path = product.images[index].uri.trim();
-        if (path.isNotEmpty) return path;
-      }
-      final fallback = product.images.first.uri.trim();
-      if (fallback.isNotEmpty) return fallback;
-    }
-
-    return null;
-  }
-}
-
-class _ProductThumb extends StatelessWidget {
-  final String? imagePath;
-
-  const _ProductThumb({required this.imagePath});
-
-  @override
-  Widget build(BuildContext context) {
-    final path = imagePath?.trim();
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        width: 56,
-        height: 56,
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        child: _buildPreview(path, context),
-      ),
-    );
-  }
-
-  Widget _buildPreview(String? path, BuildContext context) {
-    if (path == null || path.isEmpty) return _placeholder(context);
-
-    if (path.startsWith('data:')) {
-      final commaIndex = path.indexOf(',');
-      if (commaIndex != -1 && commaIndex + 1 < path.length) {
-        try {
-          final bytes = base64Decode(path.substring(commaIndex + 1));
-          return Image.memory(
-            bytes,
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => _placeholder(context),
-          );
-        } catch (_) {
-          return _placeholder(context);
-        }
-      }
-      return _placeholder(context);
-    }
-
-    if (path.startsWith('http://') ||
-        path.startsWith('https://') ||
-        path.startsWith('blob:')) {
-      return Image.network(
-        path,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => _placeholder(context),
-      );
-    }
-
-    if (!kIsWeb) {
-      return Image.file(
-        File(path),
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => _placeholder(context),
-      );
-    }
-
-    return _placeholder(context);
-  }
-
-  Widget _placeholder(BuildContext context) {
-    return Center(
-      child: Icon(
-        Icons.image_outlined,
-        color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-      ),
-    );
-  }
 }

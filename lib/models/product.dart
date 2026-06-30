@@ -430,6 +430,8 @@ class Product {
       'description': description,
       'tags': tags.toList(),
       'remoteImages': remoteImages.toList(),
+      if (displayImageUrl != null && displayImageUrl!.trim().isNotEmpty && _isRemoteOrStorageImageUri(displayImageUrl!))
+        'imageUrl': displayImageUrl!.trim(),
       'variants': variants
           .map(
             (v) => {'sku': v.sku, 'stock': v.stock, 'attributes': v.attributes},
@@ -554,13 +556,29 @@ class Product {
       slug: safeString(map['slug']),
       description: safeNullableString(map['description']),
       tags: safeStringList(map['tags']),
-      remoteImages: safeStringList(
-        map['remoteImages'] ??
-            map['imageUrls'] ??
-            map['imageUrl'] ??
-            map['image'] ??
-            map['photo'],
-      ),
+      remoteImages: () {
+        final List<String> urls = [];
+        for (final key in ['remoteImages', 'imageUrls', 'images', 'photos']) {
+          if (map[key] is List) {
+            urls.addAll(safeStringList(map[key]));
+          }
+        }
+        for (final key in [
+          'imageUrl',
+          'imageURL',
+          'photoUrl',
+          'thumbnailUrl',
+          'mainImageUrl',
+          'coverImageUrl',
+          'image',
+          'photo',
+          'storagePath'
+        ]) {
+          final val = safeNullableString(map[key]);
+          if (val != null && val.isNotEmpty && val.toLowerCase() != 'null' && val.toLowerCase() != 'undefined') urls.add(val);
+        }
+        return urls.toSet().toList();
+      }(),
       variants: parseVariants(map['variants']),
       createdAt: safeDateTime(map['createdAt']),
       updatedAt: safeDateTime(map['updatedAt']),
@@ -640,7 +658,10 @@ class Product {
   String? get displayImageUrl {
     if (remoteImages.isNotEmpty) {
       final remoteUrl = remoteImages.firstWhere(
-        (url) => url.trim().isNotEmpty && _isRemoteOrStorageImageUri(url),
+        (url) {
+           final t = url.trim();
+           return t.isNotEmpty && t.toLowerCase() != 'null' && t.toLowerCase() != 'undefined' && _isRemoteOrStorageImageUri(t);
+        },
         orElse: () => '',
       );
       if (remoteUrl.isNotEmpty) return remoteUrl.trim();
@@ -652,6 +673,16 @@ class Product {
     }
 
     return null;
+  }
+
+  bool get hasValidProductImage {
+    final url = displayImageUrl?.trim();
+    if (url == null || url.isEmpty) return false;
+    if (url.toLowerCase() == 'null' || url.toLowerCase() == 'undefined') return false;
+    if (url.startsWith('file://')) return false;
+    if (url.contains(r'C:\')) return false;
+    if (url.contains('/data/user/')) return false; // Android local cache
+    return true;
   }
 
   ProductImage? get mainImage {

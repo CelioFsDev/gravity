@@ -8,12 +8,12 @@ import 'package:catalogo_ja/models/order.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/product_image.dart';
 import 'package:catalogo_ja/models/product_variant.dart';
+import 'package:catalogo_ja/viewmodels/cart_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:catalogo_ja/ui/widgets/promo_badge.dart';
 import 'package:catalogo_ja/ui/widgets/app_product_image_view.dart';
-import 'package:catalogo_ja/viewmodels/cart_viewmodel.dart';
 
 class AppProductCard extends ConsumerStatefulWidget {
   final Product product;
@@ -33,6 +33,7 @@ class AppProductCard extends ConsumerStatefulWidget {
     this.showSelectors = true,
     this.showPurchaseControls = true,
     this.badgeLabel,
+    ProductImage? imageOverride,
   });
 
   @override
@@ -69,7 +70,9 @@ class _AppProductCardState extends ConsumerState<AppProductCard> {
   @override
   Widget build(BuildContext context) {
     final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
-    final activeMode = widget.mode == CatalogMode.atacado ? 'atacado' : 'varejo';
+    final activeMode = widget.mode == CatalogMode.atacado
+        ? 'atacado'
+        : 'varejo';
     final price = widget.product.priceForMode(activeMode);
     final originalPrice = widget.product.originalPriceForMode(activeMode);
     final hasPromo = widget.product.hasActivePromotionForMode(activeMode);
@@ -100,7 +103,9 @@ class _AppProductCardState extends ConsumerState<AppProductCard> {
                 fit: StackFit.expand,
                 children: [
                   AppProductImageView(
-                    imageUrl: widget.imageOverrideUrl ?? widget.product.displayImageUrl,
+                    imageUrl:
+                        widget.imageOverrideUrl ??
+                        widget.product.displayImageUrl,
                   ),
                   if (hasPromo)
                     Positioned(

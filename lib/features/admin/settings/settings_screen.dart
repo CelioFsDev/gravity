@@ -14,6 +14,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:go_router/go_router.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:catalogo_ja/data/repositories/tenant_repository.dart';
+import 'package:catalogo_ja/core/sync/providers/sync_providers.dart';
 import 'package:catalogo_ja/ui/widgets/app_primary_button.dart';
 import 'package:catalogo_ja/core/config/public_catalog_config.dart';
 
@@ -112,6 +113,39 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     } finally {
       if (mounted) setState(() => _isUploadingChanges = false);
     }
+  }
+
+  Future<void> _pullFromCloud() async {
+    final syncQueue = ref.read(syncQueueRepositoryProvider);
+    final pendingCount = syncQueue.getPendingOrErrorItems().length;
+
+    if (pendingCount > 0) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Alterações Pendentes'),
+          content: Text(
+            'Existem $pendingCount alterações locais ainda não enviadas.\n\n'
+            'Ao baixar da nuvem, os dados locais podem ser substituídos e você perderá essas alterações. Deseja continuar?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('CANCELAR'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('BAIXAR MESMO ASSIM'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirm != true) return;
+    }
+
+    await ref.read(globalSyncViewModelProvider.notifier).syncDownEverything();
   }
 
   Future<void> _testPublicLink(String baseUrl) async {
@@ -562,9 +596,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () => ref
-                            .read(globalSyncViewModelProvider.notifier)
-                            .syncDownEverything(),
+                        onPressed: _isUploadingChanges ? null : _pullFromCloud,
                         icon: const Icon(Icons.cloud_download_outlined),
                         label: const Text('BAIXAR NUVEM'),
                       ),
