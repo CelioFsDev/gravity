@@ -299,6 +299,11 @@ class _PublicProductDetailScreenState
               ),
             ),
           ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
             // Gallery
             _buildGallerySection(),
 

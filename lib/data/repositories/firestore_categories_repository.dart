@@ -13,7 +13,7 @@ import 'package:catalogo_ja/data/repositories/categories_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' hide Category;
 
 class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -292,7 +292,10 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
           : SyncStatus.synced,
     );
 
-    await _collection.doc(updatedCategory.id).set(updatedCategory.toMap()).timeout(const Duration(seconds: 15));
+    await _collection
+        .doc(updatedCategory.id)
+        .set(updatedCategory.toMap())
+        .timeout(const Duration(seconds: 15));
     await _localRepo.addCategory(updatedCategory);
     invalidateCache();
   }
@@ -316,15 +319,13 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
       }
     }
 
-    final toSync = localCategories
-        .where((category) {
-          if (category.syncStatus == SyncStatus.pendingUpdate) return true;
-          if (!force) return false;
-          final remoteCategory = remoteById[category.id];
-          return remoteCategory == null ||
-              category.updatedAt.isAfter(remoteCategory.updatedAt);
-        })
-        .toList();
+    final toSync = localCategories.where((category) {
+      if (category.syncStatus == SyncStatus.pendingUpdate) return true;
+      if (!force) return false;
+      final remoteCategory = remoteById[category.id];
+      return remoteCategory == null ||
+          category.updatedAt.isAfter(remoteCategory.updatedAt);
+    }).toList();
 
     if (toSync.isEmpty) {
       if (onProgress != null) onProgress(1.0, 'Categorias sincronizadas!');

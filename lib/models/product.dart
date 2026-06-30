@@ -200,6 +200,30 @@ class Product {
   @HiveField(35)
   final String? promotionId;
 
+  @HiveField(36)
+  final bool promoEnabledRetail;
+
+  @HiveField(37)
+  final double promoPercentRetail;
+
+  @HiveField(38)
+  final double? priceOriginalRetail;
+
+  @HiveField(39)
+  final double? pricePromotionRetail;
+
+  @HiveField(40)
+  final bool promoEnabledWholesale;
+
+  @HiveField(41)
+  final double promoPercentWholesale;
+
+  @HiveField(42)
+  final double? priceOriginalWholesale;
+
+  @HiveField(43)
+  final double? pricePromotionWholesale;
+
   Product({
     required this.id,
     required this.name,
@@ -235,6 +259,14 @@ class Product {
     this.promotionUpdatedAt,
     this.promotionType,
     this.promotionId,
+    this.promoEnabledRetail = false,
+    this.promoPercentRetail = 0.0,
+    this.priceOriginalRetail,
+    this.pricePromotionRetail,
+    this.promoEnabledWholesale = false,
+    this.promoPercentWholesale = 0.0,
+    this.priceOriginalWholesale,
+    this.pricePromotionWholesale,
     DateTime? updatedAt,
   }) : updatedAt = updatedAt ?? createdAt;
 
@@ -274,6 +306,14 @@ class Product {
     DateTime? promotionUpdatedAt,
     String? promotionType,
     String? promotionId,
+    bool? promoEnabledRetail,
+    double? promoPercentRetail,
+    double? priceOriginalRetail,
+    double? pricePromotionRetail,
+    bool? promoEnabledWholesale,
+    double? promoPercentWholesale,
+    double? priceOriginalWholesale,
+    double? pricePromotionWholesale,
     bool clearPriceOriginal = false,
     bool clearPricePromotion = false,
     bool clearPromotionName = false,
@@ -282,6 +322,10 @@ class Product {
     bool clearPromotionUpdatedAt = false,
     bool clearPromotionType = false,
     bool clearPromotionId = false,
+    bool clearPriceOriginalRetail = false,
+    bool clearPricePromotionRetail = false,
+    bool clearPriceOriginalWholesale = false,
+    bool clearPricePromotionWholesale = false,
   }) {
     return Product(
       id: id ?? this.id,
@@ -333,6 +377,22 @@ class Product {
           ? null
           : (promotionType ?? this.promotionType),
       promotionId: clearPromotionId ? null : (promotionId ?? this.promotionId),
+      promoEnabledRetail: promoEnabledRetail ?? this.promoEnabledRetail,
+      promoPercentRetail: promoPercentRetail ?? this.promoPercentRetail,
+      priceOriginalRetail: clearPriceOriginalRetail
+          ? null
+          : (priceOriginalRetail ?? this.priceOriginalRetail),
+      pricePromotionRetail: clearPricePromotionRetail
+          ? null
+          : (pricePromotionRetail ?? this.pricePromotionRetail),
+      promoEnabledWholesale: promoEnabledWholesale ?? this.promoEnabledWholesale,
+      promoPercentWholesale: promoPercentWholesale ?? this.promoPercentWholesale,
+      priceOriginalWholesale: clearPriceOriginalWholesale
+          ? null
+          : (priceOriginalWholesale ?? this.priceOriginalWholesale),
+      pricePromotionWholesale: clearPricePromotionWholesale
+          ? null
+          : (pricePromotionWholesale ?? this.pricePromotionWholesale),
     );
   }
 
@@ -401,6 +461,14 @@ class Product {
       'promotionUpdatedAt': promotionUpdatedAt?.toIso8601String(),
       'promotionType': promotionType,
       'promotionId': promotionId,
+      'promoEnabledRetail': promoEnabledRetail,
+      'promoPercentRetail': promoPercentRetail,
+      'priceOriginalRetail': priceOriginalRetail,
+      'pricePromotionRetail': pricePromotionRetail,
+      'promoEnabledWholesale': promoEnabledWholesale,
+      'promoPercentWholesale': promoPercentWholesale,
+      'priceOriginalWholesale': priceOriginalWholesale,
+      'pricePromotionWholesale': pricePromotionWholesale,
     };
   }
 
@@ -537,6 +605,33 @@ class Product {
           : safeDateTime(map['promotionUpdatedAt']),
       promotionType: safeNullableString(map['promotionType']),
       promotionId: safeNullableString(map['promotionId']),
+      promoEnabledRetail: safeBool(
+        map['promoEnabledRetail'],
+        fallback: safeBool(
+          map['promotionActive'] ?? map['promoEnabled'] ?? map['isOnSale'],
+          fallback: false,
+        ),
+      ),
+      promoPercentRetail: safeDouble(
+        map['promoPercentRetail'] ??
+            map['promotionPercent'] ??
+            map['promoPercent'] ??
+            map['saleDiscountPercent'],
+      ),
+      priceOriginalRetail: map['priceOriginalRetail'] == null
+          ? (map['priceOriginal'] == null ? null : safeDouble(map['priceOriginal']))
+          : safeDouble(map['priceOriginalRetail']),
+      pricePromotionRetail: map['pricePromotionRetail'] == null
+          ? (map['pricePromotion'] == null ? null : safeDouble(map['pricePromotion']))
+          : safeDouble(map['pricePromotionRetail']),
+      promoEnabledWholesale: safeBool(map['promoEnabledWholesale'], fallback: false),
+      promoPercentWholesale: safeDouble(map['promoPercentWholesale']),
+      priceOriginalWholesale: map['priceOriginalWholesale'] == null
+          ? null
+          : safeDouble(map['priceOriginalWholesale']),
+      pricePromotionWholesale: map['pricePromotionWholesale'] == null
+          ? null
+          : safeDouble(map['pricePromotionWholesale']),
     );
   }
 
@@ -643,42 +738,70 @@ class Product {
   bool get isOnSale => promoEnabled;
   bool get promotionActive => promoEnabled;
   int get saleDiscountPercent => promoPercent.toInt();
-  double get promotionPercent => promoPercent;
-  double? get promotionPrice => pricePromotion;
+  double get promotionPercent => promoEnabledRetail ? promoPercentRetail : promoPercent;
+  double? get promotionPrice => pricePromotionRetail ?? pricePromotion;
   double get originalPrice => priceOriginalForPromotion;
 
-  double get priceOriginalForPromotion => (priceOriginal != null && priceOriginal! > 0) ? priceOriginal! : priceRetail;
+  double get priceOriginalForPromotion => (priceOriginalRetail != null && priceOriginalRetail! > 0) ? priceOriginalRetail! : ((priceOriginal != null && priceOriginal! > 0) ? priceOriginal! : priceRetail);
+  double get priceOriginalForPromotionWholesale => (priceOriginalWholesale != null && priceOriginalWholesale! > 0) ? priceOriginalWholesale! : priceWholesale;
 
   bool get hasManualPromotionPrice =>
-      pricePromotion != null && pricePromotion! > 0;
+      (pricePromotionRetail != null && pricePromotionRetail! > 0) || (pricePromotion != null && pricePromotion! > 0);
+
+  bool get hasManualPromotionPriceWholesale =>
+      pricePromotionWholesale != null && pricePromotionWholesale! > 0;
 
   String get resolvedPromotionType {
-    final normalized = promotionType?.trim().toLowerCase();
-    if (normalized == 'manual' || normalized == 'percent') return normalized!;
-    if (hasManualPromotionPrice && promoPercent <= 0) return 'manual';
+    if (hasManualPromotionPrice && promoPercentRetail <= 0) return 'manual';
+    return 'percent';
+  }
+
+  String get resolvedPromotionTypeWholesale {
+    if (hasManualPromotionPriceWholesale && promoPercentWholesale <= 0) return 'manual';
     return 'percent';
   }
 
   double get promotionPriceRetail {
-    if (!promoEnabled) return PriceCalculator.round(priceRetail);
+    final enabled = promoEnabledRetail || promoEnabled;
+    if (!enabled) return PriceCalculator.round(priceRetail);
+    
     if (resolvedPromotionType == 'manual' && hasManualPromotionPrice) {
-      return PriceCalculator.round(pricePromotion!);
+      return PriceCalculator.round((pricePromotionRetail ?? pricePromotion)!);
     }
+    
+    final pct = promoEnabledRetail ? promoPercentRetail : promoPercent;
     return PriceCalculator.effectiveRetail(
       priceOriginalForPromotion,
-      true, // passed true because we already checked promoEnabled
-      promoPercent > 0 ? promoPercent : 0,
+      true, 
+      pct > 0 ? pct : 0,
+    );
+  }
+
+  double get promotionPriceWholesaleCalculated {
+    if (!promoEnabledWholesale) return PriceCalculator.round(priceWholesale);
+    
+    if (resolvedPromotionTypeWholesale == 'manual' && hasManualPromotionPriceWholesale) {
+      return PriceCalculator.round(pricePromotionWholesale!);
+    }
+    
+    return PriceCalculator.effectiveWholesale(
+      priceOriginalForPromotionWholesale,
+      true,
+      promoPercentWholesale > 0 ? promoPercentWholesale : 0,
     );
   }
 
   bool get hasActivePromotion =>
-      promoEnabled && priceOriginalForPromotion > 0 && promotionPriceRetail > 0 && promotionPriceRetail < priceOriginalForPromotion;
+      (promoEnabledRetail || promoEnabled) && priceOriginalForPromotion > 0 && promotionPriceRetail > 0 && promotionPriceRetail < priceOriginalForPromotion;
+
+  bool get hasActivePromotionWholesale =>
+      promoEnabledWholesale && priceOriginalForPromotionWholesale > 0 && promotionPriceWholesaleCalculated > 0 && promotionPriceWholesaleCalculated < priceOriginalForPromotionWholesale;
 
   bool hasActivePromotionForMode(String mode) {
-    if (!isActive || !promoEnabled) return false;
-    final original = originalPriceForMode(mode);
-    final promo = promotionPriceForMode(mode);
-    return promo > 0 && original > 0 && promo < original;
+    if (!isActive) return false;
+    final isWholesale = mode.toLowerCase() == 'atacado';
+    if (isWholesale) return hasActivePromotionWholesale;
+    return hasActivePromotion;
   }
 
   int discountPercentageForMode(String mode) {
@@ -691,11 +814,7 @@ class Product {
 
   double get effectivePriceRetail => hasActivePromotion ? promotionPriceRetail : priceRetail;
 
-  double get effectivePriceWholesale => PriceCalculator.effectiveWholesale(
-    priceWholesale,
-    hasActivePromotion,
-    promoPercent,
-  );
+  double get effectivePriceWholesale => hasActivePromotionWholesale ? promotionPriceWholesaleCalculated : priceWholesale;
 
   String? get primarySku => variants.isNotEmpty ? variants.first.sku : null;
 
@@ -706,7 +825,7 @@ class Product {
 
   double originalPriceForMode(String mode) {
     final isWholesale = mode.toLowerCase() == 'atacado';
-    return isWholesale ? priceWholesale : priceOriginalForPromotion;
+    return isWholesale ? priceOriginalForPromotionWholesale : priceOriginalForPromotion;
   }
 
   double promotionPriceForMode(String mode) {

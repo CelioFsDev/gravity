@@ -19,7 +19,7 @@ class StockImportState {
   final String? targetStoreId;
   final String? error;
   final bool isApplied;
-  
+
   StockImportState({
     this.isProcessing = false,
     this.fileName,
@@ -54,14 +54,15 @@ class StockImportState {
   }
 }
 
-final stockImportViewModelProvider = StateNotifierProvider<StockImportViewModel, StockImportState>((ref) {
-  return StockImportViewModel(ref);
-});
+final stockImportViewModelProvider =
+    StateNotifierProvider<StockImportViewModel, StockImportState>((ref) {
+      return StockImportViewModel(ref);
+    });
 
 class StockImportViewModel extends StateNotifier<StockImportState> {
   final Ref _ref;
   final _service = StockPdfImportService();
-  
+
   StockImportViewModel(this._ref) : super(StockImportState());
 
   void setMode(StockImportMode mode) {
@@ -81,10 +82,7 @@ class StockImportViewModel extends StateNotifier<StockImportState> {
     state = state.copyWith(isProcessing: true, fileName: fileName, error: null);
     try {
       final result = await _service.parsePdf(bytes);
-      state = state.copyWith(
-        metadata: result.metadata,
-        rows: result.rows,
-      );
+      state = state.copyWith(metadata: result.metadata, rows: result.rows);
       _resolveRows();
     } catch (e) {
       state = state.copyWith(isProcessing: false, error: 'Erro ao ler PDF: $e');
@@ -94,28 +92,31 @@ class StockImportViewModel extends StateNotifier<StockImportState> {
   void _resolveRows() {
     final productsState = _ref.read(productsViewModelProvider).valueOrNull;
     final allProducts = productsState?.allProducts ?? [];
-    
+
     final resolvedRows = <StockPdfRow>[];
-    
+
     for (var row in state.rows) {
-      if (row.status == StockPdfRowStatus.colorNotFound || row.status == StockPdfRowStatus.sizeNotFound) {
-         // Keep existing status if it failed parsing validation
-         resolvedRows.add(_calculateFinalStock(row));
-         continue;
+      if (row.status == StockPdfRowStatus.colorNotFound ||
+          row.status == StockPdfRowStatus.sizeNotFound) {
+        // Keep existing status if it failed parsing validation
+        resolvedRows.add(_calculateFinalStock(row));
+        continue;
       }
 
       // 1. Find product by ref
-      final product = allProducts.where((p) => p.ref == row.reference).firstOrNull;
+      final product = allProducts
+          .where((p) => p.ref == row.reference)
+          .firstOrNull;
       if (product == null) {
         row.status = StockPdfRowStatus.productNotFound;
         resolvedRows.add(_calculateFinalStock(row));
         continue;
       }
-      
+
       if (!product.isActive) {
         row.status = StockPdfRowStatus.inactiveProduct;
       }
-      
+
       row.resolvedProductId = product.id;
 
       // 2. Find variant by color and size
@@ -123,20 +124,23 @@ class StockImportViewModel extends StateNotifier<StockImportState> {
       // O codigo da cor pode não estar lá, então buscamos por colorName ou colorCode
       ProductVariant? matchedVariant;
       for (var v in product.variants) {
-         final vColor = v.attributes['color']?.toUpperCase() ?? '';
-         final vSize = v.attributes['size']?.toUpperCase() ?? '';
-         
-         if ((vColor == row.colorName.toUpperCase() || vColor == row.colorCode) && vSize == row.size.toUpperCase()) {
-            matchedVariant = v;
-            break;
-         }
+        final vColor = v.attributes['color']?.toUpperCase() ?? '';
+        final vSize = v.attributes['size']?.toUpperCase() ?? '';
+
+        if ((vColor == row.colorName.toUpperCase() ||
+                vColor == row.colorCode) &&
+            vSize == row.size.toUpperCase()) {
+          matchedVariant = v;
+          break;
+        }
       }
 
       if (matchedVariant != null) {
         row.resolvedVariantSku = matchedVariant.sku;
         row.currentStock = matchedVariant.stock;
       } else {
-        row.currentStock = 0; // It might be created later or flagged as not found
+        row.currentStock =
+            0; // It might be created later or flagged as not found
       }
 
       resolvedRows.add(_calculateFinalStock(row));
@@ -146,38 +150,39 @@ class StockImportViewModel extends StateNotifier<StockImportState> {
   }
 
   StockPdfRow _calculateFinalStock(StockPdfRow row) {
-     int finalStock = row.currentStock;
-     if (row.status == StockPdfRowStatus.productNotFound || 
-         row.status == StockPdfRowStatus.colorNotFound ||
-         row.status == StockPdfRowStatus.sizeNotFound) {
-        row.finalStock = 0;
-        return row;
-     }
+    int finalStock = row.currentStock;
+    if (row.status == StockPdfRowStatus.productNotFound ||
+        row.status == StockPdfRowStatus.colorNotFound ||
+        row.status == StockPdfRowStatus.sizeNotFound) {
+      row.finalStock = 0;
+      return row;
+    }
 
-     switch (state.mode) {
-       case StockImportMode.replace:
-         finalStock = row.quantity;
-         break;
-       case StockImportMode.add:
-         finalStock = row.currentStock + row.quantity;
-         break;
-       case StockImportMode.subtract:
-         finalStock = row.currentStock - row.quantity;
-         break;
-       case StockImportMode.verify:
-         finalStock = row.currentStock;
-         break;
-     }
+    switch (state.mode) {
+      case StockImportMode.replace:
+        finalStock = row.quantity;
+        break;
+      case StockImportMode.add:
+        finalStock = row.currentStock + row.quantity;
+        break;
+      case StockImportMode.subtract:
+        finalStock = row.currentStock - row.quantity;
+        break;
+      case StockImportMode.verify:
+        finalStock = row.currentStock;
+        break;
+    }
 
-     if (finalStock < 0) {
-        row.status = StockPdfRowStatus.negativeStock;
-        row.selected = false;
-     } else if (row.status == StockPdfRowStatus.ok || row.status == StockPdfRowStatus.inactiveProduct) {
-        row.status = StockPdfRowStatus.ok; // Reset if it was negative before
-     }
+    if (finalStock < 0) {
+      row.status = StockPdfRowStatus.negativeStock;
+      row.selected = false;
+    } else if (row.status == StockPdfRowStatus.ok ||
+        row.status == StockPdfRowStatus.inactiveProduct) {
+      row.status = StockPdfRowStatus.ok; // Reset if it was negative before
+    }
 
-     row.finalStock = finalStock;
-     return row;
+    row.finalStock = finalStock;
+    return row;
   }
 
   void toggleRowSelection(int index) {
@@ -188,7 +193,10 @@ class StockImportViewModel extends StateNotifier<StockImportState> {
 
   void updateRowColor(int index, String newColorName) {
     final rows = List<StockPdfRow>.from(state.rows);
-    final row = rows[index].copyWith(colorName: newColorName, status: StockPdfRowStatus.ok);
+    final row = rows[index].copyWith(
+      colorName: newColorName,
+      status: StockPdfRowStatus.ok,
+    );
     rows[index] = row;
     state = state.copyWith(rows: rows);
     _resolveRows(); // Re-resolve with new color
@@ -196,63 +204,77 @@ class StockImportViewModel extends StateNotifier<StockImportState> {
 
   Future<void> applyImport() async {
     if (state.mode == StockImportMode.verify) return;
-    
+
     state = state.copyWith(isProcessing: true);
-    
+
     try {
-      final validRows = state.rows.where((r) => r.selected && r.status == StockPdfRowStatus.ok && r.resolvedProductId != null).toList();
-      
+      final validRows = state.rows
+          .where(
+            (r) =>
+                r.selected &&
+                r.status == StockPdfRowStatus.ok &&
+                r.resolvedProductId != null,
+          )
+          .toList();
+
       // Group by productId
       final Map<String, List<StockPdfRow>> updatesByProduct = {};
       for (var r in validRows) {
         updatesByProduct.putIfAbsent(r.resolvedProductId!, () => []).add(r);
       }
-      
+
       final productsNotifier = _ref.read(productsViewModelProvider.notifier);
-      final tenantId = _ref.read(tenantViewModelProvider).valueOrNull?.tenant?.id ?? 'default';
+      final tenantId =
+          _ref.read(currentTenantProvider).valueOrNull?.id ?? 'default';
 
       int successCount = 0;
 
       for (var entry in updatesByProduct.entries) {
         final productId = entry.key;
         final rowsToApply = entry.value;
-        
+
         final productsState = _ref.read(productsViewModelProvider).valueOrNull;
-        final product = productsState?.allProducts.firstWhere((p) => p.id == productId);
+        final product = productsState?.allProducts.firstWhere(
+          (p) => p.id == productId,
+        );
         if (product == null) continue;
-        
+
         List<ProductVariant> newVariants = List.from(product.variants);
-        
+
         for (var row in rowsToApply) {
-           final vIndex = newVariants.indexWhere((v) => v.sku == row.resolvedVariantSku);
-           if (vIndex >= 0) {
-              newVariants[vIndex] = ProductVariant(
-                sku: newVariants[vIndex].sku,
-                stock: row.finalStock,
-                attributes: newVariants[vIndex].attributes,
-              );
-              successCount++;
-           } else {
-              // Create variant if it didn't exist but product exists
-              final newSku = '${product.ref}.${row.colorCode}.${row.size}';
-              newVariants.add(ProductVariant(
+          final vIndex = newVariants.indexWhere(
+            (v) => v.sku == row.resolvedVariantSku,
+          );
+          if (vIndex >= 0) {
+            newVariants[vIndex] = ProductVariant(
+              sku: newVariants[vIndex].sku,
+              stock: row.finalStock,
+              attributes: newVariants[vIndex].attributes,
+            );
+            successCount++;
+          } else {
+            // Create variant if it didn't exist but product exists
+            final newSku = '${product.ref}.${row.colorCode}.${row.size}';
+            newVariants.add(
+              ProductVariant(
                 sku: newSku,
                 stock: row.finalStock,
                 attributes: {'color': row.colorName, 'size': row.size},
-              ));
-              successCount++;
-           }
+              ),
+            );
+            successCount++;
+          }
         }
-        
+
         // Recalculate isOutOfStock
         bool isOutOfStock = newVariants.every((v) => v.stock <= 0);
-        
+
         final updatedProduct = product.copyWith(
           variants: newVariants,
           isOutOfStock: isOutOfStock,
           updatedAt: DateTime.now(),
         );
-        
+
         // Update product in backend/Hive via ProductsViewModel
         await productsNotifier.updateProduct(updatedProduct);
       }
@@ -274,7 +296,9 @@ class StockImportViewModel extends StateNotifier<StockImportState> {
         totalParsedRows: state.rows.length,
         successCount: successCount,
         warningCount: 0,
-        errorCount: state.rows.where((r) => r.status != StockPdfRowStatus.ok).length,
+        errorCount: state.rows
+            .where((r) => r.status != StockPdfRowStatus.ok)
+            .length,
         ignoredCount: state.rows.where((r) => !r.selected).length,
         status: 'completed',
         sourceSystem: 'pdf_import',

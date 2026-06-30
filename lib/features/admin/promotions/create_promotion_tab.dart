@@ -13,6 +13,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
+import 'package:catalogo_ja/core/utils/currency_formatter.dart';
 
 enum _PromotionApplyMode { percent, manual }
 
@@ -25,28 +26,38 @@ class CreatePromotionTab extends ConsumerStatefulWidget {
 
 class _CreatePromotionTabState extends ConsumerState<CreatePromotionTab> {
   final _nameController = TextEditingController();
-  final _percentController = TextEditingController(text: '20');
-  final _manualValueController = TextEditingController();
-  final Map<String, TextEditingController> _priceControllers = {};
-  final Map<String, TextEditingController> _percentControllers = {};
-  final Map<String, _PromotionApplyMode> _typeByProductId = {};
+  
+  final _percentRetailController = TextEditingController(text: '20');
+  final _manualValueRetailController = TextEditingController();
+  final _percentWholesaleController = TextEditingController(text: '20');
+  final _manualValueWholesaleController = TextEditingController();
+  
+  final Map<String, TextEditingController> _priceRetailControllers = {};
+  final Map<String, TextEditingController> _percentRetailControllers = {};
+  final Map<String, _PromotionApplyMode> _typeRetailByProductId = {};
+
+  final Map<String, TextEditingController> _priceWholesaleControllers = {};
+  final Map<String, TextEditingController> _percentWholesaleControllers = {};
+  final Map<String, _PromotionApplyMode> _typeWholesaleByProductId = {};
 
   String? _selectedGroupId;
   Set<String> _selectedProductIds = {};
   _PromotionApplyMode _mode = _PromotionApplyMode.percent;
   bool _isSaving = false;
+  bool _applyToRetail = true;
+  bool _applyToWholesale = true;
 
   @override
   void dispose() {
     _nameController.dispose();
-    _percentController.dispose();
-    _manualValueController.dispose();
-    for (final controller in _priceControllers.values) {
-      controller.dispose();
-    }
-    for (final controller in _percentControllers.values) {
-      controller.dispose();
-    }
+    _percentRetailController.dispose();
+    _manualValueRetailController.dispose();
+    _percentWholesaleController.dispose();
+    _manualValueWholesaleController.dispose();
+    for (final c in _priceRetailControllers.values) c.dispose();
+    for (final c in _priceWholesaleControllers.values) c.dispose();
+    for (final c in _percentRetailControllers.values) c.dispose();
+    for (final c in _percentWholesaleControllers.values) c.dispose();
     super.dispose();
   }
 
@@ -181,6 +192,29 @@ class _CreatePromotionTabState extends ConsumerState<CreatePromotionTab> {
                 onChanged: (value) => _selectGroup(state, value),
               ),
               const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: CheckboxListTile(
+                      title: const Text('Aplicar Varejo'),
+                      value: _applyToRetail,
+                      onChanged: (v) => setState(() => _applyToRetail = v == true),
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                    ),
+                  ),
+                  Expanded(
+                    child: CheckboxListTile(
+                      title: const Text('Aplicar Atacado'),
+                      value: _applyToWholesale,
+                      onChanged: (v) => setState(() => _applyToWholesale = v == true),
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
               SegmentedButton<_PromotionApplyMode>(
                 segments: const [
                   ButtonSegment(
@@ -201,60 +235,84 @@ class _CreatePromotionTabState extends ConsumerState<CreatePromotionTab> {
               ),
               const SizedBox(height: 16),
               if (_mode == _PromotionApplyMode.percent)
-                Row(
+                Column(
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _percentController,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]')),
+                    if (_applyToRetail)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _percentRetailController,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]'))],
+                              decoration: const InputDecoration(labelText: 'Desconto Varejo', suffixText: '%', prefixIcon: Icon(Icons.storefront)),
+                            ),
+                          ),
                         ],
-                        decoration: const InputDecoration(
-                          labelText: 'Desconto',
-                          suffixText: '%',
-                          prefixIcon: Icon(Icons.percent_rounded),
-                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    FilledButton.icon(
-                      onPressed: productsInGroup.isEmpty
-                          ? null
-                          : () => _applyPercent(productsInGroup),
-                      icon: const Icon(Icons.arrow_downward_rounded),
-                      label: const Text('Aplicar'),
+                    if (_applyToRetail && _applyToWholesale) const SizedBox(height: 12),
+                    if (_applyToWholesale)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _percentWholesaleController,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]'))],
+                              decoration: const InputDecoration(labelText: 'Desconto Atacado', suffixText: '%', prefixIcon: Icon(Icons.inventory_2)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: productsInGroup.isEmpty || (!_applyToRetail && !_applyToWholesale) ? null : () => _applyPercent(productsInGroup),
+                        icon: const Icon(Icons.arrow_downward_rounded),
+                        label: const Text('Aplicar Lote'),
+                      ),
                     ),
                   ],
                 )
               else
-                Row(
+                Column(
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _manualValueController,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]')),
+                    if (_applyToRetail)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _manualValueRetailController,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              inputFormatters: [CurrencyInputFormatter()],
+                              decoration: const InputDecoration(labelText: 'Preco Promocional Varejo', prefixText: 'R\$ ', prefixIcon: Icon(Icons.storefront)),
+                            ),
+                          ),
                         ],
-                        decoration: const InputDecoration(
-                          labelText: 'Preco promocional unico',
-                          prefixText: 'R\$ ',
-                          prefixIcon: Icon(Icons.payments_outlined),
-                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    FilledButton.icon(
-                      onPressed: productsInGroup.isEmpty
-                          ? null
-                          : () => _applyManualValue(productsInGroup),
-                      icon: const Icon(Icons.done_all_rounded),
-                      label: const Text('Aplicar'),
+                    if (_applyToRetail && _applyToWholesale) const SizedBox(height: 12),
+                    if (_applyToWholesale)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _manualValueWholesaleController,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              inputFormatters: [CurrencyInputFormatter()],
+                              decoration: const InputDecoration(labelText: 'Preco Promocional Atacado', prefixText: 'R\$ ', prefixIcon: Icon(Icons.inventory_2)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: productsInGroup.isEmpty || (!_applyToRetail && !_applyToWholesale) ? null : () => _applyManualValue(productsInGroup),
+                        icon: const Icon(Icons.done_all_rounded),
+                        label: const Text('Aplicar Lote'),
+                      ),
                     ),
                   ],
                 ),
@@ -266,15 +324,10 @@ class _CreatePromotionTabState extends ConsumerState<CreatePromotionTab> {
           title: 'Resumo',
           child: Column(
             children: [
-              _buildSummaryRow(
-                'Produtos no grupo',
-                '${productsInGroup.length}',
-              ),
+              _buildSummaryRow('Produtos no grupo', '${productsInGroup.length}'),
               _buildSummaryRow('Selecionados', '${_selectedProductIds.length}'),
-              _buildSummaryRow(
-                'Ja em promocao',
-                '${productsInGroup.where((p) => p.promotionActive).length}',
-              ),
+              _buildSummaryRow('Ja em promocao (V)', '${productsInGroup.where((p) => p.promoEnabledRetail).length}'),
+              _buildSummaryRow('Ja em promocao (A)', '${productsInGroup.where((p) => p.promoEnabledWholesale).length}'),
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -366,15 +419,19 @@ class _CreatePromotionTabState extends ConsumerState<CreatePromotionTab> {
                 return _PromotionProductRow(
                   product: product,
                   selected: _selectedProductIds.contains(product.id),
-                  type:
-                      _typeByProductId[product.id] ?? _modeFromProduct(product),
-                  priceController: _priceControllers[product.id]!,
-                  percentController: _percentControllers[product.id]!,
+                  typeRetail: _typeRetailByProductId[product.id] ?? _modeFromProduct(product, true),
+                  typeWholesale: _typeWholesaleByProductId[product.id] ?? _modeFromProduct(product, false),
+                  priceRetailController: _priceRetailControllers[product.id]!,
+                  percentRetailController: _percentRetailControllers[product.id]!,
+                  priceWholesaleController: _priceWholesaleControllers[product.id]!,
+                  percentWholesaleController: _percentWholesaleControllers[product.id]!,
                   onSelectedChanged: (value) => _toggleProduct(product.id),
-                  onTypeChanged: (value) => _setProductType(product, value),
-                  onPercentChanged: (value) =>
-                      _setProductPercent(product, value),
-                  onPromotionPriceChanged: (_) => _setProductManual(product.id),
+                  onTypeRetailChanged: (value) => _setProductType(product, true, value),
+                  onTypeWholesaleChanged: (value) => _setProductType(product, false, value),
+                  onPercentRetailChanged: (value) => _setProductPercent(product, true, value),
+                  onPercentWholesaleChanged: (value) => _setProductPercent(product, false, value),
+                  onPromotionPriceRetailChanged: (_) => _setProductManual(product.id, true),
+                  onPromotionPriceWholesaleChanged: (_) => _setProductManual(product.id, false),
                 );
               },
             ),
@@ -431,78 +488,132 @@ class _CreatePromotionTabState extends ConsumerState<CreatePromotionTab> {
   }
 
   void _applyPercent(List<Product> products) {
-    final percent = _parseNumber(_percentController.text);
-    if (percent < 0 || percent > 100) {
-      _showSnack('Informe um percentual entre 0 e 100.');
-      return;
+    if (_applyToRetail) {
+      final percentR = _parseNumber(_percentRetailController.text);
+      if (percentR < 0 || percentR > 100) {
+        _showSnack('Varejo: Informe um percentual entre 0 e 100.');
+        return;
+      }
+    }
+    if (_applyToWholesale) {
+      final percentW = _parseNumber(_percentWholesaleController.text);
+      if (percentW < 0 || percentW > 100) {
+        _showSnack('Atacado: Informe um percentual entre 0 e 100.');
+        return;
+      }
     }
 
     setState(() {
       for (final product in products) {
         if (!_selectedProductIds.contains(product.id)) continue;
-        _typeByProductId[product.id] = _PromotionApplyMode.percent;
-        _percentControllers[product.id]?.text = _formatPercent(percent);
-        _updatePercentPrice(product, percent);
+        if (_applyToRetail) {
+          final percent = _parseNumber(_percentRetailController.text);
+          _typeRetailByProductId[product.id] = _PromotionApplyMode.percent;
+          _percentRetailControllers[product.id]?.text = _formatPercent(percent);
+          _updatePercentPrice(product, true, percent);
+        }
+        if (_applyToWholesale) {
+          final percent = _parseNumber(_percentWholesaleController.text);
+          _typeWholesaleByProductId[product.id] = _PromotionApplyMode.percent;
+          _percentWholesaleControllers[product.id]?.text = _formatPercent(percent);
+          _updatePercentPrice(product, false, percent);
+        }
       }
     });
   }
 
   void _applyManualValue(List<Product> products) {
-    final value = _parseNumber(_manualValueController.text);
-    if (value <= 0) {
-      _showSnack('Informe um preco promocional maior que zero.');
-      return;
+    if (_applyToRetail) {
+      final valueR = _parseCurrency(_manualValueRetailController.text);
+      if (valueR <= 0) {
+        _showSnack('Varejo: Informe um preco promocional maior que zero.');
+        return;
+      }
+    }
+    if (_applyToWholesale) {
+      final valueW = _parseCurrency(_manualValueWholesaleController.text);
+      if (valueW <= 0) {
+        _showSnack('Atacado: Informe um preco promocional maior que zero.');
+        return;
+      }
     }
 
     setState(() {
       for (final product in products) {
-        if (_selectedProductIds.contains(product.id)) {
-          _typeByProductId[product.id] = _PromotionApplyMode.manual;
-          _priceControllers[product.id]?.text = _formatEditingPrice(value);
+        if (!_selectedProductIds.contains(product.id)) continue;
+        if (_applyToRetail) {
+          final value = _parseCurrency(_manualValueRetailController.text);
+          _typeRetailByProductId[product.id] = _PromotionApplyMode.manual;
+          _priceRetailControllers[product.id]?.text = _formatCurrency(value);
+        }
+        if (_applyToWholesale) {
+          final value = _parseCurrency(_manualValueWholesaleController.text);
+          _typeWholesaleByProductId[product.id] = _PromotionApplyMode.manual;
+          _priceWholesaleControllers[product.id]?.text = _formatCurrency(value);
         }
       }
     });
   }
 
-  void _setProductType(Product product, _PromotionApplyMode type) {
+  void _setProductType(Product product, bool isRetail, _PromotionApplyMode type) {
     setState(() {
-      _typeByProductId[product.id] = type;
-      if (type == _PromotionApplyMode.percent) {
-        var percent = _parseNumber(
-          _percentControllers[product.id]?.text ?? _percentController.text,
-        );
-        if (percent <= 0) {
-          percent = _parseNumber(_percentController.text);
-          _percentControllers[product.id]?.text = _formatPercent(percent);
+      if (isRetail) {
+        _typeRetailByProductId[product.id] = type;
+        if (type == _PromotionApplyMode.percent) {
+          var percent = _parseNumber(_percentRetailControllers[product.id]?.text ?? _percentRetailController.text);
+          if (percent <= 0) {
+            percent = _parseNumber(_percentRetailController.text);
+            _percentRetailControllers[product.id]?.text = _formatPercent(percent);
+          }
+          if (percent >= 0 && percent <= 100) _updatePercentPrice(product, true, percent);
         }
-        if (percent >= 0 && percent <= 100) {
-          _updatePercentPrice(product, percent);
+      } else {
+        _typeWholesaleByProductId[product.id] = type;
+        if (type == _PromotionApplyMode.percent) {
+          var percent = _parseNumber(_percentWholesaleControllers[product.id]?.text ?? _percentWholesaleController.text);
+          if (percent <= 0) {
+            percent = _parseNumber(_percentWholesaleController.text);
+            _percentWholesaleControllers[product.id]?.text = _formatPercent(percent);
+          }
+          if (percent >= 0 && percent <= 100) _updatePercentPrice(product, false, percent);
         }
       }
     });
   }
 
-  void _setProductPercent(Product product, String value) {
+  void _setProductPercent(Product product, bool isRetail, String value) {
     setState(() {
-      _typeByProductId[product.id] = _PromotionApplyMode.percent;
       final percent = _parseNumber(value);
-      if (percent >= 0 && percent <= 100) {
-        _updatePercentPrice(product, percent);
+      if (isRetail) {
+        _typeRetailByProductId[product.id] = _PromotionApplyMode.percent;
+        if (percent >= 0 && percent <= 100) _updatePercentPrice(product, true, percent);
+      } else {
+        _typeWholesaleByProductId[product.id] = _PromotionApplyMode.percent;
+        if (percent >= 0 && percent <= 100) _updatePercentPrice(product, false, percent);
       }
     });
   }
 
-  void _setProductManual(String productId) {
-    if (_typeByProductId[productId] == _PromotionApplyMode.manual) return;
-    setState(() {
-      _typeByProductId[productId] = _PromotionApplyMode.manual;
-    });
+  void _setProductManual(String productId, bool isRetail) {
+    if (isRetail) {
+      if (_typeRetailByProductId[productId] == _PromotionApplyMode.manual) return;
+      setState(() => _typeRetailByProductId[productId] = _PromotionApplyMode.manual);
+    } else {
+      if (_typeWholesaleByProductId[productId] == _PromotionApplyMode.manual) return;
+      setState(() => _typeWholesaleByProductId[productId] = _PromotionApplyMode.manual);
+    }
   }
 
-  void _updatePercentPrice(Product product, double percent) {
-    final original = product.priceOriginal ?? product.priceRetail;
-    final value = original * (1 - (percent / 100));
-    _priceControllers[product.id]?.text = _formatEditingPrice(value);
+  void _updatePercentPrice(Product product, bool isRetail, double percent) {
+    if (isRetail) {
+      final original = product.priceOriginalForPromotion;
+      final value = original * (1 - (percent / 100));
+      _priceRetailControllers[product.id]?.text = _formatCurrency(value);
+    } else {
+      final original = product.priceOriginalForPromotionWholesale;
+      final value = original * (1 - (percent / 100));
+      _priceWholesaleControllers[product.id]?.text = _formatCurrency(value);
+    }
   }
 
   Future<void> _savePromotion(List<Product> selectedProducts) async {
@@ -515,20 +626,30 @@ class _CreatePromotionTabState extends ConsumerState<CreatePromotionTab> {
     final invalidProducts = <String>[];
     final invalidPercentProducts = <String>[];
     final moreExpensiveProducts = <String>[];
+    
     for (final product in selectedProducts) {
-      final promoPrice = _parseNumber(
-        _priceControllers[product.id]?.text ?? '',
-      );
-      final original = product.priceOriginal ?? product.priceRetail;
-      final type = _typeByProductId[product.id] ?? _modeFromProduct(product);
-      final percent = _parseNumber(_percentControllers[product.id]?.text ?? '');
-      if (promoPrice <= 0) {
-        invalidProducts.add(product.name);
-      } else if (type == _PromotionApplyMode.percent &&
-          (percent < 0 || percent > 100)) {
-        invalidPercentProducts.add(product.name);
-      } else if (original > 0 && promoPrice > original) {
-        moreExpensiveProducts.add(product.name);
+      // VAREJO
+      if (_applyToRetail) {
+        final promoPrice = _parseCurrency(_priceRetailControllers[product.id]?.text ?? '');
+        final original = product.priceOriginalForPromotion;
+        final type = _typeRetailByProductId[product.id] ?? _modeFromProduct(product, true);
+        final percent = _parseNumber(_percentRetailControllers[product.id]?.text ?? '');
+        
+        if (promoPrice <= 0) invalidProducts.add('${product.name} (Varejo)');
+        else if (type == _PromotionApplyMode.percent && (percent < 0 || percent > 100)) invalidPercentProducts.add('${product.name} (Varejo)');
+        else if (original > 0 && promoPrice > original) moreExpensiveProducts.add('${product.name} (Varejo)');
+      }
+      
+      // ATACADO
+      if (_applyToWholesale) {
+        final promoPrice = _parseCurrency(_priceWholesaleControllers[product.id]?.text ?? '');
+        final original = product.priceOriginalForPromotionWholesale;
+        final type = _typeWholesaleByProductId[product.id] ?? _modeFromProduct(product, false);
+        final percent = _parseNumber(_percentWholesaleControllers[product.id]?.text ?? '');
+        
+        if (promoPrice <= 0) invalidProducts.add('${product.name} (Atacado)');
+        else if (type == _PromotionApplyMode.percent && (percent < 0 || percent > 100)) invalidPercentProducts.add('${product.name} (Atacado)');
+        else if (original > 0 && promoPrice > original) moreExpensiveProducts.add('${product.name} (Atacado)');
       }
     }
 
@@ -552,27 +673,42 @@ class _CreatePromotionTabState extends ConsumerState<CreatePromotionTab> {
       final now = DateTime.now();
       final promotionId = const Uuid().v4();
       final updates = selectedProducts.map((product) {
-        final original = product.priceOriginal ?? product.priceRetail;
-        final promoPrice = _parseNumber(
-          _priceControllers[product.id]?.text ?? '',
-        );
-        final type = _typeByProductId[product.id] ?? _modeFromProduct(product);
-        final percent = type == _PromotionApplyMode.percent
-            ? _parseNumber(_percentControllers[product.id]?.text ?? '')
-            : 0.0;
-        return product.copyWith(
-          promoEnabled: true,
-          promoPercent: percent,
-          priceOriginal: original,
-          pricePromotion: promoPrice,
+        var p = product.copyWith(
           promotionName: name,
           promotionCollectionId: _selectedGroupId,
-          promotionType: _promotionTypeValue(type),
           promotionId: promotionId,
           promotionCreatedAt: now,
           promotionUpdatedAt: now,
           updatedAt: now,
         );
+        
+        if (_applyToRetail) {
+          final original = product.priceOriginalForPromotion;
+          final promoPrice = _parseCurrency(_priceRetailControllers[product.id]?.text ?? '');
+          final type = _typeRetailByProductId[product.id] ?? _modeFromProduct(product, true);
+          final percent = type == _PromotionApplyMode.percent ? _parseNumber(_percentRetailControllers[product.id]?.text ?? '') : 0.0;
+          p = p.copyWith(
+            promoEnabledRetail: true,
+            promoPercentRetail: percent,
+            priceOriginalRetail: original,
+            pricePromotionRetail: promoPrice,
+            promotionType: _promotionTypeValue(type),
+          );
+        }
+        
+        if (_applyToWholesale) {
+          final original = product.priceOriginalForPromotionWholesale;
+          final promoPrice = _parseCurrency(_priceWholesaleControllers[product.id]?.text ?? '');
+          final type = _typeWholesaleByProductId[product.id] ?? _modeFromProduct(product, false);
+          final percent = type == _PromotionApplyMode.percent ? _parseNumber(_percentWholesaleControllers[product.id]?.text ?? '') : 0.0;
+          p = p.copyWith(
+            promoEnabledWholesale: true,
+            promoPercentWholesale: percent,
+            priceOriginalWholesale: original,
+            pricePromotionWholesale: promoPrice,
+          );
+        }
+        return p;
       }).toList();
 
       await ref
@@ -592,21 +728,34 @@ class _CreatePromotionTabState extends ConsumerState<CreatePromotionTab> {
     try {
       final now = DateTime.now();
       final updates = selectedProducts
-          .map(
-            (product) => product.copyWith(
-              promoEnabled: false,
-              promoPercent: 0,
+          .map((product) {
+            var p = product.copyWith(
               updatedAt: now,
-              clearPriceOriginal: true,
-              clearPricePromotion: true,
               clearPromotionName: true,
               clearPromotionCollectionId: true,
               clearPromotionCreatedAt: true,
               clearPromotionUpdatedAt: true,
               clearPromotionType: true,
               clearPromotionId: true,
-            ),
-          )
+            );
+            if (_applyToRetail) {
+              p = p.copyWith(
+                promoEnabledRetail: false,
+                promoPercentRetail: 0,
+                clearPriceOriginalRetail: true,
+                clearPricePromotionRetail: true,
+              );
+            }
+            if (_applyToWholesale) {
+              p = p.copyWith(
+                promoEnabledWholesale: false,
+                promoPercentWholesale: 0,
+                clearPriceOriginalWholesale: true,
+                clearPricePromotionWholesale: true,
+              );
+            }
+            return p;
+          })
           .toList();
       await ref
           .read(productsViewModelProvider.notifier)
@@ -649,80 +798,62 @@ class _CreatePromotionTabState extends ConsumerState<CreatePromotionTab> {
 
   void _syncPriceControllers(List<Product> products) {
     final ids = products.map((product) => product.id).toSet();
-    final staleIds = _priceControllers.keys
+    final staleIds = _priceRetailControllers.keys
         .where((id) => !ids.contains(id))
         .toList(growable: false);
     for (final id in staleIds) {
-      _priceControllers.remove(id)?.dispose();
-      _percentControllers.remove(id)?.dispose();
-      _typeByProductId.remove(id);
+      _priceRetailControllers.remove(id)?.dispose();
+      _percentRetailControllers.remove(id)?.dispose();
+      _typeRetailByProductId.remove(id);
+      
+      _priceWholesaleControllers.remove(id)?.dispose();
+      _percentWholesaleControllers.remove(id)?.dispose();
+      _typeWholesaleByProductId.remove(id);
     }
 
     for (final product in products) {
-      _priceControllers.putIfAbsent(
-        product.id,
-        () => TextEditingController(
-          text: _formatEditingPrice(
-            product.promotionActive
-                ? product.promotionPriceRetail
-                : product.priceRetail,
-          ),
-        ),
-      );
-      _percentControllers.putIfAbsent(
-        product.id,
-        () => TextEditingController(
-          text: _formatPercent(
-            product.promotionActive && product.promoPercent > 0
-                ? product.promoPercent
-                : _parseNumber(_percentController.text),
-          ),
-        ),
-      );
-      _typeByProductId.putIfAbsent(
-        product.id,
-        () => product.promotionActive ? _modeFromProduct(product) : _mode,
-      );
+      _priceRetailControllers.putIfAbsent(product.id, () => TextEditingController(text: _formatCurrency(product.promoEnabledRetail ? product.promotionPriceRetail : product.priceRetail)));
+      _percentRetailControllers.putIfAbsent(product.id, () => TextEditingController(text: _formatPercent(product.promoEnabledRetail && product.promoPercentRetail > 0 ? product.promoPercentRetail : _parseNumber(_percentRetailController.text))));
+      _typeRetailByProductId.putIfAbsent(product.id, () => product.promoEnabledRetail ? _modeFromProduct(product, true) : _mode);
+
+      _priceWholesaleControllers.putIfAbsent(product.id, () => TextEditingController(text: _formatCurrency(product.promoEnabledWholesale ? product.promotionPriceWholesaleCalculated : product.priceWholesale)));
+      _percentWholesaleControllers.putIfAbsent(product.id, () => TextEditingController(text: _formatPercent(product.promoEnabledWholesale && product.promoPercentWholesale > 0 ? product.promoPercentWholesale : _parseNumber(_percentWholesaleController.text))));
+      _typeWholesaleByProductId.putIfAbsent(product.id, () => product.promoEnabledWholesale ? _modeFromProduct(product, false) : _mode);
     }
   }
 
   void _resetPriceControllers(List<Product> products) {
-    for (final controller in _priceControllers.values) {
-      controller.dispose();
-    }
-    for (final controller in _percentControllers.values) {
-      controller.dispose();
-    }
-    _priceControllers.clear();
-    _percentControllers.clear();
-    _typeByProductId.clear();
-    for (final product in products) {
-      _priceControllers[product.id] = TextEditingController(
-        text: _formatEditingPrice(
-          product.promotionActive
-              ? product.promotionPriceRetail
-              : product.priceRetail,
-        ),
-      );
-      _percentControllers[product.id] = TextEditingController(
-        text: _formatPercent(
-          product.promotionActive && product.promoPercent > 0
-              ? product.promoPercent
-              : _parseNumber(_percentController.text),
-        ),
-      );
-      _typeByProductId[product.id] = product.promotionActive
-          ? _modeFromProduct(product)
-          : _mode;
-    }
+    for (final c in _priceRetailControllers.values) c.dispose();
+    for (final c in _percentRetailControllers.values) c.dispose();
+    for (final c in _priceWholesaleControllers.values) c.dispose();
+    for (final c in _percentWholesaleControllers.values) c.dispose();
+    _priceRetailControllers.clear();
+    _percentRetailControllers.clear();
+    _typeRetailByProductId.clear();
+    _priceWholesaleControllers.clear();
+    _percentWholesaleControllers.clear();
+    _typeWholesaleByProductId.clear();
+    _syncPriceControllers(products);
   }
 
   double _parseNumber(String text) {
     return safeDouble(text);
   }
+  
+  double _parseCurrency(String text) {
+    if (text.isEmpty) return 0.0;
+    String cleaned = text.replaceAll(',', '.').replaceAll(RegExp(r'[^0-9.]'), '');
+    if (cleaned.split('.').length > 2) {
+      final parts = cleaned.split('.');
+      final decimal = parts.removeLast();
+      cleaned = '${parts.join('')}.$decimal';
+    }
+    return double.tryParse(cleaned) ?? 0.0;
+  }
 
-  String _formatEditingPrice(double value) {
-    return value.toStringAsFixed(2).replaceAll('.', ',');
+  String _formatCurrency(double value) {
+    final formatter = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+    return formatter.format(value);
   }
 
   String _formatPercent(double value) {
@@ -730,8 +861,8 @@ class _CreatePromotionTabState extends ConsumerState<CreatePromotionTab> {
     return value.toStringAsFixed(2).replaceAll('.', ',');
   }
 
-  _PromotionApplyMode _modeFromProduct(Product product) {
-    return product.resolvedPromotionType == 'manual'
+  _PromotionApplyMode _modeFromProduct(Product product, bool isRetail) {
+    return (isRetail ? product.resolvedPromotionType : product.resolvedPromotionTypeWholesale) == 'manual'
         ? _PromotionApplyMode.manual
         : _PromotionApplyMode.percent;
   }
@@ -749,9 +880,7 @@ class _CreatePromotionTabState extends ConsumerState<CreatePromotionTab> {
 
   void _showSnack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -759,36 +888,50 @@ class _PromotionProductRow extends StatelessWidget {
   const _PromotionProductRow({
     required this.product,
     required this.selected,
-    required this.type,
-    required this.priceController,
-    required this.percentController,
+    required this.typeRetail,
+    required this.typeWholesale,
+    required this.priceRetailController,
+    required this.percentRetailController,
+    required this.priceWholesaleController,
+    required this.percentWholesaleController,
     required this.onSelectedChanged,
-    required this.onTypeChanged,
-    required this.onPercentChanged,
-    required this.onPromotionPriceChanged,
+    required this.onTypeRetailChanged,
+    required this.onTypeWholesaleChanged,
+    required this.onPercentRetailChanged,
+    required this.onPercentWholesaleChanged,
+    required this.onPromotionPriceRetailChanged,
+    required this.onPromotionPriceWholesaleChanged,
   });
 
   final Product product;
   final bool selected;
-  final _PromotionApplyMode type;
-  final TextEditingController priceController;
-  final TextEditingController percentController;
+  final _PromotionApplyMode typeRetail;
+  final _PromotionApplyMode typeWholesale;
+  final TextEditingController priceRetailController;
+  final TextEditingController percentRetailController;
+  final TextEditingController priceWholesaleController;
+  final TextEditingController percentWholesaleController;
   final ValueChanged<bool> onSelectedChanged;
-  final ValueChanged<_PromotionApplyMode> onTypeChanged;
-  final ValueChanged<String> onPercentChanged;
-  final ValueChanged<String> onPromotionPriceChanged;
+  final ValueChanged<_PromotionApplyMode> onTypeRetailChanged;
+  final ValueChanged<_PromotionApplyMode> onTypeWholesaleChanged;
+  final ValueChanged<String> onPercentRetailChanged;
+  final ValueChanged<String> onPercentWholesaleChanged;
+  final ValueChanged<String> onPromotionPriceRetailChanged;
+  final ValueChanged<String> onPromotionPriceWholesaleChanged;
 
   @override
   Widget build(BuildContext context) {
     final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
-    final original = product.priceOriginal ?? product.priceRetail;
+    final originalR = product.priceOriginalForPromotion;
+    final originalW = product.priceOriginalForPromotionWholesale;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Checkbox(
                 value: selected,
@@ -802,127 +945,195 @@ class _PromotionProductRow extends StatelessWidget {
                       product.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w800),
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
                     ),
                     const SizedBox(height: 3),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 4,
-                      children: [
-                        Text(
-                          product.ref.isEmpty ? 'Sem referencia' : product.ref,
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        if (product.promotionActive)
-                          PromoBadge(
-                            discountPercentage: ((original - (product.pricePromotion ?? original)) / original * 100).round(),
-                          ),
-                      ],
+                    Text(
+                      product.ref.isEmpty ? 'Sem referencia' : product.ref,
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          Padding(
-            padding: const EdgeInsets.only(left: 48),
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 10,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                SizedBox(
-                  width: 116,
-                  child: Column(
+          const SizedBox(height: 16),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth > 500;
+              final retailBlock = _buildPricingBlock(
+                context, 
+                currency, 
+                'VAREJO', 
+                originalR, 
+                typeRetail, 
+                percentRetailController, 
+                priceRetailController, 
+                onTypeRetailChanged, 
+                onPercentRetailChanged, 
+                onPromotionPriceRetailChanged,
+                product.promoEnabledRetail,
+              );
+              
+              final wholesaleBlock = _buildPricingBlock(
+                context, 
+                currency, 
+                'ATACADO', 
+                originalW, 
+                typeWholesale, 
+                percentWholesaleController, 
+                priceWholesaleController, 
+                onTypeWholesaleChanged, 
+                onPercentWholesaleChanged, 
+                onPromotionPriceWholesaleChanged,
+                product.promoEnabledWholesale,
+              );
+              
+              if (isWide) {
+                return Padding(
+                  padding: const EdgeInsets.only(left: 48),
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Original',
-                        style: Theme.of(context).textTheme.labelSmall,
-                      ),
-                      Text(
-                        currency.format(original),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          decoration: TextDecoration.lineThrough,
-                          decorationColor: Color(0xFFF43F5E),
-                          color: Color(0xFFF43F5E),
-                        ),
-                      ),
+                      Expanded(child: retailBlock),
+                      const SizedBox(width: 24),
+                      Expanded(child: wholesaleBlock),
                     ],
                   ),
-                ),
-                SizedBox(
-                  width: 152,
-                  child: DropdownButtonFormField<_PromotionApplyMode>(
-                    value: type,
-                    onChanged: selected
-                        ? (value) {
-                            if (value != null) onTypeChanged(value);
-                          }
-                        : null,
-                    decoration: const InputDecoration(
-                      labelText: 'Tipo',
-                      isDense: true,
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: _PromotionApplyMode.percent,
-                        child: Text('Porcentagem'),
-                      ),
-                      DropdownMenuItem(
-                        value: _PromotionApplyMode.manual,
-                        child: Text('Manual'),
-                      ),
+                );
+              } else {
+                return Padding(
+                  padding: const EdgeInsets.only(left: 48),
+                  child: Column(
+                    children: [
+                      retailBlock,
+                      const SizedBox(height: 24),
+                      wholesaleBlock,
                     ],
                   ),
-                ),
-                SizedBox(
-                  width: 112,
-                  child: TextField(
-                    controller: percentController,
-                    enabled: selected && type == _PromotionApplyMode.percent,
-                    textAlign: TextAlign.end,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]')),
-                    ],
-                    onChanged: onPercentChanged,
-                    decoration: const InputDecoration(
-                      labelText: 'Desconto',
-                      suffixText: '%',
-                      isDense: true,
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  width: 136,
-                  child: TextField(
-                    controller: priceController,
-                    enabled: selected,
-                    textAlign: TextAlign.end,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]')),
-                    ],
-                    onChanged: onPromotionPriceChanged,
-                    decoration: const InputDecoration(
-                      labelText: 'Promo',
-                      prefixText: 'R\$ ',
-                      isDense: true,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+                );
+              }
+            }
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildPricingBlock(
+    BuildContext context,
+    NumberFormat currency,
+    String title,
+    double original,
+    _PromotionApplyMode type,
+    TextEditingController percentController,
+    TextEditingController priceController,
+    ValueChanged<_PromotionApplyMode> onTypeChanged,
+    ValueChanged<String> onPercentChanged,
+    ValueChanged<String> onPriceChanged,
+    bool isActive,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(12),
+        color: isActive ? Colors.blue.shade50.withValues(alpha: 0.3) : Colors.transparent,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey),
+              ),
+              if (isActive)
+                PromoBadge(
+                  discountPercentage: ((original - (_parseCurrency(priceController.text))) / original * 100).round().clamp(0, 100),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('De', style: Theme.of(context).textTheme.labelSmall),
+                    Text(
+                      currency.format(original),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        decoration: TextDecoration.lineThrough,
+                        decorationColor: Color(0xFFF43F5E),
+                        color: Color(0xFFF43F5E),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: DropdownButtonFormField<_PromotionApplyMode>(
+                  value: type,
+                  onChanged: selected ? (value) { if (value != null) onTypeChanged(value); } : null,
+                  decoration: const InputDecoration(labelText: 'Tipo', isDense: true, border: OutlineInputBorder()),
+                  items: const [
+                    DropdownMenuItem(value: _PromotionApplyMode.percent, child: Text('Porcentagem')),
+                    DropdownMenuItem(value: _PromotionApplyMode.manual, child: Text('Manual')),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  controller: percentController,
+                  enabled: selected && type == _PromotionApplyMode.percent,
+                  textAlign: TextAlign.end,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]'))],
+                  onChanged: onPercentChanged,
+                  decoration: const InputDecoration(labelText: 'Desconto', suffixText: '%', isDense: true, border: OutlineInputBorder()),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 3,
+                child: TextField(
+                  controller: priceController,
+                  enabled: selected,
+                  textAlign: TextAlign.end,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [CurrencyInputFormatter()],
+                  onChanged: onPriceChanged,
+                  decoration: const InputDecoration(labelText: 'Por', prefixText: 'R\$ ', isDense: true, border: OutlineInputBorder()),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  double _parseCurrency(String text) {
+    if (text.isEmpty) return 0.0;
+    String cleaned = text.replaceAll(',', '.').replaceAll(RegExp(r'[^0-9.]'), '');
+    if (cleaned.split('.').length > 2) {
+      final parts = cleaned.split('.');
+      final decimal = parts.removeLast();
+      cleaned = '${parts.join('')}.$decimal';
+    }
+    return double.tryParse(cleaned) ?? 0.0;
   }
 }

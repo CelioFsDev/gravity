@@ -101,6 +101,14 @@ class ProductAdapter extends TypeAdapter<Product> {
       promotionUpdatedAt: fields[33] as DateTime?,
       promotionType: fields[34] as String?,
       promotionId: fields[35] as String?,
+      promoEnabledRetail: fields[36] as bool,
+      promoPercentRetail: fields[37] as double,
+      priceOriginalRetail: fields[38] as double?,
+      pricePromotionRetail: fields[39] as double?,
+      promoEnabledWholesale: fields[40] as bool,
+      promoPercentWholesale: fields[41] as double,
+      priceOriginalWholesale: fields[42] as double?,
+      pricePromotionWholesale: fields[43] as double?,
       updatedAt: fields[23] as DateTime?,
     );
   }
@@ -108,7 +116,7 @@ class ProductAdapter extends TypeAdapter<Product> {
   @override
   void write(BinaryWriter writer, Product obj) {
     writer
-      ..writeByte(35)
+      ..writeByte(43)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -178,7 +186,23 @@ class ProductAdapter extends TypeAdapter<Product> {
       ..writeByte(34)
       ..write(obj.promotionType)
       ..writeByte(35)
-      ..write(obj.promotionId);
+      ..write(obj.promotionId)
+      ..writeByte(36)
+      ..write(obj.promoEnabledRetail)
+      ..writeByte(37)
+      ..write(obj.promoPercentRetail)
+      ..writeByte(38)
+      ..write(obj.priceOriginalRetail)
+      ..writeByte(39)
+      ..write(obj.pricePromotionRetail)
+      ..writeByte(40)
+      ..write(obj.promoEnabledWholesale)
+      ..writeByte(41)
+      ..write(obj.promoPercentWholesale)
+      ..writeByte(42)
+      ..write(obj.priceOriginalWholesale)
+      ..writeByte(43)
+      ..write(obj.pricePromotionWholesale);
   }
 
   @override
