@@ -53,6 +53,8 @@ class _CollectionsScreenState extends ConsumerState<CollectionsScreen> {
           Expanded(
             child: categoriesState.when(
               skipError: true,
+              skipLoadingOnReload: true,
+              skipLoadingOnRefresh: true,
         data: (state) {
           final collections = state.categories
               .where((c) => c.type == CategoryType.collection)

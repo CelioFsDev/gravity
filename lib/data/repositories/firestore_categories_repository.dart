@@ -42,6 +42,12 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
       _cacheTimestamp != null &&
       DateTime.now().difference(_cacheTimestamp!) < _cacheDuration;
 
+  bool get _isOnlineFirstMode =>
+      kIsWeb ||
+      defaultTargetPlatform == TargetPlatform.windows ||
+      defaultTargetPlatform == TargetPlatform.macOS ||
+      defaultTargetPlatform == TargetPlatform.linux;
+
   void invalidateCache() {
     _memoryCache = null;
     _cacheTimestamp = null;
@@ -67,7 +73,7 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
     final snapshot = await _legacyCollection
         .where('tenantId', isEqualTo: _tenantId)
         .get()
-        .timeout(const Duration(seconds: 10));
+        .timeout(const Duration(seconds: 90));
     return snapshot.docs.map(_categoryFromDocument).toList();
   }
 
@@ -95,12 +101,14 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
         );
       }
 
-      final snapshot = await query.get().timeout(const Duration(seconds: 10));
+      final snapshot = await query.get(
+        _isOnlineFirstMode ? const GetOptions(source: Source.server) : const GetOptions(),
+      );
       var newCloudCategories = snapshot.docs
           .map(_categoryFromDocument)
           .toList();
 
-      // Uma sessão Web começa sem Hive. Se ainda não houver documentos na
+      // Uma sessão Web/Desktop começa sem Hive. Se ainda não houver documentos na
       // subcoleção do tenant, procura os registros legados na raiz. Não
       // fazemos essa leitura em sessões que já têm cache local para evitar
       // custo recorrente e dar prioridade à estrutura atual.
@@ -124,6 +132,10 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
       final result = merged.values.toList();
       result.sort((a, b) => a.order.compareTo(b.order));
 
+      if (_isOnlineFirstMode) {
+        unawaited(_localRepo.updateCategoriesBulk(newCloudCategories));
+      }
+
       _memoryCache = result;
       _cacheTimestamp = DateTime.now();
       return result;
@@ -144,7 +156,7 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
             .toIso8601String(),
       );
     }
-    final snapshot = await query.get().timeout(const Duration(seconds: 15));
+    final snapshot = await query.get().timeout(const Duration(seconds: 90));
     final categories = snapshot.docs.map(_categoryFromDocument).toList();
 
     // A sincronização inicial não possui cursor; é o momento seguro para
@@ -295,7 +307,7 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
     await _collection
         .doc(updatedCategory.id)
         .set(updatedCategory.toMap())
-        .timeout(const Duration(seconds: 15));
+        .timeout(const Duration(seconds: 90));
     await _localRepo.addCategory(updatedCategory);
     invalidateCache();
   }

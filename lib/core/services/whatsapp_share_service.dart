@@ -55,7 +55,7 @@ class WhatsAppShareService {
       ShareParams(
         files: [file],
         text: text,
-        downloadFallbackEnabled: false,
+        downloadFallbackEnabled: true,
         mailToFallbackEnabled: false,
       ),
     );
@@ -102,7 +102,7 @@ class WhatsAppShareService {
       ShareParams(
         files: xfiles,
         text: text,
-        downloadFallbackEnabled: false,
+        downloadFallbackEnabled: true,
         mailToFallbackEnabled: false,
       ),
     );
@@ -120,7 +120,7 @@ class WhatsAppShareService {
       ShareParams(
         files: [XFile(filePath, name: fileName, mimeType: mimeType)],
         text: text,
-        downloadFallbackEnabled: false,
+        downloadFallbackEnabled: true,
         mailToFallbackEnabled: false,
       ),
     );

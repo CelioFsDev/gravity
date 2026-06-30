@@ -14,6 +14,7 @@ import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/ui/widgets/section_card.dart';
 import 'package:catalogo_ja/ui/widgets/app_badge_pill.dart';
+import 'package:catalogo_ja/ui/widgets/app_product_image_view.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 
 class ProductDetailScreen extends ConsumerWidget {
@@ -461,57 +462,11 @@ class ProductDetailScreen extends ConsumerWidget {
         icon: Icons.image_not_supported_outlined,
       );
     }
-
-    final cleanUri = image.uri.trim();
-
-    if (cleanUri.startsWith('data:')) {
-      final commaIndex = cleanUri.indexOf(',');
-      if (commaIndex != -1 && commaIndex + 1 < cleanUri.length) {
-        try {
-          return Image.memory(
-            base64Decode(cleanUri.substring(commaIndex + 1)),
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) =>
-                _buildErrorImage(context),
-          );
-        } catch (_) {}
-      }
-    }
-
-    if (image.sourceType == ProductImageSource.networkUrl ||
-        cleanUri.startsWith('http://') ||
-        cleanUri.startsWith('https://') ||
-        cleanUri.startsWith('gs://') ||
-        cleanUri.startsWith('blob:')) {
-      return Image.network(
-        cleanUri,
-        fit: BoxFit.cover,
-        cacheWidth: 800,
-        errorBuilder: (context, error, stackTrace) =>
-            _buildErrorImage(context, uri: cleanUri),
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return Center(
-            child: CircularProgressIndicator(
-              value: loadingProgress.expectedTotalBytes != null
-                  ? loadingProgress.cumulativeBytesLoaded /
-                        loadingProgress.expectedTotalBytes!
-                  : null,
-              strokeWidth: 2,
-            ),
-          );
-        },
-      );
-    }
-
-    if (kIsWeb) {
-      return _buildErrorImage(context, icon: Icons.web_asset_off_outlined);
-    }
-
-    return Image.file(
-      File(cleanUri),
+    return AppProductImageView(
+      imageUrl: image.uri.trim(),
       fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) => _buildErrorImage(context),
+      width: double.infinity,
+      height: double.infinity,
     );
   }
 

@@ -115,6 +115,63 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  Future<void> _runDiagnostic() async {
+    try {
+      final result = await ref.read(globalSyncViewModelProvider.notifier).checkCompleteCloudData();
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Diagnóstico da Nuvem'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('PRODUTOS LOCAL: \${result.localProducts}'),
+                Text('PRODUTOS NUVEM: \${result.cloudProducts}'),
+                const Divider(),
+                Text('FOTOS LOCAL: \${result.localPhotos}'),
+                Text('FOTOS NUVEM (URL válidos): \${result.cloudPhotosWithUrl}'),
+                if (result.productsWithLocalPhotoButNoCloudUrl.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  const Text('PRODUTOS COM FOTO LOCAL MAS SEM URL NA NUVEM:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+                  ...result.productsWithLocalPhotoButNoCloudUrl.map((ref) => Text('- \$ref', style: const TextStyle(color: Colors.red))),
+                ],
+                const Divider(),
+                Text('PROMOÇÕES LOCAL: \${result.localPromotions}'),
+                Text('PROMOÇÕES NUVEM: \${result.cloudPromotions}'),
+                const Divider(),
+                Text('CATÁLOGOS LOCAL: \${result.localCatalogs}'),
+                Text('CATÁLOGOS NUVEM: \${result.cloudCatalogs}'),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('FECHAR'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro no diagnóstico: \$e')));
+    }
+  }
+
+  Future<void> _runBackfill() async {
+    try {
+      final fixedCount = await ref.read(globalSyncViewModelProvider.notifier).backfillMissingProductImages();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Backfill concluído: \$fixedCount produtos corrigidos.')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro no backfill: \$e')));
+    }
+  }
+
   Future<void> _pullFromCloud() async {
     final syncQueue = ref.read(syncQueueRepositoryProvider);
     final pendingCount = syncQueue.getPendingOrErrorItems().length;
@@ -602,6 +659,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _runDiagnostic,
+                    icon: const Icon(Icons.analytics_outlined),
+                    label: const Text('DIAGNÓSTICO DA NUVEM (INTEGRIDADE)'),
+                  ),
                 ),
               ],
             ),

@@ -1,4 +1,7 @@
+import 'package:catalogo_ja/models/cloud_diagnostic_result.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart' hide Category;
 
 import 'package:hive/hive.dart';
 import 'package:catalogo_ja/models/category.dart';
@@ -231,7 +234,7 @@ Erros gerais: $errorsCount
       if (lastDoc != null) {
         pagedQuery = pagedQuery.startAfterDocument(lastDoc);
       }
-      final snapshot = await pagedQuery.get();
+      final snapshot = await pagedQuery.get(const GetOptions(source: Source.server));
       allDocs.addAll(snapshot.docs);
       if (snapshot.docs.length < pageSize) {
         break; // fetched all
@@ -330,6 +333,134 @@ Erros gerais: $errorsCount
           }
         }),
       );
+    }
+  }
+
+  Future<CloudDiagnosticResult> checkCompleteCloudData() async {
+    final progressNotifier = ref.read(syncProgressProvider.notifier);
+    progressNotifier.startSync('Iniciando diagnóstico...');
+    try {
+      final tenantAsync = ref.read(currentTenantProvider);
+      final tenantId = tenantAsync.asData?.value?.id;
+      if (tenantId == null || tenantId.isEmpty) {
+        throw Exception('TenantId não encontrado.');
+      }
+
+      progressNotifier.updateProgress(0.1, 'Analisando produtos locais...');
+      final localProducts = await ref.read(productsRepositoryProvider).getProducts();
+      int localPhotos = 0;
+      for (var p in localProducts) {
+        if (p.images.isNotEmpty || p.photos.isNotEmpty) localPhotos++;
+      }
+
+      progressNotifier.updateProgress(0.3, 'Buscando nuvem...');
+      final cloudProductsDocs = await _fetchCollectionInPages(
+        query: FirebaseFirestore.instance.collection('tenants').doc(tenantId).collection('products'),
+      );
+      final cloudProducts = cloudProductsDocs.map((d) => Product.fromMap(d.data())).toList();
+      
+      int cloudPhotosWithUrl = 0;
+      final productsWithLocalPhotoButNoCloudUrl = <String>[];
+      for (var cp in cloudProducts) {
+        final hasUrl = cp.images.any((img) => img.uri.startsWith('http://') || img.uri.startsWith('https://') || img.uri.startsWith('gs://'));
+        if (hasUrl) {
+          cloudPhotosWithUrl++;
+        } else {
+          // Check if local has photo
+          final lp = localProducts.where((p) => p.id == cp.id).firstOrNull;
+          if (lp != null && (lp.images.isNotEmpty || lp.photos.isNotEmpty)) {
+            productsWithLocalPhotoButNoCloudUrl.add(lp.ref.isNotEmpty ? 'REF \${lp.ref}' : 'ID \${lp.id}');
+          }
+        }
+      }
+
+      progressNotifier.updateProgress(0.7, 'Verificando outros dados...');
+      final localPromotions = Hive.box('promotions').values.where((p) => (p as dynamic).tenantId == tenantId).length;
+      final cloudPromotions = await FirebaseFirestore.instance.collection('tenants').doc(tenantId).collection('promotions').count().get().then((value) => value.count ?? 0);
+      
+      final localCatalogs = Hive.box<Catalog>('catalogs').values.where((p) => p.tenantId == tenantId).length;
+      final cloudCatalogs = await FirebaseFirestore.instance.collection('tenants').doc(tenantId).collection('catalogs').count().get().then((value) => value.count ?? 0);
+
+      return CloudDiagnosticResult(
+        localProducts: localProducts.length,
+        cloudProducts: cloudProducts.length,
+        localPhotos: localPhotos,
+        cloudPhotosWithUrl: cloudPhotosWithUrl,
+        productsWithLocalPhotoButNoCloudUrl: productsWithLocalPhotoButNoCloudUrl,
+        localPromotions: localPromotions,
+        cloudPromotions: cloudPromotions,
+        localCatalogs: localCatalogs,
+        cloudCatalogs: cloudCatalogs,
+      );
+    } finally {
+      progressNotifier.stopSync(message: 'Diagnóstico concluído!');
+    }
+  }
+
+  Future<int> backfillMissingProductImages() async {
+    final progressNotifier = ref.read(syncProgressProvider.notifier);
+    progressNotifier.startSync('Buscando produtos sem foto...');
+    int fixedCount = 0;
+    try {
+      final tenantAsync = ref.read(currentTenantProvider);
+      final tenantId = tenantAsync.asData?.value?.id;
+      if (tenantId == null || tenantId.isEmpty) {
+        throw Exception('TenantId não encontrado.');
+      }
+
+      final productsCollection = FirebaseFirestore.instance.collection('tenants').doc(tenantId).collection('products');
+      final cloudProductsDocs = await _fetchCollectionInPages(query: productsCollection);
+      final cloudProducts = cloudProductsDocs.map((d) => Product.fromMap(d.data())).toList();
+
+      final storageRef = FirebaseStorage.instance.ref();
+      int i = 0;
+
+      for (var product in cloudProducts) {
+        i++;
+        progressNotifier.updateProgress(0.1 + (i / cloudProducts.length * 0.8), 'Verificando produto \${product.ref.isNotEmpty ? product.ref : product.id}...');
+        
+        final hasUrl = product.images.any((img) => img.uri.startsWith('http://') || img.uri.startsWith('https://') || img.uri.startsWith('gs://'));
+        
+        if (!hasUrl) {
+          final possiblePaths = [
+            'tenants/\$tenantId/products/\${product.id}/main.jpg',
+            'tenants/\$tenantId/products/\${product.id}/P.jpg',
+            'tenants/\$tenantId/products/\${product.id}/p.jpg',
+            if (product.ref.isNotEmpty) 'tenants/\$tenantId/products/\${product.ref}/main.jpg',
+            if (product.ref.isNotEmpty) 'tenants/\$tenantId/products/\${product.ref}/P.jpg',
+            if (product.ref.isNotEmpty) 'tenants/\$tenantId/products/\${product.ref}/p.jpg',
+          ];
+
+          String? foundUrl;
+          for (final path in possiblePaths) {
+            try {
+              final ref = storageRef.child(path);
+              foundUrl = await ref.getDownloadURL();
+              break;
+            } catch (_) {}
+          }
+
+          if (foundUrl != null) {
+            await productsCollection.doc(product.id).update({
+              'images': [
+                {
+                  'id': DateTime.now().millisecondsSinceEpoch.toString(),
+                  'sourceType': 'url',
+                  'uri': foundUrl,
+                  'label': 'principal',
+                  'order': 0,
+                  'colorTag': null,
+                }
+              ],
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+            fixedCount++;
+          }
+        }
+      }
+      return fixedCount;
+    } finally {
+      progressNotifier.stopSync(message: 'Backfill concluído! \$fixedCount produtos corrigidos.');
     }
   }
 }

@@ -93,7 +93,7 @@ class CategoryAdapter extends TypeAdapter<Category> {
       updatedAt: fields[4] as DateTime,
       type: fields[5] as CategoryType,
       cover: fields[6] as CollectionCover?,
-      isActive: fields[8] as bool,
+      isActive: fields[8] == null ? true : fields[8] as bool,
       tenantId: fields[9] as String?,
       syncStatus: fields[10] as SyncStatus,
       name: fields[1] as String?,

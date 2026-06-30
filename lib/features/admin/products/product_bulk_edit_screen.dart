@@ -116,6 +116,8 @@ class _ProductBulkEditScreenState extends ConsumerState<ProductBulkEditScreen> {
       ],
       body: productsState.when(
         skipError: true,
+        skipLoadingOnReload: true,
+        skipLoadingOnRefresh: true,
         data: (state) {
           _initializeControllers(state.filteredProducts);
           if (state.filteredProducts.isEmpty) {

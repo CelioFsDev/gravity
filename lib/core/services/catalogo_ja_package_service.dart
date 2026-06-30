@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io' as io;
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:archive/archive.dart';
 import 'package:archive/archive_io.dart';
 import 'package:catalogo_ja/data/repositories/settings_repository.dart';
@@ -475,6 +476,8 @@ class CatalogoJaPackageService {
     required io.Directory extractDir,
     required ImportMode mode,
     String? tenantId,
+    ProgressCallback? onProgress,
+    bool Function()? isCancelled,
   }) async {
     final appDocDir = await getApplicationDocumentsDirectory();
     final appImagesDir = io.Directory(p.join(appDocDir.path, 'product_images'));
@@ -484,8 +487,19 @@ class CatalogoJaPackageService {
 
     final restoredProducts = <ProductDTO>[];
     final copyTasks = <Future<void> Function()>[];
+    
+    int processedProducts = 0;
 
     for (final product in payload.products) {
+      if (isCancelled != null && isCancelled()) {
+        throw Exception('Restauração cancelada pelo usuário.');
+      }
+      processedProducts++;
+      onProgress?.call(
+        0.1 + (0.5 * (processedProducts / payload.products.length)),
+        'Analisando imagens do produto ($processedProducts de ${payload.products.length})...'
+      );
+
       final restoredImages = <ProductImageDTO>[];
       final restoredPhotos = <ProductPhotoDTO>[];
 
@@ -709,16 +723,29 @@ class CatalogoJaPackageService {
 
     // Process all copy tasks in batches to avoid 'Too many open files' and speed up
     const batchSize = 100;
+    int processedCopies = 0;
     for (var i = 0; i < copyTasks.length; i += batchSize) {
+      if (isCancelled != null && isCancelled()) {
+        throw Exception('Restauração cancelada pelo usuário.');
+      }
       final end = (i + batchSize < copyTasks.length) ? i + batchSize : copyTasks.length;
       final batch = copyTasks.sublist(i, end).map((f) => f());
       await Future.wait(batch);
+      
+      processedCopies += batch.length;
+      onProgress?.call(
+        0.6 + (0.2 * (processedCopies / copyTasks.length)),
+        'Copiando fotos ($processedCopies de ${copyTasks.length})...'
+      );
     }
 
+    onProgress?.call(0.8, 'Salvando dados no banco...');
     final result = await _exportImportService.executeImport(
       importPayload,
       mode,
       tenantId: tenantId,
+      onProgress: (p, m) => onProgress?.call(0.8 + (p * 0.2), m),
+      isCancelled: isCancelled,
     );
 
     // ✅ Marcar sincronização inicial como concluída já que temos as fotos locais agora
@@ -752,7 +779,10 @@ class CatalogoJaPackageService {
     required Uint8List zipBytes,
     required ImportMode mode,
     String? tenantId,
+    ProgressCallback? onProgress,
+    bool Function()? isCancelled,
   }) async {
+    onProgress?.call(0.05, 'Descompactando backup em memória...');
     final archive = ZipDecoder().decodeBytes(zipBytes);
 
     ArchiveFile? manifestFile;
@@ -783,29 +813,56 @@ class CatalogoJaPackageService {
     }
 
     final restoredProducts = <ProductDTO>[];
-    for (final product in payload.products) {
-      final restoredPhotos = <ProductPhotoDTO>[];
+    int processedProducts = 0;
+    
+    // Web: Upload to Storage directly
+    final storageRef = FirebaseStorage.instance.ref();
+    
+    const batchSize = 10;
+    for (var i = 0; i < payload.products.length; i += batchSize) {
+      if (isCancelled != null && isCancelled()) {
+        throw Exception('Restauração cancelada pelo usuário.');
+      }
+      
+      final end = (i + batchSize < payload.products.length) ? i + batchSize : payload.products.length;
+      final batchProducts = payload.products.sublist(i, end);
 
-      for (final photo in product.photos) {
-        final archived = archiveFiles[photo.path];
-        if (archived == null) continue;
+      final processedBatch = await Future.wait(batchProducts.map((product) async {
+        final mappedPhotos = await Future.wait(product.photos.asMap().entries.map((entry) async {
+          final idx = entry.key;
+          final photo = entry.value;
+          final archived = archiveFiles[photo.path];
+          if (archived == null) return null;
 
-        final bytes = Uint8List.fromList(
-          (archived.content as List).cast<int>(),
-        );
-        final dataUrl = _bytesToDataUrl(photo.path, bytes);
-        restoredPhotos.add(
-          ProductPhotoDTO(
-            path: dataUrl,
+          final bytes = Uint8List.fromList((archived.content as List).cast<int>());
+          String finalUrl = '';
+          if (tenantId != null && tenantId.isNotEmpty) {
+            try {
+              final fileName = idx == 0 ? 'main.jpg' : 'photo_$idx.jpg';
+              final ref = storageRef.child('tenants/$tenantId/products/${product.id}/$fileName');
+              await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg')).timeout(const Duration(seconds: 30));
+              finalUrl = await ref.getDownloadURL();
+            } catch (e) {
+              debugPrint('Erro ao upar imagem pro Firebase no Web: $e');
+            }
+          }
+
+          if (finalUrl.isEmpty) {
+            finalUrl = _bytesToDataUrl(photo.path, bytes);
+          }
+
+          return ProductPhotoDTO(
+            path: finalUrl,
             colorKey: photo.colorKey,
             isPrimary: photo.isPrimary,
             photoType: photo.photoType,
-          ),
-        );
-      }
+          );
+        }));
 
-      restoredProducts.add(
-        ProductDTO(
+        final restoredPhotos = mappedPhotos.whereType<ProductPhotoDTO>().toList();
+        final newImages = restoredPhotos.map((p) => ProductImageDTO.fromModel(p.toProductImage())).toList();
+
+        return ProductDTO(
           id: product.id,
           name: product.name,
           ref: product.ref,
@@ -824,9 +881,7 @@ class CatalogoJaPackageService {
           promotionId: product.promotionId,
           promotionCreatedAt: product.promotionCreatedAt,
           promotionUpdatedAt: product.promotionUpdatedAt,
-          images: restoredPhotos
-              .map((p) => ProductImageDTO.fromModel(p.toProductImage()))
-              .toList(),
+          images: newImages,
           photos: restoredPhotos,
           remoteImages: product.remoteImages,
           mainImageIndex: product.mainImageIndex,
@@ -835,7 +890,14 @@ class CatalogoJaPackageService {
           colors: product.colors,
           createdAt: product.createdAt,
           updatedAt: product.updatedAt,
-        ),
+        );
+      }));
+
+      restoredProducts.addAll(processedBatch);
+      processedProducts += batchProducts.length;
+      onProgress?.call(
+        0.1 + (0.6 * (processedProducts / payload.products.length)),
+        'Enviando fotos para a nuvem ($processedProducts de ${payload.products.length})...'
       );
     }
 

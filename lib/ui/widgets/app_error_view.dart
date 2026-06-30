@@ -43,6 +43,8 @@ extension AsyncValueUI<T> on AsyncValue<T> {
     return when(
       // Keep the previous content visible when a refresh fails.
       skipError: true,
+      skipLoadingOnReload: true,
+      skipLoadingOnRefresh: true,
       data: data,
       error: (err, stack) =>
           AppErrorView(error: err, stackTrace: stack, onRetry: onRetry),

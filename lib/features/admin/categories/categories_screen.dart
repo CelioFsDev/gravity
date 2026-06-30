@@ -51,6 +51,8 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
           Expanded(
             child: state.when(
               skipError: true,
+              skipLoadingOnReload: true,
+              skipLoadingOnRefresh: true,
               data: (categoriesState) {
                 final categories = categoriesState.categories.where((c) {
                   final nameMatch = c.safeName.toLowerCase().contains(

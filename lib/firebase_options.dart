@@ -13,7 +13,7 @@ class DefaultFirebaseOptions {
       case TargetPlatform.macOS:
         return _ios;
       case TargetPlatform.windows:
-        return _web;
+        return _windows;
       default:
         return _web;
     }
@@ -36,6 +36,16 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions _web = FirebaseOptions(
+    apiKey: 'AIzaSyAaRQRzA8lPBovETa8cj609dxeWIlc8Bb4',
+    appId: '1:866110171338:web:554b3c834d75f519b22c33',
+    messagingSenderId: '866110171338',
+    projectId: 'catalogo-ja-89aae',
+    authDomain: 'catalogo-ja-89aae.firebaseapp.com',
+    storageBucket: 'catalogo-ja-89aae.firebasestorage.app',
+    measurementId: 'G-04ZDD9V1XT',
+  );
+
+  static const FirebaseOptions _windows = FirebaseOptions(
     apiKey: 'AIzaSyAaRQRzA8lPBovETa8cj609dxeWIlc8Bb4',
     appId: '1:866110171338:web:554b3c834d75f519b22c33',
     messagingSenderId: '866110171338',

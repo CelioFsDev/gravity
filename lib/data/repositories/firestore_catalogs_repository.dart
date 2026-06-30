@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:catalogo_ja/models/sync_status.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/data/repositories/contracts/catalogs_repository_contract.dart';
 import 'package:catalogo_ja/data/repositories/catalogs_repository.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
@@ -28,6 +31,12 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
       _memoryCache != null &&
       _cacheTimestamp != null &&
       DateTime.now().difference(_cacheTimestamp!) < _cacheDuration;
+
+  bool get _isOnlineFirstMode =>
+      kIsWeb ||
+      defaultTargetPlatform == TargetPlatform.windows ||
+      defaultTargetPlatform == TargetPlatform.macOS ||
+      defaultTargetPlatform == TargetPlatform.linux;
 
   void invalidateCache() {
     _memoryCache = null;
@@ -60,7 +69,11 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
         );
       }
 
-      final snapshot = await query.get().timeout(const Duration(seconds: 10));
+      final snapshot = await query.get(
+        _isOnlineFirstMode
+            ? const GetOptions(source: Source.server)
+            : const GetOptions(),
+      );
       final newCloudCatalogs = snapshot.docs
           .map((doc) => Catalog.fromMap(doc.data()))
           .toList();
@@ -78,6 +91,10 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
 
       final result = merged.values.toList();
       result.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+      if (_isOnlineFirstMode) {
+        unawaited(_localRepo.updateCatalogsBulk(newCloudCatalogs));
+      }
 
       _memoryCache = result;
       _cacheTimestamp = DateTime.now();
@@ -98,17 +115,23 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
         ),
       );
     }
-    final snapshot = await query.get().timeout(const Duration(seconds: 15));
+    final snapshot = await query.get().timeout(const Duration(seconds: 90));
     return snapshot.docs.map((doc) => Catalog.fromMap(doc.data())).toList();
   }
 
   @override
   Future<void> addCatalog(Catalog catalog) async {
-    // 🔑 Garante que o tenantId está preenchido antes de salvar localmente.
-    // Sem isso, o HiveCatalogsRepository._filter() rejeita o catálogo e ele some da lista.
     final withTenant = (catalog.tenantId ?? '').isEmpty
         ? catalog.copyWith(tenantId: _tenantId)
         : catalog;
+
+    if (_isOnlineFirstMode) {
+      final catalogToSave = withTenant.copyWith(syncStatus: SyncStatus.synced);
+      await syncCatalogToCloud(catalogToSave);
+      await _localRepo.addCatalog(catalogToSave);
+      invalidateCache();
+      return;
+    }
 
     final catalogToSave = withTenant.syncStatus == SyncStatus.synced
         ? withTenant
@@ -121,10 +144,20 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
 
   @override
   Future<void> updateCatalog(Catalog catalog) async {
-    // 🔑 Garante que o tenantId está preenchido antes de salvar localmente.
     final withTenant = (catalog.tenantId ?? '').isEmpty
         ? catalog.copyWith(tenantId: _tenantId)
         : catalog;
+
+    if (_isOnlineFirstMode) {
+      final catalogToSave = withTenant.copyWith(
+        syncStatus: SyncStatus.synced,
+        updatedAt: DateTime.now(),
+      );
+      await syncCatalogToCloud(catalogToSave);
+      await _localRepo.updateCatalog(catalogToSave);
+      invalidateCache();
+      return;
+    }
 
     final catalogToSave = withTenant.syncStatus == SyncStatus.synced
         ? withTenant
@@ -138,6 +171,25 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
 
   @override
   Future<void> updateCatalogsBulk(List<Catalog> catalogs) async {
+    if (kIsWeb) {
+      final toSave = catalogs.map((catalog) {
+        final withTenant = (catalog.tenantId ?? '').isEmpty
+            ? catalog.copyWith(tenantId: _tenantId)
+            : catalog;
+        return withTenant.copyWith(
+          syncStatus: SyncStatus.synced,
+          updatedAt: DateTime.now(),
+        );
+      }).toList();
+
+      for (final cat in toSave) {
+        await syncCatalogToCloud(cat);
+      }
+      await _localRepo.updateCatalogsBulk(toSave);
+      invalidateCache();
+      return;
+    }
+
     final pendingCatalogs = catalogs.map((catalog) {
       final withTenant = (catalog.tenantId ?? '').isEmpty
           ? catalog.copyWith(tenantId: _tenantId)
@@ -149,7 +201,7 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
               updatedAt: DateTime.now(),
             );
     }).toList();
-    
+
     await _localRepo.updateCatalogsBulk(pendingCatalogs);
     invalidateCache();
   }
@@ -169,7 +221,7 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
                 catalogId: catalog.id,
                 tenantId: _tenantId,
               )
-              .timeout(const Duration(seconds: 30));
+              .timeout(const Duration(seconds: 90));
           if (cloudUrl != null) {
             updatedBanners.add(banner.copyWith(imagePath: cloudUrl));
             print('✅ Banner upado: $cloudUrl');
@@ -195,20 +247,20 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
     await _collection
         .doc(catalog.id)
         .set(catalogMap)
-        .timeout(const Duration(seconds: 30));
+        .timeout(const Duration(seconds: 90));
     if (catalogWithCloudImages.isPublic &&
         catalogWithCloudImages.shareCode.trim().isNotEmpty) {
       await _firestore
           .collection('catalogs')
           .doc(catalog.id)
           .set(catalogMap)
-          .timeout(const Duration(seconds: 30));
+          .timeout(const Duration(seconds: 90));
     } else {
       await _firestore
           .collection('catalogs')
           .doc(catalog.id)
           .delete()
-          .timeout(const Duration(seconds: 30));
+          .timeout(const Duration(seconds: 90));
     }
     await _localRepo.addCatalog(catalogWithCloudImages);
     invalidateCache();
@@ -257,7 +309,7 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
       final snapshot = await _collection
           .where('slug', isEqualTo: slug)
           .get()
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 90));
 
       if (snapshot.docs.isEmpty) return false;
       if (excludeId != null &&
@@ -283,7 +335,7 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
           .where('slug', isEqualTo: slug)
           .limit(1)
           .get()
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 90));
       if (snapshot.docs.isNotEmpty) {
         return Catalog.fromMap(snapshot.docs.first.data());
       }
@@ -304,7 +356,7 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
           .where('isPublic', isEqualTo: true)
           .limit(1)
           .get()
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 90));
       if (snapshot.docs.isNotEmpty) {
         return Catalog.fromMap(snapshot.docs.first.data());
       }
@@ -317,8 +369,12 @@ class FirestoreCatalogsRepository implements CatalogsRepositoryContract {
     return null;
   }
 
-  @override
   Stream<List<Catalog>> watchCatalogs() {
+    if (kIsWeb) {
+      return _collection.snapshots().map((snapshot) {
+        return snapshot.docs.map((doc) => Catalog.fromMap(doc.data())).toList();
+      });
+    }
     return _localRepo.watchCatalogs();
   }
 

@@ -189,7 +189,7 @@ class Category {
   @HiveField(7)
   final String? slug;
 
-  @HiveField(8)
+  @HiveField(8, defaultValue: true)
   final bool isActive;
 
   @HiveField(9)

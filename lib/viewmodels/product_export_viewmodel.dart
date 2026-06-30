@@ -3,6 +3,8 @@ import 'package:catalogo_ja/core/services/whatsapp_share_service.dart';
 import 'package:catalogo_ja/core/providers/global_loading_provider.dart';
 import 'package:catalogo_ja/core/utils/user_friendly_error.dart';
 import 'package:catalogo_ja/viewmodels/settings_viewmodel.dart';
+import 'package:catalogo_ja/core/services/backup/backup_file_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'product_export_viewmodel.g.dart';
@@ -99,14 +101,21 @@ class ProductExportViewModel extends _$ProductExportViewModel {
       final fileName =
           'CatalogoJa_Backup_${DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first}.zip';
 
-      await WhatsAppShareService.shareFile(
-        bytes: bytes,
-        fileName: fileName,
-        // Original text: 'Backup do Cat\u00e1logo CatalogoJa'
-        // Adapted text (from the provided snippet, but simplified as catalog.name is missing):
-        text: 'Backup do Catálogo CatalogoJa concluído!',
-        mimeType: 'application/zip',
-      );
+      if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.linux)) {
+        // Usa BackupFileService no Desktop
+        final backupService = ref.read(backupFileServiceProvider);
+        final path = await backupService.saveBackupFile(bytes, fileName: fileName);
+        if (path == null) {
+          throw Exception('Exportação cancelada pelo usuário.');
+        }
+      } else {
+        await WhatsAppShareService.shareFile(
+          bytes: bytes,
+          fileName: fileName,
+          text: 'Backup do Catálogo CatalogoJa concluído!',
+          mimeType: 'application/zip',
+        );
+      }
 
       state = state.copyWith(
         isLoading: false,

@@ -7,7 +7,7 @@ part of 'global_sync_viewmodel.dart';
 // **************************************************************************
 
 String _$globalSyncViewModelHash() =>
-    r'582eff81b7d5e5293b4f304cb18f9180b2ed82d5';
+    r'e0535d09261076972139d5fa1e2581dcbb521b5e';
 
 /// See also [GlobalSyncViewModel].
 @ProviderFor(GlobalSyncViewModel)

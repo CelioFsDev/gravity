@@ -6,7 +6,7 @@ part of 'user_role.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$currentUserStatusHash() => r'8d5bf3d3f34636399008cff5c37d261e06c896d5';
+String _$currentUserStatusHash() => r'15c18a9eb988dcb5ef4abcff8bb6166b2eda6888';
 
 /// Provider to check if the current user is disabled/suspended
 ///
@@ -23,7 +23,7 @@ final currentUserStatusProvider = AutoDisposeStreamProvider<bool>.internal(
 );
 
 typedef CurrentUserStatusRef = AutoDisposeStreamProviderRef<bool>;
-String _$userRoleStreamHash() => r'0d9fb6bc3ab31b048b20b547cade3482a50b5818';
+String _$userRoleStreamHash() => r'db15faf92e74652dd41354f0e6dd46aa8148a505';
 
 /// See also [userRoleStream].
 @ProviderFor(userRoleStream)
@@ -38,7 +38,7 @@ final userRoleStreamProvider = AutoDisposeStreamProvider<UserRole>.internal(
 );
 
 typedef UserRoleStreamRef = AutoDisposeStreamProviderRef<UserRole>;
-String _$currentRoleHash() => r'e126be7ccb3a6086a062d0a2520a04b1c6cdb251';
+String _$currentRoleHash() => r'4258720c760c99fefa8e56cd7d52a13d80f2685f';
 
 /// See also [CurrentRole].
 @ProviderFor(CurrentRole)

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:hive/hive.dart';
 import 'package:catalogo_ja/core/utils/safe_parse.dart';
 import 'package:catalogo_ja/models/sync_status.dart';
@@ -17,6 +18,8 @@ bool _isRemoteOrStorageImageUri(String uri) {
       trimmed.startsWith('gs://') ||
       trimmed.startsWith('tenants/') ||
       trimmed.startsWith('public_catalogs/') ||
+      trimmed.startsWith('products/') ||
+      trimmed.startsWith('product_images/') ||
       trimmed.startsWith('data:') ||
       trimmed.startsWith('blob:');
 }
@@ -131,13 +134,13 @@ class Product {
   @HiveField(11)
   final int mainImageIndex; // Deprecated but kept for Hive compat
 
-  @HiveField(12)
+  @HiveField(12, defaultValue: true)
   final bool isActive;
 
-  @HiveField(13)
+  @HiveField(13, defaultValue: false)
   final bool isOutOfStock;
 
-  @HiveField(14)
+  @HiveField(14, defaultValue: false)
   final bool promoEnabled; // Renamed from isOnSale
 
   @HiveField(15)
@@ -200,7 +203,7 @@ class Product {
   @HiveField(35)
   final String? promotionId;
 
-  @HiveField(36)
+  @HiveField(36, defaultValue: false)
   final bool promoEnabledRetail;
 
   @HiveField(37)
@@ -212,7 +215,7 @@ class Product {
   @HiveField(39)
   final double? pricePromotionRetail;
 
-  @HiveField(40)
+  @HiveField(40, defaultValue: false)
   final bool promoEnabledWholesale;
 
   @HiveField(41)
@@ -430,8 +433,14 @@ class Product {
       'description': description,
       'tags': tags.toList(),
       'remoteImages': remoteImages.toList(),
+      'imageUrls': images
+          .where((img) => _isRemoteOrStorageImageUri(img.uri))
+          .map((img) => img.uri.trim())
+          .toList(),
       if (displayImageUrl != null && displayImageUrl!.trim().isNotEmpty && _isRemoteOrStorageImageUri(displayImageUrl!))
-        'imageUrl': displayImageUrl!.trim(),
+        'imageUrl': displayImageUrl!.trim()
+      else if (images.isEmpty && photos.isEmpty)
+        'imageUrl': FieldValue.delete(),
       'variants': variants
           .map(
             (v) => {'sku': v.sku, 'stock': v.stock, 'attributes': v.attributes},
@@ -559,8 +568,16 @@ class Product {
       remoteImages: () {
         final List<String> urls = [];
         for (final key in ['remoteImages', 'imageUrls', 'images', 'photos']) {
-          if (map[key] is List) {
-            urls.addAll(safeStringList(map[key]));
+          final listVal = map[key];
+          if (listVal is List) {
+            for (final item in listVal) {
+              if (item is String) {
+                urls.add(item.trim());
+              } else if (item is Map) {
+                final urlStr = safeNullableString(item['url'] ?? item['path'] ?? item['uri'] ?? item['imageUrl']);
+                if (urlStr != null) urls.add(urlStr.trim());
+              }
+            }
           }
         }
         for (final key in [
@@ -660,7 +677,8 @@ class Product {
       final remoteUrl = remoteImages.firstWhere(
         (url) {
            final t = url.trim();
-           return t.isNotEmpty && t.toLowerCase() != 'null' && t.toLowerCase() != 'undefined' && _isRemoteOrStorageImageUri(t);
+           if (t.isEmpty || t.toLowerCase() == 'null' || t.toLowerCase() == 'undefined') return false;
+           return _isRemoteOrStorageImageUri(t);
         },
         orElse: () => '',
       );

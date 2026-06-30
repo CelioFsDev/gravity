@@ -45,6 +45,12 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
       _cacheTimestamp != null &&
       DateTime.now().difference(_cacheTimestamp!) < _cacheDuration;
 
+  bool get _isOnlineFirstMode =>
+      kIsWeb ||
+      defaultTargetPlatform == TargetPlatform.windows ||
+      defaultTargetPlatform == TargetPlatform.macOS ||
+      defaultTargetPlatform == TargetPlatform.linux;
+
   /// Invalida o cache. Chame após qualquer escrita local ou nuvem.
   void invalidateCache() {
     _memoryCache = null;
@@ -67,7 +73,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
       final localProducts = await _localRepo.getProducts();
       final settings = _settingsRepo.getSettings();
 
-      if (localProducts.isEmpty && !settings.isInitialSyncCompleted && !kIsWeb) {
+      if (localProducts.isEmpty && !settings.isInitialSyncCompleted && !_isOnlineFirstMode) {
         return localProducts;
       }
 
@@ -91,7 +97,9 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
         );
       }
 
-      final snapshot = await query.get().timeout(const Duration(seconds: 10));
+      final snapshot = await query.get(
+        _isOnlineFirstMode ? const GetOptions(source: Source.server) : const GetOptions(),
+      );
 
       final newCloudProducts = snapshot.docs
           .map((doc) => Product.fromMap(doc.data()))
@@ -141,6 +149,11 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
       final result = merged.values.toList()
         ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
+      if (_isOnlineFirstMode) {
+        // Atualiza o Hive em background para ter um fallback rápido na próxima vez (não aguarda)
+        unawaited(_localRepo.updateProductsBulk(newCloudProducts.map((p) => p.copyWith(syncStatus: SyncStatus.synced)).toList()));
+      }
+
       // Guarda em cache
       _memoryCache = result;
       _cacheTimestamp = DateTime.now();
@@ -163,7 +176,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
             .toIso8601String(),
       );
     }
-    final snapshot = await query.get().timeout(const Duration(seconds: 15));
+    final snapshot = await query.get().timeout(const Duration(seconds: 90));
     return snapshot.docs.map((doc) => Product.fromMap(doc.data())).toList();
   }
 
@@ -172,7 +185,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
     Product product, {
     Function(double, String)? onProgress,
   }) async {
-    if (kIsWeb) {
+    if (_isOnlineFirstMode) {
       final productToSave = product.copyWith(syncStatus: SyncStatus.synced);
       await syncProductToCloud(productToSave, onProgress: onProgress);
       // Salva no cache/indexedDB local só para agilidade
@@ -194,7 +207,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
     Product product, {
     Function(double, String)? onProgress,
   }) async {
-    if (kIsWeb) {
+    if (_isOnlineFirstMode) {
       final productToSave = product.copyWith(
         syncStatus: SyncStatus.synced,
         updatedAt: DateTime.now(),
@@ -237,7 +250,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
   }
 
   void _scheduleAutoSyncAfterInitialBackup(Product product) {
-    if (!kIsWeb) {
+    if (!_isOnlineFirstMode) {
       final settings = _settingsRepo.getSettings();
       if (!settings.isInitialSyncCompleted) return;
     }
@@ -421,6 +434,14 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
       onProgress(0.9, 'Finalizando na nuvem...');
     }
 
+    // 🔒 Verificação Rígida de Foto (Cloud-First)
+    // Se o produto possui fotos locais e alguma delas ainda não tem URL http/https válida,
+    // nós NÃO permitimos que ele seja marcado como sincronizado.
+    final hasPendingImages = updatedImages.any((img) => !isCloudImageUri(img.uri));
+    if (hasPendingImages) {
+      imageUploadError ??= Exception('Existem fotos locais aguardando upload para o Storage.');
+    }
+
     final updatedPhotos = updatedImages
         .map(
           (img) => ProductPhoto(
@@ -453,7 +474,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
       throw Exception('Erro ao enviar foto: $imageUploadError');
     }
 
-    await _collection.doc(product.id).set(productWithSaaS.toMap()).timeout(const Duration(seconds: 15));
+    await _collection.doc(product.id).set(productWithSaaS.toMap(), SetOptions(merge: true)).timeout(const Duration(seconds: 90));
     await _localRepo.addProduct(productWithSaaS);
     invalidateCache(); // 🔑 Invalida cache após escrita
 
@@ -470,25 +491,14 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
   }) async {
     final localProducts = await _localRepo.getProducts();
 
-    // Em uma sincronização global, reconcilia a cópia local com a nuvem.
-    // Apenas produtos ausentes ou mais novos são reenviados, evitando que um
-    // cache antigo sobrescreva uma edição feita em outro dispositivo.
-    final remoteById = <String, Product>{};
-    if (force) {
-      final remoteSnapshot = await _collection.get().timeout(const Duration(seconds: 15));
-      for (final doc in remoteSnapshot.docs) {
-        final remoteProduct = Product.fromMap(doc.data());
-        remoteById[remoteProduct.id] = remoteProduct;
-      }
-    }
+    // Apenas produtos ausentes ou pendentes são reenviados no modo normal.
+    // Se force == true, todos os locais são reenviados para sobrescrever a nuvem.
 
     final toSync = localProducts
         .where((product) {
+          if (force) return true; // Se forçar o upload, sobe independente de data
           if (product.syncStatus == SyncStatus.pendingUpdate) return true;
-          if (!force) return false;
-          final remoteProduct = remoteById[product.id];
-          return remoteProduct == null ||
-              product.updatedAt.isAfter(remoteProduct.updatedAt);
+          return false;
         })
         .toList();
 
@@ -525,6 +535,11 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
       }
     }
 
+    if (syncedCount < total) {
+      if (onProgress != null) onProgress(1.0, 'Sincronização concluída com erros.');
+      throw Exception('Falha ao sincronizar ${total - syncedCount} produtos. Algumas imagens podem não ter sido enviadas.');
+    }
+
     if (onProgress != null) onProgress(1.0, 'Sincronização concluída!');
     return syncedCount;
   }
@@ -539,16 +554,26 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
 
     final batch = shouldSyncNow ? _firestore.batch() : null;
     final total = products.length;
+    bool hasAnyLocalUploadsPending = false;
 
     for (var i = 0; i < total; i++) {
       final p = products[i];
+      final hasLocalImages = p.images.any((img) => !isCloudImageUri(img.uri)) ||
+                             p.photos.any((photo) => !isCloudImageUri(photo.path));
+                             
+      if (hasLocalImages) {
+        hasAnyLocalUploadsPending = true;
+      }
+      
+      final status = (shouldSyncNow && !hasLocalImages) ? SyncStatus.synced : SyncStatus.pendingUpdate;
+
       // ✨ Segurança Adicional: Garante que o tenantId do lote seja o correto
       final pWithTenant = p.copyWith(
         tenantId: _tenantId,
-        syncStatus: shouldSyncNow ? SyncStatus.synced : SyncStatus.pendingUpdate,
+        syncStatus: status,
       );
       
-      if (shouldSyncNow) {
+      if (shouldSyncNow && !hasLocalImages) {
         final docRef = _collection.doc(p.id);
         batch!.set(docRef, pWithTenant.toMap(), SetOptions(merge: true));
       }
@@ -558,7 +583,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
 
     if (shouldSyncNow) {
       try {
-        await batch!.commit().timeout(const Duration(seconds: 15));
+        await batch!.commit().timeout(const Duration(seconds: 90));
       } catch (_) {
         for (final product in products) {
           final productToSync = product.copyWith(
@@ -579,6 +604,10 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
       }
     }
     
+    if (hasAnyLocalUploadsPending) {
+      debugPrint('updateProductsBulk: Alguns produtos possuem imagens locais e foram enfileirados.');
+    }
+    
     invalidateCache();
 
     if (onProgress != null) {
@@ -589,7 +618,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
   @override
   Future<void> deleteProduct(String id) async {
     if (kIsWeb) {
-      await _collection.doc(id).delete().timeout(const Duration(seconds: 15));
+      await _collection.doc(id).delete().timeout(const Duration(seconds: 90));
       await _localRepo.deleteProduct(id);
       return;
     }

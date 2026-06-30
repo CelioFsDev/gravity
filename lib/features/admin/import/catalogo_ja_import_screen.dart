@@ -57,25 +57,47 @@ class _CatalogoJaImportScreenState
     CatalogoJaImportViewModel viewModel,
   ) {
     if (state.isLoading) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
+          padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 20),
+              CircularProgressIndicator(
+                value: state.progressPercent > 0 ? state.progressPercent : null,
+              ),
+              const SizedBox(height: 20),
               Text(
-                'Processando backup...',
-                style: TextStyle(fontWeight: FontWeight.bold),
+                state.progressMessage ?? 'Processando backup...',
+                style: const TextStyle(fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
-              SizedBox(height: 8),
-              Text(
+              const SizedBox(height: 8),
+              if (state.progressPercent > 0)
+                Text(
+                  '${(state.progressPercent * 100).toStringAsFixed(0)}%',
+                  style: const TextStyle(fontSize: 18, color: AppTokens.accentBlue),
+                ),
+              const SizedBox(height: 16),
+              const Text(
                 'Isso pode levar alguns minutos. Mantenha o aplicativo aberto.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey),
               ),
+              const SizedBox(height: 32),
+              if (!state.isCancelled)
+                TextButton.icon(
+                  onPressed: () {
+                    viewModel.cancelImport();
+                  },
+                  icon: const Icon(Icons.cancel, color: Colors.red),
+                  label: const Text('Cancelar', style: TextStyle(color: Colors.red)),
+                )
+              else
+                const Text(
+                  'Cancelando... Aguarde',
+                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                )
             ],
           ),
         ),
@@ -369,6 +391,41 @@ class _CatalogoJaImportScreenState
                           ),
                         ),
                     if (result.errors.length > 3) const Text('...'),
+                  ],
+                ),
+              ),
+            ],
+
+            if (hasSuccess) ...[
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.1),
+                  border: Border.all(color: Colors.orange.shade300),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Column(
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.cloud_upload_outlined, color: Colors.orange),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Sincroniza\u00e7\u00e3o Pendente',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Os dados foram importados localmente e est\u00e3o aguardando envio.\n\nV\u00e1 at\u00e9 Ajustes > Sincroniza\u00e7\u00e3o Global e clique em "Subir Altera\u00e7\u00f5es" para enviar os arquivos de foto (e os dados em si) para a nuvem da Web de forma permanente.',
+                      style: TextStyle(fontSize: 13),
+                    ),
                   ],
                 ),
               ),

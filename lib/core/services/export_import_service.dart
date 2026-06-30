@@ -61,6 +61,8 @@ class ImportResult {
   });
 }
 
+typedef ImportProgressCallback = void Function(double percent, String message);
+
 class ExportImportService {
   final ProductsRepositoryContract _productsRepo;
   final CategoriesRepositoryContract _categoriesRepo;
@@ -246,6 +248,8 @@ class ExportImportService {
     CatalogoJaExportPayload payload,
     ImportMode mode, {
     String? tenantId,
+    ImportProgressCallback? onProgress,
+    bool Function()? isCancelled,
   }) async {
     int success = 0;
     int skipped = 0;
@@ -295,79 +299,113 @@ class ExportImportService {
         }
       } catch (e) {
         // Log warning
-        print('Error importing category ${dto.name}: $e');
+        debugPrint('Error importing category ${dto.name}: $e');
       }
     }
 
-    // 3. Import Products
+    // 3. Import Products in Batches
+    onProgress?.call(0.1, 'Preparando restauração de produtos...');
     final productsToSaveBulk = <Product>[];
-    for (final pDTO in payload.products) {
-      try {
-        final ref = pDTO.ref.trim();
-        if (ref.isEmpty) {
-          skipped++;
-          continue;
-        }
 
-        final existing = await _productsRepo.getByRef(ref);
+    int processedCount = 0;
+    final totalProducts = payload.products.length;
+    const batchSize = 50;
 
-        if (existing != null) {
-          // CONFLICT found
-          if (mode == ImportMode.onlyNew) {
+    for (var i = 0; i < totalProducts; i += batchSize) {
+      if (isCancelled != null && isCancelled()) {
+        throw Exception('Restauração cancelada pelo usuário.');
+      }
+
+      final end = (i + batchSize < totalProducts)
+          ? i + batchSize
+          : totalProducts;
+      final batch = payload.products.sublist(i, end);
+
+      onProgress?.call(
+        0.1 + (0.7 * (i / totalProducts)),
+        'Restaurando produtos ($processedCount de $totalProducts)...',
+      );
+
+      for (final pDTO in batch) {
+        try {
+          final ref = pDTO.ref.trim();
+          if (ref.isEmpty) {
             skipped++;
             continue;
           }
 
-          if (mode == ImportMode.merge || mode == ImportMode.replaceAll) {
-            // Update logic
-            // Map category IDs
+          final existing = await _productsRepo.getByRef(ref);
+
+          if (existing != null) {
+            // CONFLICT found
+            if (mode == ImportMode.onlyNew) {
+              skipped++;
+              continue;
+            }
+
+            if (mode == ImportMode.merge || mode == ImportMode.replaceAll) {
+              // Update logic
+              // Map category IDs
+              final newCategoryIds =
+                  pDTO.categoryIds
+                      ?.map((id) => categoryIdMap[id] ?? id)
+                      .toList() ??
+                  [];
+
+              // Merge logic: Update fields, keep local ID, preserve local images if remote are empty?
+              // P0: Overwrite with imported data (except ID).
+              final productToSave = pDTO
+                  .toModel(tenantId: tenantId)
+                  .copyWith(
+                    id: existing.id, // KEEP LOCAL ID
+                    categoryIds: newCategoryIds,
+                    syncStatus: SyncStatus.synced,
+                  );
+
+              productsToSaveBulk.add(productToSave);
+              success++;
+            }
+          } else {
+            // NEW PRODUCT
             final newCategoryIds =
                 pDTO.categoryIds
                     ?.map((id) => categoryIdMap[id] ?? id)
                     .toList() ??
                 [];
 
-            // Merge logic: Update fields, keep local ID, preserve local images if remote are empty?
-            // P0: Overwrite with imported data (except ID).
             final productToSave = pDTO
                 .toModel(tenantId: tenantId)
                 .copyWith(
-                  id: existing.id, // KEEP LOCAL ID
                   categoryIds: newCategoryIds,
-                  syncStatus: SyncStatus.synced,
+                  syncStatus: SyncStatus.pendingUpdate,
                 );
 
             productsToSaveBulk.add(productToSave);
             success++;
           }
-        } else {
-          // NEW PRODUCT
-          final newCategoryIds =
-              pDTO.categoryIds?.map((id) => categoryIdMap[id] ?? id).toList() ??
-              [];
+        } catch (e) {
+          errors++;
+          errorList.add('Error importing product ${pDTO.name}: $e');
+        } finally {
+          processedCount++;
 
-          final productToSave = pDTO
-              .toModel(tenantId: tenantId)
-              .copyWith(
-                categoryIds: newCategoryIds,
-                syncStatus: SyncStatus.pendingUpdate,
-              );
-
-          productsToSaveBulk.add(productToSave);
-          success++;
+          // Give UI a chance to update
+          await Future.delayed(const Duration(milliseconds: 50));
         }
-      } catch (e) {
-        errors++;
-        errorList.add('Error importing product ${pDTO.name}: $e');
       }
     }
 
     if (productsToSaveBulk.isNotEmpty) {
+      onProgress?.call(0.8, 'Salvando produtos no banco local...');
       await _productsRepo.updateProductsBulk(productsToSaveBulk);
     }
 
     // 4. Import Catalogs
+    onProgress?.call(0.9, 'Restaurando catálogos...');
     for (final cDTO in payload.catalogs) {
+      if (isCancelled != null && isCancelled()) {
+        throw Exception('Restauração cancelada pelo usuário.');
+      }
       try {
         final existing = await _catalogsRepo.getBySlug(cDTO.slug);
 
@@ -389,6 +427,7 @@ class ExportImportService {
       }
     }
 
+    onProgress?.call(1.0, 'Finalizando restauração...');
     return ImportResult(
       successCount: success,
       skipCount: skipped,

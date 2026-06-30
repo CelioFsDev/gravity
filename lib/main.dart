@@ -223,9 +223,13 @@ void main() async {
   if (bootMode != 'no-hive') {
     try {
       debugPrint('[BOOT_IOS] ETAPA 3 - inicialização Hive');
+      debugPrint('APP PLATFORM: ${defaultTargetPlatform.name}');
+      debugPrint('IS WEB: $kIsWeb');
+      
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
         final dir = await getApplicationSupportDirectory();
         final hivePath = p.join(dir.path, 'catalogo_ja', 'db_v2');
+        debugPrint('HIVE PATH (Windows): $hivePath');
         await Hive.initFlutter(hivePath);
       } else {
         await Hive.initFlutter();

@@ -94,6 +94,8 @@ class CatalogsScreen extends ConsumerWidget {
             Expanded(
               child: state.when(
                 skipError: true,
+                skipLoadingOnReload: true,
+                skipLoadingOnRefresh: true,
                 data: (catalogs) => _CatalogsContent(
                   catalogs: catalogs,
                   onCreate: role.canEditCatalog
