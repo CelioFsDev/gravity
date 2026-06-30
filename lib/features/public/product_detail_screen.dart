@@ -14,6 +14,7 @@ import 'package:catalogo_ja/core/utils/uri_utils.dart';
 import 'package:catalogo_ja/viewmodels/cart_viewmodel.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:go_router/go_router.dart';
+import 'package:catalogo_ja/ui/widgets/promo_badge.dart';
 
 class PublicProductDetailScreen extends ConsumerStatefulWidget {
   final Product product;
@@ -257,13 +258,11 @@ class _PublicProductDetailScreenState
   @override
   Widget build(BuildContext context) {
     final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
-    final price = widget.product.priceForMode(
-      widget.mode == CatalogMode.atacado ? 'atacado' : 'varejo',
-    );
-    final originalPrice = widget.product.originalPriceForMode(
-      widget.mode == CatalogMode.atacado ? 'atacado' : 'varejo',
-    );
-    final hasPromo = widget.product.promotionActive;
+    final activeMode = widget.mode == CatalogMode.atacado ? 'atacado' : 'varejo';
+    final price = widget.product.priceForMode(activeMode);
+    final originalPrice = widget.product.originalPriceForMode(activeMode);
+    final hasPromo = widget.product.hasActivePromotionForMode(activeMode);
+    final discount = widget.product.discountPercentageForMode(activeMode);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -300,12 +299,6 @@ class _PublicProductDetailScreenState
               ),
             ),
           ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
             // Gallery
             _buildGallerySection(),
 
@@ -328,26 +321,7 @@ class _PublicProductDetailScreenState
                         ),
                       ),
                       if (hasPromo)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(
-                              0xFFF43F5E,
-                            ).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Text(
-                            'PROMOÇÃO',
-                            style: TextStyle(
-                              color: Color(0xFFF43F5E),
-                              fontSize: 10,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
+                        PromoBadge(discountPercentage: discount),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -364,11 +338,12 @@ class _PublicProductDetailScreenState
                   if (hasPromo) ...[
                     Text(
                       currency.format(originalPrice),
-                      style: TextStyle(
-                        color: Colors.grey.shade400,
+                      style: const TextStyle(
+                        color: Color(0xFFF43F5E),
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
                         decoration: TextDecoration.lineThrough,
+                        decorationColor: Color(0xFFF43F5E),
                       ),
                     ),
                     const SizedBox(height: 4),

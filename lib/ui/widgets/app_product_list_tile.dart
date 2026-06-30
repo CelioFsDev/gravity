@@ -148,16 +148,28 @@ class AppProductListTile extends StatelessWidget {
                               context,
                               'VAREJO',
                               currency.format(product.effectivePriceRetail),
-                              AppTokens.accentGreen,
+                              product.hasActivePromotionForMode('varejo')
+                                  ? const Color(0xFFF43F5E)
+                                  : AppTokens.accentGreen,
                               isDark,
+                              hasPromo: product.hasActivePromotionForMode('varejo'),
+                              originalValue: product.hasActivePromotionForMode('varejo')
+                                  ? currency.format(product.originalPriceForMode('varejo'))
+                                  : null,
                             ),
                             const SizedBox(width: 12),
                             _buildPriceTag(
                               context,
                               'ATACADO',
                               currency.format(product.effectivePriceWholesale),
-                              AppTokens.accentGreen,
+                              product.hasActivePromotionForMode('atacado')
+                                  ? const Color(0xFFF43F5E)
+                                  : AppTokens.accentGreen,
                               isDark,
+                              hasPromo: product.hasActivePromotionForMode('atacado'),
+                              originalValue: product.hasActivePromotionForMode('atacado')
+                                  ? currency.format(product.originalPriceForMode('atacado'))
+                                  : null,
                             ),
                           ],
                         ),
@@ -258,8 +270,10 @@ class AppProductListTile extends StatelessWidget {
     String label,
     String value,
     Color color,
-    bool isDark,
-  ) {
+    bool isDark, {
+    bool hasPromo = false,
+    String? originalValue,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -272,6 +286,17 @@ class AppProductListTile extends StatelessWidget {
             letterSpacing: 0.5,
           ),
         ),
+        if (hasPromo && originalValue != null)
+          Text(
+            originalValue,
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFFF43F5E),
+              decoration: TextDecoration.lineThrough,
+              decorationColor: Color(0xFFF43F5E),
+            ),
+          ),
         Text(
           value,
           style: TextStyle(

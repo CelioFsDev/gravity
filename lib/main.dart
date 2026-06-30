@@ -34,6 +34,7 @@ import 'package:catalogo_ja/features/admin/import/import_menu_screen.dart';
 import 'package:catalogo_ja/features/admin/import/nuvemshop_import_screen.dart';
 import 'package:catalogo_ja/features/admin/import/stock_update_screen.dart';
 import 'package:catalogo_ja/features/admin/import/catalogo_ja_import_screen.dart';
+import 'package:catalogo_ja/features/admin/import/stock_pdf_import_screen.dart';
 import 'package:catalogo_ja/features/admin/order_import/presentation/order_pdf_import_page.dart';
 import 'package:catalogo_ja/features/admin/settings/settings_screen.dart';
 import 'package:catalogo_ja/features/admin/users/user_management_screen.dart';
@@ -810,6 +811,11 @@ class _MyAppState extends ConsumerState<MyApp> {
                       path: 'stock-update',
                       pageBuilder: (context, state) =>
                           _buildPage(state, const StockUpdateScreen()),
+                    ),
+                    GoRoute(
+                      path: 'stock-pdf',
+                      pageBuilder: (context, state) =>
+                          _buildPage(state, const StockPdfImportScreen()),
                     ),
                     GoRoute(
                       path: 'backup',

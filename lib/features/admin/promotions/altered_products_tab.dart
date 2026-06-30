@@ -5,6 +5,7 @@ import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
 import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
 import 'package:catalogo_ja/ui/widgets/section_card.dart';
+import 'package:catalogo_ja/ui/widgets/promo_badge.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -486,8 +487,40 @@ class _AlteredProductRowState extends State<_AlteredProductRow> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(currency.format(original), style: const TextStyle(decoration: TextDecoration.lineThrough, color: Colors.grey, fontSize: 12)),
-              Text(currency.format(finalPricePreview), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+              if (_isActive && finalPricePreview < original) ...[
+                PromoBadge(
+                  discountPercentage: ((original - finalPricePreview) / original * 100).round(),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  currency.format(original),
+                  style: const TextStyle(
+                    decoration: TextDecoration.lineThrough,
+                    decorationColor: Color(0xFFF43F5E),
+                    color: Color(0xFFF43F5E),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ] else
+                Text(
+                  currency.format(original),
+                  style: const TextStyle(
+                    decoration: TextDecoration.lineThrough,
+                    color: Colors.grey,
+                    fontSize: 12,
+                  ),
+                ),
+              Text(
+                currency.format(finalPricePreview),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: _isActive && finalPricePreview < original
+                      ? const Color(0xFFF43F5E)
+                      : Colors.green,
+                  fontSize: 16,
+                ),
+              ),
             ],
           ),
         ),

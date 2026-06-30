@@ -13,6 +13,7 @@ import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/models/product_image.dart';
 import 'package:catalogo_ja/viewmodels/catalog_public_viewmodel.dart';
 import 'package:catalogo_ja/ui/widgets/app_product_card.dart';
+import 'package:catalogo_ja/ui/widgets/promo_badge.dart';
 import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
 import 'package:catalogo_ja/models/category.dart';
 import 'package:catalogo_ja/models/order.dart';
@@ -252,7 +253,10 @@ class _CatalogHomePageState extends ConsumerState<CatalogHomePage> {
                             final item = catalogItems[index];
                             final product = item.product;
                             if (isPromotionLayout) {
-                              return _PromotionalProductCard(product: product);
+                              return _PromotionalProductCard(
+                                product: product,
+                                mode: data.catalog.mode.name,
+                              );
                             }
                             return AppProductCard(
                               product: product,
@@ -1110,15 +1114,18 @@ class _CartSheetContent extends ConsumerWidget {
 }
 
 class _PromotionalProductCard extends StatelessWidget {
-  const _PromotionalProductCard({required this.product});
+  const _PromotionalProductCard({required this.product, required this.mode});
 
   final Product product;
+  final String mode;
 
   @override
   Widget build(BuildContext context) {
     final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
-    final originalPrice = product.priceOriginalForPromotion;
-    final promotionPrice = product.promotionPriceRetail;
+    final originalPrice = product.originalPriceForMode(mode);
+    final promotionPrice = product.promotionPriceForMode(mode);
+    final hasPromo = product.hasActivePromotionForMode(mode);
+    final discount = product.discountPercentageForMode(mode);
 
     return Container(
       clipBehavior: Clip.antiAlias,
@@ -1142,29 +1149,12 @@ class _PromotionalProductCard extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 _buildImage(product.mainImage),
-                Positioned(
-                  top: 10,
-                  left: 10,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 9,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF43F5E),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text(
-                      'PROMO',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
+                if (hasPromo)
+                  Positioned(
+                    top: 10,
+                    left: 10,
+                    child: PromoBadge(discountPercentage: discount),
                   ),
-                ),
               ],
             ),
           ),
@@ -1198,18 +1188,22 @@ class _PromotionalProductCard extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  currency.format(originalPrice),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.grey.shade500,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    decoration: TextDecoration.lineThrough,
+                if (hasPromo) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    currency.format(originalPrice),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFFF43F5E),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      decoration: TextDecoration.lineThrough,
+                      decorationColor: Color(0xFFF43F5E),
+                    ),
                   ),
-                ),
+                ] else
+                  const SizedBox(height: 26), // spacing placeholder
                 const SizedBox(height: 2),
                 Text(
                   currency.format(promotionPrice),

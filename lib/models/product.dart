@@ -674,6 +674,21 @@ class Product {
   bool get hasActivePromotion =>
       promoEnabled && priceOriginalForPromotion > 0 && promotionPriceRetail > 0 && promotionPriceRetail < priceOriginalForPromotion;
 
+  bool hasActivePromotionForMode(String mode) {
+    if (!isActive || !promoEnabled) return false;
+    final original = originalPriceForMode(mode);
+    final promo = promotionPriceForMode(mode);
+    return promo > 0 && original > 0 && promo < original;
+  }
+
+  int discountPercentageForMode(String mode) {
+    if (!hasActivePromotionForMode(mode)) return 0;
+    final original = originalPriceForMode(mode);
+    final promo = promotionPriceForMode(mode);
+    if (original <= 0) return 0;
+    return (((original - promo) / original) * 100).round();
+  }
+
   double get effectivePriceRetail => hasActivePromotion ? promotionPriceRetail : priceRetail;
 
   double get effectivePriceWholesale => PriceCalculator.effectiveWholesale(

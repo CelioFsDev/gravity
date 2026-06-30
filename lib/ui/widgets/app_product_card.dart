@@ -14,6 +14,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:catalogo_ja/ui/widgets/promo_badge.dart';
 
 class AppProductCard extends ConsumerStatefulWidget {
   final Product product;
@@ -69,12 +70,11 @@ class _AppProductCardState extends ConsumerState<AppProductCard> {
   @override
   Widget build(BuildContext context) {
     final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
-    final price = widget.product.priceForMode(
-      widget.mode == CatalogMode.atacado ? 'atacado' : 'varejo',
-    );
-    final originalPrice = widget.product.originalPriceForMode(
-      widget.mode == CatalogMode.atacado ? 'atacado' : 'varejo',
-    );
+    final activeMode = widget.mode == CatalogMode.atacado ? 'atacado' : 'varejo';
+    final price = widget.product.priceForMode(activeMode);
+    final originalPrice = widget.product.originalPriceForMode(activeMode);
+    final hasPromo = widget.product.hasActivePromotionForMode(activeMode);
+    final discount = widget.product.discountPercentageForMode(activeMode);
     final colors = _availableColors;
     final sizes = _availableSizes;
 
@@ -101,11 +101,11 @@ class _AppProductCardState extends ConsumerState<AppProductCard> {
                 fit: StackFit.expand,
                 children: [
                   _buildImage(widget.imageOverride ?? widget.product.mainImage),
-                  if (widget.product.promotionActive)
+                  if (hasPromo)
                     Positioned(
                       top: 10,
                       left: 10,
-                      child: _buildTag('PROMO', const Color(0xFFF43F5E)),
+                      child: PromoBadge(discountPercentage: discount),
                     ),
                   if ((widget.badgeLabel ?? '').trim().isNotEmpty)
                     Positioned(
@@ -161,7 +161,7 @@ class _AppProductCardState extends ConsumerState<AppProductCard> {
                   ),
                 ),
                 const SizedBox(height: 7),
-                _buildPriceBlock(currency, price, originalPrice),
+                _buildPriceBlock(currency, price, originalPrice, hasPromo),
                 const SizedBox(height: 8),
                 if (widget.showSelectors &&
                     (colors.isNotEmpty || sizes.isNotEmpty)) ...[
@@ -331,8 +331,9 @@ class _AppProductCardState extends ConsumerState<AppProductCard> {
     NumberFormat currency,
     double price,
     double originalPrice,
+    bool hasPromo,
   ) {
-    if (!widget.product.promotionActive) {
+    if (!hasPromo) {
       return Text(
         currency.format(price),
         style: const TextStyle(
@@ -348,20 +349,17 @@ class _AppProductCardState extends ConsumerState<AppProductCard> {
       children: [
         Text(
           currency.format(originalPrice),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: Colors.grey.shade500,
-            fontWeight: FontWeight.w700,
-            fontSize: 11,
+          style: const TextStyle(
+            color: Color(0xFFF43F5E),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
             decoration: TextDecoration.lineThrough,
+            decorationColor: Color(0xFFF43F5E),
           ),
         ),
-        const SizedBox(height: 1),
+        const SizedBox(height: 2),
         Text(
           currency.format(price),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             color: Color(0xFFF43F5E),
             fontWeight: FontWeight.w900,

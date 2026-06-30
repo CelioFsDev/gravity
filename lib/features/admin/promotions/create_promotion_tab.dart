@@ -6,6 +6,7 @@ import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
 import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
 import 'package:catalogo_ja/ui/widgets/app_primary_button.dart';
 import 'package:catalogo_ja/ui/widgets/section_card.dart';
+import 'package:catalogo_ja/ui/widgets/promo_badge.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -813,13 +814,8 @@ class _PromotionProductRow extends StatelessWidget {
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                         if (product.promotionActive)
-                          Text(
-                            product.promotionName ?? 'Em promocao',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: AppTokens.vibrantPink,
-                                  fontWeight: FontWeight.w800,
-                                ),
+                          PromoBadge(
+                            discountPercentage: ((original - (product.pricePromotion ?? original)) / original * 100).round(),
                           ),
                       ],
                     ),
@@ -850,6 +846,8 @@ class _PromotionProductRow extends StatelessWidget {
                         style: const TextStyle(
                           fontWeight: FontWeight.w800,
                           decoration: TextDecoration.lineThrough,
+                          decorationColor: Color(0xFFF43F5E),
+                          color: Color(0xFFF43F5E),
                         ),
                       ),
                     ],
