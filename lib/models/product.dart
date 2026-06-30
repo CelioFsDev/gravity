@@ -647,7 +647,7 @@ class Product {
   double? get promotionPrice => pricePromotion;
   double get originalPrice => priceOriginalForPromotion;
 
-  double get priceOriginalForPromotion => priceOriginal ?? priceRetail;
+  double get priceOriginalForPromotion => (priceOriginal != null && priceOriginal! > 0) ? priceOriginal! : priceRetail;
 
   bool get hasManualPromotionPrice =>
       pricePromotion != null && pricePromotion! > 0;
@@ -666,19 +666,19 @@ class Product {
     }
     return PriceCalculator.effectiveRetail(
       priceOriginalForPromotion,
-      true,
-      promoPercent,
+      true, // passed true because we already checked promoEnabled
+      promoPercent > 0 ? promoPercent : 0,
     );
   }
 
   bool get hasActivePromotion =>
-      promoEnabled && priceOriginalForPromotion > 0 && promotionPriceRetail > 0;
+      promoEnabled && priceOriginalForPromotion > 0 && promotionPriceRetail > 0 && promotionPriceRetail < priceOriginalForPromotion;
 
-  double get effectivePriceRetail => promotionPriceRetail;
+  double get effectivePriceRetail => hasActivePromotion ? promotionPriceRetail : priceRetail;
 
   double get effectivePriceWholesale => PriceCalculator.effectiveWholesale(
     priceWholesale,
-    promoEnabled,
+    hasActivePromotion,
     promoPercent,
   );
 

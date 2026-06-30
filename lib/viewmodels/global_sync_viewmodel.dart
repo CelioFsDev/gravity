@@ -52,6 +52,7 @@ class GlobalSyncViewModel extends _$GlobalSyncViewModel {
   Future<void> syncUpEverything() async {
     final progressNotifier = ref.read(syncProgressProvider.notifier);
     progressNotifier.startSync('Iniciando upload...');
+    String? finalMessage;
 
     try {
       // 1. Sincroniza Categorias e Coleções
@@ -70,12 +71,12 @@ class GlobalSyncViewModel extends _$GlobalSyncViewModel {
           .syncAllToCloud(force: true);
 
       final total = categoriesCount + productsCount + catalogsCount;
-      progressNotifier.stopSync(
-        message: 'Upload concluído: $total itens enviados.',
-      );
+      finalMessage = 'Upload concluído: $total itens enviados.';
     } catch (e) {
-      progressNotifier.stopSync(message: 'Erro no upload: $e');
+      finalMessage = 'Erro no upload: $e';
       rethrow;
+    } finally {
+      progressNotifier.stopSync(message: finalMessage);
     }
   }
 
@@ -83,21 +84,22 @@ class GlobalSyncViewModel extends _$GlobalSyncViewModel {
   Future<void> syncDownEverything() async {
     final progressNotifier = ref.read(syncProgressProvider.notifier);
     progressNotifier.startSync('Buscando atualizações...');
+    String? finalMessage;
 
     try {
       final settings = ref.read(settingsRepositoryProvider).getSettings();
       if (settings.localOnlyMode) {
-        progressNotifier.stopSync(
-          message: 'Modo somente local ativo. Download da nuvem bloqueado.',
-        );
+        finalMessage = 'Modo somente local ativo. Download da nuvem bloqueado.';
         return;
       }
 
       await _internalSyncDown((p, m) => progressNotifier.updateProgress(p, m));
-      progressNotifier.stopSync(message: 'Sincronização concluída!');
+      finalMessage = 'Sincronização concluída!';
     } catch (e) {
-      progressNotifier.stopSync(message: 'Erro ao baixar: $e');
+      finalMessage = 'Erro ao baixar: $e';
       rethrow;
+    } finally {
+      progressNotifier.stopSync(message: finalMessage);
     }
   }
 

@@ -334,9 +334,12 @@ class CatalogShareHelper {
     try {
       var catalogToShare = catalog;
       if (!catalogToShare.isPublic || catalogToShare.shareCode.trim().isEmpty) {
-        catalogToShare = await ref
-            .read(catalogsViewModelProvider.notifier)
-            .prepareCatalogForSharing(catalogToShare);
+        catalogToShare = await _runWithLoadingDialog(
+          context,
+          () => ref
+              .read(catalogsViewModelProvider.notifier)
+              .prepareCatalogForSharing(catalogToShare),
+        );
       }
 
       if (catalogToShare.shareCode.trim().isEmpty) {

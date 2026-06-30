@@ -99,32 +99,11 @@ class CatalogsScreen extends ConsumerWidget {
                       ? () => _showCreateOptions(context)
                       : null,
                   onShare: (catalog) async {
-                    Catalog catalogToShare;
-                    try {
-                      catalogToShare =
-                          await CatalogShareHelper.runWithLoadingDialog(
-                            context,
-                            () => notifier.prepareCatalogForSharing(catalog),
-                            title: 'Preparando compartilhamento...',
-                            message:
-                                'Publicando a vitrine e atualizando imagens.',
-                          );
-                    } catch (e) {
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            e.toString().replaceFirst('Exception: ', ''),
-                          ),
-                        ),
-                      );
-                      return;
-                    }
                     if (!context.mounted) return;
                     await CatalogShareHelper.showShareOptions(
                       context: context,
                       ref: ref,
-                      catalog: catalogToShare,
+                      catalog: catalog,
                     );
                   },
                   onEdit: (catalog) => _openEdit(context, catalog),

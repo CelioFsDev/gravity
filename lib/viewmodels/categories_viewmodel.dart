@@ -477,6 +477,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
   /// Sincroniza todas as categorias/coleções locais para a nuvem
   Future<int> syncAllToCloud({bool force = false}) async {
     final progressNotifier = ref.read(syncProgressProvider.notifier);
+    String? finalMessage;
     try {
       progressNotifier.startSync('Iniciando sincronização de categorias...');
 
@@ -485,7 +486,6 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       final localCategories = await localRepo.getCategories();
 
       if (localCategories.isEmpty) {
-        progressNotifier.stopSync();
         return 0;
       }
 
@@ -502,7 +502,6 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       }
 
       if (tenantId == null) {
-        progressNotifier.stopSync();
         throw Exception('Empresa não identificada. Verifique seu login.');
       }
 
@@ -528,29 +527,28 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         }
       }
 
-      progressNotifier.stopSync(
-        message: 'Sincronização concluída: $syncedCount itens.',
-      );
+      finalMessage = 'Sincronização concluída: $syncedCount itens.';
       await _refresh();
       return syncedCount;
     } catch (e) {
-      progressNotifier.stopSync(message: 'Erro: $e');
+      finalMessage = 'Erro: $e';
       print('Erro ao sincronizar categorias: $e');
       rethrow;
+    } finally {
+      progressNotifier.stopSync(message: finalMessage);
     }
   }
 
   /// Baixa todas as categorias/coleções da nuvem para o celular
   Future<int> syncFromCloud() async {
     final progressNotifier = ref.read(syncProgressProvider.notifier);
+    String? finalMessage;
     try {
       progressNotifier.startSync('Buscando categorias na nuvem...');
 
       final settings = ref.read(settingsRepositoryProvider).getSettings();
       if (settings.localOnlyMode) {
-        progressNotifier.stopSync(
-          message: 'Modo somente local ativo. Download da nuvem bloqueado.',
-        );
+        finalMessage = 'Modo somente local ativo. Download da nuvem bloqueado.';
         return 0;
       }
 
@@ -566,7 +564,6 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       }
 
       if (tenantId == null) {
-        progressNotifier.stopSync();
         throw Exception('Empresa não identificada.');
       }
 
@@ -588,7 +585,6 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       if (currentLocalCategories.isEmpty) {
         final settings = ref.read(settingsRepositoryProvider).getSettings();
         if (!settings.isInitialSyncCompleted) {
-          progressNotifier.stopSync();
           return 0; // Abort download to save Firebase reads
         }
       }
@@ -604,7 +600,6 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         since: mostRecentLocal,
       );
       if (cloudCategories.isEmpty) {
-        progressNotifier.stopSync();
         return 0;
       }
 
@@ -640,13 +635,14 @@ class CategoriesViewModel extends _$CategoriesViewModel {
         DateTime.now().millisecondsSinceEpoch,
       );
 
-      progressNotifier.stopSync();
       await _refresh();
       return downloadedCount;
     } catch (e) {
-      progressNotifier.stopSync();
+      finalMessage = 'Erro: $e';
       print('Erro ao baixar categorias: $e');
       rethrow;
+    } finally {
+      progressNotifier.stopSync(message: finalMessage);
     }
   }
 }

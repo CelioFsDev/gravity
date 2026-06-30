@@ -534,11 +534,14 @@ class ProductsViewModel extends _$ProductsViewModel {
         final progressNotifier = ref.read(syncProgressProvider.notifier);
 
         progressNotifier.startSync('Atualizando lote na nuvem (Web)...');
-        await cloudRepository.updateProductsBulk(
-          products,
-          onProgress: (p, m) => progressNotifier.updateProgress(p, m),
-        );
-        progressNotifier.stopSync();
+        try {
+          await cloudRepository.updateProductsBulk(
+            products,
+            onProgress: (p, m) => progressNotifier.updateProgress(p, m),
+          );
+        } finally {
+          progressNotifier.stopSync();
+        }
       } else {
         final cloudRepository = ref.read(syncProductsRepositoryProvider);
         await cloudRepository.updateProductsBulk(products);
@@ -562,6 +565,7 @@ class ProductsViewModel extends _$ProductsViewModel {
   }) async {
     final progressNotifier = ref.read(syncProgressProvider.notifier);
     progressNotifier.startSync('Iniciando sincronização...');
+    String? finalMessage;
 
     try {
       // 1. Primeiro sincroniza Categorias/Coleções (importante para integridade)
@@ -580,9 +584,7 @@ class ProductsViewModel extends _$ProductsViewModel {
           force: force,
           onProgress: (p, m) => progressNotifier.updateProgress(p, m),
         );
-        progressNotifier.stopSync(
-          message: 'Sincronização concluída: $count produtos atualizados.',
-        );
+        finalMessage = 'Sincronização concluída: $count produtos atualizados.';
         await refresh();
         _notifyChanges();
         return count;
@@ -590,9 +592,11 @@ class ProductsViewModel extends _$ProductsViewModel {
 
       return 0;
     } catch (e) {
-      progressNotifier.stopSync(message: 'Erro na sincronização: $e');
+      finalMessage = 'Erro na sincronização: $e';
       debugPrint('Erro na sincronização: $e');
       rethrow;
+    } finally {
+      progressNotifier.stopSync(message: finalMessage);
     }
   }
 
@@ -600,6 +604,7 @@ class ProductsViewModel extends _$ProductsViewModel {
   Future<int> syncFromCloud() async {
     final progressNotifier = ref.read(syncProgressProvider.notifier);
     progressNotifier.startSync('Buscando produtos na nuvem...');
+    String? finalMessage;
 
     try {
       final tenant = await ref.read(currentTenantProvider.future);
@@ -641,10 +646,7 @@ class ProductsViewModel extends _$ProductsViewModel {
       if (currentLocalProducts.isEmpty) {
         final settings = ref.read(settingsRepositoryProvider).getSettings();
         if (!settings.isInitialSyncCompleted) {
-          progressNotifier.stopSync(
-            message:
-                'Carga inicial pendente. Use a opção de importar backup via WinRAR (ZIP).',
-          );
+          finalMessage = 'Carga inicial pendente. Use a opção de importar backup via WinRAR (ZIP).';
           return 0; // Abort download to save Firebase reads
         }
       }
@@ -664,7 +666,7 @@ class ProductsViewModel extends _$ProductsViewModel {
       );
 
       if (cloudProducts.isEmpty) {
-        progressNotifier.stopSync(message: 'Tudo atualizado!');
+        finalMessage = 'Tudo atualizado!';
         return 0;
       }
 
@@ -705,14 +707,14 @@ class ProductsViewModel extends _$ProductsViewModel {
         DateTime.now().millisecondsSinceEpoch,
       );
 
-      progressNotifier.stopSync(
-        message: 'Download concluído: $updateCount produtos!',
-      );
+      finalMessage = 'Download concluído: $updateCount produtos!';
       return updateCount;
     } catch (e) {
-      progressNotifier.stopSync(message: 'Erro: $e');
+      finalMessage = 'Erro: $e';
       debugPrint('Erro ao baixar dados da nuvem: $e');
       rethrow;
+    } finally {
+      progressNotifier.stopSync(message: finalMessage);
     }
   }
 

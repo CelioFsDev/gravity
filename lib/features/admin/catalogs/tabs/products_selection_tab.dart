@@ -39,6 +39,7 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
   String? _collectionFilter;
   bool _onlySelected = false;
   bool _onlyWithPhoto = false;
+  bool _onlyPromotion = false;
 
   @override
   void dispose() {
@@ -61,6 +62,9 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
         return false;
       }
       if (_onlyWithPhoto && product.photos.isEmpty && product.images.isEmpty) {
+        return false;
+      }
+      if (_onlyPromotion && !product.promotionActive) {
         return false;
       }
       if (_collectionFilter != null &&
@@ -134,6 +138,13 @@ class _ProductsSelectionTabState extends State<ProductsSelectionTab> {
                       selected: _onlyWithPhoto,
                       onSelected: (value) =>
                           setState(() => _onlyWithPhoto = value),
+                    ),
+                    const SizedBox(width: 8),
+                    FilterChip(
+                      label: const Text('Em promoção'),
+                      selected: _onlyPromotion,
+                      onSelected: (value) =>
+                          setState(() => _onlyPromotion = value),
                     ),
                     const SizedBox(width: 8),
                     Chip(

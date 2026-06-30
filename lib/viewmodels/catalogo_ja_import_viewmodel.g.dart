@@ -7,7 +7,7 @@ part of 'catalogo_ja_import_viewmodel.dart';
 // **************************************************************************
 
 String _$catalogoJaImportViewModelHash() =>
-    r'5f65fced4f40ad8bcff50e019a1301c6be500116';
+    r'793a26af813bc6464bce390ead358df93a3096bc';
 
 /// See also [CatalogoJaImportViewModel].
 @ProviderFor(CatalogoJaImportViewModel)

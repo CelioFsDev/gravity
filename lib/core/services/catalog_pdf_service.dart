@@ -1516,6 +1516,17 @@ class CatalogPdfService {
                       ),
                       if (showPrice) ...[
                         pw.SizedBox(height: 15),
+                        if (product.hasActivePromotion && !editablePrice) ...[
+                          pw.Text(
+                            currencyFormat.format(product.originalPriceForMode(CatalogMode.varejo.name)),
+                            style: pw.TextStyle(
+                              fontSize: isClean ? 16 : 14,
+                              color: PdfColors.grey500,
+                              decoration: pw.TextDecoration.lineThrough,
+                            ),
+                          ),
+                          pw.SizedBox(height: 2),
+                        ],
                         editablePrice
                             ? pw.Container(
                                 padding: const pw.EdgeInsets.symmetric(

@@ -231,6 +231,7 @@ class CatalogsViewModel extends _$CatalogsViewModel {
 
   Future<int> syncAllToCloud({bool force = false}) async {
     final progressNotifier = ref.read(syncProgressProvider.notifier);
+    String? finalMessage;
     try {
       progressNotifier.startSync('Iniciando sincronização de catálogos...');
       
@@ -275,7 +276,7 @@ class CatalogsViewModel extends _$CatalogsViewModel {
       }).toList();
 
       if (localCatalogs.isEmpty) {
-        progressNotifier.stopSync(message: 'Tudo já está sincronizado.');
+        finalMessage = 'Tudo já está sincronizado.';
         return 0;
       }
       var syncedCount = 0;
@@ -295,19 +296,20 @@ class CatalogsViewModel extends _$CatalogsViewModel {
         }
       }
 
-      progressNotifier.stopSync();
       ref.invalidateSelf();
       return syncedCount;
     } catch (e) {
-      progressNotifier.stopSync();
       print('Erro ao sincronizar catálogos: $e');
       rethrow;
+    } finally {
+      progressNotifier.stopSync(message: finalMessage);
     }
   }
 
   /// Baixa todos os catálogos da nuvem para o celular
   Future<int> syncFromCloud() async {
     final progressNotifier = ref.read(syncProgressProvider.notifier);
+    String? finalMessage;
     try {
       progressNotifier.startSync('Buscando catálogos na nuvem...');
       
@@ -327,9 +329,7 @@ class CatalogsViewModel extends _$CatalogsViewModel {
 
       final localOnlySettings = ref.read(settingsRepositoryProvider).getSettings();
       if (localOnlySettings.localOnlyMode) {
-        progressNotifier.stopSync(
-          message: 'Modo somente local ativo. Download da nuvem bloqueado.',
-        );
+        finalMessage = 'Modo somente local ativo. Download da nuvem bloqueado.';
         return 0;
       }
 
@@ -349,7 +349,6 @@ class CatalogsViewModel extends _$CatalogsViewModel {
       if (hasNoLocalData) {
         final settings = ref.read(settingsRepositoryProvider).getSettings();
         if (!settings.isInitialSyncCompleted) {
-          progressNotifier.stopSync();
           return 0; // Aguarda carga inicial via backup
         }
       }
@@ -365,7 +364,6 @@ class CatalogsViewModel extends _$CatalogsViewModel {
         since: mostRecentLocal,
       );
       if (cloudCatalogs.isEmpty) {
-        progressNotifier.stopSync();
         return 0;
       }
 
@@ -398,13 +396,13 @@ class CatalogsViewModel extends _$CatalogsViewModel {
       final box = await Hive.openBox('sync_meta');
       await box.put('last_sync_catalogs', DateTime.now().millisecondsSinceEpoch);
 
-      progressNotifier.stopSync();
       ref.invalidateSelf();
       return downloadedCount;
     } catch (e) {
-      progressNotifier.stopSync();
       print('Erro ao baixar catálogos: $e');
       rethrow;
+    } finally {
+      progressNotifier.stopSync(message: finalMessage);
     }
   }
 }

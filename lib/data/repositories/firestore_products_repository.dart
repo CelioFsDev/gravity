@@ -219,8 +219,11 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
   }
 
   void _scheduleAutoSyncAfterInitialBackup(Product product) {
-    final settings = _settingsRepo.getSettings();
-    if (!settings.isInitialSyncCompleted) return;
+    if (!kIsWeb) {
+      final settings = _settingsRepo.getSettings();
+      if (!settings.isInitialSyncCompleted) return;
+    }
+    
     if (_autoSyncInFlight.contains(product.id)) return;
 
     _autoSyncInFlight.add(product.id);
@@ -513,7 +516,10 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
     List<Product> products, {
     Function(double, String)? onProgress,
   }) async {
-    final batch = _firestore.batch();
+    final settings = _settingsRepo.getSettings();
+    final shouldSyncNow = kIsWeb || settings.isInitialSyncCompleted;
+
+    final batch = shouldSyncNow ? _firestore.batch() : null;
     final total = products.length;
 
     for (var i = 0; i < total; i++) {
@@ -521,36 +527,44 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
       // ✨ Segurança Adicional: Garante que o tenantId do lote seja o correto
       final pWithTenant = p.copyWith(
         tenantId: _tenantId,
-        syncStatus: SyncStatus.synced,
+        syncStatus: shouldSyncNow ? SyncStatus.synced : SyncStatus.pendingUpdate,
       );
-      final docRef = _collection.doc(p.id);
-      batch.set(docRef, pWithTenant.toMap());
+      
+      if (shouldSyncNow) {
+        final docRef = _collection.doc(p.id);
+        batch!.set(docRef, pWithTenant.toMap(), SetOptions(merge: true));
+      }
+      
       await _localRepo.addProduct(pWithTenant);
     }
 
-    try {
-      await batch.commit();
-    } catch (_) {
-      for (final product in products) {
-        final productToSync = product.copyWith(
-          tenantId: _tenantId,
-          syncStatus: SyncStatus.pendingUpdate,
-        );
-        await _syncQueue.enqueue(
-          SyncQueueItem(
+    if (shouldSyncNow) {
+      try {
+        await batch!.commit().timeout(const Duration(seconds: 15));
+      } catch (_) {
+        for (final product in products) {
+          final productToSync = product.copyWith(
             tenantId: _tenantId,
-            entityType: 'product',
-            entityId: product.id,
-            operation: SyncOperation.update,
-            payload: productToSync.toMap(),
-          ),
-        );
+            syncStatus: SyncStatus.pendingUpdate,
+          );
+          await _localRepo.updateProduct(productToSync);
+          await _syncQueue.enqueue(
+            SyncQueueItem(
+              tenantId: _tenantId,
+              entityType: 'product',
+              entityId: product.id,
+              operation: SyncOperation.update,
+              payload: productToSync.toMap(),
+            ),
+          );
+        }
       }
     }
+    
     invalidateCache();
 
     if (onProgress != null) {
-      onProgress(1.0, '$total produtos atualizados na nuvem!');
+      onProgress(1.0, '$total produtos atualizados localmente${shouldSyncNow ? ' e na nuvem' : ''}!');
     }
   }
 

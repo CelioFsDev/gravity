@@ -23,7 +23,7 @@ final currentUserStatusProvider = AutoDisposeStreamProvider<bool>.internal(
 );
 
 typedef CurrentUserStatusRef = AutoDisposeStreamProviderRef<bool>;
-String _$currentRoleHash() => r'ab2edd02f3147543e9264e6a6955b966c74f57c6';
+String _$currentRoleHash() => r'e126be7ccb3a6086a062d0a2520a04b1c6cdb251';
 
 /// See also [CurrentRole].
 @ProviderFor(CurrentRole)

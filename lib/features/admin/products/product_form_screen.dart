@@ -253,7 +253,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
 
     // Combine Collection + Categories
     final categoryIds = <String>[
-      ?_selectedCollectionId,
+      if (_selectedCollectionId != null) _selectedCollectionId!,
       ..._selectedCategoryIds,
     ];
     var product = Product(

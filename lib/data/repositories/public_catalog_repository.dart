@@ -57,17 +57,12 @@ class FirestorePublicCatalogRepository {
       final normalizedShareCode = rawShareCode.toLowerCase();
 
       final snapshotData = await _getPublicCatalogSnapshot(normalizedShareCode);
+      String? snapshotWhatsapp;
       if (snapshotData != null) {
-        _logPublicCatalogLoaded(
-          source: 'snapshot',
-          shareCode: normalizedShareCode,
-          catalog: snapshotData.catalog,
-          products: snapshotData.products,
-        );
+        snapshotWhatsapp = snapshotData.whatsappNumber;
         debugPrint(
-          '✅ Public catalog loaded from snapshot ($normalizedShareCode)',
+          '✅ Public catalog snapshot found. Using it for metadata fallback ($normalizedShareCode)',
         );
-        return snapshotData;
       }
 
       final catalog =
@@ -197,7 +192,7 @@ class FirestorePublicCatalogRepository {
         catalog: catalog,
         products: products,
         categories: categories,
-        whatsappNumber: null,
+        whatsappNumber: snapshotWhatsapp,
       );
     } catch (e, s) {
       debugPrint('Error loading public catalog data for $shareCode: $e');

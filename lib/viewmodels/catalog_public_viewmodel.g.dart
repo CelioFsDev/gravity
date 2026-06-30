@@ -6,7 +6,7 @@ part of 'catalog_public_viewmodel.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$catalogPublicHash() => r'93b40760c8b1144e46c2b4a489b0dcab06053ed9';
+String _$catalogPublicHash() => r'aa4302bc20e82881ba009f5a3e6d50fc3f12f4cc';
 
 /// Copied from Dart SDK
 class _SystemHash {

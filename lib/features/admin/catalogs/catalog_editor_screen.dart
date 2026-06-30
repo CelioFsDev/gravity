@@ -1,4 +1,4 @@
-﻿import 'package:catalogo_ja/ui/widgets/app_primary_button.dart';
+import 'package:catalogo_ja/ui/widgets/app_primary_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/models/catalog.dart';
@@ -32,128 +32,16 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  Future<Catalog> _prepareQuickCatalogForSharing(Catalog catalog) async {
-    final tenant = await ref.read(currentTenantProvider.future);
-    if (tenant == null || tenant.id.trim().isEmpty) {
-      throw Exception(
-        'Empresa nao identificada. Entre em uma empresa e tente novamente.',
-      );
-    }
-
-    final normalizedName = catalog.name.trim().isEmpty
-        ? 'Catalogo rapido'
-        : catalog.name.trim();
-    final normalizedSlug = _normalizeQuickSlug(catalog.slug, normalizedName);
-    final normalizedShareCode = catalog.shareCode.trim().isEmpty
-        ? StringUtils.generateBase62(10).toLowerCase()
-        : catalog.shareCode.trim().toLowerCase();
-
-    final quickCatalog = catalog.copyWith(
-      name: normalizedName,
-      slug: normalizedSlug,
-      isPublic: true,
-      shareCode: normalizedShareCode,
-      tenantId: tenant.id,
-      updatedAt: DateTime.now(),
-    );
-
-    ref.invalidate(publicCatalogSnapshotServiceProvider);
-    await ref
-        .read(publicCatalogSnapshotServiceProvider)
-        .publish(quickCatalog)
-        .timeout(const Duration(minutes: 2));
-    return quickCatalog;
-  }
-
-  String _normalizeQuickSlug(String slug, String fallbackName) {
-    final source = slug.trim().isEmpty ? fallbackName : slug;
-    final normalized = source
-        .trim()
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9-]'), '-')
-        .replaceAll(RegExp(r'-+'), '-')
-        .replaceAll(RegExp(r'^-+|-+$'), '');
-
-    return normalized.length >= 3 ? normalized : 'catalogo-rapido';
-  }
-
   Future<void> _shareQuickOnly(CatalogEditorState currentState) async {
-    try {
-      final quickCatalog = await CatalogShareHelper.runWithLoadingDialog(
-        context,
-        () => _prepareQuickCatalogForSharing(currentState.catalog),
-        title: 'Preparando compartilhamento...',
-        message: 'Publicando a vitrine e atualizando imagens.',
-      );
-      if (!context.mounted) return;
-      await CatalogShareHelper.showShareOptions(
-        context: context,
-        ref: ref,
-        catalog: quickCatalog,
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      final detail = e
-          .toString()
-          .replaceFirst('Exception: ', '')
-          .replaceFirst('Bad state: ', '')
-          .trim();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            detail.isEmpty
-                ? 'Nao foi possivel publicar a vitrine rapida. Tente novamente.'
-                : detail,
-          ),
-        ),
-      );
-    }
+    if (!mounted) return;
+    await CatalogShareHelper.showShareOptions(
+      context: context,
+      ref: ref,
+      catalog: currentState.catalog,
+    );
   }
 
-  Future<Catalog?> _savePublicCatalogForSharing(
-    CatalogEditorState currentState,
-    CatalogEditorViewModel notifier,
-  ) async {
-    if (currentState.catalog.name.trim().isEmpty) {
-      if (!mounted) return null;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Informe o nome do catálogo.')),
-      );
-      return null;
-    }
 
-    if (currentState.catalog.slug.trim().length < 3) {
-      notifier.updateSlug(currentState.catalog.name);
-    }
-
-    notifier.setIsPublic(true);
-    final success = await notifier.save(publishSnapshot: false);
-    if (!success || !mounted) {
-      final latestState = ref.read(
-        catalogEditorViewModelProvider(widget.catalog?.id),
-      );
-      final msg = latestState.slugError?.trim().isNotEmpty == true
-          ? latestState.slugError!
-          : 'Nao foi possivel salvar o catalogo para compartilhar.';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-      return null;
-    }
-
-    final savedCatalog = ref
-        .read(catalogEditorViewModelProvider(widget.catalog?.id))
-        .catalog;
-    try {
-      return await ref
-          .read(catalogsViewModelProvider.notifier)
-          .prepareCatalogForSharing(savedCatalog);
-    } catch (e) {
-      if (!mounted) return null;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
-      );
-      return null;
-    }
-  }
 
   @override
   void initState() {
@@ -210,18 +98,27 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                 await _shareQuickOnly(state);
                 return;
               }
-              final catalogToShare =
-                  await CatalogShareHelper.runWithLoadingDialog(
-                    context,
-                    () => _savePublicCatalogForSharing(state, notifier),
-                    title: 'Preparando compartilhamento...',
-                    message: 'Salvando o catálogo e atualizando imagens.',
-                  );
-              if (catalogToShare == null || !context.mounted) return;
+              
+              if (state.catalog.name.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Informe o nome do catálogo.')));
+                return;
+              }
+              
+              final success = await CatalogShareHelper.runWithLoadingDialog(
+                context,
+                () => notifier.save(publishSnapshot: false),
+                title: 'Salvando...',
+                message: 'Aguarde um instante.',
+              );
+              
+              if (success != true || !context.mounted) return;
+              
+              final savedCatalog = ref.read(catalogEditorViewModelProvider(widget.catalog?.id)).catalog;
+              
               await CatalogShareHelper.showShareOptions(
                 context: context,
                 ref: ref,
-                catalog: catalogToShare,
+                catalog: savedCatalog,
               );
             },
           ),
