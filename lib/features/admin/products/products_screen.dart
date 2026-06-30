@@ -123,7 +123,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   }
 
   Widget _buildAiAssistantCard(BuildContext context) {
-    final state = ref.watch(productsViewModelProvider).valueOrNull;
+    final state = ref.watch(productsViewModelProvider).asData?.value;
     final summary = state?.assistantResultSummary;
     final hasResult = state?.assistantResultIds != null;
     final resultCount = state?.assistantResultIds?.length ?? 0;
@@ -202,7 +202,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
   Future<void> _runAssistantCommand() async {
     final command = _assistantController.text.trim();
-    final state = ref.read(productsViewModelProvider).valueOrNull;
+    final state = ref.read(productsViewModelProvider).asData?.value;
     if (command.length < 3 || state == null || _isRunningAssistant) return;
 
     FocusScope.of(context).unfocus();
@@ -438,10 +438,10 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     final stateValue = ref.watch(productsViewModelProvider);
     final categoriesValue = ref.watch(categoriesViewModelProvider);
     final hasCloudUpdates =
-        ref.watch(cloudProductUpdatesPendingProvider).valueOrNull ?? false;
+        ref.watch(cloudProductUpdatesPendingProvider).asData?.value ?? false;
 
-    final state = stateValue.valueOrNull;
-    final categoriesState = categoriesValue.valueOrNull;
+    final state = stateValue.asData?.value;
+    final categoriesState = categoriesValue.asData?.value;
 
     if (state == null || categoriesState == null) {
       return const SizedBox.shrink();

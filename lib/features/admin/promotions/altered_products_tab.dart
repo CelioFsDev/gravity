@@ -163,71 +163,82 @@ class _AlteredProductsTabState extends ConsumerState<AlteredProductsTab> {
   Widget _buildFilters(List<Category> groups) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        children: [
-          SizedBox(
-            width: 200,
-            child: TextField(
-              decoration: const InputDecoration(
-                labelText: 'Buscar (Ref, Nome, Promocao)',
-                prefixIcon: Icon(Icons.search),
-                isDense: true,
-              ),
-              onChanged: (v) => setState(() => _searchQuery = v),
-            ),
-          ),
-          SizedBox(
-            width: 200,
-            child: DropdownButtonFormField<String?>(
-              value: _selectedCollectionId,
-              decoration: const InputDecoration(
-                labelText: 'Coleção',
-                isDense: true,
-              ),
-              items: [
-                const DropdownMenuItem(value: null, child: Text('Todas')),
-                ...groups.map(
-                  (g) => DropdownMenuItem(value: g.id, child: Text(g.safeName)),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isSmall = constraints.maxWidth < 760;
+          final fullWidth = constraints.maxWidth;
+          return Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            alignment: WrapAlignment.start,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SizedBox(
+                width: isSmall ? fullWidth : 220,
+                child: TextField(
+                  decoration: const InputDecoration(
+                    labelText: 'Buscar (Ref, Nome, Promoção)',
+                    prefixIcon: Icon(Icons.search),
+                    isDense: true,
+                  ),
+                  onChanged: (v) => setState(() => _searchQuery = v),
                 ),
-              ],
-              onChanged: (v) => setState(() => _selectedCollectionId = v),
-            ),
-          ),
-          SizedBox(
-            width: 150,
-            child: DropdownButtonFormField<String?>(
-              value: _selectedPromotionType,
-              decoration: const InputDecoration(
-                labelText: 'Tipo',
-                isDense: true,
               ),
-              items: const [
-                DropdownMenuItem(value: null, child: Text('Todos')),
-                DropdownMenuItem(value: 'percent', child: Text('Porcentagem')),
-                DropdownMenuItem(value: 'manual', child: Text('Manual')),
-              ],
-              onChanged: (v) => setState(() => _selectedPromotionType = v),
-            ),
-          ),
-          SizedBox(
-            width: 150,
-            child: DropdownButtonFormField<bool?>(
-              value: _isActiveFilter,
-              decoration: const InputDecoration(
-                labelText: 'Status',
-                isDense: true,
+              SizedBox(
+                width: isSmall ? fullWidth : 200,
+                child: DropdownButtonFormField<String?>(
+                  isExpanded: true,
+                  value: _selectedCollectionId,
+                  decoration: const InputDecoration(
+                    labelText: 'Coleção',
+                    isDense: true,
+                  ),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('Todas')),
+                    ...groups.map(
+                      (g) => DropdownMenuItem(value: g.id, child: Text(g.safeName)),
+                    ),
+                  ],
+                  onChanged: (v) => setState(() => _selectedCollectionId = v),
+                ),
               ),
-              items: const [
-                DropdownMenuItem(value: null, child: Text('Todos')),
-                DropdownMenuItem(value: true, child: Text('Ativa')),
-                DropdownMenuItem(value: false, child: Text('Removida')),
-              ],
-              onChanged: (v) => setState(() => _isActiveFilter = v),
-            ),
-          ),
-        ],
+              SizedBox(
+                width: isSmall ? fullWidth : 160,
+                child: DropdownButtonFormField<String?>(
+                  isExpanded: true,
+                  value: _selectedPromotionType,
+                  decoration: const InputDecoration(
+                    labelText: 'Tipo',
+                    isDense: true,
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: null, child: Text('Todos')),
+                    DropdownMenuItem(value: 'percent', child: Text('Porcentagem')),
+                    DropdownMenuItem(value: 'manual', child: Text('Manual')),
+                  ],
+                  onChanged: (v) => setState(() => _selectedPromotionType = v),
+                ),
+              ),
+              SizedBox(
+                width: isSmall ? fullWidth : 160,
+                child: DropdownButtonFormField<bool?>(
+                  isExpanded: true,
+                  value: _isActiveFilter,
+                  decoration: const InputDecoration(
+                    labelText: 'Status',
+                    isDense: true,
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: null, child: Text('Todos')),
+                    DropdownMenuItem(value: true, child: Text('Ativa')),
+                    DropdownMenuItem(value: false, child: Text('Removida')),
+                  ],
+                  onChanged: (v) => setState(() => _isActiveFilter = v),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

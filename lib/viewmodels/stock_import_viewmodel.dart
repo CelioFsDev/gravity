@@ -90,7 +90,7 @@ class StockImportViewModel extends StateNotifier<StockImportState> {
   }
 
   void _resolveRows() {
-    final productsState = _ref.read(productsViewModelProvider).valueOrNull;
+    final productsState = _ref.read(productsViewModelProvider).asData?.value;
     final allProducts = productsState?.allProducts ?? [];
 
     final resolvedRows = <StockPdfRow>[];
@@ -225,7 +225,7 @@ class StockImportViewModel extends StateNotifier<StockImportState> {
 
       final productsNotifier = _ref.read(productsViewModelProvider.notifier);
       final tenantId =
-          _ref.read(currentTenantProvider).valueOrNull?.id ?? 'default';
+          _ref.read(currentTenantProvider).asData?.value?.id ?? 'default';
 
       int successCount = 0;
 
@@ -233,7 +233,7 @@ class StockImportViewModel extends StateNotifier<StockImportState> {
         final productId = entry.key;
         final rowsToApply = entry.value;
 
-        final productsState = _ref.read(productsViewModelProvider).valueOrNull;
+        final productsState = _ref.read(productsViewModelProvider).asData?.value;
         final product = productsState?.allProducts.firstWhere(
           (p) => p.id == productId,
         );

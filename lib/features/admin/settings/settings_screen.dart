@@ -149,7 +149,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _findMyLostData() async {
-    final email = ref.read(authViewModelProvider).valueOrNull?.email;
+    final email = ref.read(authViewModelProvider).asData?.value?.email;
     if (email == null) return;
     final emailDoc = email.toLowerCase().trim();
 
@@ -349,7 +349,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Widget _buildSettingsTab() {
-    final user = ref.watch(authViewModelProvider).valueOrNull;
+    final user = ref.watch(authViewModelProvider).asData?.value;
     final supportEmail = user?.email?.trim().toLowerCase() ?? '';
     final showSupportTools = UserRole.superAdminEmails.contains(supportEmail);
 
@@ -467,7 +467,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Widget _buildMaintenanceTab() {
-    final user = ref.watch(authViewModelProvider).valueOrNull;
+    final user = ref.watch(authViewModelProvider).asData?.value;
     final supportEmail = user?.email?.trim().toLowerCase() ?? '';
     final showSupportTools = UserRole.superAdminEmails.contains(supportEmail);
     final canManage = ref
@@ -658,7 +658,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Widget _buildStoreManagementSection() {
     final tenantAsync = ref.watch(currentTenantProvider);
-    final user = ref.watch(authViewModelProvider).valueOrNull;
+    final user = ref.watch(authViewModelProvider).asData?.value;
 
     return tenantAsync.when(
       data: (tenant) {
@@ -810,7 +810,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             .addStoreToTenant(tenantId, result);
         final userEmail = ref
             .read(authViewModelProvider)
-            .valueOrNull
+            .asData?.value
             ?.email
             ?.trim()
             .toLowerCase();

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:catalogo_ja/data/repositories/tenant_repository.dart';
+import 'package:catalogo_ja/viewmodels/active_session_viewmodel.dart';
 
 class TenantSelectionScreen extends ConsumerStatefulWidget {
   const TenantSelectionScreen({super.key});
@@ -23,7 +24,7 @@ class _TenantSelectionScreenState extends ConsumerState<TenantSelectionScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authViewModelProvider);
-    final user = authState.valueOrNull;
+    final user = authState.asData?.value;
 
     if (user == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     final email = user.email!.toLowerCase().trim();
@@ -338,7 +339,10 @@ class _TenantSelectionScreenState extends ConsumerState<TenantSelectionScreen> {
 
   Future<void> _selectAndLinkTenant(String tenantId) async {
     if (_isLoading) return;
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _loadingMessage = 'Selecionando empresa...';
+    });
     try {
       final userEmail = ref.read(authViewModelProvider).value?.email;
       if (userEmail == null) return;
@@ -360,35 +364,38 @@ class _TenantSelectionScreenState extends ConsumerState<TenantSelectionScreen> {
       final List<dynamic> stores = tenantDoc.data()?['stores'] ?? [];
       String? selectedStore;
 
-      if (stores.isNotEmpty && mounted) {
-        selectedStore = await showModalBottomSheet<String>(
-          context: context,
-          builder: (context) => Container(
-            padding: const EdgeInsets.all(AppTokens.space16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Escolha a Unidade', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 12),
-                ...stores.map((s) => ListTile(
-                  leading: const Icon(Icons.store),
-                  title: Text(s.toString()),
-                  onTap: () => Navigator.pop(context, s.toString()),
-                )),
-              ],
-            ),
-          ),
-        );
-        if (selectedStore == null) return;
+      if (stores.isNotEmpty) {
+        selectedStore = stores.first.toString();
+        debugPrint('[PICKER] Store selecionada automaticamente: $selectedStore');
       }
 
-      await FirebaseFirestore.instance.collection('users').doc(userEmail.toLowerCase().trim()).set({
+      // 1. Atualizar sessão localmente IMEDIATAMENTE
+      debugPrint('[PICKER] Salvando tenantId localmente');
+      await ref.read(activeSessionProvider.notifier).setActiveTenant(
+        userId: ref.read(authViewModelProvider).value?.uid,
+        email: userEmail,
+        tenantId: tenantId,
+        tenantName: tenantDoc.data()?['name'] ?? 'Empresa',
+        storeId: selectedStore,
+        storeName: selectedStore ?? 'Matriz',
+      );
+      debugPrint('[PICKER] tenantId e store salvos localmente');
+
+      // 2. Atualizar no Firestore em background
+      FirebaseFirestore.instance.collection('users').doc(userEmail.toLowerCase().trim()).set({
         'tenantId': tenantId,
         'tenantIds': FieldValue.arrayUnion([tenantId]),
         'currentStoreId': selectedStore,
-      }, SetOptions(merge: true));
+      }, SetOptions(merge: true)).then((_) {
+         debugPrint('[PICKER] Tenant salvo remotamente com sucesso');
+      }).catchError((e) {
+         debugPrint('[PICKER] Erro ao salvar remotamente, mas sessão local mantida: $e');
+      });
       
-      if (mounted) context.go('/admin/dashboard');
+      if (mounted) {
+        debugPrint('[ROUTER] Sessão pronta, indo para /admin/dashboard');
+        context.go('/admin/dashboard');
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
@@ -400,41 +407,47 @@ class _TenantSelectionScreenState extends ConsumerState<TenantSelectionScreen> {
 
   Future<void> _selectTenant(String tenantId) async {
     if (_isLoading) return;
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _loadingMessage = 'Selecionando empresa...';
+    });
     try {
       final userEmail = ref.read(authViewModelProvider).value?.email;
+      final userId = ref.read(authViewModelProvider).value?.uid;
       if (userEmail == null) return;
-      final tenantSnap = await FirebaseFirestore.instance.collection('tenants').doc(tenantId).get();
+      
+      debugPrint('[PICKER] Buscando dados do tenant: $tenantId');
+      final tenantSnap = await FirebaseFirestore.instance.collection('tenants').doc(tenantId).get().timeout(const Duration(seconds: 5));
+      final tenantName = tenantSnap.data()?['name'] ?? 'Empresa';
       final List<dynamic> stores = tenantSnap.data()?['stores'] ?? [];
       String? selectedStore;
       
-      if (stores.isNotEmpty && mounted) {
-        selectedStore = await showModalBottomSheet<String>(
-          context: context,
-          builder: (context) => Container(
-            padding: const EdgeInsets.all(AppTokens.space16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Escolha a Unidade', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                ...stores.map((s) => ListTile(
-                  leading: const Icon(Icons.store),
-                  title: Text(s.toString()),
-                  onTap: () => Navigator.pop(context, s.toString()),
-                )),
-              ],
-            ),
-          ),
-        );
-        if (selectedStore == null) return;
+      if (stores.isNotEmpty) {
+        selectedStore = stores.first.toString();
+        debugPrint('[PICKER] Store selecionada automaticamente (normal): $selectedStore');
       }
 
-      await FirebaseFirestore.instance.collection('users').doc(userEmail.toLowerCase().trim()).set({
+      debugPrint('[PICKER] Atualizando sessão ativa síncrona');
+      await ref.read(activeSessionProvider.notifier).setActiveTenant(
+        userId: userId,
+        email: userEmail,
+        tenantId: tenantId,
+        tenantName: tenantName,
+        storeId: selectedStore,
+        storeName: selectedStore ?? 'Matriz',
+      );
+      
+      // Update Firestore in background
+      FirebaseFirestore.instance.collection('users').doc(userEmail.toLowerCase().trim()).set({
         'tenantId': tenantId,
         'currentStoreId': selectedStore,
-      }, SetOptions(merge: true));
+      }, SetOptions(merge: true)).catchError((e) {
+        debugPrint('[PICKER] Erro background Firestore: $e');
+      });
+
       if (mounted) context.go('/admin/dashboard');
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('[PICKER] Erro: $e\n$stackTrace');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
       }

@@ -38,7 +38,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
   }
 
   Future<void> _ensureCurrentUserDocument() async {
-    final user = ref.read(authViewModelProvider).valueOrNull;
+    final user = ref.read(authViewModelProvider).asData?.value;
     final email = user?.email?.trim().toLowerCase() ?? '';
     if (user == null || email.isEmpty) return;
 
@@ -123,9 +123,9 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
   Widget build(BuildContext context) {
     final userRepository = ref.watch(userRepositoryProvider);
     final currentRole = ref.watch(currentRoleProvider);
-    final currentEmail = ref.watch(authViewModelProvider).valueOrNull?.email;
-    final currentTenantId = ref.watch(currentTenantProvider).valueOrNull?.id;
-    final currentStoreId = ref.watch(currentStoreIdProvider).valueOrNull;
+    final currentEmail = ref.watch(authViewModelProvider).asData?.value?.email;
+    final currentTenantId = ref.watch(currentTenantProvider).asData?.value?.id;
+    final currentStoreId = ref.watch(currentStoreIdProvider).asData?.value;
 
     if (!currentRole.canManageUsers(currentEmail)) {
       return const AppScaffold(
@@ -284,7 +284,7 @@ class _UserRow extends ConsumerWidget {
     final normalizedEmail = email.trim().toLowerCase();
     final currentEmail = ref
         .watch(authViewModelProvider)
-        .valueOrNull
+        .asData?.value
         ?.email
         ?.trim()
         .toLowerCase();
@@ -293,8 +293,8 @@ class _UserRow extends ConsumerWidget {
     );
     final displayName = user['displayName'] as String? ?? '';
     final photoURL = user['photoURL'] as String? ?? '';
-    final tenantId = ref.watch(currentTenantProvider).valueOrNull?.id ?? '';
-    final storeId = ref.watch(currentStoreIdProvider).valueOrNull ?? '';
+    final tenantId = ref.watch(currentTenantProvider).asData?.value?.id ?? '';
+    final storeId = ref.watch(currentStoreIdProvider).asData?.value ?? '';
     final roleStr = effectiveUserRoleName(
       user,
       tenantId: tenantId,
@@ -485,7 +485,7 @@ class _UserRow extends ConsumerWidget {
     final nameController = TextEditingController(
       text: user['displayName'] as String? ?? '',
     );
-    final tenant = ref.read(currentTenantProvider).valueOrNull;
+    final tenant = ref.read(currentTenantProvider).asData?.value;
     final availableStores = tenant?.stores ?? const <String>[];
     String? selectedStoreId = user['currentStoreId'] as String? ?? '';
     if (selectedStoreId.isEmpty) {
@@ -499,14 +499,14 @@ class _UserRow extends ConsumerWidget {
           item.name ==
           effectiveUserRoleName(
             user,
-            tenantId: ref.read(currentTenantProvider).valueOrNull?.id ?? '',
-            storeId: ref.read(currentStoreIdProvider).valueOrNull ?? '',
+            tenantId: ref.read(currentTenantProvider).asData?.value?.id ?? '',
+            storeId: ref.read(currentStoreIdProvider).asData?.value ?? '',
           ),
       orElse: () => UserRole.viewer,
     );
     final currentEmail = ref
         .read(authViewModelProvider)
-        .valueOrNull
+        .asData?.value
         ?.email
         ?.trim()
         .toLowerCase();
@@ -617,7 +617,7 @@ class _UserRow extends ConsumerWidget {
                       displayName: nameController.text.trim(),
                       role: selectedRole.name,
                       disabled: isSuspended,
-                      tenantId: ref.read(currentTenantProvider).valueOrNull?.id,
+                      tenantId: ref.read(currentTenantProvider).asData?.value?.id,
                       storeId: selectedStoreId,
                     )
                     .then((_) {
@@ -670,8 +670,8 @@ class _UserRow extends ConsumerWidget {
                   .read(adminUserAccountRepositoryProvider)
                   .deleteUserAccount(
                     user['email'] as String,
-                    tenantId: ref.read(currentTenantProvider).valueOrNull?.id,
-                    storeId: ref.read(currentStoreIdProvider).valueOrNull,
+                    tenantId: ref.read(currentTenantProvider).asData?.value?.id,
+                    storeId: ref.read(currentStoreIdProvider).asData?.value,
                   )
                   .then((_) {
                     if (context.mounted) {

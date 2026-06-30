@@ -303,7 +303,7 @@ class _CatalogsContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final productsState = ref.watch(productsViewModelProvider).valueOrNull;
+    final productsState = ref.watch(productsViewModelProvider).asData?.value;
     final productById = {
       for (final product in productsState?.allProducts ?? [])
         product.id: product,

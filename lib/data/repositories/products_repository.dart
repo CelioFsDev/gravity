@@ -164,6 +164,6 @@ ProductsRepositoryContract productsRepository(ProductsRepositoryRef ref) {
   final productsBox = Hive.box<Product>('products');
   return HiveProductsRepository(
     productsBox,
-    () => ref.read(currentTenantProvider).valueOrNull?.id,
+    () => ref.read(currentTenantProvider).asData?.value?.id,
   );
 }

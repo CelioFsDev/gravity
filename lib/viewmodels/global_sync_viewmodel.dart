@@ -20,8 +20,8 @@ class GlobalSyncViewModel extends _$GlobalSyncViewModel {
   @override
   void build() {
     ref.listen(currentTenantProvider, (previous, next) {
-      final prevId = previous?.valueOrNull?.id;
-      final nextId = next.valueOrNull?.id;
+      final prevId = previous?.asData?.value?.id;
+      final nextId = next.asData?.value?.id;
       if (prevId != null && nextId != null && prevId != nextId) {
         debugPrint('🏢 Troca de Tenant detectada ($prevId -> $nextId). Limpando fila de sincronização...');
         ref.read(syncQueueRepositoryProvider).clearAll();

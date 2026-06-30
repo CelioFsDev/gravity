@@ -11,7 +11,7 @@ import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
 import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-
+import 'package:catalogo_ja/viewmodels/active_session_viewmodel.dart';
 class AuthViewModel extends StreamNotifier<User?> {
   late AuthRepository _repository;
   late AppLogger _logger;
@@ -43,6 +43,10 @@ class AuthViewModel extends StreamNotifier<User?> {
 
   Future<void> _syncUserProfile(User user) async {
     await _userRepository.ensureUserProfileFromAuth(user);
+
+    if (user.email != null) {
+      await ref.read(activeSessionProvider.notifier).login(user.uid, user.email!);
+    }
 
     // ✨ SaaS Sync: Após garantir o perfil, disparamos o download dos dados da nuvem
     // Isso evita que o celular fique "zerado" depois de um logout/login.
@@ -249,6 +253,9 @@ class AuthViewModel extends StreamNotifier<User?> {
 
       // 🔑 Limpa o cache do TenantId para evitar conflito se outro user logar
       ref.read(tenantRepositoryProvider).clearTenantCache();
+
+      // 🔑 Limpa a sessão ativa
+      await ref.read(activeSessionProvider.notifier).logout();
 
       await _repository.signOut();
       _logger.log(AppEvent.logout);

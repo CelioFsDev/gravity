@@ -75,7 +75,7 @@ class CurrentRole extends _$CurrentRole {
 
   @override
   UserRole build() {
-    final authUser = ref.watch(authViewModelProvider).valueOrNull;
+    final authUser = ref.watch(authViewModelProvider).asData?.value;
     final email = _normalizeEmail(authUser?.email);
 
     if (email.isEmpty) {
@@ -234,7 +234,7 @@ extension UserRoleGuards on UserRole {
 @riverpod
 Stream<bool> currentUserStatus(ref) {
   // Use a generic ProviderRef to avoid generator issues if not running
-  final user = ref.watch(authViewModelProvider).valueOrNull;
+  final user = ref.watch(authViewModelProvider).asData?.value;
   if (user == null || user.email == null) return Stream.value(false);
 
   final email = _normalizeEmail(user.email);
@@ -247,7 +247,7 @@ Stream<bool> currentUserStatus(ref) {
 
 @riverpod
 Stream<UserRole> userRoleStream(ref) {
-  final user = ref.watch(authViewModelProvider).valueOrNull;
+  final user = ref.watch(authViewModelProvider).asData?.value;
   if (user == null || user.email == null) return Stream.value(UserRole.viewer);
 
   final email = _normalizeEmail(user.email);

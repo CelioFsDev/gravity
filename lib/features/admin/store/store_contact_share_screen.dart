@@ -89,7 +89,7 @@ class _StoreContactShareScreenState
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsViewModelProvider);
-    final catalogs = ref.watch(catalogsViewModelProvider).valueOrNull ?? [];
+    final catalogs = ref.watch(catalogsViewModelProvider).asData?.value ?? [];
 
     // Find a default catalog (prefer public ones)
     final defaultCatalog = catalogs.isNotEmpty
@@ -105,8 +105,8 @@ class _StoreContactShareScreenState
         : null;
 
     final currentTenantId =
-        ref.watch(currentTenantProvider).valueOrNull?.id ?? '';
-    final currentStoreId = ref.watch(currentStoreIdProvider).valueOrNull ?? '';
+        ref.watch(currentTenantProvider).asData?.value?.id ?? '';
+    final currentStoreId = ref.watch(currentStoreIdProvider).asData?.value ?? '';
 
     final usersStream = ref
         .watch(userRepositoryProvider)

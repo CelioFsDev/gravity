@@ -52,8 +52,8 @@ class _CreateEmailPasswordUserScreenState
             email: _emailController.text.trim().toLowerCase(),
             password: _passwordController.text,
             role: selectedRole.name,
-            tenantId: ref.read(currentTenantProvider).valueOrNull?.id,
-            storeId: ref.read(currentStoreIdProvider).valueOrNull,
+            tenantId: ref.read(currentTenantProvider).asData?.value?.id,
+            storeId: ref.read(currentStoreIdProvider).asData?.value,
           );
 
       _emailController.clear();
@@ -116,7 +116,7 @@ class _CreateEmailPasswordUserScreenState
 
   bool _canAssignAdmin() {
     final currentEmail =
-        ref.read(authViewModelProvider).valueOrNull?.email?.trim().toLowerCase();
+        ref.read(authViewModelProvider).asData?.value?.email?.trim().toLowerCase();
     return UserRole.superAdminEmails.contains(currentEmail);
   }
 

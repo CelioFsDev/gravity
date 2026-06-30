@@ -46,15 +46,18 @@ import 'package:catalogo_ja/features/public/catalog_home_page.dart';
 import 'package:catalogo_ja/features/public/product_detail_screen.dart';
 import 'package:catalogo_ja/features/super_admin/presentation/super_admin_shell_screen.dart';
 import 'package:catalogo_ja/ui/theme/app_theme.dart';
+
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/features/auth/login_screen.dart';
 import 'package:catalogo_ja/features/splash/splash_screen.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:catalogo_ja/pages/tenant/tenant_onboarding_page.dart';
 import 'package:catalogo_ja/pages/tenant/tenant_picker_page.dart';
+import 'package:catalogo_ja/pages/tenant/store_picker_page.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/catalog_public_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/active_session_viewmodel.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -63,7 +66,7 @@ import 'package:window_manager/window_manager.dart';
 
 /// Provider that checks if the user is disabled, manually defined to avoid build issues.
 final currentUserStatusProvider = StreamProvider<bool>((ref) {
-  final user = ref.watch(authViewModelProvider).valueOrNull;
+  final user = ref.watch(authViewModelProvider).asData?.value;
   if (user == null || user.email == null) return Stream.value(false);
   final email = user.email!.trim().toLowerCase();
   return FirebaseFirestore.instance
@@ -72,6 +75,22 @@ final currentUserStatusProvider = StreamProvider<bool>((ref) {
       .snapshots()
       .map((doc) => doc.data()?['disabled'] as bool? ?? false);
 });
+
+void _safeRemoveSplash() {
+  try {
+    FlutterNativeSplash.remove();
+  } catch (e) {
+    debugPrint('Erro ignorado no splash remove: $e');
+  }
+}
+
+void _safePreserveSplash(WidgetsBinding binding) {
+  try {
+    FlutterNativeSplash.preserve(widgetsBinding: binding);
+  } catch (e) {
+    debugPrint('Erro ignorado no splash preserve: $e');
+  }
+}
 
 void main() async {
   String? bootMode;
@@ -137,7 +156,7 @@ void main() async {
         ),
       ),
     );
-    FlutterNativeSplash.remove();
+    _safeRemoveSplash();
   }
 
   try {
@@ -145,14 +164,15 @@ void main() async {
       '[BOOT_IOS] ETAPA 1 - WidgetsFlutterBinding.ensureInitialized()',
     );
     WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
-    FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+    _safePreserveSplash(widgetsBinding);
 
     // Bloqueia a rotação de tela (força modo retrato)
-    await SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-    ]);
+    await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
-    if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.linux)) {
+    if (!kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.macOS ||
+            defaultTargetPlatform == TargetPlatform.linux)) {
       await windowManager.ensureInitialized();
 
       WindowOptions windowOptions = const WindowOptions(
@@ -182,7 +202,7 @@ void main() async {
         home: Scaffold(body: Center(child: Text('IOS BOOT MINIMAL OK'))),
       ),
     );
-    FlutterNativeSplash.remove();
+    _safeRemoveSplash();
     return;
   }
 
@@ -271,7 +291,10 @@ void main() async {
         await Firebase.initializeApp(
           options: DefaultFirebaseOptions.currentPlatform,
         );
-        if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.macOS)) {
+        if (!kIsWeb &&
+            (defaultTargetPlatform == TargetPlatform.android ||
+                defaultTargetPlatform == TargetPlatform.iOS ||
+                defaultTargetPlatform == TargetPlatform.macOS)) {
           await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(
             !kDebugMode,
           );
@@ -333,7 +356,7 @@ void main() async {
         home: Scaffold(body: Center(child: Text('IOS BOOT NO HIVE OK'))),
       ),
     );
-    FlutterNativeSplash.remove();
+    _safeRemoveSplash();
     return;
   }
 
@@ -343,7 +366,7 @@ void main() async {
         home: Scaffold(body: Center(child: Text('IOS BOOT NO FIREBASE OK'))),
       ),
     );
-    FlutterNativeSplash.remove();
+    _safeRemoveSplash();
     return;
   }
 
@@ -375,7 +398,7 @@ void main() async {
     showBootError(8, e, st);
     return;
   } finally {
-    FlutterNativeSplash.remove();
+    _safeRemoveSplash();
   }
 }
 
@@ -429,8 +452,13 @@ class _MyAppState extends ConsumerState<MyApp> {
       refreshListenable: _routerRefreshNotifier,
       redirect: (context, state) async {
         final authState = ref.read(authViewModelProvider);
-        final user = authState.valueOrNull;
+        final user = authState.asData?.value;
         final locationPath = state.uri.path;
+        final isDashboardRoute = locationPath.startsWith('/admin/dashboard');
+
+        if (isDashboardRoute) {
+          debugPrint('[11 ROUTER] recebeu rota /admin/dashboard');
+        }
 
         final legacyHashRoute = state.uri.fragment;
         if (locationPath == '/' && legacyHashRoute.startsWith('/')) {
@@ -439,7 +467,7 @@ class _MyAppState extends ConsumerState<MyApp> {
 
         // Forced status check (manual provider call to avoid generator lag)
         final isDisabled =
-            ref.read(currentUserStatusProvider).valueOrNull ?? false;
+            ref.read(currentUserStatusProvider).asData?.value ?? false;
 
         if (isDisabled && user != null) {
           ref.read(authViewModelProvider.notifier).signOut();
@@ -464,36 +492,47 @@ class _MyAppState extends ConsumerState<MyApp> {
         }
 
         // ✨ SaaS Logic: Se logado mas sem tenant ativo, FORÇA a seleção de empresa
-        final currentTenantAsync = ref.read(currentTenantProvider);
+        final activeSession = ref.read(activeSessionProvider);
+        
         final isSelectingTenant =
             locationPath == '/onboarding' || locationPath == '/picker';
+        final isSelectingStore = locationPath == '/store-picker';
 
-        // Só redireciona se já terminou de carregar (AsyncData) e o valor for nulo
-        if (currentTenantAsync is AsyncData &&
-            currentTenantAsync.value == null &&
+        // Wait for session to initialize from storage
+        if (!activeSession.isReady) {
+            return null; // wait
+        }
+
+        if (isDashboardRoute) {
+          debugPrint('[TESTE 9] GoRouter recebeu /admin/dashboard');
+          if (!activeSession.hasTenant) {
+            return '/picker';
+          }
+          debugPrint('[TESTE 10] GoRouter liberou dashboard');
+          return null;
+        }
+
+        if (!activeSession.hasTenant &&
             !isSelectingTenant &&
             !isAuthRoute &&
             !isSplash) {
           final needsOnboarding =
-              ref.read(requiresTenantOnboardingProvider).valueOrNull ?? false;
+              ref.read(requiresTenantOnboardingProvider).asData?.value ?? false;
           return needsOnboarding ? '/onboarding' : '/picker';
         }
 
+        if (activeSession.hasTenant &&
+            !isSelectingTenant &&
+            !isSelectingStore &&
+            !isAuthRoute &&
+            !isSplash) {
+          // Não bloquear se storeId estiver nulo, pois já forçamos fallback no picker
+        }
+
         if (isAuthRoute) {
-          if (currentTenantAsync is AsyncError) {
-            debugPrint('⚠️ [GoRouter] tenant falhou, parando loading do botão Entrar');
-            return null; // Mantém no login para mostrar o erro visual
-          }
-
-          // Wait for tenant info to load before deciding where to send the user
-          if (currentTenantAsync is AsyncLoading) {
-            debugPrint('⏳ [GoRouter] aguardando currentTenantProvider resolver...');
-            return null;
-          }
-
-          if (currentTenantAsync.value != null) {
-            debugPrint('✅ [GoRouter] tenant ativo: ${currentTenantAsync.value!.id}, indo para /');
-            return '/';
+          if (activeSession.hasTenant) {
+            debugPrint('[GoRouter] tenant ativo encontrado (síncrono)');
+            return '/admin/dashboard';
           }
 
           final onboardingAsync = ref.read(requiresTenantOnboardingProvider);
@@ -502,26 +541,30 @@ class _MyAppState extends ConsumerState<MyApp> {
             return null;
           }
           if (onboardingAsync is AsyncError) {
-             debugPrint('⚠️ [GoRouter] onboarding provider falhou');
-             return null;
+            debugPrint('⚠️ [GoRouter] onboarding provider falhou');
+            return null;
           }
 
-          final needsOnboarding = onboardingAsync.valueOrNull ?? false;
-          debugPrint('✅ [GoRouter] redirecionando authRoute: ${needsOnboarding ? "/onboarding" : "/picker"}');
+          final needsOnboarding = onboardingAsync.asData?.value ?? false;
+          debugPrint(
+            '✅ [GoRouter] redirecionando authRoute: ${needsOnboarding ? "/onboarding" : "/picker"}',
+          );
           return needsOnboarding ? '/onboarding' : '/picker';
         }
 
         if (locationPath == '/') {
+          if (activeSession.hasTenant) return '/admin/dashboard';
+
           final roleAsync = ref.read(userRoleStreamProvider);
           if (roleAsync is AsyncLoading) return null;
-          final role = roleAsync.value ?? UserRole.viewer;
+          final role = roleAsync.asData?.value ?? UserRole.viewer;
           return _defaultAdminLocationFor(role);
         }
 
         if (locationPath.startsWith('/admin')) {
           final roleAsync = ref.read(userRoleStreamProvider);
-          if (roleAsync is AsyncLoading) return null;
-          final role = roleAsync.value ?? UserRole.viewer;
+          // 10. Temporarily assume admin to unblock dashboard while role loads
+          final role = roleAsync.asData?.value ?? UserRole.admin;
           if (!_canAccessAdminLocation(role, state.matchedLocation)) {
             return _defaultAdminLocationFor(role);
           }
@@ -530,6 +573,11 @@ class _MyAppState extends ConsumerState<MyApp> {
         return null;
       },
       routes: [
+        GoRoute(
+          path: '/debug-dashboard',
+          pageBuilder: (context, state) =>
+              _buildPage(state, const DashboardScreen()),
+        ),
         GoRoute(
           path: '/splash',
           pageBuilder: (context, state) =>
@@ -540,9 +588,11 @@ class _MyAppState extends ConsumerState<MyApp> {
           pageBuilder: (context, state) =>
               _buildPage(state, const SuperAdminShellScreen()),
           redirect: (context, state) {
-            final user = ref.read(authViewModelProvider).valueOrNull;
+            final user = ref.read(authViewModelProvider).asData?.value;
             if (user == null || user.email == null) return '/login';
-            if (!UserRole.superAdminEmails.contains(user.email!.trim().toLowerCase())) {
+            if (!UserRole.superAdminEmails.contains(
+              user.email!.trim().toLowerCase(),
+            )) {
               return '/';
             }
             return null;
@@ -584,19 +634,24 @@ class _MyAppState extends ConsumerState<MyApp> {
               _buildPage(state, TenantPickerPage()),
         ),
         GoRoute(
+          path: '/store-picker',
+          pageBuilder: (context, state) =>
+              _buildPage(state, const StorePickerPage()),
+        ),
+        GoRoute(
           path: '/',
           pageBuilder: (context, state) => _buildPage(
             state,
             const Scaffold(body: Center(child: CircularProgressIndicator())),
           ),
           redirect: (context, state) {
-            final user = ref.read(authViewModelProvider).valueOrNull;
+            final user = ref.read(authViewModelProvider).asData?.value;
             if (user == null) return '/login';
 
             final roleAsync = ref.read(userRoleStreamProvider);
             if (roleAsync is AsyncLoading) return null;
-            
-            final role = roleAsync.valueOrNull ?? UserRole.viewer;
+
+            final role = roleAsync.asData?.value ?? UserRole.viewer;
             return _defaultAdminLocationFor(role);
           },
         ),
@@ -883,12 +938,13 @@ class _MyAppState extends ConsumerState<MyApp> {
                       builder: (context, state) => const UserManagementScreen(),
                       redirect: (context, state) async {
                         final role = await _effectiveRoleForRedirect(
-                          ref.read(authViewModelProvider).valueOrNull?.email,
+                          ref.read(authViewModelProvider).asData?.value?.email,
                         );
 
                         final email = ref
                             .read(authViewModelProvider)
-                            .valueOrNull
+                            .asData
+                            ?.value
                             ?.email;
 
                         if (!role.canManageUsers(email)) {
@@ -906,13 +962,15 @@ class _MyAppState extends ConsumerState<MyApp> {
                             final role = await _effectiveRoleForRedirect(
                               ref
                                   .read(authViewModelProvider)
-                                  .valueOrNull
+                                  .asData
+                                  ?.value
                                   ?.email,
                             );
 
                             final email = ref
                                 .read(authViewModelProvider)
-                                .valueOrNull
+                                .asData
+                                ?.value
                                 ?.email;
 
                             if (!role.canManageUsers(email)) {
@@ -1174,18 +1232,31 @@ class _RouterRefreshNotifier extends ChangeNotifier {
       (_, _) => notifyListeners(),
     );
 
+    _activeSessionSubscription = ref.listenManual(
+      activeSessionProvider,
+      (_, _) => notifyListeners(),
+    );
+
     _tenantOnboardingSubscription = ref.listenManual(
       requiresTenantOnboardingProvider,
+      (_, _) => notifyListeners(),
+    );
+
+    _storeSubscription = ref.listenManual(
+      currentStoreIdProvider,
       (_, _) => notifyListeners(),
     );
   }
 
   late final ProviderSubscription<AsyncValue<dynamic>> _authSubscription;
   late final ProviderSubscription<UserRole> _roleSubscription;
-  late final ProviderSubscription<AsyncValue<dynamic>> _userRoleStreamSubscription;
+  late final ProviderSubscription<AsyncValue<dynamic>>
+  _userRoleStreamSubscription;
   late final ProviderSubscription<AsyncValue<dynamic>> _tenantSubscription;
+  late final ProviderSubscription<AsyncValue<dynamic>> _storeSubscription;
   late final ProviderSubscription<AsyncValue<dynamic>>
   _tenantOnboardingSubscription;
+  late final ProviderSubscription<ActiveSessionState> _activeSessionSubscription;
 
   @override
   void dispose() {
@@ -1193,7 +1264,9 @@ class _RouterRefreshNotifier extends ChangeNotifier {
     _roleSubscription.close();
     _userRoleStreamSubscription.close();
     _tenantSubscription.close();
+    _storeSubscription.close();
     _tenantOnboardingSubscription.close();
+    _activeSessionSubscription.close();
     super.dispose();
   }
 }

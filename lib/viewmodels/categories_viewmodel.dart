@@ -44,7 +44,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     try {
       // ✨ Garantia de SaaS: Se o usuário está logado, aguardamos o tenantId ser identificado
       // Isso evita que a tela comece "Vazia" usando o Repo Local enquanto o Firestore ainda carrega o perfil.
-      final authUser = ref.watch(authViewModelProvider).valueOrNull;
+      final authUser = ref.watch(authViewModelProvider).asData?.value;
       if (authUser != null) {
         await ref.watch(currentTenantProvider.future);
       }
@@ -123,7 +123,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     var tenantId = tenant?.id;
 
     if (tenantId == null || tenantId.isEmpty) {
-      final email = ref.read(authViewModelProvider).valueOrNull?.email;
+      final email = ref.read(authViewModelProvider).asData?.value?.email;
       if (email != null) {
         tenantId = await ref
             .read(tenantRepositoryProvider)
@@ -516,7 +516,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       final tenant = await ref.read(currentTenantProvider.future);
       String? tenantId = tenant?.id;
       if (tenantId == null) {
-        final email = ref.read(authViewModelProvider).valueOrNull?.email;
+        final email = ref.read(authViewModelProvider).asData?.value?.email;
         if (email != null) {
           tenantId = await ref
               .read(tenantRepositoryProvider)
@@ -578,7 +578,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       final tenant = await ref.read(currentTenantProvider.future);
       String? tenantId = tenant?.id;
       if (tenantId == null) {
-        final email = ref.read(authViewModelProvider).valueOrNull?.email;
+        final email = ref.read(authViewModelProvider).asData?.value?.email;
         if (email != null) {
           tenantId = await ref
               .read(tenantRepositoryProvider)

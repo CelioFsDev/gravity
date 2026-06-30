@@ -26,7 +26,7 @@ class CatalogsViewModel extends _$CatalogsViewModel {
   @override
   FutureOr<List<Catalog>> build() async {
     try {
-      final authUser = ref.watch(authViewModelProvider).valueOrNull;
+      final authUser = ref.watch(authViewModelProvider).asData?.value;
       if (authUser != null) {
         await ref.watch(currentTenantProvider.future);
       }
@@ -34,7 +34,7 @@ class CatalogsViewModel extends _$CatalogsViewModel {
       // 🩹 Migração de catálogos legados com tenantId vazio.
       // Catálogos criados antes da correção tinham tenantId = '' e eram filtrados
       // pelo HiveCatalogsRepository._filter(), tornando-os invisíveis.
-      final tenant = ref.read(currentTenantProvider).valueOrNull;
+      final tenant = ref.read(currentTenantProvider).asData?.value;
       if (tenant != null) {
         await _migrateLegacyCatalogs(tenant.id);
       }
@@ -258,7 +258,7 @@ class CatalogsViewModel extends _$CatalogsViewModel {
       final tenant = await ref.read(currentTenantProvider.future);
       String? tenantId = tenant?.id;
       if (tenantId == null) {
-        final email = ref.read(authViewModelProvider).valueOrNull?.email;
+        final email = ref.read(authViewModelProvider).asData?.value?.email;
         if (email != null) {
           tenantId = await ref.read(tenantRepositoryProvider).getCachedTenantId(email);
         }
@@ -332,7 +332,7 @@ class CatalogsViewModel extends _$CatalogsViewModel {
       final tenant = await ref.read(currentTenantProvider.future);
       String? tenantId = tenant?.id;
       if (tenantId == null) {
-        final email = ref.read(authViewModelProvider).valueOrNull?.email;
+        final email = ref.read(authViewModelProvider).asData?.value?.email;
         if (email != null) {
           tenantId = await ref.read(tenantRepositoryProvider).getCachedTenantId(email);
         }

@@ -110,14 +110,14 @@ class AdminShellScreen extends ConsumerWidget {
       );
     }
 
-    final authUser = ref.watch(authViewModelProvider).valueOrNull;
+    final authUser = ref.watch(authViewModelProvider).asData?.value;
     final currentRole = ref.watch(currentRoleProvider);
     final visibleDestinations = _destinations
         .where((item) => item.isVisibleFor(currentRole))
         .toList();
 
     final tenantAsync = ref.watch(currentTenantProvider);
-    final tenant = tenantAsync.valueOrNull;
+    final tenant = tenantAsync.asData?.value;
 
     final displayTitle = tenant?.name ?? authUser?.displayName ?? 'Admin';
     final logoUrl = tenant?.logoUrl ?? authUser?.photoURL;

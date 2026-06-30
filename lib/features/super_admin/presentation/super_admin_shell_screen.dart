@@ -144,7 +144,7 @@ class _TenantsTab extends ConsumerWidget {
                         tooltip: 'Acessar Empresa',
                         onPressed: () async {
                           // Impersonate
-                          final user = ref.read(authViewModelProvider).valueOrNull;
+                          final user = ref.read(authViewModelProvider).asData?.value;
                           final email = user?.email ?? 'celiodev@gmail.com';
                           final storeId = tenant.stores.isNotEmpty ? tenant.stores.first : '';
                           

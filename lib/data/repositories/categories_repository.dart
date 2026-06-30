@@ -151,6 +151,6 @@ CategoriesRepositoryContract categoriesRepository(CategoriesRepositoryRef ref) {
   return HiveCategoriesRepository(
     categoriesBox,
     productsBox,
-    () => ref.read(currentTenantProvider).valueOrNull?.id,
+    () => ref.read(currentTenantProvider).asData?.value?.id,
   );
 }

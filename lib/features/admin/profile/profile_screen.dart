@@ -32,7 +32,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    final user = ref.read(authViewModelProvider).valueOrNull;
+    final user = ref.read(authViewModelProvider).asData?.value;
     _nameController = TextEditingController(text: user?.displayName ?? '');
     _photoUrlController = TextEditingController(text: user?.photoURL ?? '');
     _whatsappController = TextEditingController();
@@ -45,7 +45,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _loadUserData() async {
-    final user = ref.read(authViewModelProvider).valueOrNull;
+    final user = ref.read(authViewModelProvider).asData?.value;
     if (user == null || user.email == null) return;
 
     setState(() => _isLoading = true);
@@ -82,7 +82,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _pickProfileImage() async {
-    final user = ref.read(authViewModelProvider).valueOrNull;
+    final user = ref.read(authViewModelProvider).asData?.value;
     if (user == null || user.email == null) return;
 
     try {
@@ -126,7 +126,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _save() async {
-    final user = ref.read(authViewModelProvider).valueOrNull;
+    final user = ref.read(authViewModelProvider).asData?.value;
     if (user == null || user.email == null) return;
 
     setState(() => _isLoading = true);
@@ -180,7 +180,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(authViewModelProvider).valueOrNull;
+    final user = ref.watch(authViewModelProvider).asData?.value;
     final role = ref.watch(currentRoleProvider);
 
     return AppScaffold(

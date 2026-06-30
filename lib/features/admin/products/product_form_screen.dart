@@ -1225,7 +1225,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                           builder: (context) {
                             final userEmail = ref
                                 .watch(authViewModelProvider)
-                                .valueOrNull
+                                .asData?.value
                                 ?.email;
                             if (userEmail != null) {
                               FirebaseFirestore.instance

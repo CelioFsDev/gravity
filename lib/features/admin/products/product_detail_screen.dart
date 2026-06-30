@@ -25,7 +25,7 @@ class ProductDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Watch for updates (e.g. if edited)
     final productsState = ref.watch(productsViewModelProvider);
-    final currentStoreId = ref.watch(currentStoreIdProvider).valueOrNull;
+    final currentStoreId = ref.watch(currentStoreIdProvider).asData?.value;
     final updatedProduct =
         productsState.value?.allProducts.firstWhere(
           (p) => p.id == product.id,

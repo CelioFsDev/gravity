@@ -189,8 +189,8 @@ final syncProgressProvider =
 final cloudProductUpdatesPendingProvider = StreamProvider.autoDispose<bool>((
   ref,
 ) {
-  final tenant = ref.watch(currentTenantProvider).valueOrNull;
-  final state = ref.watch(productsViewModelProvider).valueOrNull;
+  final tenant = ref.watch(currentTenantProvider).asData?.value;
+  final state = ref.watch(productsViewModelProvider).asData?.value;
   final settings = ref.watch(settingsRepositoryProvider).getSettings();
 
   if (tenant == null || settings.localOnlyMode || state == null) {
@@ -227,7 +227,7 @@ class ProductsViewModel extends _$ProductsViewModel {
   FutureOr<ProductsState> build() async {
     try {
       // ✨ Garantia de SaaS: Se o usuário está logado, aguardamos o tenantId ser identificado
-      final authUser = ref.watch(authViewModelProvider).valueOrNull;
+      final authUser = ref.watch(authViewModelProvider).asData?.value;
       if (authUser != null) {
         await ref.watch(currentTenantProvider.future);
       }
@@ -628,7 +628,7 @@ class ProductsViewModel extends _$ProductsViewModel {
 
       // Fallback para o documento do usuário
       if (tenantId == null) {
-        final email = ref.read(authViewModelProvider).valueOrNull?.email;
+        final email = ref.read(authViewModelProvider).asData?.value?.email;
         if (email != null) {
           tenantId = await ref
               .read(tenantRepositoryProvider)

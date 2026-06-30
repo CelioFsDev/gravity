@@ -78,7 +78,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   @override
   Widget build(BuildContext context) {
     final syncProgress = ref.watch(syncProgressProvider);
-    final authUser = ref.watch(authViewModelProvider).valueOrNull;
+    final authUser = ref.watch(authViewModelProvider).asData?.value;
     final settings = ref.watch(settingsViewModelProvider);
     final needsSetup = !settings.isInitialSyncCompleted && !kIsWeb;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -86,7 +86,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final email = authUser?.email?.trim().toLowerCase() ?? '';
     final profile = email.isEmpty
         ? null
-        : ref.watch(_dashboardUserProfileProvider(email)).valueOrNull;
+        : ref.watch(_dashboardUserProfileProvider(email)).asData?.value;
 
     final profileName = profile?['displayName'] as String?;
 
@@ -101,9 +101,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final catalogsState = ref.watch(catalogsViewModelProvider);
 
     final isLoading = productsState.isLoading || categoriesState.isLoading || catalogsState.isLoading;
-    final productCount = productsState.valueOrNull?.allProducts.length ?? 0;
-    final categoryCount = categoriesState.valueOrNull?.categories.length ?? 0;
-    final catalogCount = catalogsState.valueOrNull?.length ?? 0;
+    final productCount = productsState.asData?.value?.allProducts.length ?? 0;
+    final categoryCount = categoriesState.asData?.value?.categories.length ?? 0;
+    final catalogCount = catalogsState.asData?.value?.length ?? 0;
 
     return Stack(
       children: [
