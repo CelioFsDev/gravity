@@ -1,4 +1,15 @@
-﻿import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
+import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
+import 'package:catalogo_ja/features/admin/products/product_form_screen.dart';
+import 'package:catalogo_ja/features/admin/products/product_detail_screen.dart';
+import 'package:catalogo_ja/core/services/product_ai_assistant_service.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/models/category.dart';
@@ -16,6 +27,7 @@ import 'package:catalogo_ja/ui/widgets/app_product_list_tile.dart';
 import 'package:uuid/uuid.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
 import 'package:catalogo_ja/viewmodels/settings_viewmodel.dart';
+import 'package:flutter/foundation.dart';
 
 class ProductsScreen extends ConsumerStatefulWidget {
   const ProductsScreen({super.key});
@@ -856,7 +868,7 @@ class _ProductsContent extends ConsumerWidget {
       return SliverPadding(
         padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
         sliver: SliverToBoxAdapter(
-          child: !isInitialSyncCompleted
+          child: !isInitialSyncCompleted && !kIsWeb
               ? const AppEmptyState(
                   icon: Icons.cloud_download_outlined,
                   title: 'Carga Inicial Necessária',
@@ -1018,318 +1030,6 @@ class _SearchAndFiltersSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppTokens.space12),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          child: Row(
-            children: [
-              const SizedBox(width: 8),
-              _FilterChip(
-                label: _categoryLabel(state),
-                isActive: state.productTypeFilterId != null,
-                onPressed: () => _selectCategory(context),
-              ),
-              const SizedBox(width: 8),
-              _FilterChip(
-                label: _statusLabel(state.statusFilter),
-                isActive: state.statusFilter != ProductStatusFilter.all,
-                onPressed: () => _selectStatus(context),
-              ),
-              const SizedBox(width: 8),
-              _FilterChip(
-                label: _sortLabel(state.sortOption),
-                isActive: state.sortOption != ProductSort.recent,
-                onPressed: () => _selectSort(context),
-              ),
-              if (onClearFilters != null) ...[
-                const SizedBox(width: 8),
-                _FilterChip(
-                  label: 'Limpar',
-                  isActive: false,
-                  onPressed: onClearFilters,
-                  isDestructive: true,
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  String _categoryLabel(ProductsState state) {
-    if (state.productTypeFilterId == null) return 'Categoria';
-
-    final category = state.categories
-        .where((c) => c.id == state.productTypeFilterId)
-        .map((c) => c.name)
-        .firstOrNull;
-
-    return category ?? 'Categoria';
-  }
-
-  String _statusLabel(ProductStatusFilter status) {
-    switch (status) {
-      case ProductStatusFilter.active:
-        return 'Ativo';
-      case ProductStatusFilter.outOfStock:
-        return 'Esgotado';
-      case ProductStatusFilter.inactive:
-        return 'Inativos';
-      case ProductStatusFilter.withPhotos:
-        return 'Com Fotos';
-      case ProductStatusFilter.noPhotos:
-        return 'Sem Fotos';
-      case ProductStatusFilter.zeroPrice:
-        return 'Preço Zero';
-      case ProductStatusFilter.createdToday:
-        return 'Criados Hoje';
-      case ProductStatusFilter.all:
-        return 'Todos os Status';
-    }
-  }
-
-  String _sortLabel(ProductSort sort) {
-    switch (sort) {
-      case ProductSort.recent:
-        return 'Recentes';
-      case ProductSort.priceAsc:
-        return 'Menor preço';
-      case ProductSort.priceDesc:
-        return 'Maior preço';
-      case ProductSort.aToZ:
-        return 'A-Z';
-    }
-  }
-
-  Future<void> _selectCategory(BuildContext context) async {
-    final categories = state.categories
-        .where((c) => c.type == CategoryType.productType)
-        .toList();
-
-    final options = <_SheetOption<String?>>[
-      const _SheetOption(value: null, label: 'Todas categorias'),
-      ...categories.map((c) => _SheetOption(value: c.id, label: c.safeName)),
-    ];
-
-    final result = await _showSelectionSheet<String?>(
-      context,
-      title: 'Categoria',
-      options: options,
-      selected: state.productTypeFilterId,
-    );
-
-    if (result != null || state.productTypeFilterId != null) {
-      onSelectCategory(result);
-    }
-  }
-
-  Future<void> _selectStatus(BuildContext context) async {
-    final options = const [
-      _SheetOption(value: ProductStatusFilter.all, label: 'Todos'),
-      _SheetOption(value: ProductStatusFilter.active, label: 'Ativo'),
-      _SheetOption(value: ProductStatusFilter.outOfStock, label: 'Esgotado'),
-      _SheetOption(value: ProductStatusFilter.inactive, label: 'Inativo'),
-      _SheetOption(value: ProductStatusFilter.withPhotos, label: 'Com Fotos'),
-      _SheetOption(value: ProductStatusFilter.noPhotos, label: 'Sem Fotos'),
-    ];
-
-    final result = await _showSelectionSheet<ProductStatusFilter>(
-      context,
-      title: 'Status',
-      options: options,
-      selected: state.statusFilter,
-    );
-
-    if (result != null) onSelectStatus(result);
-  }
-
-  Future<void> _selectSort(BuildContext context) async {
-    final options = const [
-      _SheetOption(value: ProductSort.recent, label: 'Mais recentes'),
-      _SheetOption(value: ProductSort.priceAsc, label: 'Menor preço'),
-      _SheetOption(value: ProductSort.priceDesc, label: 'Maior preço'),
-      _SheetOption(value: ProductSort.aToZ, label: 'A-Z'),
-    ];
-
-    final result = await _showSelectionSheet<ProductSort>(
-      context,
-      title: 'Ordenar por',
-      options: options,
-      selected: state.sortOption,
-    );
-
-    if (result != null) onSelectSort(result);
-  }
-
-  Future<T?> _showSelectionSheet<T>(
-    BuildContext context, {
-    required String title,
-    required List<_SheetOption<T>> options,
-    required T? selected,
-  }) {
-    return showModalBottomSheet<T>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppTokens.radiusLg),
-        ),
-      ),
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(sheetContext),
-                    icon: const Icon(Icons.close_rounded, size: 20),
-                  ),
-                ],
-              ),
-            ),
-            Flexible(
-              child: ListView.separated(
-                shrinkWrap: true,
-                itemCount: options.length,
-                separatorBuilder: (_, _) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final option = options[index];
-                  final isSelected = option.value == selected;
-
-                  return ListTile(
-                    title: Text(
-                      option.label,
-                      style: TextStyle(
-                        fontWeight: isSelected
-                            ? FontWeight.w700
-                            : FontWeight.w400,
-                      ),
-                    ),
-                    trailing: isSelected
-                        ? const Icon(
-                            Icons.check_rounded,
-                            color: AppTokens.accentBlue,
-                          )
-                        : null,
-                    onTap: () => Navigator.pop(sheetContext, option.value),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _FilterChip extends StatelessWidget {
-  final String label;
-  final bool isActive;
-  final VoidCallback? onPressed;
-  final bool isDestructive;
-
-  const _FilterChip({
-    required this.label,
-    required this.isActive,
-    this.onPressed,
-    this.isDestructive = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return FilterChip(
-      label: Text(label),
-      selected: isActive,
-      onSelected: onPressed != null ? (_) => onPressed!() : null,
-      backgroundColor: isDestructive
-          ? AppTokens.accentRed.withValues(alpha: 0.05)
-          : null,
-      selectedColor: AppTokens.accentBlue,
-      checkmarkColor: Colors.white,
-      labelStyle: TextStyle(
-        fontSize: 13,
-        fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
-        color: isActive
-            ? Colors.white
-            : (isDestructive
-                  ? AppTokens.accentRed
-                  : Theme.of(context).colorScheme.onSurfaceVariant),
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        side: BorderSide(
-          color: isActive
-              ? AppTokens.accentBlue
-              : (isDestructive
-                    ? AppTokens.accentRed.withValues(alpha: 0.2)
-                    : Theme.of(context).dividerColor),
-          width: 0.8,
-        ),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-    );
-  }
-}
-
-class _SheetOption<T> {
-  final T value;
-  final String label;
-
-  const _SheetOption({required this.value, required this.label});
-}
-
-class _ProductsListSection extends StatefulWidget {
-  final ProductsState state;
-  final VoidCallback onNewProduct;
-  final ValueChanged<Product> onViewProduct;
-  final ValueChanged<Product>? onEditProduct;
-  final ValueChanged<Product>? onDeleteProduct;
-  final ValueChanged<Product>? onDuplicateProduct;
-  final ValueChanged<Product>? onTogglePromo;
-  final Set<String> selectedIds;
-  final ValueChanged<String> onToggleSelection;
-  final bool isInitialSyncCompleted;
-
-  const _ProductsListSection(
-    this.onEditProduct,
-    this.onDeleteProduct,
-    this.onDuplicateProduct,
-    this.onTogglePromo, {
-    required this.state,
-    required this.onNewProduct,
-    required this.onViewProduct,
-    required this.selectedIds,
-    required this.onToggleSelection,
-    required this.isInitialSyncCompleted,
-  });
-
-  @override
-  State<_ProductsListSection> createState() => _ProductsListSectionState();
-}
-
-class _ProductsListSectionState extends State<_ProductsListSection> {
-  @override
-  Widget build(BuildContext context) {
-    if (widget.state.filteredProducts.isEmpty) {
-      if (!widget.isInitialSyncCompleted) {
-        return const AppEmptyState(
-          icon: Icons.cloud_download_outlined,
-          title: 'Carga Inicial Necessária',
-          subtitle:
-              'Como este é seu primeiro acesso neste aparelho, você precisa importar o Backup (ZIP - "WinRAR") para carregar os produtos, evitando custos elevados de rede. Vá em "Importar".',
-          message: '',
         );
       }
 

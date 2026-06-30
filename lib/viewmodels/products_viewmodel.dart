@@ -197,7 +197,7 @@ final cloudProductUpdatesPendingProvider = StreamProvider.autoDispose<bool>((
     return Stream<bool>.value(false);
   }
 
-  if (state.allProducts.isEmpty && !settings.isInitialSyncCompleted) {
+  if (state.allProducts.isEmpty && !settings.isInitialSyncCompleted && !kIsWeb) {
     return Stream<bool>.value(false);
   }
 
@@ -661,7 +661,7 @@ class ProductsViewModel extends _$ProductsViewModel {
       // 3. Trava de Offline-First (Exigência de ZIP na carga inicial)
       if (currentLocalProducts.isEmpty) {
         final settings = ref.read(settingsRepositoryProvider).getSettings();
-        if (!settings.isInitialSyncCompleted) {
+        if (!settings.isInitialSyncCompleted && !kIsWeb) {
           finalMessage = 'Carga inicial pendente. Use a opção de importar backup via WinRAR (ZIP).';
           return 0; // Abort download to save Firebase reads
         }

@@ -10,7 +10,7 @@ import 'package:catalogo_ja/data/repositories/user_repository.dart';
 import 'package:catalogo_ja/ui/widgets/sync_progress_overlay.dart';
 import 'package:catalogo_ja/viewmodels/auth_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/settings_viewmodel.dart';
-
+import 'package:flutter/foundation.dart';
 
 
 final _dashboardUserProfileProvider =
@@ -80,7 +80,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final syncProgress = ref.watch(syncProgressProvider);
     final authUser = ref.watch(authViewModelProvider).valueOrNull;
     final settings = ref.watch(settingsViewModelProvider);
-    final needsSetup = !settings.isInitialSyncCompleted;
+    final needsSetup = !settings.isInitialSyncCompleted && !kIsWeb;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final email = authUser?.email?.trim().toLowerCase() ?? '';
