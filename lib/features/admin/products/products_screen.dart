@@ -9,6 +9,17 @@ import 'package:catalogo_ja/features/admin/products/product_form_screen.dart';
 import 'package:catalogo_ja/features/admin/products/product_detail_screen.dart';
 import 'package:catalogo_ja/core/services/product_ai_assistant_service.dart';
 import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
+import 'package:catalogo_ja/features/admin/products/product_form_screen.dart';
+import 'package:catalogo_ja/features/admin/products/product_detail_screen.dart';
+import 'package:catalogo_ja/core/services/product_ai_assistant_service.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/ui/widgets/app_scaffold.dart';
 import 'package:catalogo_ja/ui/widgets/app_search_field.dart';
 import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
@@ -16,7 +27,7 @@ import 'package:catalogo_ja/ui/widgets/app_product_list_tile.dart';
 import 'package:uuid/uuid.dart';
 import 'package:catalogo_ja/core/auth/user_role.dart';
 import 'package:catalogo_ja/viewmodels/settings_viewmodel.dart';
-import 'package:flutter/foundation.dart';
+
 class ProductsScreen extends ConsumerStatefulWidget {
   const ProductsScreen({super.key});
 
@@ -59,8 +70,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
           if (_showAiAssistant) _buildAiAssistantCard(context),
           _buildBulkActionsBar(context),
           _buildSyncReminderBanner(context),
-          if (state.isRefreshing)
-            const LinearProgressIndicator(minHeight: 2),
+          if (state.isRefreshing) const LinearProgressIndicator(minHeight: 2),
           Expanded(
             child: state.whenStandard(
               onRetry: () =>
@@ -1323,7 +1333,7 @@ class _ProductsListSectionState extends State<_ProductsListSection> {
   @override
   Widget build(BuildContext context) {
     if (widget.state.filteredProducts.isEmpty) {
-      if (!widget.isInitialSyncCompleted && !kIsWeb) {
+      if (!widget.isInitialSyncCompleted) {
         return const AppEmptyState(
           icon: Icons.cloud_download_outlined,
           title: 'Carga Inicial Necessária',
