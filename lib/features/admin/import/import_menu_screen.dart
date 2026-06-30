@@ -72,6 +72,21 @@ class ImportMenuScreen extends ConsumerWidget {
             ),
             const SizedBox(height: AppTokens.space24),
           ],
+          _buildSection(
+            context,
+            title: 'Importar Estoque (PDF)',
+            description:
+                'Envie o relatório PDF de estoque do sistema gerencial para atualizar as quantidades por referência, cor e tamanho.',
+            child: _buildItem(
+              context,
+              icon: Icons.upload_file,
+              title: 'Sincronizar Estoque PDF',
+              subtitle:
+                  'Leitura inteligente do PDF para substituir, somar ou conferir estoque.',
+              route: '/admin/imports/stock-pdf',
+            ),
+          ),
+          const SizedBox(height: AppTokens.space24),
 
           _buildSection(
             context,

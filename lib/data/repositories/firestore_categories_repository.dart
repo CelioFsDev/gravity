@@ -13,6 +13,7 @@ import 'package:catalogo_ja/data/repositories/categories_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
 import 'package:catalogo_ja/core/services/saas_photo_storage_service.dart';
+import 'package:flutter/foundation.dart' hide Category;
 
 class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -156,6 +157,15 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
 
   @override
   Future<void> addCategory(Category category) async {
+    if (kIsWeb) {
+      final categoryToSave = category.copyWith(
+        tenantId: _tenantId,
+        syncStatus: SyncStatus.synced,
+      );
+      await syncCategoryToCloud(categoryToSave);
+      await _localRepo.addCategory(categoryToSave);
+      return;
+    }
     // 🏠 Local-First: Salva no Hive instantaneamente
     final categoryToSave = category.copyWith(
       tenantId: _tenantId,
@@ -168,6 +178,16 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
 
   @override
   Future<void> updateCategory(Category category) async {
+    if (kIsWeb) {
+      final categoryToSave = category.copyWith(
+        tenantId: _tenantId,
+        syncStatus: SyncStatus.synced,
+        updatedAt: DateTime.now(),
+      );
+      await syncCategoryToCloud(categoryToSave);
+      await _localRepo.updateCategory(categoryToSave);
+      return;
+    }
     final categoryToSave = category.copyWith(
       tenantId: _tenantId,
       syncStatus: SyncStatus.pendingUpdate,
@@ -272,7 +292,10 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
           : SyncStatus.synced,
     );
 
-    await _collection.doc(updatedCategory.id).set(updatedCategory.toMap());
+    await _collection
+        .doc(updatedCategory.id)
+        .set(updatedCategory.toMap())
+        .timeout(const Duration(seconds: 15));
     await _localRepo.addCategory(updatedCategory);
     invalidateCache();
   }
@@ -296,15 +319,13 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
       }
     }
 
-    final toSync = localCategories
-        .where((category) {
-          if (category.syncStatus == SyncStatus.pendingUpdate) return true;
-          if (!force) return false;
-          final remoteCategory = remoteById[category.id];
-          return remoteCategory == null ||
-              category.updatedAt.isAfter(remoteCategory.updatedAt);
-        })
-        .toList();
+    final toSync = localCategories.where((category) {
+      if (category.syncStatus == SyncStatus.pendingUpdate) return true;
+      if (!force) return false;
+      final remoteCategory = remoteById[category.id];
+      return remoteCategory == null ||
+          category.updatedAt.isAfter(remoteCategory.updatedAt);
+    }).toList();
 
     if (toSync.isEmpty) {
       if (onProgress != null) onProgress(1.0, 'Categorias sincronizadas!');
@@ -347,6 +368,12 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
 
   @override
   Future<void> deleteCategory(String id) async {
+    if (kIsWeb) {
+      await _collection.doc(id).delete();
+      await _localRepo.deleteCategory(id);
+      return;
+    }
+
     await _localRepo.deleteCategory(id);
     invalidateCache();
 
@@ -371,6 +398,13 @@ class FirestoreCategoriesRepository implements CategoriesRepositoryContract {
 
   @override
   Stream<List<Category>> watchCategories() {
+    if (kIsWeb) {
+      return _collection.snapshots().map((snapshot) {
+        final docs = snapshot.docs.map(_categoryFromDocument).toList();
+        docs.sort((a, b) => a.order.compareTo(b.order));
+        return docs;
+      });
+    }
     // 🔑 Local-First: Observa apenas o Hive para respostas instantâneas
     return _localRepo.watchCategories();
   }

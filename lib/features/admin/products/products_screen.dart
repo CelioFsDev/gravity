@@ -1,4 +1,16 @@
-﻿import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
+import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/models/product.dart';
+import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
+import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
+import 'package:catalogo_ja/features/admin/products/product_form_screen.dart';
+import 'package:catalogo_ja/features/admin/products/product_detail_screen.dart';
+import 'package:catalogo_ja/core/services/product_ai_assistant_service.dart';
+import 'package:catalogo_ja/ui/theme/app_tokens.dart';
+import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalogo_ja/models/category.dart';
@@ -59,8 +71,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
           if (_showAiAssistant) _buildAiAssistantCard(context),
           _buildBulkActionsBar(context),
           _buildSyncReminderBanner(context),
-          if (state.isRefreshing)
-            const LinearProgressIndicator(minHeight: 2),
+          if (state.isRefreshing) const LinearProgressIndicator(minHeight: 2),
           Expanded(
             child: state.whenStandard(
               onRetry: () =>
@@ -112,7 +123,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   }
 
   Widget _buildAiAssistantCard(BuildContext context) {
-    final state = ref.watch(productsViewModelProvider).valueOrNull;
+    final state = ref.watch(productsViewModelProvider).asData?.value;
     final summary = state?.assistantResultSummary;
     final hasResult = state?.assistantResultIds != null;
     final resultCount = state?.assistantResultIds?.length ?? 0;
@@ -191,7 +202,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
   Future<void> _runAssistantCommand() async {
     final command = _assistantController.text.trim();
-    final state = ref.read(productsViewModelProvider).valueOrNull;
+    final state = ref.read(productsViewModelProvider).asData?.value;
     if (command.length < 3 || state == null || _isRunningAssistant) return;
 
     FocusScope.of(context).unfocus();
@@ -427,10 +438,10 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     final stateValue = ref.watch(productsViewModelProvider);
     final categoriesValue = ref.watch(categoriesViewModelProvider);
     final hasCloudUpdates =
-        ref.watch(cloudProductUpdatesPendingProvider).valueOrNull ?? false;
+        ref.watch(cloudProductUpdatesPendingProvider).asData?.value ?? false;
 
-    final state = stateValue.valueOrNull;
-    final categoriesState = categoriesValue.valueOrNull;
+    final state = stateValue.asData?.value;
+    final categoriesState = categoriesValue.asData?.value;
 
     if (state == null || categoriesState == null) {
       return const SizedBox.shrink();
@@ -856,7 +867,7 @@ class _ProductsContent extends ConsumerWidget {
       return SliverPadding(
         padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
         sliver: SliverToBoxAdapter(
-          child: !isInitialSyncCompleted
+          child: !isInitialSyncCompleted && !kIsWeb
               ? const AppEmptyState(
                   icon: Icons.cloud_download_outlined,
                   title: 'Carga Inicial Necessária',

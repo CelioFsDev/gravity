@@ -54,14 +54,15 @@ class SyncHealthViewModel extends StateNotifier<SyncHealthMetrics> {
     for (final item in allItems) {
       if (item.status == SyncItemStatus.pending) {
         pending++;
-      } else if (item.status == SyncItemStatus.syncing)
+      } else if (item.status == SyncItemStatus.syncing) {
         syncing++;
-      else if (item.status == SyncItemStatus.error ||
+      } else if (item.status == SyncItemStatus.error ||
           item.status == SyncItemStatus.conflict) {
         errors++;
         errList.add(item);
-      } else if (item.status == SyncItemStatus.synced)
+      } else if (item.status == SyncItemStatus.synced) {
         synced++;
+      }
     }
 
     state = SyncHealthMetrics(

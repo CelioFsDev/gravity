@@ -765,7 +765,7 @@ class CatalogShareHelper {
     WidgetRef ref,
   ) async {
     final settings = ref.read(settingsRepositoryProvider).getSettings();
-    final user = ref.read(authViewModelProvider).valueOrNull;
+    final user = ref.read(authViewModelProvider).asData?.value;
     final fallbackName = (user?.displayName?.trim().isNotEmpty ?? false)
         ? user!.displayName!.trim()
         : settings.storeName.trim();

@@ -1,3 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+import 'package:hive/hive.dart';
+import 'package:catalogo_ja/models/category.dart';
+import 'package:catalogo_ja/models/catalog.dart';
 import 'package:catalogo_ja/models/product.dart';
 import 'package:catalogo_ja/viewmodels/catalogs_viewmodel.dart';
 import 'package:catalogo_ja/viewmodels/categories_viewmodel.dart';
@@ -8,13 +13,26 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' hide Category;
+import 'package:catalogo_ja/viewmodels/tenant_viewmodel.dart';
+import 'package:catalogo_ja/core/sync/providers/sync_providers.dart';
 part 'global_sync_viewmodel.g.dart';
 
 @riverpod
 class GlobalSyncViewModel extends _$GlobalSyncViewModel {
+  bool _isSyncingUp = false;
+
   @override
-  void build() {}
+  void build() {
+    ref.listen(currentTenantProvider, (previous, next) {
+      final prevId = previous?.asData?.value?.id;
+      final nextId = next.asData?.value?.id;
+      if (prevId != null && nextId != null && prevId != nextId) {
+        debugPrint('🏢 Troca de Tenant detectada ($prevId -> $nextId). Limpando fila de sincronização...');
+        ref.read(syncQueueRepositoryProvider).clearAll();
+      }
+    });
+  }
 
   /// Sincronização automática em segundo plano (apenas se estiver no Wi-Fi)
   Future<void> performSilentWifiSync() async {
@@ -50,6 +68,11 @@ class GlobalSyncViewModel extends _$GlobalSyncViewModel {
 
   /// Sobe todas as Categorias, Coleções, Produtos e Catálogos para a Nuvem
   Future<void> syncUpEverything() async {
+    if (_isSyncingUp) {
+      debugPrint('⏳ Sincronização já em andamento. Ignorando nova chamada.');
+      return;
+    }
+    _isSyncingUp = true;
     final progressNotifier = ref.read(syncProgressProvider.notifier);
     progressNotifier.startSync('Iniciando upload...');
     String? finalMessage;
@@ -77,67 +100,187 @@ class GlobalSyncViewModel extends _$GlobalSyncViewModel {
       rethrow;
     } finally {
       progressNotifier.stopSync(message: finalMessage);
+      _isSyncingUp = false;
     }
   }
 
-  /// Baixa todas as Categorias, Collections, Produtos e Catálogos da Nuvem para o Celular
   Future<void> syncDownEverything() async {
+    final tenantAsync = ref.read(currentTenantProvider);
+    final tenantId = tenantAsync.asData?.value?.id;
+    if (tenantId == null || tenantId.isEmpty) {
+      debugPrint('Nenhuma empresa selecionada.');
+      return;
+    }
+    await pullTenantFromCloud(tenantId: tenantId, forceRefresh: true);
+  }
+
+  bool _isPullingFromCloud = false;
+
+  Future<void> pullTenantFromCloud({
+    required String tenantId,
+    bool forceRefresh = true,
+  }) async {
+    if (_isPullingFromCloud) {
+      debugPrint('Pull already in progress');
+      return;
+    }
+    _isPullingFromCloud = true;
+
     final progressNotifier = ref.read(syncProgressProvider.notifier);
-    progressNotifier.startSync('Buscando atualizações...');
-    String? finalMessage;
+    progressNotifier.startSync('Iniciando sincronização da nuvem...');
+    
+    int productsCount = 0;
+    int photosResolved = 0;
+    int noPhoto = 0;
+    int categoriesCount = 0;
+    int catalogsCount = 0;
+    int errorsCount = 0;
 
     try {
       final settings = ref.read(settingsRepositoryProvider).getSettings();
       if (settings.localOnlyMode) {
-        finalMessage = 'Modo somente local ativo. Download da nuvem bloqueado.';
-        return;
+        throw Exception('Modo somente local ativo. Download da nuvem bloqueado.');
       }
 
-      await _internalSyncDown((p, m) => progressNotifier.updateProgress(p, m));
-      finalMessage = 'Sincronização concluída!';
+      progressNotifier.updateProgress(0.1, 'Buscando categorias e coleções...');
+      final categoriesQuery = FirebaseFirestore.instance
+          .collection('tenants')
+          .doc(tenantId)
+          .collection('categories');
+      final categoriesDocs = await _fetchCollectionInPages(query: categoriesQuery);
+      final fetchedCategories = categoriesDocs.map((doc) => Category.fromMap(doc.data())).toList();
+      categoriesCount = fetchedCategories.length;
+
+      progressNotifier.updateProgress(0.2, 'Buscando catálogos...');
+      final catalogsQuery = FirebaseFirestore.instance
+          .collection('tenants')
+          .doc(tenantId)
+          .collection('catalogs');
+      final catalogsDocs = await _fetchCollectionInPages(query: catalogsQuery);
+      final fetchedCatalogs = catalogsDocs.map((doc) => Catalog.fromMap(doc.data())).toList();
+      catalogsCount = fetchedCatalogs.length;
+
+      progressNotifier.updateProgress(0.3, 'Buscando produtos...');
+      final productsQuery = FirebaseFirestore.instance
+          .collection('tenants')
+          .doc(tenantId)
+          .collection('products');
+      final productsDocs = await _fetchCollectionInPages(query: productsQuery);
+      
+      progressNotifier.updateProgress(0.5, 'Processando produtos...');
+      final fetchedProducts = <Product>[];
+      for (var doc in productsDocs) {
+        try {
+          final pMap = doc.data();
+          pMap['id'] = doc.id;
+          final product = Product.fromMap(pMap);
+          
+          if (product.displayImageUrl == null || product.displayImageUrl!.isEmpty) {
+            noPhoto++;
+          } else {
+            photosResolved++; // Treat as resolved since AppProductImageView handles gs://
+          }
+          fetchedProducts.add(product);
+        } catch (e) {
+          debugPrint('Erro ao parsear produto ${doc.id}: $e');
+          errorsCount++;
+        }
+      }
+      productsCount = fetchedProducts.length;
+
+      progressNotifier.updateProgress(0.8, 'Limpando cache antigo e salvando novos dados...');
+      // Safely replace Hive cache for this tenant
+      await _safeReplaceHiveForTenant<Category>('categories', tenantId, fetchedCategories);
+      await _safeReplaceHiveForTenant<Catalog>('catalogs', tenantId, fetchedCatalogs);
+      await _safeReplaceHiveForTenant<Product>('products', tenantId, fetchedProducts);
+
+      progressNotifier.updateProgress(0.9, 'Atualizando providers...');
+      ref.invalidate(categoriesViewModelProvider);
+      ref.invalidate(catalogsViewModelProvider);
+      ref.invalidate(productsViewModelProvider);
+
+      debugPrint('''
+BAIXAR NUVEM FINALIZADO
+Tenant: $tenantId
+Produtos: $productsCount
+Fotos resolvidas: $photosResolved
+Produtos sem foto: $noPhoto
+Categorias/Coleções: $categoriesCount
+Catálogos: $catalogsCount
+Erros gerais: $errorsCount
+''');
+
+      progressNotifier.stopSync(message: 'Sincronização concluída com sucesso!');
     } catch (e) {
-      finalMessage = 'Erro ao baixar: $e';
-      rethrow;
+      debugPrint('Erro no pullTenantFromCloud: $e');
+      progressNotifier.stopSync(message: 'Erro ao baixar da nuvem: $e');
     } finally {
-      progressNotifier.stopSync(message: finalMessage);
+      _isPullingFromCloud = false;
     }
   }
 
-  Future<void> _internalSyncDown(Function(double, String) onProgress) async {
-    onProgress(0.1, 'Baixando Categorias...');
-    // 1. Baixa Categorias
-    await ref.read(categoriesViewModelProvider.notifier).syncFromCloud();
-
-    // 2. Baixa Produtos e Fotos
-    onProgress(0.3, 'Baixando Produtos...');
-    await ref.read(productsViewModelProvider.notifier).syncFromCloud();
-
-    // 3. Baixa Catálogos
-    onProgress(0.5, 'Baixando Catálogos...');
-    await ref.read(catalogsViewModelProvider.notifier).syncFromCloud();
-
-    // 4. Verificação de Primeiro Acesso (Download Físico)
-    final settingsRepo = ref.read(settingsRepositoryProvider);
-    final settings = settingsRepo.getSettings();
-
-    if (!settings.isInitialSyncCompleted) {
-      onProgress(0.6, 'Preparando download de imagens offline...');
-
-      final products = await ref.read(productsRepositoryProvider).getProducts();
-      await _downloadImagesInParallel(
-        products,
-        onProgress: (progress, message) =>
-            onProgress(0.6 + (0.4 * progress), message),
-      );
-
-      await settingsRepo.saveSettings(
-        settings.copyWith(isInitialSyncCompleted: true),
-      );
-      onProgress(1.0, 'Configuração offline finalizada!');
+  Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>> _fetchCollectionInPages({
+    required Query<Map<String, dynamic>> query,
+    int pageSize = 300,
+  }) async {
+    final List<QueryDocumentSnapshot<Map<String, dynamic>>> allDocs = [];
+    DocumentSnapshot? lastDoc;
+    
+    while (true) {
+      Query<Map<String, dynamic>> pagedQuery = query.limit(pageSize);
+      if (lastDoc != null) {
+        pagedQuery = pagedQuery.startAfterDocument(lastDoc);
+      }
+      final snapshot = await pagedQuery.get();
+      allDocs.addAll(snapshot.docs);
+      if (snapshot.docs.length < pageSize) {
+        break; // fetched all
+      }
+      lastDoc = snapshot.docs.last;
     }
+    return allDocs;
   }
 
-  /// Baixa imagens em paralelo para acelerar a sincronização
+
+
+  Future<void> _safeReplaceHiveForTenant<T>(String boxName, String tenantId, List<T> newItems) async {
+    final box = Hive.box<T>(boxName);
+    
+    // Find keys to delete (only for this tenant)
+    final keysToDelete = [];
+    for (var key in box.keys) {
+      final item = box.get(key);
+      dynamic tenantIdGetter;
+      
+      try {
+        if (item != null) {
+          final dynamic dynItem = item;
+          tenantIdGetter = dynItem.tenantId;
+        }
+      } catch (_) {}
+
+      // If item belongs to this tenant, or has no tenantId (legacy), delete it.
+      if (tenantIdGetter == null || tenantIdGetter == tenantId) {
+        keysToDelete.add(key);
+      }
+    }
+    
+    // Delete old
+    await box.deleteAll(keysToDelete);
+    
+    // Insert new
+    final Map<dynamic, T> newMap = {};
+    for (var item in newItems) {
+      try {
+        if (item != null) {
+           final dynamic dynItem = item;
+           newMap[dynItem.id] = item;
+        }
+      } catch (_) {}
+    }
+    await box.putAll(newMap);
+  }
+
   Future<void> _downloadImagesInParallel(
     List<Product> products, {
     required Function(double, String)? onProgress,

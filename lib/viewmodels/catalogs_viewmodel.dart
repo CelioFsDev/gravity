@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:catalogo_ja/core/services/public_catalog_snapshot_service.dart';
 import 'package:catalogo_ja/data/repositories/contracts/catalogs_repository_contract.dart';
 import 'package:catalogo_ja/models/catalog.dart';
@@ -15,14 +16,17 @@ import 'package:catalogo_ja/data/repositories/products_repository.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:catalogo_ja/data/repositories/settings_repository.dart';
 
+import 'package:flutter/foundation.dart';
+
 part 'catalogs_viewmodel.g.dart';
 
 @riverpod
 class CatalogsViewModel extends _$CatalogsViewModel {
+  StreamSubscription? _catalogsSub;
   @override
   FutureOr<List<Catalog>> build() async {
     try {
-      final authUser = ref.watch(authViewModelProvider).valueOrNull;
+      final authUser = ref.watch(authViewModelProvider).asData?.value;
       if (authUser != null) {
         await ref.watch(currentTenantProvider.future);
       }
@@ -30,13 +34,25 @@ class CatalogsViewModel extends _$CatalogsViewModel {
       // 🩹 Migração de catálogos legados com tenantId vazio.
       // Catálogos criados antes da correção tinham tenantId = '' e eram filtrados
       // pelo HiveCatalogsRepository._filter(), tornando-os invisíveis.
-      final tenant = ref.read(currentTenantProvider).valueOrNull;
+      final tenant = ref.read(currentTenantProvider).asData?.value;
       if (tenant != null) {
         await _migrateLegacyCatalogs(tenant.id);
       }
 
       final repository = ref.watch(syncCatalogsRepositoryProvider);
-      return await repository.getCatalogs();
+      final catalogs = await repository.getCatalogs();
+
+      if (kIsWeb) {
+        _catalogsSub?.cancel();
+        _catalogsSub = repository.watchCatalogs().listen((cloudCatalogs) {
+          if (state.hasValue) {
+            state = AsyncData(cloudCatalogs);
+          }
+        });
+        ref.onDispose(() => _catalogsSub?.cancel());
+      }
+
+      return catalogs;
     } catch (e) {
       throw e.toAppFailure(action: 'build', entity: 'Catalogs');
     }
@@ -242,7 +258,7 @@ class CatalogsViewModel extends _$CatalogsViewModel {
       final tenant = await ref.read(currentTenantProvider.future);
       String? tenantId = tenant?.id;
       if (tenantId == null) {
-        final email = ref.read(authViewModelProvider).valueOrNull?.email;
+        final email = ref.read(authViewModelProvider).asData?.value?.email;
         if (email != null) {
           tenantId = await ref.read(tenantRepositoryProvider).getCachedTenantId(email);
         }
@@ -292,14 +308,14 @@ class CatalogsViewModel extends _$CatalogsViewModel {
           await firestoreRepo.syncCatalogToCloud(cat);
           syncedCount++;
         } catch (e) {
-          print('❌ Erro ao sincronizar catálogo ${cat.name}: $e');
+          debugPrint('❌ Erro ao sincronizar catálogo ${cat.name}: $e');
         }
       }
 
       ref.invalidateSelf();
       return syncedCount;
     } catch (e) {
-      print('Erro ao sincronizar catálogos: $e');
+      debugPrint('Erro ao sincronizar catálogos: $e');
       rethrow;
     } finally {
       progressNotifier.stopSync(message: finalMessage);
@@ -316,7 +332,7 @@ class CatalogsViewModel extends _$CatalogsViewModel {
       final tenant = await ref.read(currentTenantProvider.future);
       String? tenantId = tenant?.id;
       if (tenantId == null) {
-        final email = ref.read(authViewModelProvider).valueOrNull?.email;
+        final email = ref.read(authViewModelProvider).asData?.value?.email;
         if (email != null) {
           tenantId = await ref.read(tenantRepositoryProvider).getCachedTenantId(email);
         }
@@ -348,7 +364,7 @@ class CatalogsViewModel extends _$CatalogsViewModel {
           currentLocalCatalogs.isEmpty && currentLocalProducts.isEmpty;
       if (hasNoLocalData) {
         final settings = ref.read(settingsRepositoryProvider).getSettings();
-        if (!settings.isInitialSyncCompleted) {
+        if (!settings.isInitialSyncCompleted && !kIsWeb) {
           return 0; // Aguarda carga inicial via backup
         }
       }
@@ -399,7 +415,7 @@ class CatalogsViewModel extends _$CatalogsViewModel {
       ref.invalidateSelf();
       return downloadedCount;
     } catch (e) {
-      print('Erro ao baixar catálogos: $e');
+      debugPrint('Erro ao baixar catálogos: $e');
       rethrow;
     } finally {
       progressNotifier.stopSync(message: finalMessage);

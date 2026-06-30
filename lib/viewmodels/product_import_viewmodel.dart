@@ -1,4 +1,5 @@
-﻿import 'dart:convert';
+// ignore_for_file: deprecated_member_use
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' hide Category;

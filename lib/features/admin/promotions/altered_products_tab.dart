@@ -5,11 +5,14 @@ import 'package:catalogo_ja/ui/theme/app_tokens.dart';
 import 'package:catalogo_ja/ui/widgets/app_empty_state.dart';
 import 'package:catalogo_ja/ui/widgets/app_error_view.dart';
 import 'package:catalogo_ja/ui/widgets/section_card.dart';
+import 'package:catalogo_ja/ui/widgets/promo_badge.dart';
 import 'package:catalogo_ja/viewmodels/products_viewmodel.dart';
 import 'package:flutter/material.dart';
+import 'package:catalogo_ja/ui/widgets/app_product_image_view.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:catalogo_ja/core/utils/currency_formatter.dart';
 
 class AlteredProductsTab extends ConsumerStatefulWidget {
   const AlteredProductsTab({super.key});
@@ -38,45 +41,80 @@ class _AlteredProductsTabState extends ConsumerState<AlteredProductsTab> {
   }
 
   Widget _buildContent(ProductsState state) {
-    final groups = state.categories
-        .where((category) => category.type == CategoryType.collection || category.type == CategoryType.productType)
-        .toList()..sort((a, b) => a.safeName.compareTo(b.safeName));
+    final groups =
+        state.categories
+            .where(
+              (category) =>
+                  category.type == CategoryType.collection ||
+                  category.type == CategoryType.productType,
+            )
+            .toList()
+          ..sort((a, b) => a.safeName.compareTo(b.safeName));
 
-    final alteredProducts = state.allProducts.where((p) => 
-        p.promotionActive || p.pricePromotion != null || p.promotionPercent > 0 || p.promotionId != null
-    ).toList();
+    final alteredProducts = state.allProducts
+        .where(
+          (p) =>
+              p.promoEnabledRetail ||
+              p.promoEnabledWholesale ||
+              p.promotionName != null,
+        )
+        .toList();
 
     // KPIs
     int totalPromotions = alteredProducts.length;
-    int activePromotions = alteredProducts.where((p) => p.promotionActive).length;
-    int percentPromotions = alteredProducts.where((p) => p.resolvedPromotionType == 'percent').length;
-    int manualPromotions = alteredProducts.where((p) => p.resolvedPromotionType == 'manual').length;
+    int activeRetail = alteredProducts
+        .where((p) => p.promoEnabledRetail)
+        .length;
+    int activeWholesale = alteredProducts
+        .where((p) => p.promoEnabledWholesale)
+        .length;
 
     // Filters
     final q = _searchQuery.trim().toLowerCase();
     var filtered = alteredProducts;
     if (q.isNotEmpty) {
-      filtered = filtered.where((p) => 
-        p.name.toLowerCase().contains(q) || 
-        p.ref.toLowerCase().contains(q) ||
-        (p.promotionName?.toLowerCase().contains(q) ?? false)
-      ).toList();
+      filtered = filtered
+          .where(
+            (p) =>
+                p.name.toLowerCase().contains(q) ||
+                p.ref.toLowerCase().contains(q) ||
+                (p.promotionName?.toLowerCase().contains(q) ?? false),
+          )
+          .toList();
     }
     if (_selectedCollectionId != null) {
-      filtered = filtered.where((p) => p.categoryIds.contains(_selectedCollectionId)).toList();
+      filtered = filtered
+          .where((p) => p.categoryIds.contains(_selectedCollectionId))
+          .toList();
     }
     if (_selectedPromotionType != null) {
-      filtered = filtered.where((p) => p.resolvedPromotionType == _selectedPromotionType).toList();
+      filtered = filtered
+          .where(
+            (p) =>
+                p.resolvedPromotionType == _selectedPromotionType ||
+                p.resolvedPromotionTypeWholesale == _selectedPromotionType,
+          )
+          .toList();
     }
     if (_isActiveFilter != null) {
-      filtered = filtered.where((p) => p.promotionActive == _isActiveFilter).toList();
+      filtered = filtered
+          .where(
+            (p) =>
+                p.promoEnabledRetail == _isActiveFilter ||
+                p.promoEnabledWholesale == _isActiveFilter,
+          )
+          .toList();
     }
 
-    filtered.sort((a, b) => (b.promotionUpdatedAt ?? b.updatedAt).compareTo(a.promotionUpdatedAt ?? a.updatedAt));
+    filtered.sort(
+      (a, b) => (b.promotionUpdatedAt ?? b.updatedAt).compareTo(
+        a.promotionUpdatedAt ?? a.updatedAt,
+      ),
+    );
 
     return Column(
       children: [
-        _buildKPIs(totalPromotions, activePromotions, percentPromotions, manualPromotions),
+        _buildKPIs(totalPromotions, activeRetail, activeWholesale),
         const SizedBox(height: 16),
         _buildFilters(groups),
         const SizedBox(height: 16),
@@ -85,18 +123,19 @@ class _AlteredProductsTabState extends ConsumerState<AlteredProductsTab> {
     );
   }
 
-  Widget _buildKPIs(int total, int active, int percent, int manual) {
+  Widget _buildKPIs(int total, int activeRetail, int activeWholesale) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTokens.space24,
+        vertical: 8,
+      ),
       child: Row(
         children: [
           _kpiCard('Produtos Alterados', total.toString()),
           const SizedBox(width: 8),
-          _kpiCard('Promoções Ativas', active.toString()),
+          _kpiCard('Promos Varejo', activeRetail.toString()),
           const SizedBox(width: 8),
-          _kpiCard('Por Porcentagem', percent.toString()),
-          const SizedBox(width: 8),
-          _kpiCard('Manuais', manual.toString()),
+          _kpiCard('Promos Atacado', activeWholesale.toString()),
         ],
       ),
     );
@@ -107,8 +146,15 @@ class _AlteredProductsTabState extends ConsumerState<AlteredProductsTab> {
       child: SectionCard(
         child: Column(
           children: [
-            Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            Text(title, style: const TextStyle(fontSize: 12), textAlign: TextAlign.center),
+            Text(
+              value,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       ),
@@ -118,60 +164,82 @@ class _AlteredProductsTabState extends ConsumerState<AlteredProductsTab> {
   Widget _buildFilters(List<Category> groups) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppTokens.space24),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        children: [
-          SizedBox(
-            width: 200,
-            child: TextField(
-              decoration: const InputDecoration(
-                labelText: 'Buscar (Ref, Nome, Promocao)',
-                prefixIcon: Icon(Icons.search),
-                isDense: true,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isSmall = constraints.maxWidth < 760;
+          final fullWidth = constraints.maxWidth;
+          return Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            alignment: WrapAlignment.start,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SizedBox(
+                width: isSmall ? fullWidth : 220,
+                child: TextField(
+                  decoration: const InputDecoration(
+                    labelText: 'Buscar (Ref, Nome, Promoção)',
+                    prefixIcon: Icon(Icons.search),
+                    isDense: true,
+                  ),
+                  onChanged: (v) => setState(() => _searchQuery = v),
+                ),
               ),
-              onChanged: (v) => setState(() => _searchQuery = v),
-            ),
-          ),
-          SizedBox(
-            width: 200,
-            child: DropdownButtonFormField<String?>(
-              value: _selectedCollectionId,
-              decoration: const InputDecoration(labelText: 'Coleção', isDense: true),
-              items: [
-                const DropdownMenuItem(value: null, child: Text('Todas')),
-                ...groups.map((g) => DropdownMenuItem(value: g.id, child: Text(g.safeName))),
-              ],
-              onChanged: (v) => setState(() => _selectedCollectionId = v),
-            ),
-          ),
-          SizedBox(
-            width: 150,
-            child: DropdownButtonFormField<String?>(
-              value: _selectedPromotionType,
-              decoration: const InputDecoration(labelText: 'Tipo', isDense: true),
-              items: const [
-                DropdownMenuItem(value: null, child: Text('Todos')),
-                DropdownMenuItem(value: 'percent', child: Text('Porcentagem')),
-                DropdownMenuItem(value: 'manual', child: Text('Manual')),
-              ],
-              onChanged: (v) => setState(() => _selectedPromotionType = v),
-            ),
-          ),
-          SizedBox(
-            width: 150,
-            child: DropdownButtonFormField<bool?>(
-              value: _isActiveFilter,
-              decoration: const InputDecoration(labelText: 'Status', isDense: true),
-              items: const [
-                DropdownMenuItem(value: null, child: Text('Todos')),
-                DropdownMenuItem(value: true, child: Text('Ativa')),
-                DropdownMenuItem(value: false, child: Text('Removida')),
-              ],
-              onChanged: (v) => setState(() => _isActiveFilter = v),
-            ),
-          ),
-        ],
+              SizedBox(
+                width: isSmall ? fullWidth : 200,
+                child: DropdownButtonFormField<String?>(
+                  isExpanded: true,
+                  value: _selectedCollectionId,
+                  decoration: const InputDecoration(
+                    labelText: 'Coleção',
+                    isDense: true,
+                  ),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('Todas')),
+                    ...groups.map(
+                      (g) => DropdownMenuItem(value: g.id, child: Text(g.safeName)),
+                    ),
+                  ],
+                  onChanged: (v) => setState(() => _selectedCollectionId = v),
+                ),
+              ),
+              SizedBox(
+                width: isSmall ? fullWidth : 160,
+                child: DropdownButtonFormField<String?>(
+                  isExpanded: true,
+                  value: _selectedPromotionType,
+                  decoration: const InputDecoration(
+                    labelText: 'Tipo',
+                    isDense: true,
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: null, child: Text('Todos')),
+                    DropdownMenuItem(value: 'percent', child: Text('Porcentagem')),
+                    DropdownMenuItem(value: 'manual', child: Text('Manual')),
+                  ],
+                  onChanged: (v) => setState(() => _selectedPromotionType = v),
+                ),
+              ),
+              SizedBox(
+                width: isSmall ? fullWidth : 160,
+                child: DropdownButtonFormField<bool?>(
+                  isExpanded: true,
+                  value: _isActiveFilter,
+                  decoration: const InputDecoration(
+                    labelText: 'Status',
+                    isDense: true,
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: null, child: Text('Todos')),
+                    DropdownMenuItem(value: true, child: Text('Ativa')),
+                    DropdownMenuItem(value: false, child: Text('Removida')),
+                  ],
+                  onChanged: (v) => setState(() => _isActiveFilter = v),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -189,7 +257,8 @@ class _AlteredProductsTabState extends ConsumerState<AlteredProductsTab> {
       );
     }
 
-    final allSelected = products.isNotEmpty && _selectedProductIds.length == products.length;
+    final allSelected =
+        products.isNotEmpty && _selectedProductIds.length == products.length;
     final partiallySelected = _selectedProductIds.isNotEmpty && !allSelected;
 
     return Column(
@@ -215,9 +284,13 @@ class _AlteredProductsTabState extends ConsumerState<AlteredProductsTab> {
               const Spacer(),
               if (_selectedProductIds.isNotEmpty)
                 FilledButton.icon(
-                  onPressed: _isSaving ? null : () => _clearPromotionBatch(products),
+                  onPressed: _isSaving
+                      ? null
+                      : () => _clearPromotionBatch(products),
                   icon: const Icon(Icons.delete_sweep),
-                  label: Text('Remover promoção (${_selectedProductIds.length})'),
+                  label: Text(
+                    'Remover promoção (${_selectedProductIds.length})',
+                  ),
                   style: FilledButton.styleFrom(backgroundColor: Colors.red),
                 ),
             ],
@@ -227,7 +300,7 @@ class _AlteredProductsTabState extends ConsumerState<AlteredProductsTab> {
           child: ListView.separated(
             padding: const EdgeInsets.all(AppTokens.space24),
             itemCount: products.length,
-            separatorBuilder: (_, _) => const Divider(),
+            separatorBuilder: (_, _) => const Divider(height: 1),
             itemBuilder: (context, index) {
               final p = products[index];
               return _AlteredProductRow(
@@ -236,8 +309,10 @@ class _AlteredProductsTabState extends ConsumerState<AlteredProductsTab> {
                 selected: _selectedProductIds.contains(p.id),
                 onSelect: (val) {
                   setState(() {
-                    if (val == true) _selectedProductIds.add(p.id);
-                    else _selectedProductIds.remove(p.id);
+                    if (val == true)
+                      _selectedProductIds.add(p.id);
+                    else
+                      _selectedProductIds.remove(p.id);
                   });
                 },
                 onSave: (Product updated) => _saveProduct(updated),
@@ -253,7 +328,9 @@ class _AlteredProductsTabState extends ConsumerState<AlteredProductsTab> {
   Future<void> _saveProduct(Product product) async {
     setState(() => _isSaving = true);
     try {
-      await ref.read(productsViewModelProvider.notifier).updateProductsBulk([product]);
+      await ref.read(productsViewModelProvider.notifier).updateProductsBulk([
+        product,
+      ]);
       if (mounted) _showSnack('Produto atualizado com sucesso.');
     } catch (e) {
       if (mounted) _showSnack('Erro ao salvar: $e');
@@ -264,11 +341,15 @@ class _AlteredProductsTabState extends ConsumerState<AlteredProductsTab> {
 
   Future<void> _clearPromotion(Product p) async {
     final updated = p.copyWith(
-      promoEnabled: false,
-      promoPercent: 0,
+      promoEnabledRetail: false,
+      promoPercentRetail: 0,
+      clearPriceOriginalRetail: true,
+      clearPricePromotionRetail: true,
+      promoEnabledWholesale: false,
+      promoPercentWholesale: 0,
+      clearPriceOriginalWholesale: true,
+      clearPricePromotionWholesale: true,
       updatedAt: DateTime.now(),
-      clearPriceOriginal: true,
-      clearPricePromotion: true,
       clearPromotionName: true,
       clearPromotionCollectionId: true,
       clearPromotionCreatedAt: true,
@@ -280,25 +361,34 @@ class _AlteredProductsTabState extends ConsumerState<AlteredProductsTab> {
   }
 
   Future<void> _clearPromotionBatch(List<Product> products) async {
-    final toUpdate = products.where((p) => _selectedProductIds.contains(p.id)).map((p) => 
-      p.copyWith(
-        promoEnabled: false,
-        promoPercent: 0,
-        updatedAt: DateTime.now(),
-        clearPriceOriginal: true,
-        clearPricePromotion: true,
-        clearPromotionName: true,
-        clearPromotionCollectionId: true,
-        clearPromotionCreatedAt: true,
-        clearPromotionUpdatedAt: true,
-        clearPromotionType: true,
-        clearPromotionId: true,
-      )
-    ).toList();
+    final toUpdate = products
+        .where((p) => _selectedProductIds.contains(p.id))
+        .map(
+          (p) => p.copyWith(
+            promoEnabledRetail: false,
+            promoPercentRetail: 0,
+            clearPriceOriginalRetail: true,
+            clearPricePromotionRetail: true,
+            promoEnabledWholesale: false,
+            promoPercentWholesale: 0,
+            clearPriceOriginalWholesale: true,
+            clearPricePromotionWholesale: true,
+            updatedAt: DateTime.now(),
+            clearPromotionName: true,
+            clearPromotionCollectionId: true,
+            clearPromotionCreatedAt: true,
+            clearPromotionUpdatedAt: true,
+            clearPromotionType: true,
+            clearPromotionId: true,
+          ),
+        )
+        .toList();
 
     setState(() => _isSaving = true);
     try {
-      await ref.read(productsViewModelProvider.notifier).updateProductsBulk(toUpdate);
+      await ref
+          .read(productsViewModelProvider.notifier)
+          .updateProductsBulk(toUpdate);
       if (mounted) {
         _selectedProductIds.clear();
         _showSnack('${toUpdate.length} promoções removidas.');
@@ -312,7 +402,9 @@ class _AlteredProductsTabState extends ConsumerState<AlteredProductsTab> {
 
   void _showSnack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -337,10 +429,15 @@ class _AlteredProductRow extends StatefulWidget {
 }
 
 class _AlteredProductRowState extends State<_AlteredProductRow> {
-  late TextEditingController _percentCtrl;
-  late TextEditingController _manualCtrl;
-  late bool _isActive;
-  late String _type;
+  late TextEditingController _percentRetailCtrl;
+  late TextEditingController _manualRetailCtrl;
+  late TextEditingController _percentWholesaleCtrl;
+  late TextEditingController _manualWholesaleCtrl;
+
+  late bool _isActiveRetail;
+  late bool _isActiveWholesale;
+  late String _typeRetail;
+  late String _typeWholesale;
 
   @override
   void initState() {
@@ -349,11 +446,41 @@ class _AlteredProductRowState extends State<_AlteredProductRow> {
   }
 
   void _initValues() {
-    _isActive = widget.product.promotionActive;
-    _type = widget.product.resolvedPromotionType;
-    _percentCtrl = TextEditingController(text: widget.product.promoPercent > 0 ? _formatEditingValue(widget.product.promoPercent) : '');
-    final pPrice = widget.product.pricePromotion ?? 0;
-    _manualCtrl = TextEditingController(text: pPrice > 0 ? _formatEditingValue(pPrice) : '');
+    _isActiveRetail = widget.product.promoEnabledRetail;
+    _isActiveWholesale = widget.product.promoEnabledWholesale;
+
+    _typeRetail = widget.product.resolvedPromotionType;
+    _typeWholesale = widget.product.resolvedPromotionTypeWholesale;
+
+    final pPriceR = widget.product.pricePromotionRetail ?? 0;
+    final originalR = widget.product.priceOriginalForPromotion;
+    double initialDiscountR = widget.product.promoPercentRetail;
+    if (_typeRetail == 'manual' && pPriceR > 0 && originalR > 0) {
+      initialDiscountR = originalR - pPriceR;
+    }
+    _percentRetailCtrl = TextEditingController(
+      text: initialDiscountR > 0
+          ? _formatPercent(initialDiscountR)
+          : '',
+    );
+    _manualRetailCtrl = TextEditingController(
+      text: pPriceR > 0 ? _formatCurrency(pPriceR).replaceAll('R\$ ', '') : '',
+    );
+
+    final pPriceW = widget.product.pricePromotionWholesale ?? 0;
+    final originalW = widget.product.priceOriginalForPromotionWholesale;
+    double initialDiscountW = widget.product.promoPercentWholesale;
+    if (_typeWholesale == 'manual' && pPriceW > 0 && originalW > 0) {
+      initialDiscountW = originalW - pPriceW;
+    }
+    _percentWholesaleCtrl = TextEditingController(
+      text: initialDiscountW > 0
+          ? _formatPercent(initialDiscountW)
+          : '',
+    );
+    _manualWholesaleCtrl = TextEditingController(
+      text: pPriceW > 0 ? _formatCurrency(pPriceW).replaceAll('R\$ ', '') : '',
+    );
   }
 
   @override
@@ -366,18 +493,99 @@ class _AlteredProductRowState extends State<_AlteredProductRow> {
 
   @override
   void dispose() {
-    _percentCtrl.dispose();
-    _manualCtrl.dispose();
+    _percentRetailCtrl.dispose();
+    _manualRetailCtrl.dispose();
+    _percentWholesaleCtrl.dispose();
+    _manualWholesaleCtrl.dispose();
     super.dispose();
   }
 
-  String _formatEditingValue(double value) {
+  String _formatCurrency(double value) {
+    final formatter = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+    return formatter.format(value);
+  }
+
+  String _formatPercent(double value) {
     if (value % 1 == 0) return value.toInt().toString();
     return value.toStringAsFixed(2).replaceAll('.', ',');
   }
 
+  double _parseCurrency(String text) {
+    if (text.isEmpty) return 0.0;
+    String cleaned = text
+        .replaceAll('R\$', '')
+        .replaceAll('%', '')
+        .replaceAll('.', '')
+        .replaceAll(',', '.')
+        .trim();
+    return double.tryParse(cleaned) ?? 0.0;
+  }
+
   double _parseNumber(String text) {
-    return safeDouble(text);
+    return _parseCurrency(text);
+  }
+
+  double _calculatePromotionalPrice({
+    required double originalPrice,
+    required double discountValue,
+    required String type,
+  }) {
+    if (originalPrice <= 0) return 0;
+    if (type == 'percent') {
+      final percent = discountValue.clamp(0, 100);
+      return originalPrice * (1 - (percent / 100));
+    }
+    if (type == 'manual') {
+      final result = originalPrice - discountValue;
+      return result < 0 ? 0 : result;
+    }
+    return originalPrice;
+  }
+
+  void _onDiscountChanged(bool isRetail, String value, double originalPrice) {
+    final discount = _parseNumber(value);
+    final type = isRetail ? _typeRetail : _typeWholesale;
+    
+    final newPrice = _calculatePromotionalPrice(
+      originalPrice: originalPrice,
+      discountValue: discount,
+      type: type,
+    );
+
+    setState(() {
+      final formattedPrice = newPrice.toStringAsFixed(2).replaceAll('.', ',');
+      if (isRetail) {
+        _manualRetailCtrl.text = formattedPrice;
+      } else {
+        _manualWholesaleCtrl.text = formattedPrice;
+      }
+    });
+  }
+
+  void _onTypeChanged(bool isRetail, String newType, double originalPrice) {
+    setState(() {
+      if (isRetail) {
+        _typeRetail = newType;
+      } else {
+        _typeWholesale = newType;
+      }
+    });
+    
+    final ctrl = isRetail ? _percentRetailCtrl : _percentWholesaleCtrl;
+    _onDiscountChanged(isRetail, ctrl.text, originalPrice);
+  }
+
+  void _onPriceChanged(bool isRetail, String value, double originalPrice) {
+    // Se o usuário editar o preço final manualmente, marcamos como manual (se for porcentagem, deixa como está e não recalcula desconto para evitar loop complexo, ou podemos recalcular o desconto)
+    // O usuário pediu: "Se o usuário alterar o campo 'Por', pode recalcular o desconto inverso ou marcar como preço manual. Preferência: Quando o tipo for 'Porcentagem', o campo 'Por' deve ser calculado automaticamente pelo desconto."
+    // Como a preferência é calcular pelo desconto, se ele mexer no preço final, marcamos como manual para ele poder editar livremente.
+    setState(() {
+      if (isRetail) {
+        _typeRetail = 'manual';
+      } else {
+        _typeWholesale = 'manual';
+      }
+    });
   }
 
   @override
@@ -385,149 +593,341 @@ class _AlteredProductRowState extends State<_AlteredProductRow> {
     final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
     final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
     final p = widget.product;
-    final original = p.priceOriginal ?? p.priceRetail;
+    final originalR = p.priceOriginalForPromotion;
+    final originalW = p.priceOriginalForPromotionWholesale;
 
-    // Calculate preview
-    double finalPricePreview = original;
-    if (_type == 'percent') {
-      final perc = _parseNumber(_percentCtrl.text);
-      if (perc > 0 && perc <= 100) {
-        finalPricePreview = original * (1 - (perc / 100));
-      }
-    } else {
-      final man = _parseNumber(_manualCtrl.text);
-      if (man > 0) {
-        finalPricePreview = man;
-      }
-    }
+    final hasChanges =
+        _isActiveRetail != p.promoEnabledRetail ||
+        _isActiveWholesale != p.promoEnabledWholesale ||
+        _typeRetail != p.resolvedPromotionType ||
+        _typeWholesale != p.resolvedPromotionTypeWholesale ||
+        (_typeRetail == 'percent' &&
+            _parseNumber(_percentRetailCtrl.text) != p.promoPercentRetail) ||
+        (_typeRetail == 'manual' &&
+            _parseCurrency(_manualRetailCtrl.text) !=
+                (p.pricePromotionRetail ?? 0)) ||
+        (_typeWholesale == 'percent' &&
+            _parseNumber(_percentWholesaleCtrl.text) !=
+                p.promoPercentWholesale) ||
+        (_typeWholesale == 'manual' &&
+            _parseCurrency(_manualWholesaleCtrl.text) !=
+                (p.pricePromotionWholesale ?? 0));
 
-    final hasChanges = _isActive != p.promotionActive || 
-                       _type != p.resolvedPromotionType ||
-                       (_type == 'percent' && _parseNumber(_percentCtrl.text) != p.promoPercent) ||
-                       (_type == 'manual' && _parseNumber(_manualCtrl.text) != (p.pricePromotion ?? 0));
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Checkbox(value: widget.selected, onChanged: widget.onSelect),
-        const SizedBox(width: 8),
-        Container(
-          width: 60,
-          height: 60,
-          decoration: BoxDecoration(
-            color: Colors.grey[200],
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: p.mainImage != null 
-              ? ClipRRect(borderRadius: BorderRadius.circular(8), child: _buildImage(p.mainImage!.uri))
-              : const Icon(Icons.image_not_supported, color: Colors.grey),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          flex: 2,
-          child: Column(
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-              Text('Ref: ${p.ref}'),
-              Text('Promoção: ${p.promotionName ?? '-'}'),
-              if (p.promotionUpdatedAt != null)
-                Text('Alterado em: ${dateFormat.format(p.promotionUpdatedAt!)}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            ],
-          ),
-        ),
-        Expanded(
-          flex: 3,
-          child: Row(
-            children: [
-              Switch(
-                value: _isActive,
-                onChanged: (v) => setState(() => _isActive = v),
-              ),
+              Checkbox(value: widget.selected, onChanged: widget.onSelect),
               const SizedBox(width: 8),
-              DropdownButton<String>(
-                value: _type,
-                items: const [
-                  DropdownMenuItem(value: 'percent', child: Text('%')),
-                  DropdownMenuItem(value: 'manual', child: Text('R\$')),
-                ],
-                onChanged: (v) => setState(() {
-                  if (v != null) _type = v;
-                }),
-              ),
-              const SizedBox(width: 8),
-              if (_type == 'percent')
-                SizedBox(
-                  width: 80,
-                  child: TextField(
-                    controller: _percentCtrl,
-                    decoration: const InputDecoration(isDense: true, suffixText: '%'),
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]'))],
-                    onChanged: (_) => setState((){}),
-                  ),
-                )
-              else
-                SizedBox(
-                  width: 100,
-                  child: TextField(
-                    controller: _manualCtrl,
-                    decoration: const InputDecoration(isDense: true, prefixText: 'R\$ '),
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]'))],
-                    onChanged: (_) => setState((){}),
-                  ),
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(8),
                 ),
-            ],
-          ),
-        ),
-        Expanded(
-          flex: 1,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(currency.format(original), style: const TextStyle(decoration: TextDecoration.lineThrough, color: Colors.grey, fontSize: 12)),
-              Text(currency.format(finalPricePreview), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
-            ],
-          ),
-        ),
-        const SizedBox(width: 16),
-        Column(
-          children: [
-            if (hasChanges)
-              IconButton(
-                icon: const Icon(Icons.check_circle, color: Colors.green),
-                tooltip: 'Salvar alterações',
-                onPressed: () {
-                  final perc = _parseNumber(_percentCtrl.text);
-                  final man = _parseNumber(_manualCtrl.text);
-                  final updated = p.copyWith(
-                    promoEnabled: _isActive,
-                    promoPercent: _type == 'percent' ? perc : 0,
-                    priceOriginal: original,
-                    pricePromotion: _type == 'manual' ? man : null,
-                    promotionType: _type,
-                    promotionUpdatedAt: DateTime.now(),
-                    updatedAt: DateTime.now(),
-                  );
-                  widget.onSave(updated);
-                },
+                child: p.displayImageUrl != null
+                    ? AppProductImageView(
+                        imageUrl: p.displayImageUrl,
+                        borderRadius: 8,
+                      )
+                    : const Icon(Icons.image_not_supported, color: Colors.grey),
               ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
-              tooltip: 'Remover promoção',
-              onPressed: widget.onRemovePromotion,
-            ),
-          ],
-        )
-      ],
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      p.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text('Ref: ${p.ref}'),
+                    if (p.promotionName != null)
+                      Text('Promoção: ${p.promotionName}'),
+                    if (p.promotionUpdatedAt != null)
+                      Text(
+                        'Alterado em: ${dateFormat.format(p.promotionUpdatedAt!)}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Column(
+                children: [
+                  if (hasChanges)
+                    IconButton(
+                      icon: const Icon(Icons.check_circle, color: Colors.green),
+                      tooltip: 'Salvar alterações',
+                      onPressed: () {
+                        final percR = _parseNumber(_percentRetailCtrl.text);
+                        final manR = _parseCurrency(_manualRetailCtrl.text);
+                        final percW = _parseNumber(_percentWholesaleCtrl.text);
+                        final manW = _parseCurrency(_manualWholesaleCtrl.text);
+                        final updated = p.copyWith(
+                          promoEnabledRetail: _isActiveRetail,
+                          promoPercentRetail: _typeRetail == 'percent'
+                              ? percR
+                              : 0,
+                          priceOriginalRetail: originalR,
+                          pricePromotionRetail: _typeRetail == 'manual'
+                              ? manR
+                              : null,
+                          promotionType: _typeRetail,
+
+                          promoEnabledWholesale: _isActiveWholesale,
+                          promoPercentWholesale: _typeWholesale == 'percent'
+                              ? percW
+                              : 0,
+                          priceOriginalWholesale: originalW,
+                          pricePromotionWholesale: _typeWholesale == 'manual'
+                              ? manW
+                              : null,
+
+                          promotionUpdatedAt: DateTime.now(),
+                          updatedAt: DateTime.now(),
+                        );
+                        widget.onSave(updated);
+                      },
+                    ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    tooltip: 'Remover promoção',
+                    onPressed: widget.onRemovePromotion,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth > 500;
+              final retailBlock = _buildPricingBlock(
+                context,
+                currency,
+                'VAREJO',
+                originalR,
+                _typeRetail,
+                _percentRetailCtrl,
+                _manualRetailCtrl,
+                (v) => _onTypeChanged(true, v, originalR),
+                (v) => _onDiscountChanged(true, v, originalR),
+                (v) => _onPriceChanged(true, v, originalR),
+                _isActiveRetail,
+                (v) => setState(() => _isActiveRetail = v),
+              );
+
+              final wholesaleBlock = _buildPricingBlock(
+                context,
+                currency,
+                'ATACADO',
+                originalW,
+                _typeWholesale,
+                _percentWholesaleCtrl,
+                _manualWholesaleCtrl,
+                (v) => _onTypeChanged(false, v, originalW),
+                (v) => _onDiscountChanged(false, v, originalW),
+                (v) => _onPriceChanged(false, v, originalW),
+                _isActiveWholesale,
+                (v) => setState(() => _isActiveWholesale = v),
+              );
+
+              if (isWide) {
+                return Padding(
+                  padding: const EdgeInsets.only(left: 48),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: retailBlock),
+                      const SizedBox(width: 24),
+                      Expanded(child: wholesaleBlock),
+                    ],
+                  ),
+                );
+              } else {
+                return Padding(
+                  padding: const EdgeInsets.only(left: 48),
+                  child: Column(
+                    children: [
+                      retailBlock,
+                      const SizedBox(height: 24),
+                      wholesaleBlock,
+                    ],
+                  ),
+                );
+              }
+            },
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildImage(String uri) {
-    if (uri.startsWith('http') || uri.startsWith('gs')) {
-      return Image.network(uri, fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.error));
+  Widget _buildPricingBlock(
+    BuildContext context,
+    NumberFormat currency,
+    String title,
+    double original,
+    String type,
+    TextEditingController percentController,
+    TextEditingController priceController,
+    ValueChanged<String> onTypeChanged,
+    ValueChanged<String> onPercentChanged,
+    ValueChanged<String> onPriceChanged,
+    bool isActive,
+    ValueChanged<bool> onActiveChanged,
+  ) {
+    double finalPricePreview = original;
+    final man = _parseCurrency(priceController.text);
+    if (man > 0) {
+      finalPricePreview = man;
     }
-    return const Icon(Icons.image);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(12),
+        color: isActive
+            ? Colors.blue.shade50.withValues(alpha: 0.3)
+            : Colors.transparent,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Switch(value: isActive, onChanged: onActiveChanged),
+                  const SizedBox(width: 8),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+              if (isActive && finalPricePreview < original)
+                PromoBadge(
+                  discountPercentage:
+                      ((original - finalPricePreview) / original * 100)
+                          .round()
+                          .clamp(0, 100),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('De', style: Theme.of(context).textTheme.labelSmall),
+                    Text(
+                      currency.format(original),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        decoration: TextDecoration.lineThrough,
+                        decorationColor: Color(0xFFF43F5E),
+                        color: Color(0xFFF43F5E),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: DropdownButtonFormField<String>(
+                  value: type,
+                  onChanged: isActive
+                      ? (value) {
+                          if (value != null) onTypeChanged(value);
+                        }
+                      : null,
+                  decoration: const InputDecoration(
+                    labelText: 'Tipo',
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'percent',
+                      child: Text('Porcentagem'),
+                    ),
+                    DropdownMenuItem(value: 'manual', child: Text('Manual')),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  controller: percentController,
+                  enabled: isActive,
+                  textAlign: TextAlign.end,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]')),
+                  ],
+                  onChanged: onPercentChanged,
+                  decoration: InputDecoration(
+                    labelText: 'Desconto',
+                    suffixText: type == 'percent' ? '%' : null,
+                    prefixText: type == 'manual' ? 'R\$ ' : null,
+                    isDense: true,
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 3,
+                child: TextField(
+                  controller: priceController,
+                  enabled: isActive,
+                  textAlign: TextAlign.end,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  inputFormatters: [CurrencyInputFormatter()],
+                  onChanged: onPriceChanged,
+                  decoration: const InputDecoration(
+                    labelText: 'Por',
+                    prefixText: 'R\$ ',
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }

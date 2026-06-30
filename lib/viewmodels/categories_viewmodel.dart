@@ -37,16 +37,39 @@ class CategoriesState {
 
 @riverpod
 class CategoriesViewModel extends _$CategoriesViewModel {
+  StreamSubscription? _categoriesSub;
+
   @override
   FutureOr<CategoriesState> build() async {
     try {
       // ✨ Garantia de SaaS: Se o usuário está logado, aguardamos o tenantId ser identificado
       // Isso evita que a tela comece "Vazia" usando o Repo Local enquanto o Firestore ainda carrega o perfil.
-      final authUser = ref.watch(authViewModelProvider).valueOrNull;
+      final authUser = ref.watch(authViewModelProvider).asData?.value;
       if (authUser != null) {
         await ref.watch(currentTenantProvider.future);
       }
-      return await _fetchData();
+      final data = await _fetchData();
+
+      if (kIsWeb) {
+        _categoriesSub?.cancel();
+        final categoriesRepository = ref.read(syncCategoriesRepositoryProvider);
+        _categoriesSub = categoriesRepository.watchCategories().listen((cloudCategories) {
+          if (state.hasValue) {
+            final currentCounts = state.value!.productCounts;
+            var sorted = List<Category>.from(cloudCategories);
+            _applySort(sorted, state.value!.sortOption);
+            state = AsyncData(CategoriesState(
+              categories: sorted,
+              productCounts: currentCounts,
+              sortOption: state.value!.sortOption,
+              searchQuery: state.value!.searchQuery,
+            ));
+          }
+        });
+        ref.onDispose(() => _categoriesSub?.cancel());
+      }
+
+      return data;
     } catch (e) {
       throw e.toAppFailure(action: 'build', entity: 'Categories');
     }
@@ -100,7 +123,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
     var tenantId = tenant?.id;
 
     if (tenantId == null || tenantId.isEmpty) {
-      final email = ref.read(authViewModelProvider).valueOrNull?.email;
+      final email = ref.read(authViewModelProvider).asData?.value?.email;
       if (email != null) {
         tenantId = await ref
             .read(tenantRepositoryProvider)
@@ -493,7 +516,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       final tenant = await ref.read(currentTenantProvider.future);
       String? tenantId = tenant?.id;
       if (tenantId == null) {
-        final email = ref.read(authViewModelProvider).valueOrNull?.email;
+        final email = ref.read(authViewModelProvider).asData?.value?.email;
         if (email != null) {
           tenantId = await ref
               .read(tenantRepositoryProvider)
@@ -555,7 +578,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       final tenant = await ref.read(currentTenantProvider.future);
       String? tenantId = tenant?.id;
       if (tenantId == null) {
-        final email = ref.read(authViewModelProvider).valueOrNull?.email;
+        final email = ref.read(authViewModelProvider).asData?.value?.email;
         if (email != null) {
           tenantId = await ref
               .read(tenantRepositoryProvider)
@@ -584,7 +607,7 @@ class CategoriesViewModel extends _$CategoriesViewModel {
       // 🔑 Trava de Offline-First
       if (currentLocalCategories.isEmpty) {
         final settings = ref.read(settingsRepositoryProvider).getSettings();
-        if (!settings.isInitialSyncCompleted) {
+        if (!settings.isInitialSyncCompleted && !kIsWeb) {
           return 0; // Abort download to save Firebase reads
         }
       }

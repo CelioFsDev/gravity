@@ -99,6 +99,6 @@ CatalogsRepositoryContract catalogsRepository(CatalogsRepositoryRef ref) {
   final catalogsBox = Hive.box<Catalog>('catalogs');
   return HiveCatalogsRepository(
     catalogsBox, 
-    () => ref.read(currentTenantProvider).valueOrNull?.id
+    () => ref.read(currentTenantProvider).asData?.value?.id
   );
 }

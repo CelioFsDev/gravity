@@ -6,7 +6,7 @@ part of 'catalog_public_viewmodel.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$catalogPublicHash() => r'aa4302bc20e82881ba009f5a3e6d50fc3f12f4cc';
+String _$catalogPublicHash() => r'66164218817c9adec2d10cfd8a1fd50910eaf852';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -73,7 +73,7 @@ class CatalogPublicFamily extends Family<AsyncValue<PublicCatalogData?>> {
 
 /// See also [catalogPublic].
 class CatalogPublicProvider
-    extends AutoDisposeFutureProvider<PublicCatalogData?> {
+    extends AutoDisposeStreamProvider<PublicCatalogData?> {
   /// See also [catalogPublic].
   CatalogPublicProvider(
     String shareCode,
@@ -108,7 +108,7 @@ class CatalogPublicProvider
 
   @override
   Override overrideWith(
-    FutureOr<PublicCatalogData?> Function(CatalogPublicRef provider) create,
+    Stream<PublicCatalogData?> Function(CatalogPublicRef provider) create,
   ) {
     return ProviderOverride(
       origin: this,
@@ -125,7 +125,7 @@ class CatalogPublicProvider
   }
 
   @override
-  AutoDisposeFutureProviderElement<PublicCatalogData?> createElement() {
+  AutoDisposeStreamProviderElement<PublicCatalogData?> createElement() {
     return _CatalogPublicProviderElement(this);
   }
 
@@ -143,13 +143,13 @@ class CatalogPublicProvider
   }
 }
 
-mixin CatalogPublicRef on AutoDisposeFutureProviderRef<PublicCatalogData?> {
+mixin CatalogPublicRef on AutoDisposeStreamProviderRef<PublicCatalogData?> {
   /// The parameter `shareCode` of this provider.
   String get shareCode;
 }
 
 class _CatalogPublicProviderElement
-    extends AutoDisposeFutureProviderElement<PublicCatalogData?>
+    extends AutoDisposeStreamProviderElement<PublicCatalogData?>
     with CatalogPublicRef {
   _CatalogPublicProviderElement(super.provider);
 

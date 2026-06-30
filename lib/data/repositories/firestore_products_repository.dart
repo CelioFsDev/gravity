@@ -67,7 +67,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
       final localProducts = await _localRepo.getProducts();
       final settings = _settingsRepo.getSettings();
 
-      if (localProducts.isEmpty && !settings.isInitialSyncCompleted) {
+      if (localProducts.isEmpty && !settings.isInitialSyncCompleted && !kIsWeb) {
         return localProducts;
       }
 
@@ -172,6 +172,14 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
     Product product, {
     Function(double, String)? onProgress,
   }) async {
+    if (kIsWeb) {
+      final productToSave = product.copyWith(syncStatus: SyncStatus.synced);
+      await syncProductToCloud(productToSave, onProgress: onProgress);
+      // Salva no cache/indexedDB local só para agilidade
+      await _localRepo.addProduct(productToSave);
+      return;
+    }
+
     final productToSave = product.copyWith(
       syncStatus: SyncStatus.pendingUpdate,
     );
@@ -186,6 +194,16 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
     Product product, {
     Function(double, String)? onProgress,
   }) async {
+    if (kIsWeb) {
+      final productToSave = product.copyWith(
+        syncStatus: SyncStatus.synced,
+        updatedAt: DateTime.now(),
+      );
+      await syncProductToCloud(productToSave, onProgress: onProgress);
+      await _localRepo.updateProduct(productToSave);
+      return;
+    }
+
     final oldProduct = await _localRepo.getProduct(product.id);
 
     // Evitar salvar e dar update falso sem mudanças reais.
@@ -435,7 +453,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
       throw Exception('Erro ao enviar foto: $imageUploadError');
     }
 
-    await _collection.doc(product.id).set(productWithSaaS.toMap());
+    await _collection.doc(product.id).set(productWithSaaS.toMap()).timeout(const Duration(seconds: 15));
     await _localRepo.addProduct(productWithSaaS);
     invalidateCache(); // 🔑 Invalida cache após escrita
 
@@ -457,7 +475,7 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
     // cache antigo sobrescreva uma edição feita em outro dispositivo.
     final remoteById = <String, Product>{};
     if (force) {
-      final remoteSnapshot = await _collection.get();
+      final remoteSnapshot = await _collection.get().timeout(const Duration(seconds: 15));
       for (final doc in remoteSnapshot.docs) {
         final remoteProduct = Product.fromMap(doc.data());
         remoteById[remoteProduct.id] = remoteProduct;
@@ -570,6 +588,12 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
 
   @override
   Future<void> deleteProduct(String id) async {
+    if (kIsWeb) {
+      await _collection.doc(id).delete().timeout(const Duration(seconds: 15));
+      await _localRepo.deleteProduct(id);
+      return;
+    }
+
     await _localRepo.deleteProduct(id);
     invalidateCache(); // 🔑 Invalida cache após deletão
 
@@ -621,6 +645,13 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
 
   @override
   Stream<List<Product>> watchProducts() {
+    if (kIsWeb) {
+      return _collection.snapshots().map((snapshot) {
+        return snapshot.docs
+            .map((doc) => Product.fromMap(doc.data()))
+            .toList();
+      });
+    }
     // 🔑 Local-First: Observa o repositório local (Hive)
     // Isso garante que mudanças salvas localmente apareçam instantaneamente.
     return _localRepo.watchProducts();
@@ -628,11 +659,22 @@ class FirestoreProductsRepository implements ProductsRepositoryContract {
 
   @override
   Future<List<Product>> getProductsByCategory(String categoryId) async {
+    if (kIsWeb) {
+      final snapshot = await _collection.where('categoryIds', arrayContains: categoryId).get();
+      return snapshot.docs.map((doc) => Product.fromMap(doc.data())).toList();
+    }
     return _localRepo.getProductsByCategory(categoryId);
   }
 
   @override
   Stream<List<Product>> watchProductsByCategory(String categoryId) {
+    if (kIsWeb) {
+      return _collection.where('categoryIds', arrayContains: categoryId).snapshots().map((snapshot) {
+        return snapshot.docs
+            .map((doc) => Product.fromMap(doc.data()))
+            .toList();
+      });
+    }
     return _localRepo.watchProductsByCategory(categoryId);
   }
 }

@@ -188,7 +188,7 @@ class CatalogoJaImportViewModel extends _$CatalogoJaImportViewModel {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       ImportResult result;
-      final tenantId = ref.read(currentTenantProvider).valueOrNull?.id;
+      final tenantId = ref.read(currentTenantProvider).asData?.value?.id;
 
       if (state.extractDirPath != null) {
         // ZIP IMPORT

@@ -45,15 +45,18 @@ class FirestorePublicCatalogRepository {
     bucket: 'gs://$_storageBucket',
   );
 
-  Future<PublicCatalogDataResponse?> getPublicCatalogData(
+  Stream<PublicCatalogDataResponse?> getPublicCatalogStream(
     String shareCode,
-  ) async {
+  ) async* {
     Catalog? catalogForDiagnostics;
     List<Product> productsForDiagnostics = const [];
     try {
       _logPublicCatalogLoadStart(shareCode);
       final rawShareCode = shareCode.trim();
-      if (rawShareCode.isEmpty) return null;
+      if (rawShareCode.isEmpty) {
+        yield null;
+        return;
+      }
       final normalizedShareCode = rawShareCode.toLowerCase();
 
       final snapshotData = await _getPublicCatalogSnapshot(normalizedShareCode);
@@ -61,8 +64,9 @@ class FirestorePublicCatalogRepository {
       if (snapshotData != null) {
         snapshotWhatsapp = snapshotData.whatsappNumber;
         debugPrint(
-          '✅ Public catalog snapshot found. Using it for metadata fallback ($normalizedShareCode)',
+          '✅ Public catalog snapshot found. Yielding it first for instant load ($normalizedShareCode)',
         );
+        yield snapshotData;
       }
 
       final catalog =
@@ -70,7 +74,10 @@ class FirestorePublicCatalogRepository {
           (normalizedShareCode == rawShareCode
               ? null
               : await _findPublicCatalogByShareCode(rawShareCode));
-      if (catalog == null) return null;
+      if (catalog == null) {
+        if (snapshotData == null) yield null;
+        return;
+      }
       catalogForDiagnostics = catalog;
 
       if (!catalog.active) {
@@ -80,12 +87,13 @@ class FirestorePublicCatalogRepository {
           catalog: catalog,
           products: const [],
         );
-        return PublicCatalogDataResponse(
+        yield PublicCatalogDataResponse(
           catalog: catalog,
           products: [],
           categories: [],
           whatsappNumber: null,
         );
+        return;
       }
 
       final productIds = catalog.productIds;
@@ -188,7 +196,7 @@ class FirestorePublicCatalogRepository {
         catalog: catalog,
         products: products,
       );
-      return PublicCatalogDataResponse(
+      yield PublicCatalogDataResponse(
         catalog: catalog,
         products: products,
         categories: categories,

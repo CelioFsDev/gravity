@@ -52,7 +52,7 @@ class AuditService {
 
 // Provedor Global do Serviço de Auditoria
 final auditServiceProvider = Provider<AuditService>((ref) {
-  final user = ref.watch(authViewModelProvider).valueOrNull;
+  final user = ref.watch(authViewModelProvider).asData?.value;
   final tenantAsync = ref.watch(currentTenantProvider);
   final syncQueue = ref.watch(syncQueueRepositoryProvider);
 
@@ -60,6 +60,6 @@ final auditServiceProvider = Provider<AuditService>((ref) {
     syncQueue,
     user?.uid,
     user?.email,
-    tenantAsync.valueOrNull?.id,
+    tenantAsync.asData?.value?.id,
   );
 });

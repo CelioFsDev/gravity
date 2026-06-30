@@ -16,6 +16,7 @@ enum CatalogPdfStyle { classic, clean, compact, editorial, minimal }
 
 class CatalogPdfService {
   static const PdfColor _colorPriceGreen = PdfColor(0.12, 0.42, 0.29);
+  static const PdfColor _colorPromoRed = PdfColor.fromInt(0xFFF43F5E);
   static const PdfColor _colorMuted = PdfColor(0.45, 0.45, 0.45);
   static const PdfColor _colorImageBg = PdfColor(0.953, 0.953, 0.953);
   static const PdfColor _colorSizePillBg = PdfColor(0.929, 0.929, 0.929);
@@ -792,6 +793,7 @@ class CatalogPdfService {
       case CatalogPdfStyle.clean:
         return _buildClassicLayout(
           product,
+          mode,
           showPrice,
           displayPrice,
           photoP,
@@ -808,6 +810,7 @@ class CatalogPdfService {
       case CatalogPdfStyle.compact:
         return _buildCompactLayout(
           product,
+          mode,
           showPrice,
           displayPrice,
           photoP,
@@ -824,6 +827,7 @@ class CatalogPdfService {
       case CatalogPdfStyle.editorial:
         return _buildEditorialLayout(
           product,
+          mode,
           showPrice,
           displayPrice,
           photoP,
@@ -837,6 +841,7 @@ class CatalogPdfService {
       case CatalogPdfStyle.minimal:
         return _buildMinimalLayout(
           product,
+          mode,
           showPrice,
           displayPrice,
           photoP,
@@ -851,6 +856,7 @@ class CatalogPdfService {
       case CatalogPdfStyle.classic:
         return _buildClassicLayout(
           product,
+          mode,
           showPrice,
           displayPrice,
           photoP,
@@ -868,6 +874,7 @@ class CatalogPdfService {
 
   static pw.Widget _buildEditorialLayout(
     Product product,
+    CatalogMode mode,
     bool showPrice,
     double displayPrice,
     ProductImage? photoP,
@@ -1030,17 +1037,18 @@ class CatalogPdfService {
                       pw.Column(
                         crossAxisAlignment: pw.CrossAxisAlignment.end,
                         children: [
-                          if (product.promoEnabled)
+                          if (product.hasActivePromotionForMode(mode.name))
                             pw.Text(
                               currencyFormat.format(
                                 product.originalPriceForMode(
-                                  CatalogMode.varejo.name,
+                                  mode.name,
                                 ),
                               ),
                               style: pw.TextStyle(
-                                color: PdfColor(1, 1, 1, 0.6),
+                                color: _colorPromoRed,
                                 fontSize: 14,
                                 decoration: pw.TextDecoration.lineThrough,
+                                decorationColor: _colorPromoRed,
                               ),
                             ),
                           pw.Text(
@@ -1091,6 +1099,7 @@ class CatalogPdfService {
 
   static pw.Widget _buildMinimalLayout(
     Product product,
+    CatalogMode mode,
     bool showPrice,
     double displayPrice,
     ProductImage? photoP,
@@ -1173,15 +1182,16 @@ class CatalogPdfService {
               mainAxisAlignment: pw.MainAxisAlignment.center,
               crossAxisAlignment: pw.CrossAxisAlignment.end,
               children: [
-                if (product.promoEnabled) ...[
+                if (product.hasActivePromotionForMode(mode.name)) ...[
                   pw.Text(
                     currencyFormat.format(
-                      product.originalPriceForMode(CatalogMode.varejo.name),
+                      product.originalPriceForMode(mode.name),
                     ),
                     style: pw.TextStyle(
                       fontSize: 9,
-                      color: PdfColors.grey400,
+                      color: _colorPromoRed,
                       decoration: pw.TextDecoration.lineThrough,
+                      decorationColor: _colorPromoRed,
                     ),
                   ),
                   pw.SizedBox(width: 6),
@@ -1229,6 +1239,7 @@ class CatalogPdfService {
 
   static pw.Widget _buildCompactLayout(
     Product product,
+    CatalogMode mode,
     bool showPrice,
     double displayPrice,
     ProductImage? photoP,
@@ -1289,10 +1300,10 @@ class CatalogPdfService {
                         ),
                       ),
                     ),
-                    if (product.promoEnabled)
+                    if (product.hasActivePromotionForMode(mode.name))
                       _buildBadge(
-                        product.promoPercent > 0
-                            ? '-${product.promoPercent.toInt()}%'
+                        product.discountPercentageForMode(mode.name) > 0
+                            ? '-${product.discountPercentageForMode(mode.name).toInt()}%'
                             : 'PROMO',
                       ),
                   ],
@@ -1314,18 +1325,17 @@ class CatalogPdfService {
                           color: _colorPriceGreen,
                         ),
                       ),
-                      if (product.promoEnabled) ...[
+                      if (product.hasActivePromotionForMode(mode.name)) ...[
                         pw.SizedBox(width: 8),
                         pw.Text(
                           currencyFormat.format(
-                            product.originalPriceForMode(
-                              CatalogMode.varejo.name,
-                            ),
+                            product.originalPriceForMode(mode.name),
                           ),
                           style: pw.TextStyle(
                             fontSize: 10,
-                            color: PdfColors.grey500,
+                            color: _colorPromoRed,
                             decoration: pw.TextDecoration.lineThrough,
+                            decorationColor: _colorPromoRed,
                           ),
                         ),
                       ],
@@ -1387,6 +1397,7 @@ class CatalogPdfService {
 
   static pw.Widget _buildClassicLayout(
     Product product,
+    CatalogMode mode,
     bool showPrice,
     double displayPrice,
     ProductImage? photoP,
@@ -1516,13 +1527,20 @@ class CatalogPdfService {
                       ),
                       if (showPrice) ...[
                         pw.SizedBox(height: 15),
-                        if (product.hasActivePromotion && !editablePrice) ...[
+                        if (product.hasActivePromotionForMode(mode.name) && !editablePrice) ...[
+                          _buildBadge(
+                            product.discountPercentageForMode(mode.name) > 0
+                                ? '-${product.discountPercentageForMode(mode.name).toInt()}%'
+                                : 'PROMO',
+                          ),
+                          pw.SizedBox(height: 4),
                           pw.Text(
-                            currencyFormat.format(product.originalPriceForMode(CatalogMode.varejo.name)),
+                            currencyFormat.format(product.originalPriceForMode(mode.name)),
                             style: pw.TextStyle(
                               fontSize: isClean ? 16 : 14,
-                              color: PdfColors.grey500,
+                              color: _colorPromoRed,
                               decoration: pw.TextDecoration.lineThrough,
+                              decorationColor: _colorPromoRed,
                             ),
                           ),
                           pw.SizedBox(height: 2),
@@ -1606,7 +1624,7 @@ class CatalogPdfService {
 
   static pw.Widget _buildBadge(
     String text, {
-    PdfColor color = PdfColors.red800,
+    PdfColor color = _colorPromoRed,
   }) {
     return pw.Container(
       padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),

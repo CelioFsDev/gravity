@@ -189,15 +189,15 @@ final syncProgressProvider =
 final cloudProductUpdatesPendingProvider = StreamProvider.autoDispose<bool>((
   ref,
 ) {
-  final tenant = ref.watch(currentTenantProvider).valueOrNull;
-  final state = ref.watch(productsViewModelProvider).valueOrNull;
+  final tenant = ref.watch(currentTenantProvider).asData?.value;
+  final state = ref.watch(productsViewModelProvider).asData?.value;
   final settings = ref.watch(settingsRepositoryProvider).getSettings();
 
   if (tenant == null || settings.localOnlyMode || state == null) {
     return Stream<bool>.value(false);
   }
 
-  if (state.allProducts.isEmpty && !settings.isInitialSyncCompleted) {
+  if (state.allProducts.isEmpty && !settings.isInitialSyncCompleted && !kIsWeb) {
     return Stream<bool>.value(false);
   }
 
@@ -221,11 +221,13 @@ final cloudProductUpdatesPendingProvider = StreamProvider.autoDispose<bool>((
 
 @riverpod
 class ProductsViewModel extends _$ProductsViewModel {
+  StreamSubscription? _productsSub;
+
   @override
   FutureOr<ProductsState> build() async {
     try {
       // ✨ Garantia de SaaS: Se o usuário está logado, aguardamos o tenantId ser identificado
-      final authUser = ref.watch(authViewModelProvider).valueOrNull;
+      final authUser = ref.watch(authViewModelProvider).asData?.value;
       if (authUser != null) {
         await ref.watch(currentTenantProvider.future);
       }
@@ -234,6 +236,20 @@ class ProductsViewModel extends _$ProductsViewModel {
       final categoryRepository = ref.watch(syncCategoriesRepositoryProvider);
       final products = await productRepository.getProducts();
       final categories = await categoryRepository.getCategories();
+
+      if (kIsWeb) {
+        _productsSub?.cancel();
+        _productsSub = productRepository.watchProducts().listen((cloudProducts) {
+          if (state.hasValue) {
+            state = AsyncData(
+              _applyFilters(
+                state.value!.copyWith(allProducts: cloudProducts),
+              ),
+            );
+          }
+        });
+        ref.onDispose(() => _productsSub?.cancel());
+      }
 
       return _applyFilters(
         ProductsState.initial().copyWith(
@@ -612,7 +628,7 @@ class ProductsViewModel extends _$ProductsViewModel {
 
       // Fallback para o documento do usuário
       if (tenantId == null) {
-        final email = ref.read(authViewModelProvider).valueOrNull?.email;
+        final email = ref.read(authViewModelProvider).asData?.value?.email;
         if (email != null) {
           tenantId = await ref
               .read(tenantRepositoryProvider)
@@ -645,7 +661,7 @@ class ProductsViewModel extends _$ProductsViewModel {
       // 3. Trava de Offline-First (Exigência de ZIP na carga inicial)
       if (currentLocalProducts.isEmpty) {
         final settings = ref.read(settingsRepositoryProvider).getSettings();
-        if (!settings.isInitialSyncCompleted) {
+        if (!settings.isInitialSyncCompleted && !kIsWeb) {
           finalMessage = 'Carga inicial pendente. Use a opção de importar backup via WinRAR (ZIP).';
           return 0; // Abort download to save Firebase reads
         }
