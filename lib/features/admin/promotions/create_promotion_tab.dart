@@ -46,6 +46,9 @@ class _CreatePromotionTabState extends ConsumerState<CreatePromotionTab> {
   bool _isSaving = false;
   bool _applyToRetail = true;
   bool _applyToWholesale = true;
+  
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void dispose() {
@@ -58,6 +61,7 @@ class _CreatePromotionTabState extends ConsumerState<CreatePromotionTab> {
     for (final c in _priceWholesaleControllers.values) c.dispose();
     for (final c in _percentRetailControllers.values) c.dispose();
     for (final c in _percentWholesaleControllers.values) c.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -76,8 +80,7 @@ class _CreatePromotionTabState extends ConsumerState<CreatePromotionTab> {
         state.categories
             .where(
               (category) =>
-                  category.type == CategoryType.collection ||
-                  category.type == CategoryType.productType,
+                  category.type == CategoryType.collection,
             )
             .toList()
           ..sort((a, b) => a.safeName.compareTo(b.safeName));
@@ -96,6 +99,7 @@ class _CreatePromotionTabState extends ConsumerState<CreatePromotionTab> {
     }
 
     if (_selectedGroupId != null &&
+        _selectedGroupId != '__all__' &&
         !groups.any((group) => group.id == _selectedGroupId)) {
       _selectedGroupId = null;
       _selectedProductIds = {};
@@ -171,24 +175,32 @@ class _CreatePromotionTabState extends ConsumerState<CreatePromotionTab> {
                 ),
               ),
               const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                initialValue: _selectedGroupId,
+              DropdownButtonFormField<String?>(
+                value: _selectedGroupId,
                 isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Colecao, categoria ou grupo',
                   prefixIcon: Icon(Icons.collections_bookmark_outlined),
                 ),
-                items: groups
-                    .map(
-                      (group) => DropdownMenuItem(
-                        value: group.id,
-                        child: Text(
-                          _groupLabel(group),
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                items: [
+                  const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text('Selecione para ver a lista...', style: TextStyle(color: Colors.grey)),
+                  ),
+                  const DropdownMenuItem<String?>(
+                    value: '__all__',
+                    child: Text('(Todos os Produtos)', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                  ...groups.map(
+                    (group) => DropdownMenuItem<String?>(
+                      value: group.id,
+                      child: Text(
+                        _groupLabel(group),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    )
-                    .toList(),
+                    ),
+                  ),
+                ],
                 onChanged: (value) => _selectGroup(state, value),
               ),
               const SizedBox(height: 16),
@@ -371,6 +383,23 @@ class _CreatePromotionTabState extends ConsumerState<CreatePromotionTab> {
       title: 'Produtos da colecao',
       child: Column(
         children: [
+          TextField(
+            controller: _searchController,
+            decoration: const InputDecoration(
+              labelText: 'Buscar produto...',
+              prefixIcon: Icon(Icons.search),
+              hintText: 'Nome, ref, sku ou colecao',
+            ),
+            onChanged: (value) {
+              setState(() {
+                _searchQuery = value;
+                // Ao mudar a busca, desmarca produtos que nao estao mais visiveis? 
+                // O usuario pediu pra Todos os produtos so pegar os visiveis.
+                // Mas manter selecionados os que ja estavam selecionados eh bom.
+              });
+            },
+          ),
+          const SizedBox(height: 16),
           Row(
             children: [
               Checkbox(
@@ -462,18 +491,48 @@ class _CreatePromotionTabState extends ConsumerState<CreatePromotionTab> {
   }
 
   List<Product> _productsForGroup(ProductsState state, String? groupId) {
-    if (groupId == null || groupId.trim().isEmpty) return const [];
-    return state.allProducts
-        .where((product) => product.categoryIds.contains(groupId))
-        .toList()
-      ..sort((a, b) => a.name.compareTo(b.name));
+    List<Product> products;
+    final hasSearch = _searchQuery.trim().isNotEmpty;
+    
+    if (groupId == null || groupId.trim().isEmpty) {
+      if (hasSearch) {
+        products = state.allProducts.toList();
+      } else {
+        products = const [];
+      }
+    } else if (groupId == '__all__') {
+      products = state.allProducts.toList();
+    } else {
+      products = state.allProducts
+          .where((product) => product.categoryIds.contains(groupId))
+          .toList();
+    }
+    
+    if (_searchQuery.trim().isNotEmpty) {
+      final q = _searchQuery.trim().toLowerCase();
+      products = products.where((p) {
+        if (p.name.toLowerCase().contains(q)) return true;
+        if (p.ref.toLowerCase().contains(q)) return true;
+        if (p.sku.toLowerCase().contains(q)) return true;
+        if (p.promotionName?.toLowerCase().contains(q) == true) return true;
+        for (final cid in p.categoryIds) {
+          final cat = state.categories.cast<Category?>().firstWhere((c) => c?.id == cid, orElse: () => null);
+          if (cat != null && cat.name != null && cat.name!.toLowerCase().contains(q)) return true;
+        }
+        return false;
+      }).toList();
+    }
+    
+    return products..sort((a, b) => a.name.compareTo(b.name));
   }
 
   void _toggleSelectAll(List<Product> products, bool selected) {
     setState(() {
-      _selectedProductIds = selected
-          ? products.map((product) => product.id).toSet()
-          : {};
+      if (selected) {
+        _selectedProductIds.addAll(products.map((p) => p.id));
+      } else {
+        _selectedProductIds.removeAll(products.map((p) => p.id));
+      }
     });
   }
 
@@ -714,6 +773,11 @@ class _CreatePromotionTabState extends ConsumerState<CreatePromotionTab> {
             priceOriginalRetail: original,
             pricePromotionRetail: promoPrice,
             promotionType: _promotionTypeValue(type),
+            // Legacy
+            promoEnabled: true,
+            promoPercent: percent,
+            priceOriginal: original,
+            pricePromotion: promoPrice,
           );
         }
         
@@ -750,29 +814,38 @@ class _CreatePromotionTabState extends ConsumerState<CreatePromotionTab> {
       final now = DateTime.now();
       final updates = selectedProducts
           .map((product) {
-            var p = product.copyWith(
-              updatedAt: now,
-              clearPromotionName: true,
-              clearPromotionCollectionId: true,
-              clearPromotionCreatedAt: true,
-              clearPromotionUpdatedAt: true,
-              clearPromotionType: true,
-              clearPromotionId: true,
-            );
+            var p = product.copyWith(updatedAt: now);
+            
             if (_applyToRetail) {
               p = p.copyWith(
                 promoEnabledRetail: false,
                 promoPercentRetail: 0,
                 clearPriceOriginalRetail: true,
                 clearPricePromotionRetail: true,
+                promoEnabled: false, // Legacy
+                promoPercent: 0, // Legacy
+                clearPriceOriginal: true, // Legacy
+                clearPricePromotion: true, // Legacy
               );
             }
+            
             if (_applyToWholesale) {
               p = p.copyWith(
                 promoEnabledWholesale: false,
                 promoPercentWholesale: 0,
                 clearPriceOriginalWholesale: true,
                 clearPricePromotionWholesale: true,
+              );
+            }
+            
+            if (!p.promoEnabledRetail && !p.promoEnabledWholesale && !p.promoEnabled) {
+              p = p.copyWith(
+                clearPromotionName: true,
+                clearPromotionCollectionId: true,
+                clearPromotionCreatedAt: true,
+                clearPromotionUpdatedAt: true,
+                clearPromotionType: true,
+                clearPromotionId: true,
               );
             }
             return p;

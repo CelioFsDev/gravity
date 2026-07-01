@@ -88,13 +88,11 @@ class _AlteredProductsTabState extends ConsumerState<AlteredProductsTab> {
           .toList();
     }
     if (_selectedPromotionType != null) {
-      filtered = filtered
-          .where(
-            (p) =>
-                p.resolvedPromotionType == _selectedPromotionType ||
-                p.resolvedPromotionTypeWholesale == _selectedPromotionType,
-          )
-          .toList();
+      if (_selectedPromotionType == 'retail') {
+        filtered = filtered.where((p) => p.promoEnabledRetail).toList();
+      } else if (_selectedPromotionType == 'wholesale') {
+        filtered = filtered.where((p) => p.promoEnabledWholesale).toList();
+      }
     }
     if (_isActiveFilter != null) {
       filtered = filtered
@@ -209,13 +207,13 @@ class _AlteredProductsTabState extends ConsumerState<AlteredProductsTab> {
                   isExpanded: true,
                   value: _selectedPromotionType,
                   decoration: const InputDecoration(
-                    labelText: 'Tipo',
+                    labelText: 'Canal',
                     isDense: true,
                   ),
                   items: const [
                     DropdownMenuItem(value: null, child: Text('Todos')),
-                    DropdownMenuItem(value: 'percent', child: Text('Porcentagem')),
-                    DropdownMenuItem(value: 'manual', child: Text('Manual')),
+                    DropdownMenuItem(value: 'retail', child: Text('Varejo')),
+                    DropdownMenuItem(value: 'wholesale', child: Text('Atacado')),
                   ],
                   onChanged: (v) => setState(() => _selectedPromotionType = v),
                 ),
@@ -261,6 +259,20 @@ class _AlteredProductsTabState extends ConsumerState<AlteredProductsTab> {
         products.isNotEmpty && _selectedProductIds.length == products.length;
     final partiallySelected = _selectedProductIds.isNotEmpty && !allSelected;
 
+    final grouped = <String, List<Product>>{};
+    for (final p in products) {
+      final key = (p.promotionName?.trim().isNotEmpty == true) 
+          ? p.promotionName! 
+          : 'Promoções Avulsas';
+      grouped.putIfAbsent(key, () => []).add(p);
+    }
+    
+    final sortedKeys = grouped.keys.toList()..sort((a, b) {
+      if (a == 'Promoções Avulsas') return 1;
+      if (b == 'Promoções Avulsas') return -1;
+      return a.compareTo(b);
+    });
+
     return Column(
       children: [
         Padding(
@@ -297,26 +309,62 @@ class _AlteredProductsTabState extends ConsumerState<AlteredProductsTab> {
           ),
         ),
         Expanded(
-          child: ListView.separated(
+          child: ListView.builder(
             padding: const EdgeInsets.all(AppTokens.space24),
-            itemCount: products.length,
-            separatorBuilder: (_, _) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final p = products[index];
-              return _AlteredProductRow(
-                key: ValueKey(p.id),
-                product: p,
-                selected: _selectedProductIds.contains(p.id),
-                onSelect: (val) {
-                  setState(() {
-                    if (val == true)
-                      _selectedProductIds.add(p.id);
-                    else
-                      _selectedProductIds.remove(p.id);
-                  });
-                },
-                onSave: (Product updated) => _saveProduct(updated),
-                onRemovePromotion: () => _clearPromotion(p),
+            itemCount: sortedKeys.length,
+            itemBuilder: (context, sectionIndex) {
+              final key = sortedKeys[sectionIndex];
+              final sectionProducts = grouped[key]!;
+              
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (sectionIndex > 0) const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.blueGrey.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.campaign, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          key,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text('${sectionProducts.length} itens'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...sectionProducts.map((p) => Column(
+                    children: [
+                      _AlteredProductRow(
+                        key: ValueKey(p.id),
+                        product: p,
+                        selected: _selectedProductIds.contains(p.id),
+                        onSelect: (val) {
+                          setState(() {
+                            if (val == true) {
+                              _selectedProductIds.add(p.id);
+                            } else {
+                              _selectedProductIds.remove(p.id);
+                            }
+                          });
+                        },
+                        onSave: (Product updated) => _saveProduct(updated),
+                        onRemovePromotion: () => _clearPromotion(p),
+                      ),
+                      const Divider(height: 1),
+                    ],
+                  )).toList(),
+                ],
               );
             },
           ),

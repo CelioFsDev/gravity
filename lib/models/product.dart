@@ -831,29 +831,28 @@ class Product {
     final enabled = promoEnabledRetail || promoEnabled;
     if (!enabled) return PriceCalculator.round(priceRetail);
     
-    if (resolvedPromotionType == 'manual' && hasManualPromotionPrice) {
-      return PriceCalculator.round((pricePromotionRetail ?? pricePromotion)!);
-    }
-    
-    final pct = promoEnabledRetail ? promoPercentRetail : promoPercent;
-    return PriceCalculator.effectiveRetail(
-      priceOriginalForPromotion,
-      true, 
-      pct > 0 ? pct : 0,
+    final discount = (resolvedPromotionType == 'manual' && hasManualPromotionPrice) 
+        ? (pricePromotionRetail ?? pricePromotion)! 
+        : (promoEnabledRetail ? promoPercentRetail : promoPercent);
+        
+    return PriceCalculator.calculatePromotionPrice(
+      originalPrice: priceOriginalForPromotion,
+      discountValue: discount,
+      type: resolvedPromotionType,
     );
   }
 
   double get promotionPriceWholesaleCalculated {
     if (!promoEnabledWholesale) return PriceCalculator.round(priceWholesale);
     
-    if (resolvedPromotionTypeWholesale == 'manual' && hasManualPromotionPriceWholesale) {
-      return PriceCalculator.round(pricePromotionWholesale!);
-    }
-    
-    return PriceCalculator.effectiveWholesale(
-      priceOriginalForPromotionWholesale,
-      true,
-      promoPercentWholesale > 0 ? promoPercentWholesale : 0,
+    final discount = (resolvedPromotionTypeWholesale == 'manual' && hasManualPromotionPriceWholesale)
+        ? pricePromotionWholesale!
+        : promoPercentWholesale;
+        
+    return PriceCalculator.calculatePromotionPrice(
+      originalPrice: priceOriginalForPromotionWholesale,
+      discountValue: discount,
+      type: resolvedPromotionTypeWholesale,
     );
   }
 

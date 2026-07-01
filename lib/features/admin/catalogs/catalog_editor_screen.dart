@@ -216,6 +216,12 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
     CatalogEditorState state,
     CatalogEditorViewModel notifier,
   ) {
+    final productsState = ref.watch(productsViewModelProvider);
+    final hasPromotions = productsState.value?.allProducts.any((p) {
+      return state.catalog.productIds.contains(p.id) && 
+             (p.promoEnabledRetail || p.promoEnabledWholesale || p.promoEnabled);
+    }) ?? false;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTokens.space24),
       child: Column(
@@ -322,11 +328,11 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                 _buildDropdown(
                   label: 'Layout das fotos',
                   value: state.catalog.photoLayout,
-                  items: const {
+                  items: {
                     'grid': 'Grade (Padr\u00e3o)',
                     'list': 'Lista Detalhada',
                     'carousel': 'Carrossel em Foco',
-                    'promotion': 'Cat\u00e1logo Promo\u00e7\u00e3o',
+                    if (hasPromotions) 'promotion': 'Cat\u00e1logo Promo\u00e7\u00e3o',
                   },
                   onChanged: (v) => notifier.setPhotoLayout(v!),
                 ),
@@ -344,12 +350,13 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
                   value:
                       state.catalog.coverType ??
                       (state.catalog.includeCover ? 'collection' : 'none'),
-                  items: const {
+                  items: {
                     'collection':
                         'Autom\u00e1tica (Baseada na cole\u00e7\u00e3o)',
                     'standard':
                         'Padr\u00e3o (Personaliza\u00e7\u00e3o apenas de texto)',
                     'none': 'Sem capa principal',
+                    if (hasPromotions) 'promotion': 'Capa de Promo\u00e7\u00e3o (Visual promocional)',
                   },
                   onChanged: (v) {
                     notifier.setCoverType(v);
@@ -366,7 +373,7 @@ class _CatalogEditorScreenState extends ConsumerState<CatalogEditorScreen>
             child: Column(
               children: [
                 _buildSwitchTile(
-                  title: 'Barra de An\u00fancio Ativa',
+                  title: 'Barra de An\u00fancios Ativa',
                   value: state.catalog.announcementEnabled,
                   onChanged: notifier.setAnnouncementEnabled,
                 ),

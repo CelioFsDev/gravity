@@ -79,6 +79,11 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   late TextEditingController _sizesController;
   late TextEditingController _colorsController;
   late TextEditingController _discountController;
+  late TextEditingController _promotionNameController;
+  late TextEditingController _discountRetailController;
+  late TextEditingController _manualRetailController;
+  late TextEditingController _discountWholesaleController;
+  late TextEditingController _manualWholesaleController;
 
   List<String> _selectedCategoryIds = [];
   String? _selectedCollectionId;
@@ -86,7 +91,13 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
   bool _categorySelectionInitialized = false;
   bool _isActive = true;
   bool _isOutOfStock = false;
-  bool _isOnSale = false;
+  bool _isOnSale = false; // Legacy fallback
+
+  bool _isOnSaleRetail = false;
+  bool _isOnSaleWholesale = false;
+  String _typeRetail = 'percent';
+  String _typeWholesale = 'percent';
+
   List<ProductPhoto> _photos = [];
   late final String _draftProductId;
   final Set<String> _pendingWebUploadUrls = <String>{};
@@ -125,11 +136,38 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     _discountController = TextEditingController(
       text: pr?.promoPercent.toString() ?? '0',
     );
+    _promotionNameController = TextEditingController(
+      text: pr?.promotionName ?? '',
+    );
 
     _initialCategoryIds = pr?.categoryIds ?? [];
     _isActive = pr?.isActive ?? true;
     _isOutOfStock = pr?.isOutOfStock ?? false;
     _isOnSale = pr?.promoEnabled ?? false;
+
+    _isOnSaleRetail = pr?.promoEnabledRetail ?? _isOnSale;
+    _isOnSaleWholesale = pr?.promoEnabledWholesale ?? false;
+    _typeRetail = pr?.resolvedPromotionType ?? 'percent';
+    _typeWholesale = pr?.resolvedPromotionTypeWholesale ?? 'percent';
+
+    _discountRetailController = TextEditingController(
+      text: (pr?.promoPercentRetail ?? pr?.promoPercent ?? 0).toString(),
+    );
+    _manualRetailController = TextEditingController(
+      text: pr?.pricePromotionRetail != null
+          ? f.format(pr!.pricePromotionRetail)
+          : '',
+    );
+
+    _discountWholesaleController = TextEditingController(
+      text: (pr?.promoPercentWholesale ?? 0).toString(),
+    );
+    _manualWholesaleController = TextEditingController(
+      text: pr?.pricePromotionWholesale != null
+          ? f.format(pr!.pricePromotionWholesale)
+          : '',
+    );
+
     if (pr != null && pr.photos.isNotEmpty) {
       _photos = List<ProductPhoto>.from(pr.photos);
     } else if (pr != null && pr.images.isNotEmpty) {
@@ -200,6 +238,11 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     _sizesController.dispose();
     _colorsController.dispose();
     _discountController.dispose();
+    _promotionNameController.dispose();
+    _discountRetailController.dispose();
+    _manualRetailController.dispose();
+    _discountWholesaleController.dispose();
+    _manualWholesaleController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -281,27 +324,76 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
       photos: photosForSave,
       isActive: _isActive,
       isOutOfStock: _isOutOfStock,
-      promoEnabled: _isOnSale,
       createdAt: widget.product?.createdAt ?? DateTime.now(),
       updatedAt: DateTime.now(),
-      promoPercent: _isOnSale
-          ? (int.tryParse(_discountController.text) ?? 0).toDouble()
+      promoEnabled: _isOnSaleRetail, // Legacy
+      promoPercent: _isOnSaleRetail
+          ? (double.tryParse(
+                  _discountRetailController.text.replaceAll(',', '.'),
+                ) ??
+                0.0)
+          : 0.0, // Legacy
+      priceOriginal: _isOnSaleRetail
+          ? (widget.product?.priceOriginalForPromotion ??
+                _parsePrice(_retailController.text))
+          : null, // Legacy
+      pricePromotion: _isOnSaleRetail
+          ? (_typeRetail == 'manual'
+                ? _parsePrice(_manualRetailController.text)
+                : null)
+          : null, // Legacy
+      promotionType: _isOnSaleRetail ? _typeRetail : null, // Legacy
+
+      promoEnabledRetail: _isOnSaleRetail,
+      promoPercentRetail: _isOnSaleRetail
+          ? (double.tryParse(
+                  _discountRetailController.text.replaceAll(',', '.'),
+                ) ??
+                0.0)
           : 0.0,
-      priceOriginal: _isOnSale
-          ? (widget.product?.priceOriginal ?? _parsePrice(_retailController.text))
+      priceOriginalRetail: _isOnSaleRetail
+          ? (widget.product?.priceOriginalForPromotion ??
+                _parsePrice(_retailController.text))
           : null,
-      pricePromotion: _isOnSale ? widget.product?.pricePromotion : null,
-      promotionName: _isOnSale ? widget.product?.promotionName : null,
-      promotionCollectionId: _isOnSale
+      pricePromotionRetail: _isOnSaleRetail
+          ? (_typeRetail == 'manual'
+                ? _parsePrice(_manualRetailController.text)
+                : null)
+          : null,
+
+      promoEnabledWholesale: _isOnSaleWholesale,
+      promoPercentWholesale: _isOnSaleWholesale
+          ? (double.tryParse(
+                  _discountWholesaleController.text.replaceAll(',', '.'),
+                ) ??
+                0.0)
+          : 0.0,
+      priceOriginalWholesale: _isOnSaleWholesale
+          ? (widget.product?.priceOriginalForPromotionWholesale ??
+                _parsePrice(_wholesaleController.text))
+          : null,
+      pricePromotionWholesale: _isOnSaleWholesale
+          ? (_typeWholesale == 'manual'
+                ? _parsePrice(_manualWholesaleController.text)
+                : null)
+          : null,
+
+      promotionName: (_isOnSaleRetail || _isOnSaleWholesale)
+          ? (_promotionNameController.text.trim().isNotEmpty
+                ? _promotionNameController.text.trim()
+                : null)
+          : null,
+      promotionCollectionId: (_isOnSaleRetail || _isOnSaleWholesale)
           ? widget.product?.promotionCollectionId
           : null,
-      promotionType: _isOnSale ? widget.product?.promotionType : null,
-      promotionId: _isOnSale ? widget.product?.promotionId : null,
-      promotionCreatedAt: _isOnSale
+      promotionId: (_isOnSaleRetail || _isOnSaleWholesale)
+          ? widget.product?.promotionId
+          : null,
+      promotionCreatedAt: (_isOnSaleRetail || _isOnSaleWholesale)
           ? widget.product?.promotionCreatedAt
           : null,
-      promotionUpdatedAt: _isOnSale
-          ? widget.product?.promotionUpdatedAt
+      promotionUpdatedAt: (_isOnSaleRetail || _isOnSaleWholesale)
+          ? DateTime.now()
           : null,
       description: widget.product?.description,
       tenantId: tenantId ?? widget.product?.tenantId,
@@ -1225,7 +1317,8 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                           builder: (context) {
                             final userEmail = ref
                                 .watch(authViewModelProvider)
-                                .asData?.value
+                                .asData
+                                ?.value
                                 ?.email;
                             if (userEmail != null) {
                               FirebaseFirestore.instance
@@ -1402,7 +1495,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                       ),
                       const SizedBox(height: AppTokens.space24),
                       SectionCard(
-                        title: 'Disponibilidade e Promo\u00e7\u00e3o',
+                        title: 'Disponibilidade',
                         child: Column(
                           children: [
                             _buildSwitchTile(
@@ -1416,30 +1509,68 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
                               _isOutOfStock,
                               (v) => setState(() => _isOutOfStock = v),
                             ),
-                            const Divider(),
-                            _buildSwitchTile(
-                              'Em Promo\u00e7\u00e3o',
-                              _isOnSale,
-                              (v) => setState(() => _isOnSale = v),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: AppTokens.space24),
+                      SectionCard(
+                        title: 'Promo\u00e7\u00e3o e Descontos',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildTextField(
+                              _promotionNameController,
+                              'Nome da Campanha (Opcional)',
+                              hintText: 'Ex: Black Friday, Dia das Mães',
                             ),
-                            if (_isOnSale) ...[
-                              const SizedBox(height: AppTokens.space16),
-                              _buildTextField(
-                                _discountController,
-                                'Porcentagem de Desconto (%)',
-                                isNumber: true,
-                                validator: (v) {
-                                  if (_isOnSale && (v == null || v.isEmpty)) {
-                                    return 'Informe o desconto';
-                                  }
-                                  final val = int.tryParse(v ?? '0') ?? 0;
-                                  if (val < 0 || val > 100) return '0 a 100%';
-                                  return null;
-                                },
+                            const SizedBox(height: AppTokens.space24),
+                            // Varejo
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Promoção Varejo',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                Switch(
+                                  value: _isOnSaleRetail,
+                                  onChanged: (v) =>
+                                      setState(() => _isOnSaleRetail = v),
+                                ),
+                              ],
+                            ),
+                            if (_isOnSaleRetail)
+                              _buildPricingBlock(
+                                context,
+                                _typeRetail,
+                                _discountRetailController,
+                                _manualRetailController,
+                                (v) => setState(() => _typeRetail = v),
                               ),
-                              const SizedBox(height: AppTokens.space12),
-                              _buildPromoPreview(),
-                            ],
+                            const Divider(height: 32),
+                            // Atacado
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Promoção Atacado',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                Switch(
+                                  value: _isOnSaleWholesale,
+                                  onChanged: (v) =>
+                                      setState(() => _isOnSaleWholesale = v),
+                                ),
+                              ],
+                            ),
+                            if (_isOnSaleWholesale)
+                              _buildPricingBlock(
+                                context,
+                                _typeWholesale,
+                                _discountWholesaleController,
+                                _manualWholesaleController,
+                                (v) => setState(() => _typeWholesale = v),
+                              ),
                           ],
                         ),
                       ),
@@ -1896,6 +2027,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     bool isPrice = false,
     bool isNumber = false,
     int maxLines = 1,
+    String? hintText,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
@@ -1915,7 +2047,7 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
           controller: controller,
           maxLines: maxLines,
           decoration: InputDecoration(
-            hintText: 'Digite $label...',
+            hintText: hintText ?? 'Digite $label...',
             hintStyle: TextStyle(
               color: isDark ? Colors.white24 : Colors.black26,
               fontSize: 14,
@@ -2129,41 +2261,55 @@ class _ProductFormScreenState extends ConsumerState<ProductFormScreen> {
     );
   }
 
-  Widget _buildPromoPreview() {
-    final retail = _parsePrice(_retailController.text);
-    final discount = int.tryParse(_discountController.text) ?? 0;
-    if (retail <= 0 || discount <= 0) return const SizedBox.shrink();
-
-    final value = retail * (1 - (discount / 100));
-    final f = NumberFormat.currency(symbol: 'R\$', locale: 'pt_BR');
-
-    return Container(
-      padding: const EdgeInsets.all(AppTokens.space12),
-      decoration: BoxDecoration(
-        color: AppTokens.accentOrange.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        border: Border.all(
-          color: AppTokens.accentOrange.withValues(alpha: 0.2),
-        ),
-      ),
-      child: Row(
+  Widget _buildPricingBlock(
+    BuildContext context,
+    String type,
+    TextEditingController percentController,
+    TextEditingController manualController,
+    ValueChanged<String> onTypeChanged,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.local_offer_outlined,
-            size: 16,
-            color: AppTokens.accentOrange,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Pre\u00e7o Promocional: ${f.format(value)}',
-              style: const TextStyle(
-                color: AppTokens.accentOrange,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
+          Row(
+            children: [
+              Expanded(
+                child: RadioListTile<String>(
+                  title: const Text('Porcentagem (%)'),
+                  value: 'percent',
+                  groupValue: type,
+                  onChanged: (v) {
+                    if (v != null) onTypeChanged(v);
+                  },
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                ),
               ),
-            ),
+              Expanded(
+                child: RadioListTile<String>(
+                  title: const Text('Preço Manual (R\$)'),
+                  value: 'manual',
+                  groupValue: type,
+                  onChanged: (v) {
+                    if (v != null) onTypeChanged(v);
+                  },
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                ),
+              ),
+            ],
           ),
+          const SizedBox(height: 8),
+          if (type == 'percent')
+            _buildTextField(percentController, 'Desconto (%)', isNumber: true)
+          else
+            _buildTextField(
+              manualController,
+              'Preço Promocional (R\$)',
+              isPrice: true,
+            ),
         ],
       ),
     );

@@ -120,6 +120,7 @@ class CatalogShareHelper {
         context,
         catalog,
         availableCollections,
+        catalogProducts,
       );
       if (options == null) return;
       if (!context.mounted) return;
@@ -435,6 +436,7 @@ class CatalogShareHelper {
         context,
         catalog,
         availableCollections,
+        catalogProducts,
       );
       if (options == null) return;
       if (!context.mounted) return;
@@ -619,6 +621,31 @@ class CatalogShareHelper {
       } else if (effectiveCoverType == 'standard') {
         resolvedIncludeCover = true;
         resolvedCollectionCover = null; // Forces text standard cover
+      } else if (effectiveCoverType == 'promotional') {
+        resolvedIncludeCover = true;
+        var cover = coverInfo.cover;
+        final firstPromoProduct = catalogProducts.where((p) => p.hasActivePromotionForMode(mode.name)).firstOrNull;
+        
+        final hasCollectionImage = cover != null && 
+            ((cover.coverImagePath?.isNotEmpty ?? false) ||
+             (cover.coverMiniPath?.isNotEmpty ?? false) ||
+             (cover.coverPagePath?.isNotEmpty ?? false));
+             
+        String? promoImageUri;
+        if (!hasCollectionImage && firstPromoProduct != null) {
+            promoImageUri = firstPromoProduct.mainImage?.uri ?? firstPromoProduct.displayImageUrl;
+        }
+
+        resolvedCollectionCover = CollectionCover(
+            mode: hasCollectionImage ? CollectionCoverMode.image : (promoImageUri != null ? CollectionCoverMode.image : CollectionCoverMode.template),
+            title: 'PROMOÇÃO',
+            brand: 'PROMOÇÃO',
+            subtitle: coverInfo.name ?? catalog.name,
+            coverPagePath: hasCollectionImage ? cover!.coverPagePath : promoImageUri,
+            coverImagePath: hasCollectionImage ? cover!.coverImagePath : promoImageUri,
+        );
+        mainCoverCollectionId = null;
+        resolvedCollectionName = coverInfo.name ?? catalog.name;
       } else {
         // 'collection' or default
         resolvedIncludeCover = true;
@@ -708,6 +735,26 @@ class CatalogShareHelper {
       if (resolvedIncludeCover) {
         if (effectiveFallbackCoverType == 'standard') {
           fbCover = null;
+        } else if (effectiveFallbackCoverType == 'promotional') {
+          final firstPromoProduct = fallbackProducts.where((p) => p.hasActivePromotionForMode(mode.name)).firstOrNull;
+          final hasCollectionImage = fallbackCoverInfo.cover != null && 
+              ((fallbackCoverInfo.cover!.coverImagePath?.isNotEmpty ?? false) ||
+               (fallbackCoverInfo.cover!.coverMiniPath?.isNotEmpty ?? false) ||
+               (fallbackCoverInfo.cover!.coverPagePath?.isNotEmpty ?? false));
+               
+          String? promoImageUri;
+          if (!hasCollectionImage && firstPromoProduct != null) {
+              promoImageUri = firstPromoProduct.mainImage?.uri ?? firstPromoProduct.displayImageUrl;
+          }
+          fbCover = CollectionCover(
+              mode: hasCollectionImage ? CollectionCoverMode.image : (promoImageUri != null ? CollectionCoverMode.image : CollectionCoverMode.template),
+              title: 'PROMOÇÃO',
+              brand: 'PROMOÇÃO',
+              subtitle: fallbackCoverInfo.name ?? catalog.name,
+              coverPagePath: hasCollectionImage ? fallbackCoverInfo.cover!.coverPagePath : promoImageUri,
+              coverImagePath: hasCollectionImage ? fallbackCoverInfo.cover!.coverImagePath : promoImageUri,
+          );
+          fbId = null;
         } else {
           fbCover = fallbackCoverInfo.cover;
           fbId = fallbackCoverInfo.collectionId;
@@ -843,6 +890,7 @@ class CatalogShareHelper {
     BuildContext context,
     Catalog catalog,
     List<Category> availableCollections,
+    List<Product> catalogProducts,
   ) async {
     CatalogMode selectedMode = CatalogMode.varejo;
     bool showPrice = true;
@@ -852,6 +900,10 @@ class CatalogShareHelper {
     CatalogExportFileFormat fileFormat = CatalogExportFileFormat.pdf;
     CatalogPdfStyle selectedPdfStyle = CatalogPdfStyle.classic;
     String selectedCoverType = 'collection';
+    final hasPromotions = catalogProducts.any(
+      (p) => p.promoEnabledRetail || p.promoEnabledWholesale || p.promoEnabled,
+    );
+
     if (availableCollections.length != 1) {
       selectedCoverType = 'standard';
     } else {
@@ -1021,7 +1073,10 @@ class CatalogShareHelper {
                               mainAxisSpacing: 8,
                               crossAxisSpacing: 8,
                               childAspectRatio: 1.9,
-                              children: CatalogPdfStyle.values.map((style) {
+                              children: CatalogPdfStyle.values.where((style) {
+                                if (style == CatalogPdfStyle.promotional && !hasPromotions) return false;
+                                return true;
+                              }).map((style) {
                                 final isSelected = selectedPdfStyle == style;
                                 return _buildStyleOption(
                                   context,
@@ -1110,6 +1165,27 @@ class CatalogShareHelper {
                               onTap: () => setState(
                                 () => selectedCoverType = 'standard',
                               ),
+                            ),
+                            const SizedBox(height: 8),
+                            Builder(
+                              builder: (context) {
+                                final hasAnyPromotion = catalogProducts.any((p) => p.hasActivePromotionForMode(selectedMode.name));
+                                return _buildCoverTypeTile(
+                                  context,
+                                  title: 'Capa de Promo\u00e7\u00e3o',
+                                  subtitle: hasAnyPromotion 
+                                      ? 'Usa visual promocional quando houver itens com desconto'
+                                      : 'Dispon\u00edvel apenas para cat\u00e1logos com produtos em promo\u00e7\u00e3o',
+                                  isSelected: selectedCoverType == 'promotional',
+                                  icon: Icons.local_offer_outlined,
+                                  enabled: hasAnyPromotion,
+                                  onTap: () {
+                                    if (hasAnyPromotion) {
+                                      setState(() => selectedCoverType = 'promotional');
+                                    }
+                                  },
+                                );
+                              }
                             ),
                             const SizedBox(height: 8),
                             _buildCoverTypeTile(
@@ -1278,10 +1354,11 @@ class CatalogShareHelper {
     required bool isSelected,
     required IconData icon,
     required VoidCallback onTap,
+    bool enabled = true,
   }) {
     final theme = Theme.of(context);
     return InkWell(
-      onTap: onTap,
+      onTap: enabled ? onTap : null,
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.all(12),
@@ -1293,9 +1370,11 @@ class CatalogShareHelper {
           ),
           color: isSelected
               ? theme.colorScheme.primary.withValues(alpha: 0.05)
-              : null,
+              : (enabled ? null : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
         ),
-        child: Row(
+        child: Opacity(
+          opacity: enabled ? 1.0 : 0.5,
+          child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(8),
@@ -1338,6 +1417,7 @@ class CatalogShareHelper {
               ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -1599,6 +1679,8 @@ Widget _getPreviewLayout(CatalogPdfStyle style, bool isSelected) {
       );
     case CatalogPdfStyle.minimal:
       return Center(child: Container(width: 14, height: 14, color: blockColor));
+    case CatalogPdfStyle.promotional:
+      return Center(child: Container(width: 14, height: 14, color: blockColor));
   }
 }
 
@@ -1668,6 +1750,7 @@ String _pdfStyleDescription(CatalogPdfStyle style) {
     CatalogPdfStyle.compact => 'Otimizado (Lista)',
     CatalogPdfStyle.editorial => 'Estilo Revista Premium',
     CatalogPdfStyle.minimal => 'Foco total no produto',
+    CatalogPdfStyle.promotional => 'Foto grande e pre\u00e7o com desconto',
   };
 }
 
@@ -1678,6 +1761,7 @@ String _pdfStyleLabel(CatalogPdfStyle style) {
     CatalogPdfStyle.compact => 'Compacto',
     CatalogPdfStyle.editorial => 'Editorial',
     CatalogPdfStyle.minimal => 'Minimalista',
+    CatalogPdfStyle.promotional => 'Promocional',
   };
 }
 

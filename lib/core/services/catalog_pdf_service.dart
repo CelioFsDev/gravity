@@ -12,7 +12,14 @@ import 'package:flutter/foundation.dart' hide Category;
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 
-enum CatalogPdfStyle { classic, clean, compact, editorial, minimal }
+enum CatalogPdfStyle {
+  classic,
+  clean,
+  compact,
+  editorial,
+  minimal,
+  promotional,
+}
 
 class CatalogPdfService {
   static const PdfColor _colorPriceGreen = PdfColor(0.12, 0.42, 0.29);
@@ -168,8 +175,7 @@ class CatalogPdfService {
             pageFormat: pageFormat,
             margin: pw.EdgeInsets.zero, // Styles handle their own margins
             build: (context) {
-              final double itemHeight =
-                  (pageFormat.height - 36) / itemsPerPage;
+              final double itemHeight = (pageFormat.height - 36) / itemsPerPage;
               return pw.Container(
                 color: PdfColors.white,
                 padding: const pw.EdgeInsets.symmetric(vertical: 18),
@@ -203,7 +209,8 @@ class CatalogPdfService {
     }
 
     final hasCatalogUrl = catalogUrl != null && catalogUrl.trim().isNotEmpty;
-    final hasSeller = (sellerName != null && sellerName.trim().isNotEmpty) ||
+    final hasSeller =
+        (sellerName != null && sellerName.trim().isNotEmpty) ||
         (sellerWhatsapp != null && sellerWhatsapp.trim().isNotEmpty);
     final hasInstagram = instagramUrl != null && instagramUrl.trim().isNotEmpty;
     if (hasCatalogUrl || hasSeller || hasInstagram) {
@@ -379,7 +386,10 @@ class CatalogPdfService {
           destination: catalogUrl,
           child: pw.Container(
             width: pageWidth,
-            padding: const pw.EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+            padding: const pw.EdgeInsets.symmetric(
+              vertical: 16,
+              horizontal: 20,
+            ),
             decoration: pw.BoxDecoration(
               color: pillColor,
               borderRadius: pw.BorderRadius.circular(12),
@@ -480,7 +490,10 @@ class CatalogPdfService {
           destination: instagramUrl,
           child: pw.Container(
             width: pageWidth,
-            padding: const pw.EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+            padding: const pw.EdgeInsets.symmetric(
+              vertical: 16,
+              horizontal: 20,
+            ),
             decoration: pw.BoxDecoration(
               color: pillColor,
               borderRadius: pw.BorderRadius.circular(12),
@@ -673,7 +686,9 @@ class CatalogPdfService {
                   }
                 }
               } else {
-                debugPrint('Falha ao baixar imagem (Status ${response.statusCode}): $url');
+                debugPrint(
+                  'Falha ao baixar imagem (Status ${response.statusCode}): $url',
+                );
               }
             } catch (e) {
               debugPrint('Erro ao baixar imagem: $url - $e');
@@ -733,9 +748,9 @@ class CatalogPdfService {
       // 1. Encontrar a foto principal (Busca por label 'P'/'principal' ou primeira da lista)
       photoP =
           allImgs.where((i) {
-                final l = i.label?.toLowerCase() ?? '';
-                return l == 'p' || l == 'principal';
-              }).firstOrNull ??
+            final l = i.label?.toLowerCase() ?? '';
+            return l == 'p' || l == 'principal';
+          }).firstOrNull ??
           (allImgs.isNotEmpty ? allImgs.first : null);
 
       // 2. Encontrar detalhes (Busca por label 'D1'/'D2'/'detalhe' ou próximas da lista)
@@ -746,15 +761,14 @@ class CatalogPdfService {
       }).toList();
 
       if (details.isEmpty && allImgs.length > 1) {
-        details =
-            allImgs
-                .where((i) {
-                  if (i.uri.trim() == photoP?.uri.trim()) return false;
-                  final l = i.label?.toLowerCase() ?? '';
-                  return !l.startsWith('cor') && l != 'c1' && l != 'c2';
-                })
-                .take(2)
-                .toList();
+        details = allImgs
+            .where((i) {
+              if (i.uri.trim() == photoP?.uri.trim()) return false;
+              final l = i.label?.toLowerCase() ?? '';
+              return !l.startsWith('cor') && l != 'c1' && l != 'c2';
+            })
+            .take(2)
+            .toList();
       }
       detailVariants = details.take(2).map((img) => MapEntry('', img)).toList();
 
@@ -853,6 +867,16 @@ class CatalogPdfService {
           availableHeight,
           currencyFormat,
         );
+      case CatalogPdfStyle.promotional:
+        return _buildPromotionalLayout(
+          product,
+          mode,
+          showPrice,
+          displayPrice,
+          photoP,
+          pageFormat,
+          currencyFormat,
+        );
       case CatalogPdfStyle.classic:
         return _buildClassicLayout(
           product,
@@ -870,6 +894,143 @@ class CatalogPdfService {
           editablePrice: editablePrice,
         );
     }
+  }
+
+  static pw.Widget _buildPromotionalLayout(
+    Product product,
+    CatalogMode mode,
+    bool showPrice,
+    double displayPrice,
+    ProductImage? photoP,
+    PdfPageFormat pageFormat,
+    NumberFormat currencyFormat,
+  ) {
+    final originalPrice = product.originalPriceForMode(mode.name);
+    final promotionalPrice = product.promotionPriceForMode(mode.name);
+    final discountPercent = product.discountPercentageForMode(mode.name);
+    final hasPromotion = product.hasActivePromotionForMode(mode.name);
+
+    return pw.Container(
+      color: PdfColors.white,
+      width: pageFormat.width,
+      height: pageFormat.height,
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          // Hero Image
+          pw.Expanded(
+            child: pw.Container(
+              color: _colorImageBg,
+              child: photoP != null
+                  ? _buildImageWidget(
+                      photoP,
+                      width: pageFormat.width,
+                      height: double.infinity,
+                      fit: pw.BoxFit.cover,
+                    )
+                  : pw.Center(
+                      child: pw.Icon(
+                        const pw.IconData(0xe410),
+                        color: _colorMuted,
+                        size: 40,
+                      ),
+                    ),
+            ),
+          ),
+
+          // Info Section
+          pw.Container(
+            padding: const pw.EdgeInsets.all(24),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Text(
+                  product.name.toUpperCase(),
+                  style: pw.TextStyle(
+                    fontSize: 20,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                  textAlign: pw.TextAlign.center,
+                ),
+                pw.SizedBox(height: 6),
+                pw.Text(
+                  'REF: ${product.ref}',
+                  style: const pw.TextStyle(fontSize: 12, color: _colorMuted),
+                  textAlign: pw.TextAlign.center,
+                ),
+
+                if (showPrice) ...[
+                  pw.SizedBox(height: 16),
+                  if (hasPromotion) ...[
+                    // Discount badge
+                    pw.Container(
+                      padding: const pw.EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      decoration: pw.BoxDecoration(
+                        color: _colorPromoRed,
+                        borderRadius: pw.BorderRadius.circular(4),
+                      ),
+                      child: pw.Text(
+                        '-$discountPercent%',
+                        style: pw.TextStyle(
+                          color: PdfColors.white,
+                          fontSize: 14,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    pw.SizedBox(height: 8),
+                    // Old price
+                    pw.Text(
+                      currencyFormat.format(originalPrice),
+                      style: pw.TextStyle(
+                        fontSize: 16,
+                        color: _colorPromoRed,
+                        decoration: pw.TextDecoration.lineThrough,
+                      ),
+                    ),
+                    pw.SizedBox(height: 4),
+                    // New price
+                    pw.Text(
+                      currencyFormat.format(promotionalPrice),
+                      style: pw.TextStyle(
+                        fontSize: 28,
+                        color: _colorPriceGreen,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                  ] else ...[
+                    // Normal price
+                    pw.SizedBox(height: 24),
+                    pw.Text(
+                      currencyFormat.format(displayPrice),
+                      style: pw.TextStyle(
+                        fontSize: 24,
+                        color: _colorPriceGreen,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ],
+
+                pw.SizedBox(height: 20),
+                pw.Text(
+                  'Tamanhos e cores sob consulta',
+                  style: pw.TextStyle(
+                    fontSize: 10,
+                    color: _colorMuted,
+                    fontStyle: pw.FontStyle.italic,
+                  ),
+                  textAlign: pw.TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   static pw.Widget _buildEditorialLayout(
@@ -900,6 +1061,7 @@ class CatalogPdfService {
                     photoP,
                     height: pageFormat.height,
                     radius: 0,
+                    fit: pw.BoxFit.cover,
                   )
                 : _buildImagePlaceholder(
                     height: pageFormat.height,
@@ -975,6 +1137,7 @@ class CatalogPdfService {
                       height: 100,
                       width: 75,
                       radius: 0,
+                      fit: pw.BoxFit.cover,
                     ),
                   );
                 }).toList(),
@@ -1040,9 +1203,7 @@ class CatalogPdfService {
                           if (product.hasActivePromotionForMode(mode.name))
                             pw.Text(
                               currencyFormat.format(
-                                product.originalPriceForMode(
-                                  mode.name,
-                                ),
+                                product.originalPriceForMode(mode.name),
                               ),
                               style: pw.TextStyle(
                                 color: _colorPromoRed,
@@ -1129,6 +1290,7 @@ class CatalogPdfService {
                     height: heroHeight,
                     width: availableWidth * 0.7,
                     radius: 8,
+                    fit: pw.BoxFit.cover,
                   )
                 : _buildImagePlaceholder(
                     height: heroHeight,
@@ -1276,6 +1438,7 @@ class CatalogPdfService {
                     photoP,
                     height: photoWidth * 1.25,
                     radius: 8,
+                    fit: pw.BoxFit.cover,
                   )
                 : _buildImagePlaceholder(height: photoWidth * 1.25, radius: 8),
           ),
@@ -1381,6 +1544,7 @@ class CatalogPdfService {
                               height: 45,
                               width: 36,
                               radius: 6,
+                              fit: pw.BoxFit.cover,
                             ),
                           ),
                         )
@@ -1452,6 +1616,7 @@ class CatalogPdfService {
                           photoP,
                           height: mainPhotoHeight,
                           radius: radius,
+                          fit: pw.BoxFit.cover,
                         )
                       : _buildImagePlaceholder(
                           height: mainPhotoHeight,
@@ -1527,7 +1692,8 @@ class CatalogPdfService {
                       ),
                       if (showPrice) ...[
                         pw.SizedBox(height: 15),
-                        if (product.hasActivePromotionForMode(mode.name) && !editablePrice) ...[
+                        if (product.hasActivePromotionForMode(mode.name) &&
+                            !editablePrice) ...[
                           _buildBadge(
                             product.discountPercentageForMode(mode.name) > 0
                                 ? '-${product.discountPercentageForMode(mode.name).toInt()}%'
@@ -1535,7 +1701,9 @@ class CatalogPdfService {
                           ),
                           pw.SizedBox(height: 4),
                           pw.Text(
-                            currencyFormat.format(product.originalPriceForMode(mode.name)),
+                            currencyFormat.format(
+                              product.originalPriceForMode(mode.name),
+                            ),
                             style: pw.TextStyle(
                               fontSize: isClean ? 16 : 14,
                               color: _colorPromoRed,
@@ -1622,10 +1790,7 @@ class CatalogPdfService {
     );
   }
 
-  static pw.Widget _buildBadge(
-    String text, {
-    PdfColor color = _colorPromoRed,
-  }) {
+  static pw.Widget _buildBadge(String text, {PdfColor color = _colorPromoRed}) {
     return pw.Container(
       padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: pw.BoxDecoration(
@@ -1661,13 +1826,21 @@ class CatalogPdfService {
             mainAxisAlignment: pw.MainAxisAlignment.end,
             mainAxisSize: pw.MainAxisSize.min,
             children: [
-              _buildSwatchThumb(variants[i].key, variants[i].value, width: thumbWidth),
+              _buildSwatchThumb(
+                variants[i].key,
+                variants[i].value,
+                width: thumbWidth,
+              ),
               if (hasNext) ...[
                 pw.SizedBox(width: 8),
-                _buildSwatchThumb(variants[i + 1].key, variants[i + 1].value, width: thumbWidth),
+                _buildSwatchThumb(
+                  variants[i + 1].key,
+                  variants[i + 1].value,
+                  width: thumbWidth,
+                ),
               ] else if (count == 3) ...[
-                 // Se for exatamente 3, adicionamos um espaço invisível para manter a 3ª foto no lugar (abaixo da primeira)
-                 pw.SizedBox(width: 8 + thumbWidth),
+                // Se for exatamente 3, adicionamos um espaço invisível para manter a 3ª foto no lugar (abaixo da primeira)
+                pw.SizedBox(width: 8 + thumbWidth),
               ],
             ],
           ),
@@ -1731,6 +1904,7 @@ class CatalogPdfService {
           height: thumbHeight ?? 200, // Large fallback for fit
           width: thumbWidth,
           radius: 10,
+          fit: pw.BoxFit.cover,
         ),
       ),
     );
@@ -1904,10 +2078,16 @@ class CatalogPdfService {
     required double height,
     double? width,
     double radius = 0,
+    required pw.BoxFit fit,
   }) {
     try {
       final uri = img.uri.trim();
-      if (uri.isEmpty) return _buildImagePlaceholder(height: height, width: width, radius: radius);
+      if (uri.isEmpty)
+        return _buildImagePlaceholder(
+          height: height,
+          width: width,
+          radius: radius,
+        );
 
       // Todas as imagens já foram pré-carregadas em _imageCache (usando chave trimada)
       final bytes = _imageCache[uri];
@@ -1943,7 +2123,13 @@ class CatalogPdfService {
   }) {
     // Legacy support for cover images which might be paths or URLs
     final img = _inferProductImage(path);
-    return _buildImageWidget(img, height: height, width: width, radius: radius);
+    return _buildImageWidget(
+      img,
+      height: height,
+      width: width,
+      radius: radius,
+      fit: pw.BoxFit.cover,
+    );
   }
 
   static pw.Widget _buildImagePlaceholder({

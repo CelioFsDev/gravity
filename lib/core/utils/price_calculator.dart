@@ -22,6 +22,29 @@ class PriceCalculator {
     return _round(value < 0 ? 0 : value);
   }
 
+  static double calculatePromotionPrice({
+    required double originalPrice,
+    required double discountValue,
+    required String type,
+  }) {
+    if (originalPrice <= 0) return 0;
+    
+    double result = originalPrice;
+    if (type == 'percent') {
+      final percent = discountValue.clamp(0, 100);
+      result = originalPrice * (1 - (percent / 100));
+    } else if (type == 'manual') {
+      result = discountValue;
+    }
+    
+    // Prevent promotion price from being higher than original price
+    if (result > originalPrice) {
+      result = originalPrice;
+    }
+    
+    return _round(result < 0 ? 0 : result);
+  }
+
   static double round(double value) => _round(value);
 
   static double _round(double value) {
