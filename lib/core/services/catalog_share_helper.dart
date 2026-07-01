@@ -1342,28 +1342,15 @@ class CatalogShareHelper {
     );
   }
 
-  /// Fetches and filters collections that have products in the given [catalog].
+  /// Fetches all available collections so the user can choose any cover (including empty promotion collections).
   static Future<List<Category>> _getRelevantCollections(
     WidgetRef ref,
     Catalog catalog,
   ) async {
     final productsState = await ref.read(productsViewModelProvider.future);
-    final allProducts = productsState.allProducts;
-    final catalogProducts = allProducts
-        .where((p) => catalog.productIds.contains(p.id))
-        .toList();
-
-    // Filter collections that have products in this catalog
-    final catalogCollectionIds = catalogProducts
-        .expand((p) => p.categoryIds)
-        .toSet();
-
+    
     return productsState.categories
-        .where(
-          (c) =>
-              c.type == CategoryType.collection &&
-              catalogCollectionIds.contains(c.id),
-        )
+        .where((c) => c.type == CategoryType.collection)
         .toList();
   }
 }

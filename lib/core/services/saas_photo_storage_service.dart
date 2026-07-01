@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
@@ -23,6 +24,24 @@ class SaaSPhotoStorageService {
     required String tenantId,
   }) async {
     try {
+      if (kIsWeb && localPath.startsWith('data:image')) {
+        final commaIndex = localPath.indexOf(',');
+        if (commaIndex != -1) {
+          final base64Str = localPath.substring(commaIndex + 1);
+          final bytes = base64Decode(base64Str);
+          final fileName = 'cover_${DateTime.now().millisecondsSinceEpoch}.jpg';
+          final ref = _storage.ref().child(
+            'tenants/$tenantId/categories/$categoryId/$fileName',
+          );
+          final metadata = SettableMetadata(
+            contentType: 'image/jpeg',
+            customMetadata: {'processed': 'true', 'tenant': tenantId},
+          );
+          final task = await ref.putData(bytes, metadata);
+          return await task.ref.getDownloadURL();
+        }
+      }
+
       final file = File(localPath);
       if (!file.existsSync()) return null;
 
@@ -52,6 +71,24 @@ class SaaSPhotoStorageService {
     required String tenantId,
   }) async {
     try {
+      if (kIsWeb && localPath.startsWith('data:image')) {
+        final commaIndex = localPath.indexOf(',');
+        if (commaIndex != -1) {
+          final base64Str = localPath.substring(commaIndex + 1);
+          final bytes = base64Decode(base64Str);
+          final fileName = 'banner_${DateTime.now().millisecondsSinceEpoch}.jpg';
+          final ref = _storage.ref().child(
+            'tenants/$tenantId/catalogs/$catalogId/$fileName',
+          );
+          final metadata = SettableMetadata(
+            contentType: 'image/jpeg',
+            customMetadata: {'processed': 'true', 'tenant': tenantId},
+          );
+          final task = await ref.putData(bytes, metadata);
+          return await task.ref.getDownloadURL();
+        }
+      }
+
       final file = File(localPath);
       if (!file.existsSync()) return null;
 
